@@ -21,6 +21,7 @@ public class WorkshopEmpire : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"UMG",
+			"CoreOnline",
 			"Slate",
 			"SlateCore"
 		});

@@ -17,6 +17,67 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 2 – Lauf vom 2026-10-12
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **26/26 bestanden, 0 mit Warnungen** (14 alte + 12 neue), Bericht `Saved/TestReports/Phase2/index.json` |
+| ↳ `Inventory.StackingAndSplitStacks`: 120 Schrauben → Stapel 50/50/20, Teilstapel wird zuerst aufgefüllt, erste Instanz-ID bleibt | ✅ |
+| ↳ `Inventory.DifferentConditionsDoNotStack`, `Inventory.SlotAndWeightLimits` (Platz voll, 5×3 kg in 10 kg → 3, sperrige Gegenstände abgelehnt) | ✅ |
+| ↳ `Inventory.MoveMergeSwapSplit` (teilen, zusammenführen, tauschen, zwischen Inventaren, Gewichtsgrenze, ungültige Plätze), `Inventory.SortAndRemove` | ✅ |
+| ↳ `Inventory.WorldToInventory` (Stapel einsammeln, ID und Zustand bleiben, Teilaufnahme bei Gewichtsgrenze, Rest bleibt liegen) | ✅ |
+| ↳ `Inventory.TwoPlayersSameItem` (zwei Anfragen im selben Server-Frame: genau ein Exemplar), `Inventory.AccessRules` (fremdes Inventar privat, Lager nur in Reichweite) | ✅ |
+| ↳ `Items.ValueAndTooltip` (Wert: Neu > Gebraucht > Schrott, Qualität, Menge; Tooltip; `FindById`) | ✅ |
+| ↳ `Save.RoundTripWorldContainersDoors` (Welt-Items mit ID/Zustand, Lagerinhalt, Tor; zwischendurch Geändertes wird zurückgesetzt) | ✅ |
+| ↳ `Save.CorruptFileFallsBackToBackup` (`.bak` entsteht, kein `.tmp` bleibt, 1 gekipptes Byte → CRC erkennt es → Backup; beide kaputt → saubere Fehlermeldung) | ✅ |
+| ↳ `Save.VersionAndValidation` (neuere Version abgelehnt, Slot-Namen wie `../evil` abgelehnt, unbekannte Item-ID übersprungen) | ✅ |
+| Erzeugung von 9 Item-Data-Assets und der Map per Skript | ✅ (siehe Behobene Fehler) |
+| **Netzwerktest Inventar** (Dedicated Server + 2 Clients, `-WESmokeRole=C/D`) | ✅ siehe unten |
+| **Regression Netzwerktest Phase 1** (`A/B`: Tragen, Konflikt, Ablegen, Übergabe, Reichweite, Verlassen) | ✅ identisches Ergebnis wie in Phase 1 |
+| **Spiel mit Grafik + Speichern/Laden** (`-WEShots=P2`, Einzelspieler als Host) | ✅ 6 Screenshots geprüft; Ablauf siehe unten |
+
+Netzwerktest Inventar (gekürzt; Gesamtzahl Blechschrauben über alle Inventare + Welt in jedem Schritt = 50, Arbeitsspeicher = 1):
+
+```
+Server: WECharacter_0 stored 50 x Blechschrauben          ← C nimmt den Stapel
+Server: WECharacter_1 stored 6 x Kupferkabel              ← D nimmt Kabel
+C2:    Mine 45, Werkbank 5                                 ← C legt 5 in die Werkbank, D sieht dieselben 5
+Server: WEPlayerController_0 dropped 3 x Blechschrauben   ← C legt 3 in die Welt
+Server: WEPlayerController_1 denied access to inventory …WEPlayerState_0.Inventory  ← D versucht, aus C's Inventar zu nehmen
+Server: WECharacter_1 stored 3 x Blechschrauben           ← D nimmt die abgelegten 3
+Server: WECharacter_0 stored 1 x Arbeitsspeicher          ← C bekommt den RAM, D findet ihn nicht mehr
+Ende:  C 42 + Werkbank 5 + D 3 = 50; RAM nur bei C
+```
+
+Speichern/Laden im Spiel: 4 Kleinteile eingesammelt → Kupferkabel in die Werkbank → F5-Äquivalent (Slot `DevTest`, "Gespeichert") → 50 Schrauben in die Welt geworfen → Laden ("Geladen: DevTest") → Schrauben wieder im Inventar, abgelegter Stapel weg, Kabel weiter in der Werkbank, Summe weiterhin 50.
+
+### Behobene Fehler in Phase 2
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Linker-Fehler `FUniqueNetIdWrapper::ToString` | Modul `CoreOnline` fehlte | Abhängigkeit ergänzt |
+| Asset-Manager-Fehler "PrimaryAssetId does not match" beim Anlegen der Data Assets | Primary Asset Id hing an `ItemId`, die erst nach dem Anlegen gesetzt wird | Primary Id = Asset-Name, Suche über `ItemId` |
+| Lange Namen liefen im Inventar in die Nachbarkachel; Welt-Hinweis schien durch das offene Inventar | Kein Clipping, HUD ignorierte offenes Menü | Clipping + Umbruch; Hinweise ausgeblendet, solange das Inventar offen ist |
+| Test `CorruptFileFallsBackToBackup` meldete eine Warnung | Die Backup-Warnung ist dort gewollt | als erwartete Meldung deklariert |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Drag & Drop mit echter Maus (Ziehen, Shift, Doppelklick, Rechtsklick, aus dem Fenster ziehen) | Braucht einen Menschen – Mikes Praxistest. Die Server-Funktionen dahinter sind getestet; die Screenshots zeigen die Oberfläche. |
+| Speichern/Laden mit zwei verbundenen Spielern | Nur Einzelspieler-Host und Unit-Tests; Clients dürfen nicht speichern (per Code) |
+| Autosave nach 300 s | Nicht abgewartet; nutzt dieselbe Funktion wie das getestete Speichern |
+| RAM-"Wettlauf" exakt gleichzeitig über das Netzwerk | Im Netzwerktest kam C ~1 s vor D an; der gleichzeitige Fall ist nur im Unit-Test (selber Server-Frame) geprüft |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweise: Lange Namen werden in den Kacheln zeichenweise umbrochen (bis es Icons gibt). Spielerinventare werden an alle Clients repliziert (Zugriff aber nur für den Besitzer).
+
+---
+
 ## Phase 1 – Lauf vom 2026-10-12
 
 Umgebung wie Phase 0. Alle Läufe auf dem Entwicklungs-PC.

@@ -8,6 +8,7 @@
 #include "Player/WECharacter.h"
 #include "Player/WEInputConfig.h"
 #include "UI/WEHUDWidget.h"
+#include "WETestItems.h"
 #include "WETestWorld.h"
 #include "World/WEGarageDoor.h"
 
@@ -17,14 +18,6 @@ namespace WEGameplayTests
 {
 	constexpr EAutomationTestFlags Flags = EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::EngineFilter;
 
-	AWEPickupItem* SpawnItem(FWETestWorld& TW, const FVector& Location, const TCHAR* Name, float WeightKg)
-	{
-		AWEPickupItem* Item = TW.Spawn<AWEPickupItem>(Location);
-		Item->SetActorScale3D(FVector(0.4f));
-		Item->SetItemData(FText::FromString(Name), FText::GetEmpty(), WeightKg);
-		return Item;
-	}
-
 	bool IsPhysicsOn(const AWEPickupItem* Item)
 	{
 		const UStaticMeshComponent* Mesh = Cast<UStaticMeshComponent>(Item->GetRootComponent());
@@ -33,6 +26,7 @@ namespace WEGameplayTests
 }
 
 using namespace WEGameplayTests;
+using namespace WETestItems;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWECarryHandOverTest, "WorkshopEmpire.Gameplay.Carry.PickupConflictDropHandOver", Flags)
 bool FWECarryHandOverTest::RunTest(const FString& Parameters)
@@ -40,7 +34,7 @@ bool FWECarryHandOverTest::RunTest(const FString& Parameters)
 	FWETestWorld TW;
 	AWECharacter* A = TW.Spawn<AWECharacter>(FVector(0.f, 0.f, 100.f));
 	AWECharacter* B = TW.Spawn<AWECharacter>(FVector(0.f, 150.f, 100.f));
-	AWEPickupItem* Item = SpawnItem(TW, FVector(120.f, 60.f, 140.f), TEXT("Alter Computer"), 9.f);
+	AWEPickupItem* Item = SpawnBulky(TW, FVector(120.f, 60.f, 140.f), TEXT("Computer"), 9.f);
 	if (!TestNotNull(TEXT("A"), A) || !TestNotNull(TEXT("B"), B) || !TestNotNull(TEXT("Item"), Item))
 	{
 		return false;
@@ -72,8 +66,8 @@ bool FWECarrySecondItemTest::RunTest(const FString& Parameters)
 {
 	FWETestWorld TW;
 	AWECharacter* A = TW.Spawn<AWECharacter>(FVector(0.f, 0.f, 100.f));
-	AWEPickupItem* First = SpawnItem(TW, FVector(120.f, 0.f, 140.f), TEXT("Eins"), 2.f);
-	AWEPickupItem* Second = SpawnItem(TW, FVector(120.f, 40.f, 140.f), TEXT("Zwei"), 2.f);
+	AWEPickupItem* First = SpawnBulky(TW, FVector(120.f, 0.f, 140.f), TEXT("Eins"), 2.f);
+	AWEPickupItem* Second = SpawnBulky(TW, FVector(120.f, 40.f, 140.f), TEXT("Zwei"), 2.f);
 
 	TestTrue(TEXT("First pickup"), A->TryPickUpItem(First));
 	FText Reason;
@@ -89,8 +83,8 @@ bool FWECarryWeightTest::RunTest(const FString& Parameters)
 {
 	FWETestWorld TW;
 	AWECharacter* A = TW.Spawn<AWECharacter>(FVector(0.f, 0.f, 100.f));
-	AWEPickupItem* Motor = SpawnItem(TW, FVector(120.f, 0.f, 120.f), TEXT("Elektromotor"), 45.f);
-	AWEPickupItem* Light = SpawnItem(TW, FVector(120.f, 40.f, 120.f), TEXT("Kiste"), A->GetMaxCarryWeightKg());
+	AWEPickupItem* Motor = SpawnBulky(TW, FVector(120.f, 0.f, 120.f), TEXT("Elektromotor"), 45.f);
+	AWEPickupItem* Light = SpawnBulky(TW, FVector(120.f, 40.f, 120.f), TEXT("Kiste"), A->GetMaxCarryWeightKg());
 
 	FText Reason;
 	TestFalse(TEXT("45 kg motor is too heavy"), Motor->CanBePickedUpBy(A, Reason));
@@ -105,7 +99,7 @@ bool FWECarryDropOnLeaveTest::RunTest(const FString& Parameters)
 {
 	FWETestWorld TW;
 	AWECharacter* A = TW.Spawn<AWECharacter>(FVector(0.f, 0.f, 100.f));
-	AWEPickupItem* Item = SpawnItem(TW, FVector(120.f, 0.f, 140.f), TEXT("Werkzeugkiste"), 6.f);
+	AWEPickupItem* Item = SpawnBulky(TW, FVector(120.f, 0.f, 140.f), TEXT("Werkzeugkiste"), 6.f);
 
 	TestTrue(TEXT("Test world has begun play"), A->HasActorBegunPlay());
 	TestTrue(TEXT("Pickup"), A->TryPickUpItem(Item));
@@ -123,8 +117,8 @@ bool FWEReachTest::RunTest(const FString& Parameters)
 {
 	FWETestWorld TW;
 	AWECharacter* A = TW.Spawn<AWECharacter>(FVector(0.f, 0.f, 100.f));
-	AWEPickupItem* Far = SpawnItem(TW, FVector(1000.f, 0.f, 140.f), TEXT("Weit weg"), 1.f);
-	AWEPickupItem* Near = SpawnItem(TW, FVector(150.f, 0.f, 140.f), TEXT("Nah"), 1.f);
+	AWEPickupItem* Far = SpawnBulky(TW, FVector(1000.f, 0.f, 140.f), TEXT("WeitWeg"), 1.f);
+	AWEPickupItem* Near = SpawnBulky(TW, FVector(150.f, 0.f, 140.f), TEXT("Nah"), 1.f);
 
 	// The server logs a warning for suspicious out-of-reach requests; that is the expected outcome here.
 	AddExpectedMessage(TEXT("rejected: out of reach"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1, false);
@@ -143,7 +137,7 @@ bool FWEDropPlacementTest::RunTest(const FString& Parameters)
 {
 	FWETestWorld TW;
 	AWECharacter* A = TW.Spawn<AWECharacter>(FVector(0.f, 0.f, 100.f));
-	AWEPickupItem* Item = SpawnItem(TW, FVector(100.f, 0.f, 140.f), TEXT("Kiste"), 3.f);
+	AWEPickupItem* Item = SpawnBulky(TW, FVector(100.f, 0.f, 140.f), TEXT("Kiste3"), 3.f);
 	TestTrue(TEXT("Pickup"), A->TryPickUpItem(Item));
 
 	const FTransform Free = A->ComputeDropTransform(Item);
@@ -190,12 +184,16 @@ bool FWEInputConfigTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Jump"), Config->JumpAction.Get());
 	TestNotNull(TEXT("Sprint"), Config->SprintAction.Get());
 	TestNotNull(TEXT("Crouch"), Config->CrouchAction.Get());
+	TestNotNull(TEXT("Inventory"), Config->InventoryAction.Get());
 	TestNotNull(TEXT("MappingContext"), Config->MappingContext.Get());
 	TestEqual(TEXT("Interact on E"), Config->GetKeyForAction(Config->InteractAction), EKeys::E);
 	TestEqual(TEXT("Examine on F"), Config->GetKeyForAction(Config->ExamineAction), EKeys::F);
 	TestEqual(TEXT("Sprint on LeftShift"), Config->GetKeyForAction(Config->SprintAction), EKeys::LeftShift);
 	TestEqual(TEXT("Jump on Space"), Config->GetKeyForAction(Config->JumpAction), EKeys::SpaceBar);
-	TestEqual(TEXT("Mapping count (WASD + look + jump + sprint + 2x crouch + E + F)"), Config->MappingContext->GetMappings().Num(), 11);
+	TestEqual(TEXT("Inventory on Tab"), Config->GetKeyForAction(Config->InventoryAction), EKeys::Tab);
+	TestEqual(TEXT("Quicksave on F5"), Config->GetKeyForAction(Config->QuickSaveAction), EKeys::F5);
+	TestEqual(TEXT("Quickload on F9"), Config->GetKeyForAction(Config->QuickLoadAction), EKeys::F9);
+	TestEqual(TEXT("Mapping count"), Config->MappingContext->GetMappings().Num(), 15);
 	return true;
 }
 

@@ -4,11 +4,13 @@
 #include "GameFramework/GameModeBase.h"
 #include "WEGameMode.generated.h"
 
+class UWESaveGame;
+
 /**
  * Server-only rules of a Workshop Empire session.
  *
- * Exists only on the server / listen-server host. Owns session rules such as the co-op
- * player limit; shared company state lives in AWEGameState so clients can see it.
+ * Exists only on the server / listen-server host. Owns session rules (co-op player limit) and the
+ * company save game (manual save/load, autosave). Shared company state lives in AWEGameState.
  */
 UCLASS(Config = Game)
 class WORKSHOPEMPIRE_API AWEGameMode : public AGameModeBase
@@ -24,8 +26,29 @@ public:
 
 	int32 GetMaxCoopPlayers() const { return MaxCoopPlayers; }
 
+	/** Saves the whole session to Slot and tells all players. */
+	bool SaveToSlot(const FString& Slot);
+
+	/** Loads Slot into the running session and tells all players. */
+	bool LoadFromSlot(const FString& Slot);
+
 protected:
+	virtual void BeginPlay() override;
+
+	void Autosave();
+	void BroadcastMessage(const FText& Message);
+
 	/** Co-op design target is 2-4 players (spec section 17). */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Session", meta = (ClampMin = "1", ClampMax = "4"))
 	int32 MaxCoopPlayers = 4;
+
+	/** Seconds between autosaves; 0 disables. */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Save", meta = (ClampMin = "0"))
+	float AutosaveIntervalSeconds = 300.f;
+
+	/** Last loaded save, applied to players who join afterwards. */
+	UPROPERTY(Transient)
+	TObjectPtr<UWESaveGame> LastLoadedSave;
+
+	FTimerHandle AutosaveTimer;
 };

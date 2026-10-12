@@ -3,21 +3,19 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interaction/WEInteractable.h"
+#include "Items/WEItemInstance.h"
 #include "WEPickupItem.generated.h"
 
 class AWECharacter;
-class UStaticMesh;
+class UMaterialInterface;
 class UStaticMeshComponent;
 
 /**
- * A physical object in the world that can be picked up, carried, dropped and examined.
+ * World presence of an item instance: a physical object that can be picked up, examined,
+ * put into the inventory (small items) or carried in the hands (bulky items).
  *
- * Phase 1 prototype: name, description and weight live on the actor. From Phase 2 on these come
- * from an item definition (Data Asset) plus a per-instance state; this actor then represents the
- * world presence of such an item instance.
- *
- * Replication: Holder is server-owned. While held the item is attached to the holder's hold point
- * with physics and collision off; when dropped, physics runs on the server and is replicated.
+ * Replication: Item and Holder are server-owned. While held the actor is attached to the holder's
+ * hold point with physics and collision off; when free, physics runs on the server and is replicated.
  */
 UCLASS()
 class WORKSHOPEMPIRE_API AWEPickupItem : public AActor, public IWEInteractable
@@ -26,6 +24,9 @@ class WORKSHOPEMPIRE_API AWEPickupItem : public AActor, public IWEInteractable
 
 public:
 	AWEPickupItem();
+
+	/** Server only. Spawns a world item for Item at Transform. */
+	static AWEPickupItem* SpawnWorldItem(UWorld* World, const FWEItemInstance& Item, const FTransform& Transform);
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -36,6 +37,9 @@ public:
 	virtual void Interact(AWECharacter* Interactor) override;
 	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const override;
 
+	/** True if [E] puts this into the inventory (instead of carrying it). */
+	bool GoesIntoInventory() const;
+
 	bool CanBePickedUpBy(const AWECharacter* Character, FText& OutReason) const;
 
 	/** Server only, called by AWECharacter::TryPickUpItem after validation. */
@@ -44,18 +48,19 @@ public:
 	/** Server only, called by AWECharacter::DropHeldItem. */
 	void HandleDropped(const FTransform& DropTransform);
 
+	/** Server only. Sets the item data (quantity changes after partial pickup, loading, tests). */
+	void SetItem(const FWEItemInstance& NewItem);
+
+	const FWEItemInstance& GetItem() const { return Item; }
 	AWECharacter* GetHolder() const { return Holder; }
 	bool IsHeld() const { return Holder != nullptr; }
-	const FText& GetDisplayName() const { return DisplayName; }
-	float GetWeightKg() const { return WeightKg; }
+	FText GetDisplayName() const;
+	float GetWeightKg() const { return Item.GetTotalWeightKg(); }
 
 	/** Rough radius used to keep dropped items out of walls. */
 	float GetCarryRadius() const;
 
 	static FText FormatWeight(float Kg);
-
-	/** Editor/test helper: sets the presentation data in one call. */
-	void SetItemData(const FText& InName, const FText& InDescription, float InWeightKg);
 
 protected:
 	virtual void BeginPlay() override;
@@ -64,7 +69,11 @@ protected:
 	UFUNCTION()
 	void OnRep_Holder();
 
-	void ApplyTint();
+	UFUNCTION()
+	void OnRep_Item();
+
+	/** Mesh, scale, tint and mass from the item definition. */
+	void ApplyDefinitionVisuals();
 
 	/** Toggles physics/collision for the held or free state. Runs on server and clients. */
 	void ApplyHeldState(bool bHeld);
@@ -72,25 +81,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
-	UPROPERTY(EditAnywhere, Category = "Item")
-	TObjectPtr<UStaticMesh> ItemMesh;
-
-	UPROPERTY(EditAnywhere, Category = "Item")
-	FText DisplayName;
-
-	UPROPERTY(EditAnywhere, Category = "Item", meta = (MultiLine = "true"))
-	FText Description;
-
-	UPROPERTY(EditAnywhere, Category = "Item", meta = (ClampMin = "0.01", Units = "kg"))
-	float WeightKg = 1.f;
+	/** Item data. Set Definition (and condition/quantity) on placed actors; the id is generated at runtime. */
+	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_Item, Category = "Item")
+	FWEItemInstance Item;
 
 	/** Tintable block-out material (M_WEPlaceholder). Replaced by real materials in Phase 15. */
 	UPROPERTY(EditAnywhere, Category = "Item")
 	TObjectPtr<UMaterialInterface> PlaceholderMaterial;
-
-	/** Placeholder tint (applied to the "Color" parameter of PlaceholderMaterial). */
-	UPROPERTY(EditAnywhere, Category = "Item")
-	FLinearColor Tint = FLinearColor(0.6f, 0.6f, 0.6f);
 
 	UPROPERTY(ReplicatedUsing = OnRep_Holder, VisibleInstanceOnly, Category = "Item")
 	TObjectPtr<AWECharacter> Holder;

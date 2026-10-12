@@ -48,6 +48,20 @@ public:
 	/** World transform where DropHeldItem would place Item. Uses the server-side view point. */
 	FTransform ComputeDropTransform(const AWEPickupItem* Item) const;
 
+	/** Same, for an object of the given radius (e.g. an item dropped from the inventory). */
+	FTransform ComputeDropTransform(float Radius, const AActor* IgnoredActor) const;
+
+	/** Server only. Releases the held item without placing it (used by loading). */
+	AWEPickupItem* ReleaseHeldItem();
+
+	// --- Inventory ----------------------------------------------------------------------------
+
+	/** The player's inventory (lives on the PlayerState so it survives respawns). */
+	class UWEInventoryComponent* GetPlayerInventory() const;
+
+	/** Server only. Moves a small world item into the player inventory (whole or partial stack). */
+	bool TryStoreWorldItem(AWEPickupItem* Item);
+
 	// --- Movement -----------------------------------------------------------------------------
 
 	bool IsSprinting() const { return bIsSprinting; }
@@ -67,6 +81,9 @@ protected:
 	void Input_CrouchCompleted();
 	void Input_Interact();
 	void Input_Examine();
+	void Input_Inventory();
+	void Input_QuickSave();
+	void Input_QuickLoad();
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetSprinting(bool bNewSprinting);

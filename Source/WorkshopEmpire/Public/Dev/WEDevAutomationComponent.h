@@ -44,6 +44,20 @@ protected:
 	void RunSmokeRoleB();
 	void RunShots();
 
+	// Phase 2: inventory scenarios (-WESmokeRole=C|D, -WEShots=P2...)
+	void RunSmokeRoleC();
+	void RunSmokeRoleD();
+	void RunInventoryShots();
+
+	class UWEInventoryComponent* GetMyInventory() const;
+	class UWEInventoryComponent* FindStorage(const FString& NameSubstring) const;
+	class UWEInventoryComponent* FindOtherPlayerInventory() const;
+	static FString DescribeInventory(const class UWEInventoryComponent* Inventory);
+	int32 CountEverywhere(const FString& ItemName) const;
+	int32 FindSlotWith(const class UWEInventoryComponent* Inventory, const FString& ItemName) const;
+	void LogInventoryState(const TCHAR* Step) const;
+	void StoreItem(const FString& ItemName);
+
 	FString Role;
 	FString ShotName;
 	TArray<FTimerHandle> Timers;

@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 1 – Spielbarer First-Person-Prototyp: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 2 wurde nicht begonnen.
+**Phase 2 – Items und Inventar: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 3 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -12,20 +12,24 @@ Phase 2 wurde nicht begonnen.
 - Game Framework mit Koop-Limit 4, Geldtyp `FWEMoney`, Doku, Git
 
 ### Phase 1 – First-Person-Prototyp (2026-10-12)
-- First-Person-Charakter: Gehen, Sprinten (Shift), Ducken (Strg/C, weiche Kamera), Springen, Mausblick mit einstellbarer Empfindlichkeit (`we.MouseSensitivity`, `we.InvertY`)
-- Interaktionssystem: Schnittstelle `IWEInteractable`, Fokus-Trace, Hinweise "[E] …" / "[F] Untersuchen", Tastennamen aus der Belegung
-- Gegenstände aufnehmen, tragen, ablegen (auf Werkbank/Regal/Boden, wo man hinschaut), untersuchen; Gewichtslimit 30 kg
-- Garagentor zum Öffnen/Schließen
-- Platzhalter-Garage `L_Garage` mit Werkbank, Regal und 6 Gegenständen, per Skript reproduzierbar
-- Server-autoritativ: Reichweitenprüfung, Konfliktschutz (zwei Spieler, ein Gegenstand), Ablegen beim Verlassen
-- 14 Automation-Tests, Netzwerk-Rauchtest mit 2 Clients, automatisierte Screenshots
+- Bewegung (Gehen, Sprinten, Ducken, Springen), Interaktionssystem mit Hinweisen, Tragen/Ablegen/Untersuchen, Garagentor, Platzhalter-Garage
+- Server-autoritativ mit Reichweitenprüfung und Konfliktschutz
+
+### Phase 2 – Items und Inventar (2026-10-12)
+- Datengetriebene Gegenstände: 9 Item-Definitionen als Data Assets (Computer, Röhrenmonitor, Schraubendreher, Werkzeugkiste, Elektromotor, Karton mit Kabeln, Blechschrauben, Kupferkabel, Arbeitsspeicher)
+- Item-Instanzen mit Zustand (Neu … Schrott), Qualität, Menge, eindeutiger ID und Schätzwert
+- Spielerinventar (20 Plätze, 25 kg) und Lager in Werkbank (8/60 kg) und Regal (15/150 kg)
+- Stapelbare Materialien, Gewichts- und Platzgrenzen, Sortieren
+- Inventarfenster (Tab/I) mit Drag & Drop, Umlagern, Ablegen in die Welt, Tooltips
+- Speichern/Laden: F5/F9, benannte Slots, Autosave alle 5 min, Schutz gegen beschädigte Dateien (CRC + Backup)
+- Alles server-autoritativ und für Koop getestet (keine Duplikate, private Spielerinventare)
 
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 1 (Anleitung im Development Report)
+- Mike: Praxistest Phase 2 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag, falls Positionskorrekturen spürbar sind; Physics Handle für schwere Objekte
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager (mit Lagerausbau in Phase 8)
 
 ## Bekannte Fehler
 
@@ -33,8 +37,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 2 – Items und Inventar: Item-Definitionen als Data Assets, Item-Instanzen (Zustand, Qualität), Inventarkomponente (repliziert), stapelbare Materialien, Inventaroberfläche, einfaches Speichern/Laden. `AWEPickupItem` wird zur Weltdarstellung einer Item-Instanz.
+Phase 3 – Werkbank und Zerlegung: Gegenstand auf die Werkbank legen, wiederverwendbare Zerlegeabläufe als Daten (Schritte mit Werkzeuganforderung), Werkzeuge, Komponenten und Rohstoffe als Ergebnis, visuelles und akustisches Feedback. Ziel: Der alte Computer lässt sich in Komponenten zerlegen.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 14/14 Automation-Tests bestanden, Netzwerk-Rauchtest bestanden, 8 Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 26/26 Automation-Tests, Netzwerktests Phase 1 + 2 bestanden, Speichern/Laden im Spiel geprüft.

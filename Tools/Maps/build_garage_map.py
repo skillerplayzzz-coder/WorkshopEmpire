@@ -1,7 +1,7 @@
 """
 Builds the Phase 1 placeholder level /Game/WorkshopEmpire/Maps/L_Garage from scratch.
 
-Run (overwrites the map):
+Run after build_placeholder_material.py and build_item_definitions.py (overwrites the map):
   UnrealEditor-Cmd.exe <WorkshopEmpire.uproject> -ExecutePythonScript="<this file>" -unattended -nullrhi -nosplash
 
 Everything is a placeholder made from engine basic shapes; real assets come in Phase 15.
@@ -28,16 +28,16 @@ def spawn(cls, loc, rot=(0.0, 0.0, 0.0), label=None, folder=None):
     return actor
 
 
-def item(label, name, desc, kg, mesh, loc, scale, tint, rot=(0.0, 0.0, 0.0)):
+def item(label, asset, loc, quantity=1, condition=unreal.WEItemCondition.USED, quality=50, rot=(0.0, 0.0, 0.0)):
+    """Places a world item for the item definition Data Asset DA_Item_<asset>."""
     a = spawn(unreal.WEPickupItem, loc, rot, label, "Items")
-    a.set_actor_scale3d(unreal.Vector(*scale))
-    a.set_editor_property("item_mesh", mesh)
-    a.set_editor_property("display_name", unreal.Text(name))
-    a.set_editor_property("description", unreal.Text(desc))
-    a.set_editor_property("weight_kg", kg)
-    a.set_editor_property("tint", unreal.LinearColor(*tint, 1.0))
+    inst = unreal.WEItemInstance()
+    inst.set_editor_property("definition", unreal.load_asset(f"/Game/WorkshopEmpire/Data/Items/DA_Item_{asset}"))
+    inst.set_editor_property("quantity", quantity)
+    inst.set_editor_property("condition", condition)
+    inst.set_editor_property("quality", quality)
+    a.set_editor_property("item", inst)
     return a
-
 
 # --- Level -------------------------------------------------------------------------------------
 if unreal.EditorAssetLibrary.does_asset_exist(MAP_PATH):
@@ -90,32 +90,31 @@ bench = spawn(unreal.WEPlaceholderProp, (-355, 0, 0), label="Workbench", folder=
 bench.set_editor_property("prop_type", unreal.WEPlaceholderPropType.WORKBENCH)
 bench.set_editor_property("size", unreal.Vector(80.0, 200.0, 90.0))
 bench.set_editor_property("tint", unreal.LinearColor(0.45, 0.30, 0.18, 1.0))
+bench.set_editor_property("has_storage", True)
+bench.set_editor_property("storage_name", unreal.Text("Werkbank"))
+bench.set_editor_property("storage_slots", 8)
+bench.set_editor_property("storage_max_weight_kg", 60.0)
 
 shelf = spawn(unreal.WEPlaceholderProp, (-60, -272, 0), (0.0, 90.0, 0.0), "Shelf", "World")
 shelf.set_editor_property("prop_type", unreal.WEPlaceholderPropType.SHELF)
 shelf.set_editor_property("size", unreal.Vector(50.0, 180.0, 200.0))
 shelf.set_editor_property("tint", unreal.LinearColor(0.30, 0.32, 0.35, 1.0))
+shelf.set_editor_property("has_storage", True)
+shelf.set_editor_property("storage_name", unreal.Text("Regal"))
+shelf.set_editor_property("storage_slots", 15)
+shelf.set_editor_property("storage_max_weight_kg", 150.0)
 
-# --- Items ---------------------------------------------------------------------------------------
-item("Item_Computer", "Alter Computer",
-     "Ein ausgedienter Büro-PC. Das Gehäuse ist verbeult, aber vielleicht steckt noch etwas Brauchbares drin.",
-     9.0, CUBE, (-350, -40, 112), (0.45, 0.20, 0.42), (0.72, 0.69, 0.60))
-item("Item_Monitor", "Röhrenmonitor",
-     "Schwer, staubig und längst aus der Mode. Kupfer und Glas lassen sich vielleicht verwerten.",
-     14.0, CUBE, (-355, 65, 110), (0.40, 0.40, 0.38), (0.15, 0.15, 0.16))
-item("Item_Screwdriver", "Schraubendreher",
-     "Ein einfacher Kreuzschlitz-Schraubendreher. Der Griff ist abgenutzt.",
-     0.2, CYLINDER, (-335, 25, 93), (0.03, 0.03, 0.22), (0.75, 0.10, 0.08), (90.0, 0.0, 0.0))
-item("Item_Toolbox", "Werkzeugkiste",
-     "Eine Metallkiste für Handwerkzeug. Im Moment fast leer.",
-     6.0, CUBE, (-290, -125, 12), (0.45, 0.22, 0.22), (0.10, 0.25, 0.65))
-item("Item_Motor", "Alter Elektromotor",
-     "Ein schwerer Drehstrommotor. Zum Tragen braucht es später einen Hubwagen oder Hilfe.",
-     45.0, CYLINDER, (-285, 125, 23), (0.35, 0.35, 0.45), (0.25, 0.35, 0.28))
-item("Item_CableBox", "Karton mit Kabeln",
-     "Ein Karton voller alter Kabel. Gutes Kupfer, wenn man es abisoliert.",
-     3.0, CUBE, (-60, -272, 56), (0.35, 0.30, 0.25), (0.55, 0.42, 0.26))
-
+# --- Items (definitions: Tools/Maps/build_item_definitions.py) -----------------------------------
+COND = unreal.WEItemCondition
+item("Item_Computer", "OldComputer", (-350, -40, 112), condition=COND.DEFECTIVE, quality=35)
+item("Item_Monitor", "CrtMonitor", (-355, 65, 110), condition=COND.DAMAGED, quality=40)
+item("Item_Screwdriver", "Screwdriver", (-335, 10, 93), condition=COND.USED, quality=55, rot=(90.0, 0.0, 0.0))
+item("Item_Toolbox", "Toolbox", (-290, -125, 12), condition=COND.USED, quality=60)
+item("Item_Motor", "ElectricMotor", (-285, 125, 23), condition=COND.DEFECTIVE, quality=30)
+item("Item_CableBox", "CableBox", (-60, -272, 56), condition=COND.SCRAP, quality=20)
+item("Item_Screws", "SheetMetalScrews", (-330, -85, 93), quantity=50, condition=COND.VERY_GOOD, quality=70)
+item("Item_CopperCable", "CopperCable", (-325, 40, 93), quantity=6, condition=COND.USED, quality=60, rot=(0.0, 0.0, 90.0))
+item("Item_Ram", "RamModule", (-322, -15, 92), condition=COND.USED, quality=50)
 # --- Player starts (in front of the workbench, all items within reach) --------------------------
 for i, y in enumerate((-120.0, -40.0, 40.0, 120.0)):
     spawn(unreal.PlayerStart, (-170, y, 100), (0.0, 180.0, 0.0), f"PlayerStart{i + 1}", "Players")

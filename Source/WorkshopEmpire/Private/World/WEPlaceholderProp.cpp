@@ -1,6 +1,10 @@
 #include "World/WEPlaceholderProp.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Framework/WEPlayerController.h"
+#include "Inventory/WEInventoryComponent.h"
+#include "Items/WEPickupItem.h"
+#include "Player/WECharacter.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -22,6 +26,11 @@ AWEPlaceholderProp::AWEPlaceholderProp()
 	}
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> PlaceholderMat(WEPlaceholder::MaterialPath);
 	PlaceholderMaterial = PlaceholderMat.Object;
+
+	// Replicated so the storage contents reach clients and can be addressed by RPCs.
+	bReplicates = true;
+	SetNetUpdateFrequency(5.f);
+	Storage = CreateDefaultSubobject<UWEInventoryComponent>(TEXT("Storage"));
 }
 
 void AWEPlaceholderProp::AddBox(const FVector& Center, const FVector& BoxSize)
@@ -80,12 +89,53 @@ void AWEPlaceholderProp::OnConstruction(const FTransform& Transform)
 	}
 
 	ApplyTint();
+	Storage->Configure(StorageName, StorageSlots, StorageMaxWeightKg);
 }
 
 void AWEPlaceholderProp::BeginPlay()
 {
+	// Same values on server and clients (they come from the map), so slot counts match without replication.
+	Storage->Configure(StorageName, StorageSlots, StorageMaxWeightKg);
 	Super::BeginPlay();
 	ApplyTint();
+}
+
+FText AWEPlaceholderProp::GetInteractionText(const AWECharacter* Interactor) const
+{
+	return FText::Format(NSLOCTEXT("WEPlaceholderProp", "Open", "{0} öffnen"), StorageName);
+}
+
+bool AWEPlaceholderProp::CanInteract(const AWECharacter* Interactor, FText& OutReason) const
+{
+	return bHasStorage && Interactor != nullptr;
+}
+
+void AWEPlaceholderProp::Interact(AWECharacter* Interactor)
+{
+	if (bHasStorage && Interactor)
+	{
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(Interactor->GetController()))
+		{
+			PC->ClientOpenContainer(Storage);
+		}
+	}
+}
+
+bool AWEPlaceholderProp::GetExamineInfo(FWEExamineInfo& OutInfo) const
+{
+	if (!bHasStorage)
+	{
+		return false;
+	}
+	OutInfo.Title = StorageName;
+	OutInfo.Description = NSLOCTEXT("WEPlaceholderProp", "StorageDesc", "Lagerplatz für Kleinteile und Material.");
+	OutInfo.Details = {
+		FText::Format(NSLOCTEXT("WEPlaceholderProp", "Slots", "Belegt: {0} / {1} Plätze"),
+			FText::AsNumber(Storage->GetAllSlots().Num()), FText::AsNumber(Storage->GetNumSlots())),
+		FText::Format(NSLOCTEXT("WEPlaceholderProp", "Weight", "Gewicht: {0} / {1}"),
+			AWEPickupItem::FormatWeight(Storage->GetTotalWeightKg()), AWEPickupItem::FormatWeight(Storage->GetMaxWeightKg()))
+	};
+	return true;
 }
 
 void AWEPlaceholderProp::ApplyTint()

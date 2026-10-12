@@ -2,8 +2,11 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
-#include "Materials/MaterialInstanceDynamic.h"
+#include "Inventory/WEInventoryComponent.h"
+#include "Items/WEItemDefinition.h"
+#include "Materials/MaterialInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/WECharacter.h"
 #include "UObject/ConstructorHelpers.h"
@@ -29,61 +32,86 @@ AWEPickupItem::AWEPickupItem()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (CubeMesh.Succeeded())
 	{
-		ItemMesh = CubeMesh.Object;
-		Mesh->SetStaticMesh(ItemMesh);
+		Mesh->SetStaticMesh(CubeMesh.Object);
 	}
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> PlaceholderMat(WEPlaceholder::MaterialPath);
 	PlaceholderMaterial = PlaceholderMat.Object;
+}
 
-	DisplayName = LOCTEXT("DefaultName", "Gegenstand");
+AWEPickupItem* AWEPickupItem::SpawnWorldItem(UWorld* World, const FWEItemInstance& InItem, const FTransform& Transform)
+{
+	if (!World || !InItem.IsValid())
+	{
+		return nullptr;
+	}
+	AWEPickupItem* Actor = World->SpawnActorDeferred<AWEPickupItem>(AWEPickupItem::StaticClass(), Transform, nullptr, nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (Actor)
+	{
+		Actor->Item = InItem;
+		Actor->FinishSpawning(Transform);
+	}
+	return Actor;
 }
 
 void AWEPickupItem::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-
-	if (ItemMesh && Mesh->GetStaticMesh() != ItemMesh)
-	{
-		Mesh->SetStaticMesh(ItemMesh);
-	}
-	Mesh->SetMassOverrideInKg(NAME_None, WeightKg, true);
-	ApplyTint();
+	ApplyDefinitionVisuals();
 }
 
 void AWEPickupItem::BeginPlay()
 {
 	Super::BeginPlay();
-	ApplyTint();
-}
-
-void AWEPickupItem::ApplyTint()
-{
-	WEPlaceholder::ApplyTint(Mesh, PlaceholderMaterial, Tint);
-}
-
-void AWEPickupItem::OnRep_AttachmentReplication()
-{
-	// Physics must be off before the client attaches the root to the holder's hand,
-	// otherwise the simulated body would fight the attachment.
-	if (GetAttachmentReplication().AttachParent)
+	if (HasAuthority() && Item.Definition && !Item.InstanceId.IsValid())
 	{
-		ApplyHeldState(true);
+		Item.InstanceId = FGuid::NewGuid();
 	}
-	Super::OnRep_AttachmentReplication();
+	ApplyDefinitionVisuals();
 }
 
 void AWEPickupItem::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AWEPickupItem, Item);
 	DOREPLIFETIME(AWEPickupItem, Holder);
 }
 
-void AWEPickupItem::SetItemData(const FText& InName, const FText& InDescription, float InWeightKg)
+void AWEPickupItem::ApplyDefinitionVisuals()
 {
-	DisplayName = InName;
-	Description = InDescription;
-	WeightKg = FMath::Max(0.01f, InWeightKg);
-	Mesh->SetMassOverrideInKg(NAME_None, WeightKg, true);
+	const UWEItemDefinition* Def = Item.Definition;
+	if (!Def)
+	{
+		return;
+	}
+	if (Def->WorldMesh && Mesh->GetStaticMesh() != Def->WorldMesh)
+	{
+		Mesh->SetStaticMesh(Def->WorldMesh);
+	}
+	Mesh->SetRelativeScale3D(Def->WorldScale);
+	Mesh->SetMassOverrideInKg(NAME_None, FMath::Max(0.05f, Item.GetTotalWeightKg()), true);
+	WEPlaceholder::ApplyTint(Mesh, PlaceholderMaterial, Def->Tint);
+}
+
+void AWEPickupItem::SetItem(const FWEItemInstance& NewItem)
+{
+	Item = NewItem;
+	ApplyDefinitionVisuals();
+	ForceNetUpdate();
+}
+
+void AWEPickupItem::OnRep_Item()
+{
+	ApplyDefinitionVisuals();
+}
+
+FText AWEPickupItem::GetDisplayName() const
+{
+	if (Item.Quantity > 1)
+	{
+		return FText::Format(LOCTEXT("StackName", "{0} ({1})"), Item.GetDisplayName(), FText::AsNumber(Item.Quantity));
+	}
+	return Item.GetDisplayName();
 }
 
 FText AWEPickupItem::FormatWeight(float Kg)
@@ -99,21 +127,58 @@ float AWEPickupItem::GetCarryRadius() const
 	return Mesh ? Mesh->Bounds.BoxExtent.GetMax() : 20.f;
 }
 
+bool AWEPickupItem::GoesIntoInventory() const
+{
+	return Item.Definition && Item.Definition->bFitsInInventory;
+}
+
 // --- Interaction -------------------------------------------------------------------------------
 
 FText AWEPickupItem::GetInteractionText(const AWECharacter* Interactor) const
 {
-	return LOCTEXT("PickUp", "Aufheben");
+	return GoesIntoInventory() ? LOCTEXT("PickUp", "Aufheben") : LOCTEXT("Carry", "Tragen");
 }
 
 bool AWEPickupItem::CanInteract(const AWECharacter* Interactor, FText& OutReason) const
 {
+	if (!Interactor || !Item.IsValid())
+	{
+		return false;
+	}
+	if (GoesIntoInventory())
+	{
+		if (Holder)
+		{
+			OutReason = LOCTEXT("HeldByOther", "Wird gerade getragen");
+			return false;
+		}
+		const UWEInventoryComponent* Inventory = Interactor->GetPlayerInventory();
+		if (!Inventory)
+		{
+			return false;
+		}
+		if (Inventory->GetAddableQuantity(Item) <= 0)
+		{
+			const bool bWeight = Item.GetUnitWeightKg() > Inventory->GetMaxWeightKg() - Inventory->GetTotalWeightKg();
+			OutReason = bWeight ? LOCTEXT("InvTooHeavy", "Inventar zu schwer") : LOCTEXT("InvFull", "Inventar voll");
+			return false;
+		}
+		return true;
+	}
 	return CanBePickedUpBy(Interactor, OutReason);
 }
 
 void AWEPickupItem::Interact(AWECharacter* Interactor)
 {
-	if (Interactor)
+	if (!Interactor)
+	{
+		return;
+	}
+	if (GoesIntoInventory())
+	{
+		Interactor->TryStoreWorldItem(this);
+	}
+	else
 	{
 		Interactor->TryPickUpItem(this);
 	}
@@ -121,10 +186,18 @@ void AWEPickupItem::Interact(AWECharacter* Interactor)
 
 bool AWEPickupItem::GetExamineInfo(FWEExamineInfo& OutInfo) const
 {
-	OutInfo.Title = DisplayName;
-	OutInfo.Description = Description;
+	const UWEItemDefinition* Def = Item.Definition;
+	if (!Def)
+	{
+		return false;
+	}
+	OutInfo.Title = GetDisplayName();
+	OutInfo.Description = Def->Description;
 	OutInfo.Details.Reset();
-	OutInfo.Details.Add(FText::Format(LOCTEXT("WeightLine", "Gewicht: {0}"), FormatWeight(WeightKg)));
+	OutInfo.Details.Add(FText::Format(LOCTEXT("CategoryLine", "Kategorie: {0}"), WEItems::GetCategoryText(Def->Category)));
+	OutInfo.Details.Add(FText::Format(LOCTEXT("ConditionLine", "Zustand: {0} (Qualität {1} %)"), WEItems::GetConditionText(Item.Condition), FText::AsNumber(Item.Quality)));
+	OutInfo.Details.Add(FText::Format(LOCTEXT("WeightLine", "Gewicht: {0}"), FormatWeight(Item.GetTotalWeightKg())));
+	OutInfo.Details.Add(FText::Format(LOCTEXT("ValueLine", "Schätzwert: {0}"), FText::FromString(Item.GetEstimatedValue().ToDisplayString())));
 	if (Holder)
 	{
 		const APlayerState* PS = Holder->GetPlayerState();
@@ -136,7 +209,7 @@ bool AWEPickupItem::GetExamineInfo(FWEExamineInfo& OutInfo) const
 
 bool AWEPickupItem::CanBePickedUpBy(const AWECharacter* Character, FText& OutReason) const
 {
-	if (!Character || !IsValid(this))
+	if (!Character || !IsValid(this) || !Item.IsValid())
 	{
 		OutReason = FText::GetEmpty();
 		return false;
@@ -145,7 +218,7 @@ bool AWEPickupItem::CanBePickedUpBy(const AWECharacter* Character, FText& OutRea
 	{
 		OutReason = Holder == Character
 			? LOCTEXT("AlreadyHolding", "Bereits in der Hand")
-			: LOCTEXT("HeldByOther", "Wird gerade getragen");
+			: LOCTEXT("HeldByOtherCarry", "Wird gerade getragen");
 		return false;
 	}
 	if (Character->GetHeldItem())
@@ -153,9 +226,9 @@ bool AWEPickupItem::CanBePickedUpBy(const AWECharacter* Character, FText& OutRea
 		OutReason = LOCTEXT("HandsFull", "Hände sind voll");
 		return false;
 	}
-	if (WeightKg > Character->GetMaxCarryWeightKg())
+	if (GetWeightKg() > Character->GetMaxCarryWeightKg())
 	{
-		OutReason = FText::Format(LOCTEXT("TooHeavy", "Zu schwer zum Tragen ({0})"), FormatWeight(WeightKg));
+		OutReason = FText::Format(LOCTEXT("TooHeavy", "Zu schwer zum Tragen ({0})"), FormatWeight(GetWeightKg()));
 		return false;
 	}
 	return true;
@@ -189,6 +262,17 @@ void AWEPickupItem::HandleDropped(const FTransform& DropTransform)
 void AWEPickupItem::OnRep_Holder()
 {
 	ApplyHeldState(Holder != nullptr);
+}
+
+void AWEPickupItem::OnRep_AttachmentReplication()
+{
+	// Physics must be off before the client attaches the root to the holder's hand,
+	// otherwise the simulated body would fight the attachment.
+	if (GetAttachmentReplication().AttachParent)
+	{
+		ApplyHeldState(true);
+	}
+	Super::OnRep_AttachmentReplication();
 }
 
 void AWEPickupItem::ApplyHeldState(bool bHeld)

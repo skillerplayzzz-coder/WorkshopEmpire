@@ -39,6 +39,9 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Config->CrouchAction = WEInput::MakeAction(Config, TEXT("IA_Crouch"), EInputActionValueType::Boolean);
 	Config->InteractAction = WEInput::MakeAction(Config, TEXT("IA_Interact"), EInputActionValueType::Boolean);
 	Config->ExamineAction = WEInput::MakeAction(Config, TEXT("IA_Examine"), EInputActionValueType::Boolean);
+	Config->InventoryAction = WEInput::MakeAction(Config, TEXT("IA_Inventory"), EInputActionValueType::Boolean);
+	Config->QuickSaveAction = WEInput::MakeAction(Config, TEXT("IA_QuickSave"), EInputActionValueType::Boolean);
+	Config->QuickLoadAction = WEInput::MakeAction(Config, TEXT("IA_QuickLoad"), EInputActionValueType::Boolean);
 
 	UInputMappingContext* Context = NewObject<UInputMappingContext>(Config, TEXT("IMC_Default"));
 	Config->MappingContext = Context;
@@ -56,6 +59,10 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Context->MapKey(Config->CrouchAction, EKeys::C);
 	Context->MapKey(Config->InteractAction, EKeys::E);
 	Context->MapKey(Config->ExamineAction, EKeys::F);
+	Context->MapKey(Config->InventoryAction, EKeys::Tab);
+	Context->MapKey(Config->InventoryAction, EKeys::I);
+	Context->MapKey(Config->QuickSaveAction, EKeys::F5);
+	Context->MapKey(Config->QuickLoadAction, EKeys::F9);
 
 	return Config;
 }

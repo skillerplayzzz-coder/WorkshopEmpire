@@ -1,6 +1,6 @@
 # WORKSHOP EMPIRE – Game Design
 
-Stand: Phase 1 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
+Stand: Phase 2 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
 
 ## 1. Spielkonzept
 
@@ -37,7 +37,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
-### 3.1 Steuerung (Stand Phase 1, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 2, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -45,8 +45,20 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Shift (halten) | Sprinten |
 | Strg oder C (halten) | Ducken |
 | Leertaste | Springen |
-| E | Aufheben, Benutzen (Tor), mit Gegenstand in der Hand: Ablegen (dort, wo man hinschaut) |
-| F | Untersuchen (Name, Beschreibung, Gewicht) / Schließen |
+| E | Kleinteile aufheben (ins Inventar), sperrige Gegenstände tragen, Tor/Werkbank/Regal öffnen; mit Gegenstand in der Hand: Ablegen (dort, wo man hinschaut) |
+| F | Untersuchen (Kategorie, Zustand, Qualität, Gewicht, Schätzwert) / Schließen |
+| Tab oder I | Inventar öffnen/schließen |
+| F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
+
+Im Inventar: Ziehen = verschieben, Shift+Ziehen = halber Stapel, Doppelklick = zwischen Inventar und Lager umlagern, Rechtsklick = in die Welt ablegen (Shift: 1 Stück), aus dem Fenster ziehen = ablegen.
+
+### 3.2 Gegenstände und Inventar (Stand Phase 2)
+
+- **Zwei Arten:** Kleinteile (Schrauben, Kabel, Speicherriegel, Werkzeug) wandern ins Inventar. Sperrige Dinge (Computer, Monitor, Motor, Werkzeugkiste, Kartons) werden in den Händen getragen und physisch abgestellt, z. B. auf Werkbank oder Regal.
+- **Spielerinventar:** 20 Plätze, 25 kg. **Werkbank:** 8 Plätze, 60 kg. **Regal:** 15 Plätze, 150 kg.
+- **Stapeln:** nur gleiche Gegenstände im gleichen Zustand (Schrauben bis 200, Kupferkabel bis 20).
+- **Zustand** Neu → Sehr gut → Gebraucht → Beschädigt → Defekt → Schrott plus Qualität 0–100 bestimmen den Schätzwert (Platzhalter-Formel, echte Preise in Phase 4).
+- Im Koop sieht jeder Spieler sein eigenes Inventar; Lager sind gemeinsam.
 
 Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromotor, 45 kg) brauchen später Hilfsmittel (Hubwagen, Gabelstapler) oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
 

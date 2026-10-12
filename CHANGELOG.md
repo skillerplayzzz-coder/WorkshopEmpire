@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.2.0] – 2026-10-12 – Phase 2: Items und Inventar
+
+### Neu
+- Datengetriebenes Itemsystem: `UWEItemDefinition` (Data Asset) mit Kategorie, Seltenheit, Gewicht, Grundwert, Stapelbarkeit, Inventartauglichkeit, Reparier-/Zerlegbarkeit, Materialzusammensetzung, Mesh, Farbe und Icon-Feld.
+- 9 Gegenstände als Data Assets: Alter Computer, Röhrenmonitor, Schraubendreher, Werkzeugkiste, Alter Elektromotor, Karton mit Kabeln, Blechschrauben, Kupferkabel, Arbeitsspeicher.
+- Item-Instanzen `FWEItemInstance`: eindeutige ID, Menge, Zustand (Neu … Schrott), Qualität, Schätzwert.
+- Inventarsystem `UWEInventoryComponent`: Plätze, Gewichtsgrenze, Stapeln, Teilen, Zusammenführen, Tauschen, Sortieren, Transfer zwischen Inventaren.
+- Spielerinventar (20 Plätze, 25 kg), Werkbanklager (8/60 kg), Regallager (15/150 kg); [E] öffnet Werkbank/Regal.
+- [E] steckt Kleinteile ein (auch teilweise, wenn das Gewicht nicht für alles reicht); sperrige Gegenstände werden weiter getragen.
+- Inventarfenster (Tab/I) mit Drag & Drop, Shift = halber Stapel, Doppelklick = umlagern, Rechtsklick = ablegen, Tooltips mit allen Werten.
+- Untersuchen zeigt jetzt Kategorie, Zustand, Qualität, Gewicht und Schätzwert.
+- Speichern und Laden: F5/F9, benannte Spielstände (`WESave`/`WELoad`), Autosave alle 5 Minuten, Kurzmeldungen im HUD.
+
+### Multiplayer
+- Inventare per Fast-Array-Replikation (nur Änderungen werden übertragen).
+- Alle Inventaraktionen laufen über Server-RPCs; der Server prüft Besitz und Reichweite. Fremde Spielerinventare sind gesperrt.
+- Getestet: keine Duplikate, Mengen bleiben über Spieler, Lager und Welt erhalten.
+- Speichern/Laden nur durch den Host; später beitretende Spieler bekommen ihren gespeicherten Stand.
+
+### Technisch
+- Spielstandformat mit Versionsnummer, CRC-Prüfung, `.tmp`-Schreiben und `.bak`-Sicherung; beschädigte Dateien fallen auf das Backup zurück.
+- Gegenstände werden über stabile `ItemId` gespeichert; Asset Manager kennt den Typ `WEItem`.
+- Neues Skript `Tools/Maps/build_item_definitions.py`; Map-Skript nutzt die Definitionen und richtet die Lager ein.
+- `AWEPickupItem` stellt jetzt eine Item-Instanz dar (vorher eigene Name/Gewicht-Felder).
+- 12 neue Automation-Tests (insgesamt 26), Netzwerktest-Rollen C/D, Screenshot-Lauf P2 mit Speichern/Laden.
+
+### Fehlerbehebungen (während der Phase)
+- Fehlende Modulabhängigkeit `CoreOnline`.
+- Asset-Manager-Fehler durch abweichende Primary Asset Ids.
+- Lange Namen liefen in Nachbarkacheln; Welt-Hinweise schienen durch das geöffnete Inventar.
+
 ## [0.1.0] – 2026-10-12 – Phase 1: Spielbarer First-Person-Prototyp
 
 ### Neu

@@ -10,8 +10,11 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
+#include "Framework/WEPlayerController.h"
+#include "Framework/WEPlayerState.h"
 #include "Interaction/WEInteractionComponent.h"
 #include "InputActionValue.h"
+#include "Inventory/WEInventoryComponent.h"
 #include "Items/WEPickupItem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/WEInputConfig.h"
@@ -152,6 +155,9 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->CrouchAction, ETriggerEvent::Completed, this, &AWECharacter::Input_CrouchCompleted);
 	Input->BindAction(InputConfig->InteractAction, ETriggerEvent::Started, this, &AWECharacter::Input_Interact);
 	Input->BindAction(InputConfig->ExamineAction, ETriggerEvent::Started, this, &AWECharacter::Input_Examine);
+	Input->BindAction(InputConfig->InventoryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Inventory);
+	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
+	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
 
 	AddInputMappingContext();
 }
@@ -220,6 +226,30 @@ void AWECharacter::Input_Interact()
 void AWECharacter::Input_Examine()
 {
 	InteractionComponent->ToggleExamine();
+}
+
+void AWECharacter::Input_Inventory()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetController()))
+	{
+		PC->ToggleInventory();
+	}
+}
+
+void AWECharacter::Input_QuickSave()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetController()))
+	{
+		PC->RequestSave(TEXT("Quicksave"));
+	}
+}
+
+void AWECharacter::Input_QuickLoad()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetController()))
+	{
+		PC->RequestLoad(TEXT("Quicksave"));
+	}
 }
 
 // --- Sprint ------------------------------------------------------------------------------------
@@ -297,7 +327,61 @@ void AWECharacter::DropHeldItem()
 	UE_LOG(LogWENet, Log, TEXT("%s dropped %s at %s"), *GetName(), *Item->GetName(), *DropTransform.GetLocation().ToCompactString());
 }
 
+AWEPickupItem* AWECharacter::ReleaseHeldItem()
+{
+	if (!HasAuthority() || !HeldItem)
+	{
+		return nullptr;
+	}
+	AWEPickupItem* Item = HeldItem;
+	HeldItem = nullptr;
+	Item->HandleDropped(Item->GetActorTransform());
+	return Item;
+}
+
+UWEInventoryComponent* AWECharacter::GetPlayerInventory() const
+{
+	const AWEPlayerState* PS = GetPlayerState<AWEPlayerState>();
+	return PS ? PS->GetInventory() : nullptr;
+}
+
+bool AWECharacter::TryStoreWorldItem(AWEPickupItem* Item)
+{
+	UWEInventoryComponent* Inventory = GetPlayerInventory();
+	if (!HasAuthority() || !IsValid(Item) || Item->IsHeld() || !Inventory)
+	{
+		return false;
+	}
+
+	const FWEItemInstance WorldItem = Item->GetItem();
+	int32 Added = 0;
+	const EWEInventoryResult Result = Inventory->TryAddItem(WorldItem, Added);
+	if (Added <= 0)
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s could not store %s (result %d)"), *GetName(), *Item->GetName(), static_cast<int32>(Result));
+		return false;
+	}
+
+	if (Added >= WorldItem.Quantity)
+	{
+		Item->Destroy();
+	}
+	else
+	{
+		FWEItemInstance Rest = WorldItem;
+		Rest.Quantity -= Added;
+		Item->SetItem(Rest);
+	}
+	UE_LOG(LogWENet, Log, TEXT("%s stored %d x %s"), *GetName(), Added, *WorldItem.GetDisplayName().ToString());
+	return true;
+}
+
 FTransform AWECharacter::ComputeDropTransform(const AWEPickupItem* Item) const
+{
+	return ComputeDropTransform(Item ? Item->GetCarryRadius() : 20.f, Item);
+}
+
+FTransform AWECharacter::ComputeDropTransform(float InRadius, const AActor* IgnoredActor) const
 {
 	FVector EyeLocation;
 	FRotator EyeRotation;
@@ -306,14 +390,14 @@ FTransform AWECharacter::ComputeDropTransform(const AWEPickupItem* Item) const
 	// Place where the player looks (e.g. on the workbench or a shelf) if a surface is within reach,
 	// otherwise put the item down a short distance in front and let physics settle it.
 	const FVector Direction = EyeRotation.Vector();
-	const float Radius = Item ? FMath::Clamp(Item->GetCarryRadius(), 5.f, 60.f) : 20.f;
+	const float Radius = FMath::Clamp(InRadius, 5.f, 60.f);
 	const FVector Start = EyeLocation;
 	const FVector End = EyeLocation + Direction * PlaceReach;
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(WEDropTrace), false, this);
-	if (Item)
+	if (IgnoredActor)
 	{
-		Params.AddIgnoredActor(Item);
+		Params.AddIgnoredActor(IgnoredActor);
 	}
 
 	FVector Location = EyeLocation + Direction * DropDistance;

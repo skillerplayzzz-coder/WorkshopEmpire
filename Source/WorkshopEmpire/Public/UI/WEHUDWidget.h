@@ -25,6 +25,9 @@ public:
 	/** Formats one prompt line, e.g. "[E] Aufheben". Public for tests. */
 	static FText FormatPrompt(const FText& KeyText, const FText& ActionText);
 
+	/** Short notification in the upper centre ("Inventar voll", "Gespeichert"). */
+	void ShowMessage(const FText& Message, float Seconds = 3.f);
+
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
@@ -57,4 +60,12 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> ExamineDetails;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UBorder> MessagePanel;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> MessageText;
+
+	float MessageTimeLeft = 0.f;
 };

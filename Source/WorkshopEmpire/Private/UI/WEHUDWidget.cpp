@@ -8,6 +8,7 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Framework/WEPlayerController.h"
 #include "Interaction/WEInteractionComponent.h"
 #include "Items/WEPickupItem.h"
 #include "Player/WECharacter.h"
@@ -113,7 +114,32 @@ void UWEHUDWidget::NativeOnInitialized()
 		CSlot->SetAutoSize(false);
 	}
 
+	// Notification, upper centre.
+	MessagePanel = WidgetTree->ConstructWidget<UBorder>();
+	MessagePanel->SetBrushColor(FLinearColor(0.02f, 0.02f, 0.025f, 0.75f));
+	MessagePanel->SetPadding(FMargin(16.f, 8.f));
+	MessageText = MakeText(16, FLinearColor(1.f, 0.85f, 0.45f));
+	MessagePanel->SetContent(MessageText);
+	MessagePanel->SetVisibility(ESlateVisibility::Collapsed);
+	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(MessagePanel))
+	{
+		CSlot->SetAnchors(FAnchors(0.5f, 0.f));
+		CSlot->SetAlignment(FVector2D(0.5f, 0.f));
+		CSlot->SetPosition(FVector2D(0.f, 60.f));
+		CSlot->SetAutoSize(true);
+	}
+
 	SetVisibility(ESlateVisibility::HitTestInvisible);
+}
+
+void UWEHUDWidget::ShowMessage(const FText& Message, float Seconds)
+{
+	if (MessageText && MessagePanel)
+	{
+		MessageText->SetText(Message);
+		MessagePanel->SetVisibility(ESlateVisibility::HitTestInvisible);
+		MessageTimeLeft = Seconds;
+	}
 }
 
 UWEInteractionComponent* UWEHUDWidget::GetInteraction() const
@@ -126,11 +152,22 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
+	if (MessageTimeLeft > 0.f)
+	{
+		MessageTimeLeft -= InDeltaTime;
+		if (MessageTimeLeft <= 0.f && MessagePanel)
+		{
+			MessagePanel->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
 	const UWEInteractionComponent* Interaction = GetInteraction();
 	const AWECharacter* Character = Cast<AWECharacter>(GetOwningPlayerPawn());
 
 	TArray<FWEInteractionPrompt> Prompts;
-	if (Interaction)
+	const AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
+	const bool bMenuOpen = PC && PC->IsInventoryOpen();
+	if (Interaction && !bMenuOpen)
 	{
 		Interaction->BuildPrompts(Prompts);
 	}
