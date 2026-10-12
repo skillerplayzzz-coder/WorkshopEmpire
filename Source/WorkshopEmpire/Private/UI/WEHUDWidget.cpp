@@ -5,6 +5,9 @@
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/Image.h"
+#include "Components/ProgressBar.h"
+#include "EngineUtils.h"
+#include "Workshop/WEWorkbench.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
@@ -114,6 +117,28 @@ void UWEHUDWidget::NativeOnInitialized()
 		CSlot->SetAutoSize(false);
 	}
 
+	// Work progress bar, lower centre (above the held-item line).
+	WorkBox = WidgetTree->ConstructWidget<UVerticalBox>();
+	WorkText = MakeText(14, FLinearColor(1.f, 0.8f, 0.45f));
+	if (UVerticalBoxSlot* TextSlot = WorkBox->AddChildToVerticalBox(WorkText))
+	{
+		TextSlot->SetHorizontalAlignment(HAlign_Center);
+	}
+	WorkProgress = WidgetTree->ConstructWidget<UProgressBar>();
+	WorkProgress->SetFillColorAndOpacity(FLinearColor(1.f, 0.55f, 0.1f));
+	if (UVerticalBoxSlot* BarSlot = WorkBox->AddChildToVerticalBox(WorkProgress))
+	{
+		BarSlot->SetPadding(FMargin(0.f, 4.f, 0.f, 0.f));
+	}
+	WorkBox->SetVisibility(ESlateVisibility::Collapsed);
+	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(WorkBox))
+	{
+		CSlot->SetAnchors(FAnchors(0.5f, 1.f));
+		CSlot->SetAlignment(FVector2D(0.5f, 1.f));
+		CSlot->SetPosition(FVector2D(0.f, -110.f));
+		CSlot->SetSize(FVector2D(360.f, 44.f));
+	}
+
 	// Notification, upper centre.
 	MessagePanel = WidgetTree->ConstructWidget<UBorder>();
 	MessagePanel->SetBrushColor(FLinearColor(0.02f, 0.02f, 0.025f, 0.75f));
@@ -130,6 +155,46 @@ void UWEHUDWidget::NativeOnInitialized()
 	}
 
 	SetVisibility(ESlateVisibility::HitTestInvisible);
+}
+
+void UWEHUDWidget::UpdateWorkProgress()
+{
+	if (!WorkBox)
+	{
+		return;
+	}
+	// Show the bench this player works at, or a busy bench the player is looking at.
+	const AWECharacter* Character = Cast<AWECharacter>(GetOwningPlayerPawn());
+	const UWEInteractionComponent* Interaction = GetInteraction();
+	const AWEWorkbench* Shown = nullptr;
+	if (Character && GetWorld())
+	{
+		for (TActorIterator<AWEWorkbench> It(GetWorld()); It; ++It)
+		{
+			if (It->IsBusy() && It->GetWorker() == Character)
+			{
+				Shown = *It;
+				break;
+			}
+		}
+	}
+	if (!Shown && Interaction)
+	{
+		const AWEPickupItem* Focused = Cast<AWEPickupItem>(Interaction->GetFocusedActor());
+		const AWEWorkbench* Bench = Focused ? Focused->GetPlacedOn() : nullptr;
+		Shown = Bench && Bench->IsBusy() ? Bench : nullptr;
+	}
+
+	if (!Shown)
+	{
+		WorkBox->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+	WorkBox->SetVisibility(ESlateVisibility::HitTestInvisible);
+	const float Progress = Shown->GetProgress();
+	WorkProgress->SetPercent(Progress);
+	WorkText->SetText(FText::Format(NSLOCTEXT("WEHUD", "WorkFmt", "{0} … {1} %"), Shown->GetNextStepPrompt(),
+		FText::AsNumber(FMath::RoundToInt(Progress * 100.f))));
 }
 
 void UWEHUDWidget::ShowMessage(const FText& Message, float Seconds)
@@ -183,6 +248,8 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 			PromptLines[i]->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
+
+	UpdateWorkProgress();
 
 	const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
 	HeldText->SetText(Held ? FText::Format(LOCTEXT("HeldFmt", "In der Hand: {0}"), Held->GetDisplayName()) : FText::GetEmpty());

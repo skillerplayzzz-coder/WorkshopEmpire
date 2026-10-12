@@ -8,6 +8,7 @@
 
 class UStaticMesh;
 class UTexture2D;
+class UWEDisassemblyDefinition;
 
 /**
  * Static, data-driven description of an item type (spec §7). One Data Asset per item type in
@@ -68,10 +69,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
 	bool bRepairable = false;
 
+	/** Step-by-step disassembly at the workbench. Empty = cannot be disassembled. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
-	bool bDisassemblable = false;
+	TObjectPtr<UWEDisassemblyDefinition> Disassembly;
 
-	/** What recycling/disassembly yields (Phase 3). */
+	bool CanBeDisassembled() const;
+
+	/** If this item is a tool: which kind (None = not a tool). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Tool")
+	EWEToolType ToolType = EWEToolType::None;
+
+	/** Work speed with this tool (1 = basic, e.g. 2.5 for a cordless drill). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Tool", meta = (ClampMin = "0.1", EditCondition = "ToolType != EWEToolType::None"))
+	float ToolSpeedMultiplier = 1.f;
+
+	/** Raw material content (for recycling machines later and as information). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
 	TArray<FWEMaterialAmount> Materials;
 

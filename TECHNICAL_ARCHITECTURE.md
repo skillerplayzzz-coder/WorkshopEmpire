@@ -57,10 +57,10 @@ Source (`Source/WorkshopEmpire/{Public,Private}/…`):
 | `Interaction/` | Interaction System (Interface + Komponente, Trace, Prompt) | 1 ✓ |
 | `World/` | Garage, Tor, Platzhalter-Einrichtung | 1 ✓ |
 | `Dev/` | Test-Automatisierung (nicht in Shipping) | 1 ✓ |
-| `Items/` | Weltobjekt `AWEPickupItem` (1 ✓); Item-Definitionen (Data Assets), Item-Instanzen | 1–2 |
-| `Inventory/` | Inventarkomponente, Container | 2 |
-| `Save/` | SaveGame, Versionierung | 2 |
-| `Workshop/` | Werkbank, Zerlegeabläufe, Werkzeuge | 3 |
+| `Items/` | Weltobjekt, Item-Definitionen (Data Assets), Item-Instanzen | 1–2 ✓ |
+| `Inventory/` | Inventarkomponente, Container | 2 ✓ |
+| `Save/` | SaveGame, Versionierung | 2 ✓ (Version 2 seit Phase 3) |
+| `Workshop/` | Werkbank, Zerlegeabläufe, Werkzeuge | 3 ✓ |
 | `Economy/` | Firmenkonto, Händler, Preise, Transaktionen | 4 |
 | `Contracts/` | Aufträge | 4–7 |
 | `Repair/` | Reparatursystem | 6 |
@@ -79,7 +79,7 @@ Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data As
 - Log-Kategorien: `LogWorkshopEmpire` (allgemein), `LogWENet` (Netzwerk/Sessions); weitere pro System bei Bedarf.
 - Automation-Tests: `WorkshopEmpire.<Bereich>.<System>.<Fall>`.
 
-## 3. Klassen (Stand Phase 2)
+## 3. Klassen (Stand Phase 3)
 
 | Klasse | Datei | Aufgabe |
 |---|---|---|
@@ -91,14 +91,16 @@ Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data As
 | `AWEPlayerController` | `.../Framework/WEPlayerController.h` | HUD und Inventarfenster (lokal). Server-RPCs für Inventar: `ServerMoveItem`, `ServerQuickTransfer`, `ServerDropFromInventory`, `ServerSortInventory`; Server prüft Zugriff (`CanUseInventory`). `ClientOpenContainer`, `ClientShowMessage`. Speichern/Laden nur für den Host (F5/F9, Konsole `WESave <Slot>`/`WELoad <Slot>`). |
 | `AWECharacter` | `.../Player/WECharacter.h` | First-Person-Charakter: Kamera (90° FOV, weiches Ducken), Gehen 300 / Sprinten 550 / Ducken 150 cm/s, Springen. Tragen: `HeldItem` (repliziert), `TryPickUpItem`/`DropHeldItem` nur auf dem Server, max. 30 kg. Ablegen dort, wo man hinschaut (bis 250 cm), sonst 110 cm vor dem Spieler. Lässt Gegenstände beim Verlassen (EndPlay) fallen. Platzhalter-Körper (Zylinder) für andere Spieler. |
 | `UWEInputConfig` | `.../Player/WEInputConfig.h` | Enhanced-Input-Aktionen + Standardbelegung (WASD, Maus, Leertaste, Shift, Strg/C, E, F). Zur Laufzeit erzeugt, kann später als Data Asset (Tastenbelegung) ersetzt werden. CVars `we.MouseSensitivity`, `we.InvertY`. |
-| `IWEInteractable` | `.../Interaction/WEInteractable.h` | Schnittstelle für alles Benutzbare: `GetInteractionText`, `CanInteract` (mit Begründung), `Interact` (nur Server), `GetExamineInfo`. |
+| `IWEInteractable` | `.../Interaction/WEInteractable.h` | Schnittstelle für alles Benutzbare: `GetInteractionText`, `CanInteract` (mit Begründung), `Interact` (nur Server), `GetExamineInfo`, optional `GetSecondaryInteraction`/`InteractSecondary` ([R]). |
 | `UWEInteractionComponent` | `.../Interaction/WEInteractionComponent.h` | Lokaler Fokus-Trace mit 20 Hz per Timer (kein Tick). [E] → `ServerInteract`/`ServerDropHeldItem` (RPC). Server prüft Reichweite (250 + 75 cm Toleranz, Abstand zur Bounding Box) und `CanInteract`. Baut die Hinweiszeilen für das HUD; [F] Untersuchen ist rein lokal. |
 | `AWEPickupItem` | `.../Items/WEPickupItem.h` | Weltdarstellung einer `FWEItemInstance` (Mesh/Größe/Farbe/Masse aus der Definition). [E]: kleine Gegenstände ins Inventar (`TryStoreWorldItem`, auch teilweise bei Gewichtsgrenze), sperrige werden getragen. `Item` und `Holder` repliziert. `SpawnWorldItem` für Ablegen aus dem Inventar und Laden. |
-| `UWEItemDefinition` | `.../Items/WEItemDefinition.h` | Primary Data Asset (Typ `WEItem`) je Gegenstandsart: `ItemId`, Name, Beschreibung, Kategorie, Seltenheit, Gewicht, `BaseValue` (FWEMoney), Stapelbarkeit, passt ins Inventar, reparierbar/zerlegbar, Materialzusammensetzung, Mesh, Größe, Farbe, Icon. `FindById`. |
-| `FWEItemInstance` | `.../Items/WEItemInstance.h` | Definition + `InstanceId` (GUID) + Menge + Zustand (Neu … Schrott) + Qualität (0–100). `CanStackWith`, Gewicht, `GetEstimatedValue`, `SplitOff`. |
+| `UWEItemDefinition` | `.../Items/WEItemDefinition.h` | Primary Data Asset (Typ `WEItem`) je Gegenstandsart: `ItemId`, Name, Beschreibung, Kategorie, Seltenheit, Gewicht, `BaseValue` (FWEMoney), Stapelbarkeit, passt ins Inventar, reparierbar, `Disassembly` (Zerlegeablauf), Werkzeugtyp + Tempo (z. B. Akkuschrauber = Schraubendreher ×2,5), Materialzusammensetzung, Mesh, Größe, Farbe, Icon. `FindById`. |
+| `FWEItemInstance` | `.../Items/WEItemInstance.h` | Definition + `InstanceId` (GUID) + Menge + Zustand (Neu … Schrott) + Qualität (0–100) + `DisassemblyStep` (Zerlegefortschritt, bleibt beim Herunternehmen erhalten). `CanStackWith`, Gewicht, `GetEstimatedValue`, `SplitOff`. |
 | `WEItems::*`, Enums | `.../Items/WEItemTypes.h` | Kategorie, Zustand, Seltenheit, Rohstoffart; Texte, Wertfaktor und Farbe je Zustand. |
 | `UWEInventoryComponent` | `.../Inventory/WEInventoryComponent.h` | Slot-Inventar mit `FFastArraySerializer` (nur Änderungen werden übertragen). Plätze + Gewichtsgrenze, Stapeln nur bei gleicher Definition und gleichem Zustand, `TryAddItem`, `RemoveFromSlot`, `MoveItem` (verschieben, teilen, zusammenführen, tauschen, auch zwischen Inventaren), `SortItems`, `SetAllSlots`. Alle Änderungen nur auf dem Server. `CanBeAccessedBy`: eigenes Inventar oder Lager in Reichweite (325 cm); fremde Spielerinventare sind privat. `OnInventoryChanged` für die UI. |
 | `UWESaveGame`, `FWESaveSystem` | `.../Save/` | Siehe Abschnitt 5. |
+| `UWEDisassemblyDefinition` | `.../Workshop/WEDisassemblyDefinition.h` | Data Asset mit Zerlegeschritten (`FWEDisassemblyStep`: Aktionstext, benötigter Werkzeugtyp, Grunddauer, Ergebnisse `FWEDisassemblyOutput` mit Menge, Chance und ob der Zustand vererbt wird). Mehrere Gegenstände können denselben Ablauf nutzen; Detailtiefe je Gegenstand frei (1 bis n Schritte). |
+| `AWEWorkbench` | `.../Workshop/WEWorkbench.h` | Werkbank (erbt Lager und Optik von `AWEPlaceholderProp`). Gegenstand ablegen (Arbeitsplatz links), Schritte nacheinander ausführen, Werkzeugprüfung (bestes passendes Werkzeug im Spielerinventar bestimmt das Tempo), Abbruch wenn der Arbeiter weggeht, Ergebnisse ins Werkbanklager bzw. vor die Werkbank, Gegenstand ist nach dem letzten Schritt verbraucht. Repliziert: `PlacedItem` und `FWEWorkbenchWork` (Schritt, Dauer, Arbeiter, Ereigniszähler). Fortschritt, Leiste an der Vorderkante und Sounds werden auf jedem Rechner lokal berechnet. |
 | `UWEInventoryWidget`, `UWEInventorySlotWidget`, `UWEItemDragOperation` | `.../UI/` | Inventarfenster (C++-UMG): Spielerinventar, optional neben einem Lager; Drag & Drop, Shift = halber Stapel, Doppelklick = umlagern, Rechtsklick = ablegen, aus dem Fenster ziehen = ablegen, Sortieren, Tooltip mit allen Werten. |
 | `AWEGarageDoor` | `.../World/WEGarageDoor.h` | Sektionaltor, [E] öffnet/schließt. Nur `bIsOpen` repliziert, Animation lokal per Timer. |
 | `AWEGarageBuilding`, `AWEPlaceholderProp` | `.../World/` | Parametrische Block-out-Garage bzw. Werkbank/Regal aus Würfel-Instanzen (ISM). `AWEPlaceholderProp` hat optional ein Lager (Werkbank 8 Plätze/60 kg, Regal 15/150 kg); [E] öffnet es (Server prüft und schickt `ClientOpenContainer`). |
@@ -106,7 +108,7 @@ Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data As
 | `UWEHUDWidget` | `.../UI/WEHUDWidget.h` | C++-UMG-HUD ohne Widget-Asset: Fadenkreuz, "[E] Aufheben", "In der Hand: …", Untersuchen-Panel, Kurzmeldungen ("Gespeichert", "Inventar voll"). Liest nur Zustand. |
 | `UWEDevAutomationComponent` | `.../Dev/WEDevAutomationComponent.h` | Nur Nicht-Shipping: `-WESmokeRole=A|B` (Tragen), `C|D` (Inventar), `-WEShots=P1…` bzw. `P2…` (Screenshots, P2 inkl. Speichern/Laden). Nutzt dieselben Anfragewege wie echte Eingaben. |
 
-Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlaceholder`, `Materials/MI_WEGround`, `Data/Items/DA_Item_*` (9 Gegenstände). Alles wird reproduzierbar von `Tools/Maps/build_placeholder_material.py`, `build_item_definitions.py` und `build_garage_map.py` erzeugt (in dieser Reihenfolge; mit `-RenderOffscreen`, nicht `-nullrhi`, weil die Engine beim Platzieren von Lichtern mit NullRHI abstürzt).
+Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlaceholder`, `Materials/MI_WEGround`, `Data/Items/DA_Item_*` (18 Gegenstände), `Data/Disassembly/DIS_*` (3 Zerlegeabläufe), `Audio/SFX_*` (5 synthetisch erzeugte Platzhalter-Sounds). Alles wird reproduzierbar von `Tools/Maps/build_placeholder_material.py`, `build_audio.py`, `build_item_definitions.py` und `build_garage_map.py` erzeugt (in dieser Reihenfolge; mit `-RenderOffscreen`, nicht `-nullrhi`, weil die Engine beim Platzieren von Lichtern mit NullRHI abstürzt).
 
 **Tragen – Entscheidung:** Statt Physics Handle werden getragene Gegenstände kinematisch an einen Haltepunkt vor der Kamera angehängt. Grund: Physics Handles ruckeln im Multiplayer (Client-Vorhersage gegen Server-Physik) und können Gegenstände durch Wände drücken. Beim Ablegen übernimmt wieder die Physik. Ein Physics Handle für schwere Objekte (z. B. Motor schieben) kann später ergänzt werden.
 
@@ -149,7 +151,7 @@ Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlac
 
 - **Wer speichert:** nur der Host/Server (`FWESaveSystem`, aufgerufen von `AWEGameMode`). Clients sehen eine Meldung "Nur der Host kann speichern".
 - **Wann:** F5 = Schnellspeichern (Slot `Quicksave`), F9 = Schnellladen, Konsole `WESave <Slot>` / `WELoad <Slot>` für beliebig viele benannte Spielstände, Autosave alle 300 s (Slot `Autosave`).
-- **Was:** `UWESaveGame` (Version 1): Kartenname, Zeitpunkt, Spieler (Schlüssel "Host" bzw. Unique Net Id, Position, Blickrichtung, Inventar), alle Weltgegenstände (Item + Transform; getragene an der Ablegeposition), alle Lager (über den stabilen Actor-Namen in der Map), Torzustände. Gegenstände werden über die stabile `ItemId` gespeichert, nicht über den Asset-Pfad; unbekannte Ids werden beim Laden übersprungen und geloggt.
+- **Was:** `UWESaveGame` (Version 2; Version-1-Stände bleiben lesbar, fehlende Felder = Standardwert): Kartenname, Zeitpunkt, Spieler (Schlüssel "Host" bzw. Unique Net Id, Position, Blickrichtung, Inventar), alle Weltgegenstände (Item inkl. Zerlegefortschritt + Transform; getragene an der Ablegeposition; auf einer Werkbank liegende werden dort wieder abgelegt), alle Lager (über den stabilen Actor-Namen in der Map), Torzustände. Gegenstände werden über die stabile `ItemId` gespeichert, nicht über den Asset-Pfad; unbekannte Ids werden beim Laden übersprungen und geloggt.
 - **Dateiformat:** `Saved/SaveGames/WorkshopEmpire/<Slot>.wesave` = Kopf (`WESV`, Formatversion, Größe, CRC32) + UE-SaveGame-Daten.
 - **Schutz vor beschädigten Spielständen:** Schreiben in `<Slot>.tmp`, alter Stand wird zu `<Slot>.bak`, dann Umbenennen. Beim Laden werden Kopf, Größe und CRC geprüft, bevor deserialisiert wird; ist die Hauptdatei kaputt, wird die `.bak` geladen. Neuere Spielstandversionen und andere Karten werden mit Meldung abgelehnt. Ungültige Slot-Namen (z. B. `../`) werden abgelehnt.
 - **Laden:** ersetzt alle Weltgegenstände, setzt Lager und Tore, stellt verbundene Spieler wieder her; später beitretende Spieler bekommen ihren Stand beim Login.
@@ -161,7 +163,7 @@ Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlac
 - Iteminstanzen: `FWEItemInstance` (Definition + GUID + Menge + Zustand + Qualität), getrennt von der Definition gespeichert und repliziert.
 - Inventargröße: derzeit 1 Platz pro Stapel; Rastergrößen pro Gegenstand sind nicht geplant, solange die Plätze-plus-Gewicht-Regel ausreicht.
 - Vorschaubilder: Feld `Icon` vorhanden; bis es Icons gibt, zeigt die UI farbige Kacheln mit Namen und Zustandsstreifen.
-- Zerlegeabläufe und Rezepte als Daten folgen in Phase 3.
+- Zerlegeabläufe als Daten (`UWEDisassemblyDefinition`), seit Phase 3. Ein laufender Arbeitsschritt wird nicht gespeichert (nur abgeschlossene Schritte).
 ## 7. Rendering (Entscheidung Phase 0)
 
 Engine-Standard von UE 5.7 bleibt aktiv: DX12, SM6, Lumen (GI + Reflexionen), Virtual Shadow Maps, Nanite-fähig, keine statische Beleuchtung. Grund: Innenräume (Garage, Hallen) profitieren stark von Lumen; Platzhaltergrafik bis Phase 15 (Spec §19). Bewertung mit Messungen erfolgt, sobald es eine Referenzszene gibt.

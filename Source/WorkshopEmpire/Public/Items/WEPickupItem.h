@@ -36,6 +36,16 @@ public:
 	virtual bool CanInteract(const AWECharacter* Interactor, FText& OutReason) const override;
 	virtual void Interact(AWECharacter* Interactor) override;
 	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const override;
+	virtual bool GetSecondaryInteraction(const AWECharacter* Interactor, FText& OutText) const override;
+	virtual void InteractSecondary(AWECharacter* Interactor) override;
+
+	/** Server only, called by AWEWorkbench. Locks the item onto the bench's work spot. */
+	void HandlePlacedOnWorkbench(class AWEWorkbench* Bench, USceneComponent* AttachTo);
+
+	/** Server only, called by AWEWorkbench. Frees the item (physics back on). */
+	void HandleRemovedFromWorkbench();
+
+	class AWEWorkbench* GetPlacedOn() const { return PlacedOn; }
 
 	/** True if [E] puts this into the inventory (instead of carrying it). */
 	bool GoesIntoInventory() const;
@@ -91,4 +101,8 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Holder, VisibleInstanceOnly, Category = "Item")
 	TObjectPtr<AWECharacter> Holder;
+
+	/** Workbench this item currently lies on for disassembly (server-owned). */
+	UPROPERTY(ReplicatedUsing = OnRep_Holder, VisibleInstanceOnly, Category = "Item")
+	TObjectPtr<class AWEWorkbench> PlacedOn;
 };

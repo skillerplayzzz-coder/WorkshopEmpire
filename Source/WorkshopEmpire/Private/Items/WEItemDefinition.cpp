@@ -2,8 +2,14 @@
 
 #include "Engine/AssetManager.h"
 #include "UObject/UObjectIterator.h"
+#include "Workshop/WEDisassemblyDefinition.h"
 
 const FPrimaryAssetType UWEItemDefinition::PrimaryAssetType(TEXT("WEItem"));
+
+bool UWEItemDefinition::CanBeDisassembled() const
+{
+	return Disassembly && Disassembly->NumSteps() > 0;
+}
 
 FPrimaryAssetId UWEItemDefinition::GetPrimaryAssetId() const
 {

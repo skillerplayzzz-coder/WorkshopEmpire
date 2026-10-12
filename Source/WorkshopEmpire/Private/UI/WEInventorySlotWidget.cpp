@@ -115,7 +115,16 @@ void UWEInventorySlotWidget::Refresh()
 	}
 
 	const FLinearColor Tint = Item->Definition->Tint;
-	Background->SetBrushColor(FLinearColor(Tint.R * 0.55f + 0.05f, Tint.G * 0.55f + 0.05f, Tint.B * 0.55f + 0.05f, 0.95f));
+	const FLinearColor Tile(Tint.R * 0.55f + 0.05f, Tint.G * 0.55f + 0.05f, Tint.B * 0.55f + 0.05f, 0.95f);
+	Background->SetBrushColor(Tile);
+	// Dark text on light tiles, light text on dark tiles.
+	const bool bLightTile = Tile.GetLuminance() > 0.35f;
+	const FSlateColor TextColor(bLightTile ? FLinearColor(0.05f, 0.05f, 0.05f) : FLinearColor::White);
+	const FLinearColor Shadow = bLightTile ? FLinearColor::Transparent : FLinearColor(0.f, 0.f, 0.f, 0.8f);
+	NameText->SetColorAndOpacity(TextColor);
+	NameText->SetShadowColorAndOpacity(Shadow);
+	QuantityText->SetColorAndOpacity(TextColor);
+	QuantityText->SetShadowColorAndOpacity(Shadow);
 	NameText->SetText(Item->GetDisplayName());
 	QuantityText->SetText(Item->Quantity > 1 ? FText::AsNumber(Item->Quantity) : FText::GetEmpty());
 	ConditionStrip->SetBrushColor(WEItems::GetConditionColor(Item->Condition));

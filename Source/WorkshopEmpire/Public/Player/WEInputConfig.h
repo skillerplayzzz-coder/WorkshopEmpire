@@ -51,6 +51,9 @@ public:
 	TObjectPtr<UInputAction> ExamineAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> SecondaryAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> InventoryAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")

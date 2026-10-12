@@ -51,6 +51,9 @@ public:
 	/** Same, for an object of the given radius (e.g. an item dropped from the inventory). */
 	FTransform ComputeDropTransform(float Radius, const AActor* IgnoredActor) const;
 
+	/** Workbench under the crosshair within reach (server-side view), or nullptr. */
+	class AWEWorkbench* FindAimedWorkbench() const;
+
 	/** Server only. Releases the held item without placing it (used by loading). */
 	AWEPickupItem* ReleaseHeldItem();
 
@@ -81,6 +84,7 @@ protected:
 	void Input_CrouchCompleted();
 	void Input_Interact();
 	void Input_Examine();
+	void Input_Secondary();
 	void Input_Inventory();
 	void Input_QuickSave();
 	void Input_QuickLoad();

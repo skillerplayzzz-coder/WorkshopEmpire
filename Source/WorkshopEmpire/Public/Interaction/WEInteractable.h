@@ -53,4 +53,10 @@ public:
 
 	/** Fills the examine panel. Return false if this object cannot be examined. */
 	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const { return false; }
+
+	/** Optional second action on [R] (e.g. "Vom Tisch nehmen"). Return false if there is none right now. */
+	virtual bool GetSecondaryInteraction(const AWECharacter* Interactor, FText& OutText) const { return false; }
+
+	/** Server only. Performs the secondary action after validation. */
+	virtual void InteractSecondary(AWECharacter* Interactor) {}
 };

@@ -42,6 +42,13 @@ public:
 	/** Sends an interaction request for a specific target (used by input and by test automation). */
 	void RequestInteractWith(AActor* Target);
 
+	/** [R]: secondary action on the focused object (e.g. take an item off the workbench). */
+	void RequestSecondaryInteraction();
+	void RequestSecondaryInteractWith(AActor* Target);
+
+	/** Server-side validation and execution of a secondary interaction (public for tests). */
+	bool ExecuteInteractSecondary(AActor* Target);
+
 	/** [F]: open/close the examine panel for the held or focused object. Local only. */
 	void ToggleExamine();
 	void CloseExamine();
@@ -76,6 +83,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerDropHeldItem();
+
+	UFUNCTION(Server, Reliable)
+	void ServerInteractSecondary(AActor* Target);
 
 	AWECharacter* GetCharacter() const;
 	FText GetKeyText(const class UInputAction* Action) const;

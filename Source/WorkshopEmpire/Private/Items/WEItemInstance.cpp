@@ -15,7 +15,8 @@ FWEItemInstance FWEItemInstance::Make(UWEItemDefinition* InDefinition, int32 InQ
 
 bool FWEItemInstance::CanStackWith(const FWEItemInstance& Other) const
 {
-	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition;
+	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition
+		&& DisassemblyStep == Other.DisassemblyStep;
 }
 
 float FWEItemInstance::GetUnitWeightKg() const
@@ -36,7 +37,15 @@ FWEMoney FWEItemInstance::GetEstimatedValue() const
 
 FText FWEItemInstance::GetDisplayName() const
 {
-	return Definition ? Definition->DisplayName : FText::GetEmpty();
+	if (!Definition)
+	{
+		return FText::GetEmpty();
+	}
+	if (IsPartiallyDisassembled())
+	{
+		return FText::Format(NSLOCTEXT("WEItemInstance", "PartlyDisassembled", "{0} (teilweise zerlegt)"), Definition->DisplayName);
+	}
+	return Definition->DisplayName;
 }
 
 FWEItemInstance FWEItemInstance::SplitOff(int32 Count)

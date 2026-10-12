@@ -1,6 +1,6 @@
 # WORKSHOP EMPIRE – Game Design
 
-Stand: Phase 2 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
+Stand: Phase 3 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
 
 ## 1. Spielkonzept
 
@@ -46,7 +46,8 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Strg oder C (halten) | Ducken |
 | Leertaste | Springen |
 | E | Kleinteile aufheben (ins Inventar), sperrige Gegenstände tragen, Tor/Werkbank/Regal öffnen; mit Gegenstand in der Hand: Ablegen (dort, wo man hinschaut) |
-| F | Untersuchen (Kategorie, Zustand, Qualität, Gewicht, Schätzwert) / Schließen |
+| F | Untersuchen (Kategorie, Zustand, Qualität, Gewicht, Schätzwert, Zerlegefortschritt) / Schließen |
+| R | Zweite Aktion, z. B. Gegenstand von der Werkbank nehmen |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
 
@@ -59,6 +60,22 @@ Im Inventar: Ziehen = verschieben, Shift+Ziehen = halber Stapel, Doppelklick = z
 - **Stapeln:** nur gleiche Gegenstände im gleichen Zustand (Schrauben bis 200, Kupferkabel bis 20).
 - **Zustand** Neu → Sehr gut → Gebraucht → Beschädigt → Defekt → Schrott plus Qualität 0–100 bestimmen den Schätzwert (Platzhalter-Formel, echte Preise in Phase 4).
 - Im Koop sieht jeder Spieler sein eigenes Inventar; Lager sind gemeinsam.
+
+### 3.3 Werkbank und Zerlegen (Stand Phase 3)
+
+1. Sperrigen Gegenstand (z. B. Alter Computer) tragen, auf die Werkbank schauen, [E] = auf den Arbeitsplatz legen.
+2. Auf den Gegenstand schauen: [E] startet den nächsten Schritt, z. B. "Gehäuseschrauben lösen (Schraubendreher)". Das Werkzeug muss im Inventar sein; das beste passende Werkzeug bestimmt das Tempo (Akkuschrauber ×2,5).
+3. Jeder Schritt dauert wenige Sekunden (Fortschrittsbalken) und liefert Teile ins Werkbanklager; passt etwas nicht hinein, landet es vor der Werkbank.
+4. [R] nimmt den Gegenstand wieder herunter; der Fortschritt bleibt am Gegenstand ("teilweise zerlegt").
+5. Nach dem letzten Schritt ist der Gegenstand verbraucht.
+
+| Gegenstand | Schritte | Ergebnis (Beispiel) |
+|---|---|---|
+| Alter Computer | 7 (Schraubendreher, Hände, Seitenschneider) | Schrauben, Stahlschrott, Grafikkarte (85 %), 1–2 RAM, Netzteil, Mainboard, Kunststoff, Kupferkabel |
+| Röhrenmonitor | 4 | Schrauben, Kunststoff, Elektronikschrott, Kupferkabel, Glasbruch, Stahlschrott |
+| Karton mit Kabeln | 1 | Kupferkabel, Kunststoffteile |
+
+Komponenten erben den Zustand der Quelle (±1 Stufe) und eine leicht schwankende Qualität; Rohstoffe stapeln immer. Im Koop arbeitet immer nur ein Spieler gleichzeitig an einer Werkbank, die Spieler können sich aber abwechseln.
 
 Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromotor, 45 kg) brauchen später Hilfsmittel (Hubwagen, Gabelstapler) oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
 

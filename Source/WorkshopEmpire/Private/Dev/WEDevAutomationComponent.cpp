@@ -17,6 +17,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "Inventory/WEInventoryComponent.h"
 #include "World/WEPlaceholderProp.h"
+#include "Workshop/WEWorkbench.h"
 #include "UObject/UObjectIterator.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -63,6 +64,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("D"))
 	{
 		RunSmokeRoleD();
+	}
+	else if (Role == TEXT("E"))
+	{
+		RunSmokeRoleE();
+	}
+	else if (Role == TEXT("F"))
+	{
+		RunSmokeRoleF();
+	}
+	else if (ShotName.StartsWith(TEXT("P3")))
+	{
+		RunWorkbenchShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P2")))
 	{
@@ -417,4 +430,127 @@ void UWEDevAutomationComponent::RunInventoryShots()
 	Schedule(17.0f, [this, PC]() { if (PC) { PC->OpenInventory(nullptr); } });
 	Schedule(18.0f, [this]() { Shot(TEXT("05_Inventar_nach_Laden")); });
 	Schedule(19.0f, [this]() { Quit(); });
+}
+// --- Phase 3: workbench scenarios ----------------------------------------------------------------
+
+AWEWorkbench* UWEDevAutomationComponent::FindBench() const
+{
+	TActorIterator<AWEWorkbench> It(GetWorld());
+	return It ? *It : nullptr;
+}
+
+void UWEDevAutomationComponent::LookAtPoint(const FVector& Point) const
+{
+	const AWECharacter* Character = GetCharacter();
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	if (Character && PC)
+	{
+		PC->SetControlRotation((Point - Character->GetFirstPersonCamera()->GetComponentLocation()).Rotation());
+	}
+}
+
+void UWEDevAutomationComponent::LogBenchState(const TCHAR* Step) const
+{
+	const AWEWorkbench* Bench = FindBench();
+	const AWEPickupItem* Placed = Bench ? Bench->GetPlacedItem() : nullptr;
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Placed=%s Step=%d/%d Busy=%d Worker=%s Progress=%.2f Bench=%s Mine=%s"),
+		*Role, Step,
+		Placed ? *Placed->GetDisplayName().ToString() : TEXT("none"),
+		Bench ? Bench->GetNextStepIndex() : -1, Bench ? Bench->GetNumSteps() : 0,
+		Bench && Bench->IsBusy() ? 1 : 0, Bench ? *GetNameSafe(Bench->GetWorker()) : TEXT("-"),
+		Bench ? Bench->GetProgress() : 0.f,
+		*DescribeInventory(Bench ? Bench->GetStorage() : nullptr), *DescribeInventory(GetMyInventory()));
+}
+
+void UWEDevAutomationComponent::StartAutoSteps()
+{
+	GetWorld()->GetTimerManager().SetTimer(AutoStepTimer, this, &UWEDevAutomationComponent::AutoStepTick, 0.5f, true);
+}
+
+void UWEDevAutomationComponent::AutoStepTick()
+{
+	AWEWorkbench* Bench = FindBench();
+	AWECharacter* C = GetCharacter();
+	if (!Bench || !C)
+	{
+		return;
+	}
+	AWEPickupItem* Placed = Bench->GetPlacedItem();
+	if (!Placed)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(AutoStepTimer);
+		LogBenchState(TEXT("auto-steps finished"));
+		return;
+	}
+	if (!Bench->IsBusy())
+	{
+		LookAtPoint(Placed->GetActorLocation());
+		LogBenchState(TEXT("auto-step start"));
+		C->GetInteractionComponent()->RequestInteractWith(Placed);
+	}
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleE()
+{
+	Schedule(8.f, [this]() { StoreItem(TEXT("Schraubendreher")); StoreItem(TEXT("Seitenschneider")); });
+	Schedule(10.f, [this]()
+	{
+		if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindItemByName(TEXT("Computer"))); }
+	});
+	Schedule(12.f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(13.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(15.f, [this]() { LogBenchState(TEXT("E1 placed")); StartAutoSteps(); });
+	Schedule(48.f, [this]() { LogBenchState(TEXT("E2 final")); });
+	Schedule(52.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleF()
+{
+	Schedule(16.f, [this]() { LogBenchState(TEXT("F0 sees bench")); });
+	Schedule(18.f, [this]()
+	{
+		// Bench is busy with E's job (and F has no tool): must be refused.
+		AWEWorkbench* B = FindBench();
+		AWECharacter* C = GetCharacter();
+		if (B && C && B->GetPlacedItem()) { C->GetInteractionComponent()->RequestInteractWith(B->GetPlacedItem()); }
+	});
+	Schedule(19.f, [this]() { LogBenchState(TEXT("F1 after trying to start a step")); });
+	Schedule(20.f, [this]()
+	{
+		// Taking the item off while someone works on it: must be refused.
+		AWEWorkbench* B = FindBench();
+		AWECharacter* C = GetCharacter();
+		if (B && C && B->GetPlacedItem()) { C->GetInteractionComponent()->RequestSecondaryInteractWith(B->GetPlacedItem()); }
+	});
+	Schedule(21.f, [this]() { LogBenchState(TEXT("F2 after trying to take it off")); });
+	Schedule(48.f, [this]() { LogBenchState(TEXT("F3 final")); });
+	Schedule(53.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunWorkbenchShots()
+{
+	Schedule(4.0f, [this]() { StoreItem(TEXT("Schraubendreher")); StoreItem(TEXT("Seitenschneider")); });
+	Schedule(5.0f, [this]() { LookAt(FindItemByName(TEXT("Computer"))); });
+	Schedule(6.0f, [this]() { Shot(TEXT("01_Computer")); });
+	Schedule(6.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindItemByName(TEXT("Computer"))); } });
+	Schedule(7.5f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(8.5f, [this]() { Shot(TEXT("02_Platzieren")); });
+	Schedule(9.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(10.0f, [this]() { if (AWEWorkbench* B = FindBench(); B && B->GetPlacedItem()) { LookAtPoint(B->GetPlacedItem()->GetActorLocation()); } });
+	Schedule(11.0f, [this]() { Shot(TEXT("03_Erster_Schritt")); LogBenchState(TEXT("S1 placed")); });
+	Schedule(11.5f, [this]() { StartAutoSteps(); });
+	Schedule(13.0f, [this]() { Shot(TEXT("04_Fortschritt")); });
+	Schedule(19.0f, [this]() { Shot(TEXT("05_Mitten_drin")); LogBenchState(TEXT("S2 midway")); });
+	Schedule(36.0f, [this]()
+	{
+		LogBenchState(TEXT("S3 done"));
+		if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); }
+	});
+	Schedule(37.0f, [this]() { Shot(TEXT("06_Zerlegt")); });
+	Schedule(37.5f, [this]()
+	{
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner()); PC && FindBench()) { PC->OpenInventory(FindBench()->GetStorage()); }
+	});
+	Schedule(38.5f, [this]() { Shot(TEXT("07_Teile_im_Werkbanklager")); });
+	Schedule(39.5f, [this]() { Quit(); });
 }

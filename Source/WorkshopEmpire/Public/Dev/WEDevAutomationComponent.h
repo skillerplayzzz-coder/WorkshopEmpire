@@ -49,6 +49,19 @@ protected:
 	void RunSmokeRoleD();
 	void RunInventoryShots();
 
+	// Phase 3: workbench scenarios (-WESmokeRole=E|F, -WEShots=P3...)
+	void RunSmokeRoleE();
+	void RunSmokeRoleF();
+	void RunWorkbenchShots();
+	class AWEWorkbench* FindBench() const;
+	void LookAtPoint(const FVector& Point) const;
+	void LogBenchState(const TCHAR* Step) const;
+	/** Keeps starting the next disassembly step whenever the bench is idle (until the item is gone). */
+	void StartAutoSteps();
+	void AutoStepTick();
+	FTimerHandle AutoStepTimer;
+	bool bShotFinished = false;
+
 	class UWEInventoryComponent* GetMyInventory() const;
 	class UWEInventoryComponent* FindStorage(const FString& NameSubstring) const;
 	class UWEInventoryComponent* FindOtherPlayerInventory() const;

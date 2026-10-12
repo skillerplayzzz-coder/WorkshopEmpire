@@ -56,6 +56,20 @@ enum class EWEMaterialType : uint8
 	PreciousMetal UMETA(DisplayName = "Edelmetalle")
 };
 
+/** Tool categories (§9.3). A cordless drill is a Screwdriver with a higher speed multiplier. */
+UENUM(BlueprintType)
+enum class EWEToolType : uint8
+{
+	None          UMETA(DisplayName = "Keins (Hände)"),
+	Screwdriver   UMETA(DisplayName = "Schraubendreher"),
+	Pliers        UMETA(DisplayName = "Zange"),
+	SideCutter    UMETA(DisplayName = "Seitenschneider"),
+	Hammer        UMETA(DisplayName = "Hammer"),
+	Multimeter    UMETA(DisplayName = "Multimeter"),
+	SolderingIron UMETA(DisplayName = "Lötkolben"),
+	AngleGrinder  UMETA(DisplayName = "Winkelschleifer")
+};
+
 USTRUCT(BlueprintType)
 struct WORKSHOPEMPIRE_API FWEMaterialAmount
 {
@@ -72,6 +86,7 @@ namespace WEItems
 {
 	WORKSHOPEMPIRE_API FText GetConditionText(EWEItemCondition Condition);
 	WORKSHOPEMPIRE_API FText GetCategoryText(EWEItemCategory Category);
+	WORKSHOPEMPIRE_API FText GetToolText(EWEToolType Tool);
 
 	/** Value multiplier per condition (New 1.0 ... Scrap 0.05). Placeholder balancing, refined in Phase 4/16. */
 	WORKSHOPEMPIRE_API float GetConditionValueFactor(EWEItemCondition Condition);

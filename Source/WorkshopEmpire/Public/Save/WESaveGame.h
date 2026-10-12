@@ -16,6 +16,8 @@ struct WORKSHOPEMPIRE_API FWESavedItem
 	UPROPERTY() int32 Quantity = 1;
 	UPROPERTY() EWEItemCondition Condition = EWEItemCondition::Used;
 	UPROPERTY() uint8 Quality = 50;
+	/** Since save version 2. Missing in version 1 files -> 0 (intact). */
+	UPROPERTY() uint8 DisassemblyStep = 0;
 };
 
 USTRUCT()
@@ -34,6 +36,8 @@ struct WORKSHOPEMPIRE_API FWESavedWorldItem
 
 	UPROPERTY() FWESavedItem Item;
 	UPROPERTY() FTransform Transform;
+	/** Since save version 2: workbench the item lies on (actor name), or None. */
+	UPROPERTY() FName PlacedOn;
 };
 
 /** Inventory of a placed actor (shelf, workbench), matched by the actor's stable name in the map. */
@@ -77,7 +81,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	static constexpr int32 CurrentVersion = 1;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items placed on workbenches). */
+	static constexpr int32 CurrentVersion = 2;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;

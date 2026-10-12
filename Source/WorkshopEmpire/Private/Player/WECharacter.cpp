@@ -15,6 +15,7 @@
 #include "Interaction/WEInteractionComponent.h"
 #include "InputActionValue.h"
 #include "Inventory/WEInventoryComponent.h"
+#include "Workshop/WEWorkbench.h"
 #include "Items/WEPickupItem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/WEInputConfig.h"
@@ -155,6 +156,7 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->CrouchAction, ETriggerEvent::Completed, this, &AWECharacter::Input_CrouchCompleted);
 	Input->BindAction(InputConfig->InteractAction, ETriggerEvent::Started, this, &AWECharacter::Input_Interact);
 	Input->BindAction(InputConfig->ExamineAction, ETriggerEvent::Started, this, &AWECharacter::Input_Examine);
+	Input->BindAction(InputConfig->SecondaryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Secondary);
 	Input->BindAction(InputConfig->InventoryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Inventory);
 	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
 	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
@@ -226,6 +228,11 @@ void AWECharacter::Input_Interact()
 void AWECharacter::Input_Examine()
 {
 	InteractionComponent->ToggleExamine();
+}
+
+void AWECharacter::Input_Secondary()
+{
+	InteractionComponent->RequestSecondaryInteraction();
 }
 
 void AWECharacter::Input_Inventory()
@@ -321,10 +328,52 @@ void AWECharacter::DropHeldItem()
 	}
 
 	AWEPickupItem* Item = HeldItem;
+
+	// Aiming at a free workbench with a disassemblable item: put it on the work spot instead.
+	if (AWEWorkbench* Bench = FindAimedWorkbench())
+	{
+		FText Reason;
+		if (Bench->CanPlaceItem(Item, Reason))
+		{
+			HeldItem = nullptr;
+			Bench->PlaceItem(Item);
+			return;
+		}
+	}
+
 	const FTransform DropTransform = ComputeDropTransform(Item);
 	HeldItem = nullptr;
 	Item->HandleDropped(DropTransform);
 	UE_LOG(LogWENet, Log, TEXT("%s dropped %s at %s"), *GetName(), *Item->GetName(), *DropTransform.GetLocation().ToCompactString());
+}
+
+AWEWorkbench* AWECharacter::FindAimedWorkbench() const
+{
+	FVector EyeLocation;
+	FRotator EyeRotation;
+	GetActorEyesViewPoint(EyeLocation, EyeRotation);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(WEBenchTrace), false, this);
+	if (HeldItem)
+	{
+		Params.AddIgnoredActor(HeldItem);
+	}
+	// Loose items lying on the bench must not hide it: skip them and trace again.
+	const FVector End = EyeLocation + EyeRotation.Vector() * PlaceReach;
+	for (int32 Attempt = 0; Attempt < 4 && GetWorld(); ++Attempt)
+	{
+		FHitResult Hit;
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, End, ECC_Visibility, Params))
+		{
+			return nullptr;
+		}
+		if (AWEPickupItem* Item = Cast<AWEPickupItem>(Hit.GetActor()); Item && !Item->GetPlacedOn())
+		{
+			Params.AddIgnoredActor(Item);
+			continue;
+		}
+		return Cast<AWEWorkbench>(Hit.GetActor());
+	}
+	return nullptr;
 }
 
 AWEPickupItem* AWECharacter::ReleaseHeldItem()

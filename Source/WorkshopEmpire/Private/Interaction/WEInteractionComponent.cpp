@@ -8,6 +8,7 @@
 #include "Player/WEInputConfig.h"
 #include "TimerManager.h"
 #include "WELog.h"
+#include "Workshop/WEWorkbench.h"
 
 #define LOCTEXT_NAMESPACE "WEInteraction"
 
@@ -193,6 +194,59 @@ bool UWEInteractionComponent::ExecuteInteract(AActor* Target)
 	return true;
 }
 
+void UWEInteractionComponent::RequestSecondaryInteraction()
+{
+	const AWECharacter* Character = GetCharacter();
+	if (Character && !Character->GetHeldItem())
+	{
+		RequestSecondaryInteractWith(FocusedActor.Get());
+	}
+}
+
+void UWEInteractionComponent::RequestSecondaryInteractWith(AActor* Target)
+{
+	if (!Target)
+	{
+		return;
+	}
+	if (GetOwner()->HasAuthority())
+	{
+		ExecuteInteractSecondary(Target);
+	}
+	else
+	{
+		ServerInteractSecondary(Target);
+	}
+}
+
+void UWEInteractionComponent::ServerInteractSecondary_Implementation(AActor* Target)
+{
+	ExecuteInteractSecondary(Target);
+}
+
+bool UWEInteractionComponent::ExecuteInteractSecondary(AActor* Target)
+{
+	AWECharacter* Character = GetCharacter();
+	IWEInteractable* Interactable = Cast<IWEInteractable>(Target);
+	if (!Character || !Character->HasAuthority() || !IsValid(Target) || !Interactable)
+	{
+		return false;
+	}
+	if (!IsWithinReach(Character, Target, InteractionRange + ServerRangeTolerance))
+	{
+		UE_LOG(LogWENet, Warning, TEXT("%s secondary interaction with %s rejected: out of reach"), *Character->GetName(), *Target->GetName());
+		return false;
+	}
+	FText Text;
+	if (!Interactable->GetSecondaryInteraction(Character, Text))
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s secondary interaction with %s rejected: not available"), *Character->GetName(), *Target->GetName());
+		return false;
+	}
+	Interactable->InteractSecondary(Character);
+	return true;
+}
+
 // --- Examine / prompts (local) -----------------------------------------------------------------
 
 void UWEInteractionComponent::ToggleExamine()
@@ -248,7 +302,21 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 
 	if (AWEPickupItem* Held = Character->GetHeldItem())
 	{
-		OutPrompts.Add({ InteractKey, LOCTEXT("Drop", "Ablegen") });
+		// Same check the server makes when [E] is pressed (loose items on the bench are ignored).
+		const AWEWorkbench* Bench = Character->FindAimedWorkbench();
+		FText PlaceReason;
+		if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
+		{
+			OutPrompts.Add({ InteractKey, LOCTEXT("PlaceOnBench", "Auf die Werkbank legen") });
+		}
+		else
+		{
+			OutPrompts.Add({ InteractKey, LOCTEXT("Drop", "Ablegen") });
+			if (Bench && !PlaceReason.IsEmpty())
+			{
+				OutPrompts.Add({ FText::GetEmpty(), PlaceReason });
+			}
+		}
 		OutPrompts.Add({ ExamineKey, ExamineText });
 		return;
 	}
@@ -268,6 +336,12 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	else if (!Reason.IsEmpty())
 	{
 		OutPrompts.Add({ FText::GetEmpty(), Reason });
+	}
+
+	FText SecondaryText;
+	if (Interactable->GetSecondaryInteraction(Character, SecondaryText))
+	{
+		OutPrompts.Add({ GetKeyText(Config->SecondaryAction), SecondaryText });
 	}
 
 	FWEExamineInfo Info;

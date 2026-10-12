@@ -35,7 +35,7 @@ protected:
 	UWEInteractionComponent* GetInteraction() const;
 	UTextBlock* MakeText(int32 Size, const FLinearColor& Color, bool bWrap = false);
 
-	static constexpr int32 MaxPromptLines = 3;
+	static constexpr int32 MaxPromptLines = 4;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UCanvasPanel> Canvas;
@@ -60,6 +60,18 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> ExamineDetails;
+
+	/** Work progress (disassembly step) of the local player. */
+	UPROPERTY(Transient)
+	TObjectPtr<class UProgressBar> WorkProgress;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> WorkText;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UVerticalBox> WorkBox;
+
+	void UpdateWorkProgress();
 
 	UPROPERTY(Transient)
 	TObjectPtr<UBorder> MessagePanel;

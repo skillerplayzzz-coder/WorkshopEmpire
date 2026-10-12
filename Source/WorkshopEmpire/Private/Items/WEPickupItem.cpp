@@ -11,6 +11,8 @@
 #include "Player/WECharacter.h"
 #include "UObject/ConstructorHelpers.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "Workshop/WEDisassemblyDefinition.h"
+#include "Workshop/WEWorkbench.h"
 
 #define LOCTEXT_NAMESPACE "WEPickupItem"
 
@@ -75,6 +77,7 @@ void AWEPickupItem::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AWEPickupItem, Item);
 	DOREPLIFETIME(AWEPickupItem, Holder);
+	DOREPLIFETIME(AWEPickupItem, PlacedOn);
 }
 
 void AWEPickupItem::ApplyDefinitionVisuals()
@@ -136,6 +139,10 @@ bool AWEPickupItem::GoesIntoInventory() const
 
 FText AWEPickupItem::GetInteractionText(const AWECharacter* Interactor) const
 {
+	if (PlacedOn)
+	{
+		return PlacedOn->GetNextStepPrompt();
+	}
 	return GoesIntoInventory() ? LOCTEXT("PickUp", "Aufheben") : LOCTEXT("Carry", "Tragen");
 }
 
@@ -144,6 +151,10 @@ bool AWEPickupItem::CanInteract(const AWECharacter* Interactor, FText& OutReason
 	if (!Interactor || !Item.IsValid())
 	{
 		return false;
+	}
+	if (PlacedOn)
+	{
+		return PlacedOn->CanStartStep(Interactor, OutReason);
 	}
 	if (GoesIntoInventory())
 	{
@@ -174,6 +185,11 @@ void AWEPickupItem::Interact(AWECharacter* Interactor)
 	{
 		return;
 	}
+	if (PlacedOn)
+	{
+		PlacedOn->TryStartStep(Interactor);
+		return;
+	}
 	if (GoesIntoInventory())
 	{
 		Interactor->TryStoreWorldItem(this);
@@ -198,6 +214,16 @@ bool AWEPickupItem::GetExamineInfo(FWEExamineInfo& OutInfo) const
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ConditionLine", "Zustand: {0} (Qualität {1} %)"), WEItems::GetConditionText(Item.Condition), FText::AsNumber(Item.Quality)));
 	OutInfo.Details.Add(FText::Format(LOCTEXT("WeightLine", "Gewicht: {0}"), FormatWeight(Item.GetTotalWeightKg())));
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ValueLine", "Schätzwert: {0}"), FText::FromString(Item.GetEstimatedValue().ToDisplayString())));
+	if (Def->CanBeDisassembled())
+	{
+		OutInfo.Details.Add(FText::Format(LOCTEXT("DisassemblyLine", "Zerlegbar: Schritt {0} von {1} erledigt"),
+			FText::AsNumber(Item.DisassemblyStep), FText::AsNumber(Def->Disassembly->NumSteps())));
+	}
+	if (Def->ToolType != EWEToolType::None)
+	{
+		OutInfo.Details.Add(FText::Format(LOCTEXT("ToolLine", "Werkzeug: {0} (Tempo ×{1})"),
+			WEItems::GetToolText(Def->ToolType), FText::AsNumber(Def->ToolSpeedMultiplier)));
+	}
 	if (Holder)
 	{
 		const APlayerState* PS = Holder->GetPlayerState();
@@ -219,6 +245,11 @@ bool AWEPickupItem::CanBePickedUpBy(const AWECharacter* Character, FText& OutRea
 		OutReason = Holder == Character
 			? LOCTEXT("AlreadyHolding", "Bereits in der Hand")
 			: LOCTEXT("HeldByOtherCarry", "Wird gerade getragen");
+		return false;
+	}
+	if (PlacedOn)
+	{
+		OutReason = LOCTEXT("OnBench", "Liegt auf der Werkbank");
 		return false;
 	}
 	if (Character->GetHeldItem())
@@ -261,7 +292,51 @@ void AWEPickupItem::HandleDropped(const FTransform& DropTransform)
 
 void AWEPickupItem::OnRep_Holder()
 {
-	ApplyHeldState(Holder != nullptr);
+	ApplyHeldState(Holder != nullptr || PlacedOn != nullptr);
+}
+
+bool AWEPickupItem::GetSecondaryInteraction(const AWECharacter* Interactor, FText& OutText) const
+{
+	if (PlacedOn && Interactor && !PlacedOn->IsBusy() && !Interactor->GetHeldItem())
+	{
+		OutText = LOCTEXT("TakeOff", "Von der Werkbank nehmen");
+		return true;
+	}
+	return false;
+}
+
+void AWEPickupItem::InteractSecondary(AWECharacter* Interactor)
+{
+	if (PlacedOn)
+	{
+		PlacedOn->TakeOffItem(Interactor);
+	}
+}
+
+void AWEPickupItem::HandlePlacedOnWorkbench(AWEWorkbench* Bench, USceneComponent* AttachTo)
+{
+	check(HasAuthority());
+	Holder = nullptr;
+	PlacedOn = Bench;
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	ApplyHeldState(true);
+	if (AttachTo)
+	{
+		AttachToComponent(AttachTo, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		// Rest the item on the surface: lift by half its height.
+		const float HalfHeight = Mesh->Bounds.BoxExtent.Z;
+		SetActorRelativeLocation(FVector(0.f, 0.f, HalfHeight + 0.5f));
+	}
+	ForceNetUpdate();
+}
+
+void AWEPickupItem::HandleRemovedFromWorkbench()
+{
+	check(HasAuthority());
+	PlacedOn = nullptr;
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	ApplyHeldState(false);
+	ForceNetUpdate();
 }
 
 void AWEPickupItem::OnRep_AttachmentReplication()
@@ -270,7 +345,7 @@ void AWEPickupItem::OnRep_AttachmentReplication()
 	// otherwise the simulated body would fight the attachment.
 	if (GetAttachmentReplication().AttachParent)
 	{
-		ApplyHeldState(true);
+		Mesh->SetSimulatePhysics(false); // collision mode is set by OnRep_Holder (hands vs. workbench)
 	}
 	Super::OnRep_AttachmentReplication();
 }
@@ -280,7 +355,8 @@ void AWEPickupItem::ApplyHeldState(bool bHeld)
 	if (bHeld)
 	{
 		Mesh->SetSimulatePhysics(false);
-		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		// In the hands: no collision at all. On a workbench: still traceable so it can be focused for [E]/[R].
+		Mesh->SetCollisionEnabled(PlacedOn ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 	}
 	else
 	{

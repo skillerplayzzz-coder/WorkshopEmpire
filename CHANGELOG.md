@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.3.0] – 2026-10-12 – Phase 3: Werkbank und Zerlegung
+
+### Neu
+- Werkbank `AWEWorkbench`: sperrigen Gegenstand mit [E] auf den Arbeitsplatz legen, mit [R] wieder herunternehmen; [E] auf der Werkbank öffnet weiterhin das Werkbanklager (jetzt 12 Plätze).
+- Schrittweises Zerlegen: [E] auf den Gegenstand startet den nächsten Schritt; Hinweis zeigt Aktion und Werkzeug, z. B. "Gehäuseschrauben lösen (Schraubendreher)".
+- Wiederverwendbare Zerlegeabläufe als Data Assets (`UWEDisassemblyDefinition`): Alter Computer (7 Schritte), Röhrenmonitor (4), Karton mit Kabeln (1).
+- Werkzeuge mit Typ und Tempo: Schraubendreher, Seitenschneider (neu in der Garage), Akkuschrauber (×2,5, definiert für später).
+- 9 neue Gegenstände: Grafikkarte, PC-Netzteil, Mainboard, Stahlschrott, Kunststoffteile, Glasbruch, Elektronikschrott, Seitenschneider, Akkuschrauber.
+- Komponenten erben den Zustand der Quelle (±1 Stufe), Rohstoffe stapeln; Ergebnisse landen im Werkbanklager, Überschuss vor der Werkbank.
+- Feedback: Fortschrittsbalken im HUD, Fortschrittsleiste an der Werkbank (orange/grün), Meldung mit den gewonnenen Teilen, 5 synthetisch erzeugte Sounds (Ablegen, Schrauben, Teil ab, fertig, Abbruch).
+- Untersuchen zeigt Zerlegefortschritt und Werkzeugtempo; teilweise zerlegte Gegenstände heißen "… (teilweise zerlegt)".
+- Neue Taste R für Zweitaktionen.
+
+### Multiplayer
+- Platzieren, Starten und Abschließen von Schritten laufen auf dem Server; ein Schritt gleichzeitig pro Werkbank; wer sich entfernt, bekommt kein Ergebnis.
+- Repliziert werden nur der abgelegte Gegenstand und ein kleiner Arbeitszustand; Fortschritt, Sounds und Anzeige berechnet jeder Rechner selbst.
+
+### Technisch
+- Speicherformat Version 2: Zerlegefortschritt und Gegenstand auf der Werkbank; Version-1-Stände bleiben lesbar.
+- Neues Skript `Tools/Maps/build_audio.py`; Item-Skript legt jetzt auch Zerlegeabläufe an; Map nutzt die neue Werkbank und ein angepasstes Layout.
+- 7 neue Automation-Tests (insgesamt 33), Netzwerktest-Rollen E/F, Screenshot-Lauf P3.
+
+### Fehlerbehebungen (während der Phase)
+- Kein Hinweis beim Anschauen eines Gegenstands auf der Werkbank (Kollision war aus).
+- Lose Gegenstände auf der Werkbank verhinderten das Ablegen.
+- Fortschrittsbalken bei anderen Spielern sprang durch abweichende Serverzeit zu früh auf 100 %.
+- Doppelte Namen in der Teile-Meldung, schlecht lesbarer Text auf hellen Inventarkacheln, Knackser in den Sounds.
+
 ## [0.2.0] – 2026-10-12 – Phase 2: Items und Inventar
 
 ### Neu

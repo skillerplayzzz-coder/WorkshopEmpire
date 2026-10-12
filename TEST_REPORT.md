@@ -17,6 +17,50 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 3 – Lauf vom 2026-10-12
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **33/33 bestanden, 0 mit Warnungen** (26 alte + 7 neue), Bericht `Saved/TestReports/Phase3/index.json` |
+| ↳ `Workshop.Disassembly.FullSequence`: ablegen, Schritt per [E], Werkzeug-Prompt, alle 3 Schritte, Teile im Werkbanklager, Zustand der Komponente ±1 Stufe zur Quelle, Gegenstand danach verbraucht | ✅ |
+| ↳ `Workshop.Disassembly.ToolsRequiredAndFaster` (ohne Schraubendreher abgelehnt mit Begründung, Hände immer verfügbar, Akkuschrauber 2 s → 0,8 s) | ✅ |
+| ↳ `Workshop.Disassembly.BusyAndReach` (zweiter Spieler kann nicht parallel arbeiten oder herunternehmen; wer weggeht, bekommt kein Ergebnis) | ✅ |
+| ↳ `Workshop.Disassembly.TakeOffKeepsProgress` ([R] nimmt herunter, Fortschritt bleibt am Gegenstand, später geht es bei Schritt 2 weiter) | ✅ |
+| ↳ `Workshop.PlaceByAimingAndRules` (Ablegen beim Zielen auf die Werkbank, nicht zerlegbare Kiste wird normal abgelegt, belegte Werkbank lehnt ab) | ✅ (erst rot, siehe Behobene Fehler) |
+| ↳ `Workshop.Disassembly.OverflowToWorld`, `Save.WorkbenchProgress` (Speicherversion 2, Gegenstand wieder auf der Werkbank, Fortschritt und Lager wiederhergestellt) | ✅ |
+| Erzeugung von 5 Sounds, 18 Item-Definitionen, 3 Zerlegeabläufen und der Map per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P3`): Computer tragen → auf Werkbank legen → 7 Schritte automatisch → Werkbanklager öffnen | ✅ 7 Screenshots geprüft (Prompt "[E] Gehäuseschrauben lösen (Schraubendreher)" / "[R] Von der Werkbank nehmen", Fortschrittsbalken mit Prozent, orange Leiste an der Werkbank, Teile im Lager). 9 kg Computer → 7–9 kg Teile, je nach Zufall (Grafikkarte erscheint mit 85 % Wahrscheinlichkeit; in einem Lauf fehlte sie, dann kommt die Meldung "Nichts Brauchbares dabei"). |
+| **Netzwerktest Werkbank** (`-WESmokeRole=E/F`, 2 Läufe) | ✅ E trägt, legt ab und zerlegt alle 7 Schritte; beide Clients sehen dasselbe Werkbanklager. F versucht während der Arbeit zu starten und herunterzunehmen → Server lehnt ab ("Wird gerade bearbeitet" / "not available"). Im 2. Lauf traf F's Versuch die halbe Sekunde zwischen zwei Schritten und F führte Schritt 2 (ohne Werkzeug) regulär aus – gewolltes Koop-Verhalten, keine Duplikate. |
+| **Regression Netzwerktests Phase 1 (A/B) und Phase 2 (C/D)** | ✅ unverändert; 50 Schrauben / 1 RAM bleiben erhalten |
+
+### Behobene Fehler in Phase 3
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Kein Prompt beim Anschauen des Computers auf der Werkbank (Screenshot) | Abgelegte Gegenstände hatten Kollision ganz aus, das Fadenkreuz ging hindurch | Auf der Werkbank `QueryOnly` (anvisierbar, keine Physik) |
+| Ablegen auf die Werkbank klappte nicht, wenn ein loser Gegenstand im Blickfeld auf der Werkbank lag (Test rot) | Zielerkennung traf zuerst den losen Gegenstand | lose Gegenstände werden beim Zielen übersprungen; HUD-Prompt nutzt dieselbe Prüfung wie der Server |
+| Fortschrittsbalken beim zweiten Spieler sprang zu früh auf 100 % (Netzwerktest) | Die geschätzte Serverzeit des Clients wich um Sekunden ab | Fortschritt wird lokal ab Eintreffen des Schrittstarts gemessen |
+| Test-Zielen funktionierte ohne Controller nicht | Ohne Controller nutzt die Server-Sicht die Actor-Rotation | Test setzt die Rotation |
+| Ensure "Decoder BINKA not found" beim Sound-Import, Knackser-Warnung | Import mit `-NoSound`; Sounds endeten nicht bei null | Import mit Audio, Ein-/Ausblenden der erzeugten Sounds |
+| Meldung listete gleiche Teile doppelt ("Arbeitsspeicher, Arbeitsspeicher"); dunkler Text auf hellen Kacheln schwer lesbar | – | Mengen zusammengefasst ("2× …"); Textfarbe je nach Kachelhelligkeit |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Sounds anhören | Automatisch nicht prüfbar – die Sounds werden abgespielt (Code), ob sie gut klingen, entscheidet Mike |
+| Monitor- und Kabelkarton-Zerlegung im Spiel | Nur Daten angelegt; der Ablauf ist derselbe Code wie beim Computer (in Tests und im Spiel geprüft) |
+| Speichern während ein Schritt läuft | Laufender Schritt wird bewusst nicht gespeichert (Abschnitt 5 der Architektur); nicht separat getestet |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweis aus dem Phase-2-Regressionstest: Ein Client kann für einen Moment (bis zum nächsten Netzwerk-Update) einen Gegenstand gleichzeitig im alten und im neuen Lager sehen, weil Spielerinventar und Werkbank getrennt repliziert werden. Auf dem Server und eine Sekunde später auch auf dem Client stimmen die Mengen (50 Schrauben).
+
+---
+
 ## Phase 2 – Lauf vom 2026-10-12
 
 ### Ausgeführt

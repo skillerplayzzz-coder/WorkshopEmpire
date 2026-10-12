@@ -39,6 +39,22 @@ FText WEItems::GetCategoryText(EWEItemCategory Category)
 	return FText::GetEmpty();
 }
 
+FText WEItems::GetToolText(EWEToolType Tool)
+{
+	switch (Tool)
+	{
+	case EWEToolType::None:          return LOCTEXT("ToolNone", "Hände");
+	case EWEToolType::Screwdriver:   return LOCTEXT("ToolScrewdriver", "Schraubendreher");
+	case EWEToolType::Pliers:        return LOCTEXT("ToolPliers", "Zange");
+	case EWEToolType::SideCutter:    return LOCTEXT("ToolSideCutter", "Seitenschneider");
+	case EWEToolType::Hammer:        return LOCTEXT("ToolHammer", "Hammer");
+	case EWEToolType::Multimeter:    return LOCTEXT("ToolMultimeter", "Multimeter");
+	case EWEToolType::SolderingIron: return LOCTEXT("ToolSoldering", "Lötkolben");
+	case EWEToolType::AngleGrinder:  return LOCTEXT("ToolGrinder", "Winkelschleifer");
+	}
+	return FText::GetEmpty();
+}
+
 #undef LOCTEXT_NAMESPACE
 
 float WEItems::GetConditionValueFactor(EWEItemCondition Condition)

@@ -33,6 +33,12 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item", meta = (ClampMin = "0", ClampMax = "100"))
 	uint8 Quality = 50;
 
+	/** Number of disassembly steps already done (0 = intact). Kept when the item leaves the workbench. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
+	uint8 DisassemblyStep = 0;
+
+	bool IsPartiallyDisassembled() const { return DisassemblyStep > 0; }
+
 	static FWEItemInstance Make(UWEItemDefinition* InDefinition, int32 InQuantity = 1, EWEItemCondition InCondition = EWEItemCondition::Used, uint8 InQuality = 50);
 
 	bool IsValid() const { return Definition != nullptr && Quantity > 0; }
@@ -54,6 +60,6 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	bool operator==(const FWEItemInstance& Other) const
 	{
 		return Definition == Other.Definition && InstanceId == Other.InstanceId && Quantity == Other.Quantity
-			&& Condition == Other.Condition && Quality == Other.Quality;
+			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep;
 	}
 };

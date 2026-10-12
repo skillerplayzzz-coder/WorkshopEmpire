@@ -17,6 +17,7 @@
 #include "Serialization/MemoryWriter.h"
 #include "WELog.h"
 #include "World/WEGarageDoor.h"
+#include "Workshop/WEWorkbench.h"
 
 #define LOCTEXT_NAMESPACE "WESaveSystem"
 
@@ -58,6 +59,7 @@ FWESavedItem FWESaveSystem::ToSaved(const FWEItemInstance& Item)
 	Saved.Quantity = Item.Quantity;
 	Saved.Condition = Item.Condition;
 	Saved.Quality = Item.Quality;
+	Saved.DisassemblyStep = Item.DisassemblyStep;
 	return Saved;
 }
 
@@ -74,6 +76,7 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 	OutItem.Quantity = FMath::Min(Saved.Quantity, Definition->GetMaxStackSize());
 	OutItem.Condition = Saved.Condition;
 	OutItem.Quality = FMath::Min<uint8>(Saved.Quality, 100);
+	OutItem.DisassemblyStep = Saved.DisassemblyStep;
 	return true;
 }
 
@@ -161,6 +164,7 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		// Held items are stored where the holder would put them down.
 		Saved.Transform = Item->GetHolder() ? Item->GetHolder()->ComputeDropTransform(Item) : Item->GetActorTransform();
 		Saved.Transform.SetScale3D(FVector::OneVector);
+		Saved.PlacedOn = Item->GetPlacedOn() ? Item->GetPlacedOn()->GetFName() : NAME_None;
 	}
 
 	for (TActorIterator<AActor> It(World); It; ++It)
@@ -192,7 +196,11 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 		return;
 	}
 
-	// 1) Free all hands, then replace every world item with the saved ones.
+	// 1) Free all hands and workbenches, then replace every world item with the saved ones.
+	for (TActorIterator<AWEWorkbench> It(World); It; ++It)
+	{
+		It->ResetForLoad();
+	}
 	for (TActorIterator<AWECharacter> It(World); It; ++It)
 	{
 		It->ReleaseHeldItem();
@@ -211,7 +219,17 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 		FWEItemInstance Item;
 		if (FromSaved(Saved.Item, Item))
 		{
-			AWEPickupItem::SpawnWorldItem(World, Item, Saved.Transform);
+			AWEPickupItem* Spawned = AWEPickupItem::SpawnWorldItem(World, Item, Saved.Transform);
+			if (Spawned && !Saved.PlacedOn.IsNone())
+			{
+				for (TActorIterator<AWEWorkbench> Bench(World); Bench; ++Bench)
+				{
+					if (Bench->GetFName() == Saved.PlacedOn)
+					{
+						Bench->PlaceItem(Spawned);
+					}
+				}
+			}
 		}
 	}
 
