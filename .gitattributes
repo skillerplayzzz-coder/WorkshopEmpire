@@ -1,0 +1,22 @@
+# Normalize text files
+* text=auto
+*.cpp text eol=crlf
+*.h text eol=crlf
+*.cs text eol=crlf
+*.ini text eol=crlf
+*.uproject text eol=crlf
+*.md text eol=crlf
+
+# Unreal binary assets: never diff or merge
+*.uasset binary
+*.umap binary
+*.fbx binary
+*.png binary
+*.jpg binary
+*.tga binary
+*.wav binary
+*.ogg binary
+
+# Once Git LFS is installed (see PROJECT_PROGRESS.md), replace the binary lines above with e.g.:
+# *.uasset filter=lfs diff=lfs merge=lfs -text
+# *.umap   filter=lfs diff=lfs merge=lfs -text
