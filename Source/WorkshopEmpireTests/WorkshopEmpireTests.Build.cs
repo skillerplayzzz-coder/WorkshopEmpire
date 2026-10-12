@@ -12,6 +12,9 @@ public class WorkshopEmpireTests : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"InputCore",
+			"EnhancedInput",
+			"UMG",
 			"WECore",
 			"WorkshopEmpire"
 		});

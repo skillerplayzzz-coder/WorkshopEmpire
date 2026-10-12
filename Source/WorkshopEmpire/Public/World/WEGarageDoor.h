@@ -1,0 +1,78 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "Interaction/WEInteractable.h"
+#include "WEGarageDoor.generated.h"
+
+class UStaticMeshComponent;
+
+/**
+ * Sectional garage door that slides up into the ceiling. Interact with [E] to open/close.
+ *
+ * Only bIsOpen is replicated; every machine animates the panel locally with a short timer,
+ * so there is no per-frame movement replication and no Tick.
+ */
+UCLASS()
+class WORKSHOPEMPIRE_API AWEGarageDoor : public AActor, public IWEInteractable
+{
+	GENERATED_BODY()
+
+public:
+	AWEGarageDoor();
+
+	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	// IWEInteractable
+	virtual FText GetInteractionText(const AWECharacter* Interactor) const override;
+	virtual bool CanInteract(const AWECharacter* Interactor, FText& OutReason) const override;
+	virtual void Interact(AWECharacter* Interactor) override;
+	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const override;
+
+	bool IsOpen() const { return bIsOpen; }
+
+	/** Server only. */
+	void SetOpen(bool bOpen);
+
+protected:
+	virtual void BeginPlay() override;
+
+	UFUNCTION()
+	void OnRep_IsOpen();
+
+	void ApplyTint();
+	void StartMoving();
+	void StepMovement();
+	float GetTargetHeight() const;
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<USceneComponent> Root;
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> Panel;
+
+	UPROPERTY(EditAnywhere, Category = "Door", meta = (Units = "cm"))
+	float DoorWidth = 400.f;
+
+	UPROPERTY(EditAnywhere, Category = "Door", meta = (Units = "cm"))
+	float DoorHeight = 250.f;
+
+	UPROPERTY(EditAnywhere, Category = "Door", meta = (Units = "cm"))
+	float PanelThickness = 8.f;
+
+	UPROPERTY(EditAnywhere, Category = "Door", meta = (Units = "CentimetersPerSecond"))
+	float OpenSpeed = 180.f;
+
+	UPROPERTY(EditAnywhere, Category = "Door")
+	TObjectPtr<UMaterialInterface> PlaceholderMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Door")
+	FLinearColor Tint = FLinearColor(0.16f, 0.20f, 0.26f);
+
+	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_IsOpen, Category = "Door")
+	bool bIsOpen = false;
+
+private:
+	FTimerHandle MoveTimer;
+};

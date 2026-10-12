@@ -3,6 +3,7 @@
 #include "Framework/WEGameState.h"
 #include "Framework/WEPlayerController.h"
 #include "Framework/WEPlayerState.h"
+#include "Player/WECharacter.h"
 #include "WELog.h"
 
 AWEGameMode::AWEGameMode()
@@ -10,7 +11,7 @@ AWEGameMode::AWEGameMode()
 	GameStateClass = AWEGameState::StaticClass();
 	PlayerStateClass = AWEPlayerState::StaticClass();
 	PlayerControllerClass = AWEPlayerController::StaticClass();
-	// DefaultPawnClass stays the engine default until the first-person character arrives in Phase 1.
+	DefaultPawnClass = AWECharacter::StaticClass();
 }
 
 void AWEGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)

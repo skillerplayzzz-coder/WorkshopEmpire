@@ -39,7 +39,7 @@ WORKSHOP EMPIRE/
 | Modul | Typ | Abhängigkeiten | Zweck |
 |---|---|---|---|
 | `WECore` | Runtime, PreDefault | Core, CoreUObject, Engine | Systemübergreifende Basistypen ohne Gameplay-Abhängigkeit: `FWEMoney`, Log-Kategorien. Später: gemeinsame Enums, Gameplay Tags, Interfaces. |
-| `WorkshopEmpire` | Runtime, Default (Primary) | WECore, EnhancedInput, NetCore, InputCore | Game Framework (GameMode, GameState, PlayerState, PlayerController) und ab Phase 1 die Gameplay-Systeme. |
+| `WorkshopEmpire` | Runtime, Default (Primary) | WECore, EnhancedInput, NetCore, InputCore; privat UMG, Slate, SlateCore | Game Framework (GameMode, GameState, PlayerState, PlayerController) und ab Phase 1 die Gameplay-Systeme. |
 | `WorkshopEmpireTests` | Editor | WECore, WorkshopEmpire | Automation-Tests (`WorkshopEmpire.*`). Wird nicht in Spiel-Builds ausgeliefert. |
 
 **Modulstrategie:** Systeme starten als Unterordner im Modul `WorkshopEmpire` (`Public/<System>/`, `Private/<System>/`). Ein System wird erst in ein eigenes Modul ausgelagert, wenn es eine klare, stabile Schnittstelle hat und von mehreren anderen Systemen genutzt wird (Kandidaten: `WEItems`, `WEInventory`, `WEEconomy`, `WEMachines`). Grund: Jedes Modul kostet Build-Konfiguration und erzwingt Exporte (`*_API`); zu frühe Aufteilung erzeugt Zirkelabhängigkeiten, bevor die Schnittstellen bekannt sind.
@@ -53,9 +53,11 @@ Source (`Source/WorkshopEmpire/{Public,Private}/…`):
 | Ordner | System (Spec §24) | Phase |
 |---|---|---|
 | `Framework/` | Core Game Framework | 0 ✓ |
-| `Player/` | Player Character, Kamera, Bewegung | 1 |
-| `Interaction/` | Interaction System (Interface + Komponente, Trace, Prompt) | 1 |
-| `Items/` | Item-Definitionen (Data Assets), Item-Instanzen, Weltobjekte | 2 |
+| `Player/` | Player Character, Kamera, Bewegung, Eingabe | 1 ✓ |
+| `Interaction/` | Interaction System (Interface + Komponente, Trace, Prompt) | 1 ✓ |
+| `World/` | Garage, Tor, Platzhalter-Einrichtung | 1 ✓ |
+| `Dev/` | Test-Automatisierung (nicht in Shipping) | 1 ✓ |
+| `Items/` | Weltobjekt `AWEPickupItem` (1 ✓); Item-Definitionen (Data Assets), Item-Instanzen | 1–2 |
 | `Inventory/` | Inventarkomponente, Container | 2 |
 | `Save/` | SaveGame, Versionierung | 2 |
 | `Workshop/` | Werkbank, Zerlegeabläufe, Werkzeuge | 3 |
@@ -66,7 +68,7 @@ Source (`Source/WorkshopEmpire/{Public,Private}/…`):
 | `Machines/`, `Production/` | Maschinen, Rezepte, Förderbänder | 9–10 |
 | `Employees/`, `Vehicles/` | Mitarbeiter, Fahrzeuge | 11 |
 | `Progression/` | Freischaltungen, Unternehmensstufen | 5+ |
-| `UI/` | C++-Basisklassen für UMG-Widgets (ViewModels) | 1+ |
+| `UI/` | C++-Basisklassen für UMG-Widgets, HUD | 1 ✓ (HUD), weitere ab 2 |
 
 Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data Assets, Data Tables), `Items/`, `Machines/`, `Workshop/`, `UI/`, `Input/`, `Materials/`, `Meshes/`, `Audio/`, `VFX/`. Ordner werden angelegt, sobald die ersten Assets entstehen (Git versioniert keine leeren Ordner).
 
@@ -77,18 +79,32 @@ Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data As
 - Log-Kategorien: `LogWorkshopEmpire` (allgemein), `LogWENet` (Netzwerk/Sessions); weitere pro System bei Bedarf.
 - Automation-Tests: `WorkshopEmpire.<Bereich>.<System>.<Fall>`.
 
-## 3. Klassen (Stand Phase 0)
+## 3. Klassen (Stand Phase 1)
 
 | Klasse | Datei | Aufgabe |
 |---|---|---|
 | `FWEMoney` | `WECore/Public/WEMoney.h` | Geldbetrag als `int64` Cent. `FromEuros`, `FromCents`, `TryAdd`/`TrySubtract` mit Überlaufprüfung, `ToDisplayString()` ("1.234,56 €"). BlueprintType, replizierbar. |
 | `LogWorkshopEmpire`, `LogWENet` | `WECore/Public/WELog.h` | Log-Kategorien |
-| `AWEGameMode` | `WorkshopEmpire/Public/Framework/WEGameMode.h` | Serverregeln. Setzt GameState-/PlayerState-/PlayerController-Klassen. `MaxCoopPlayers` (Config, Standard 4); `PreLogin` lehnt weitere Spieler ab. Protokolliert Beitritt/Verlassen. |
+| `AWEGameMode` | `WorkshopEmpire/Public/Framework/WEGameMode.h` | Serverregeln. Setzt GameState/PlayerState/PlayerController und `AWECharacter` als Pawn. `MaxCoopPlayers` (Config, Standard 4); `PreLogin` lehnt weitere Spieler ab. |
 | `AWEGameState` | `.../Framework/WEGameState.h` | Platzhalter für den replizierten Unternehmenszustand (Konto, Freischaltungen). |
 | `AWEPlayerState` | `.../Framework/WEPlayerState.h` | Platzhalter für replizierte Spielerdaten. |
-| `AWEPlayerController` | `.../Framework/WEPlayerController.h` | Künftiger Absender von Server-RPCs; protokolliert NetMode beim Start. |
+| `AWEPlayerController` | `.../Framework/WEPlayerController.h` | Erzeugt lokal das HUD, setzt Eingabemodus, hängt bei Testparametern `UWEDevAutomationComponent` an. |
+| `AWECharacter` | `.../Player/WECharacter.h` | First-Person-Charakter: Kamera (90° FOV, weiches Ducken), Gehen 300 / Sprinten 550 / Ducken 150 cm/s, Springen. Tragen: `HeldItem` (repliziert), `TryPickUpItem`/`DropHeldItem` nur auf dem Server, max. 30 kg. Ablegen dort, wo man hinschaut (bis 250 cm), sonst 110 cm vor dem Spieler. Lässt Gegenstände beim Verlassen (EndPlay) fallen. Platzhalter-Körper (Zylinder) für andere Spieler. |
+| `UWEInputConfig` | `.../Player/WEInputConfig.h` | Enhanced-Input-Aktionen + Standardbelegung (WASD, Maus, Leertaste, Shift, Strg/C, E, F). Zur Laufzeit erzeugt, kann später als Data Asset (Tastenbelegung) ersetzt werden. CVars `we.MouseSensitivity`, `we.InvertY`. |
+| `IWEInteractable` | `.../Interaction/WEInteractable.h` | Schnittstelle für alles Benutzbare: `GetInteractionText`, `CanInteract` (mit Begründung), `Interact` (nur Server), `GetExamineInfo`. |
+| `UWEInteractionComponent` | `.../Interaction/WEInteractionComponent.h` | Lokaler Fokus-Trace mit 20 Hz per Timer (kein Tick). [E] → `ServerInteract`/`ServerDropHeldItem` (RPC). Server prüft Reichweite (250 + 75 cm Toleranz, Abstand zur Bounding Box) und `CanInteract`. Baut die Hinweiszeilen für das HUD; [F] Untersuchen ist rein lokal. |
+| `AWEPickupItem` | `.../Items/WEPickupItem.h` | Physischer Gegenstand (Name, Beschreibung, Gewicht, Mesh, Farbe). `Holder` repliziert; gehalten: an HoldPoint angehängt, Physik/Kollision aus; abgelegt: Physik auf dem Server, Bewegung repliziert. Ab Phase 2 Weltdarstellung einer Item-Instanz. |
+| `AWEGarageDoor` | `.../World/WEGarageDoor.h` | Sektionaltor, [E] öffnet/schließt. Nur `bIsOpen` repliziert, Animation lokal per Timer. |
+| `AWEGarageBuilding`, `AWEPlaceholderProp` | `.../World/` | Parametrische Block-out-Garage bzw. Werkbank/Regal aus Würfel-Instanzen (ISM). |
+| `WEPlaceholder::ApplyTint` | `.../World/WEPlaceholderVisuals.h` | Färbt Platzhalter über `M_WEPlaceholder` (transiente MID, nie in der Map gespeichert). |
+| `UWEHUDWidget` | `.../UI/WEHUDWidget.h` | C++-UMG-HUD ohne Widget-Asset: Fadenkreuz, "[E] Aufheben", "In der Hand: …", Untersuchen-Panel. Liest nur Zustand. |
+| `UWEDevAutomationComponent` | `.../Dev/WEDevAutomationComponent.h` | Nur Nicht-Shipping: `-WESmokeRole=A|B` (Netzwerktest), `-WEShots=<Name>` (Screenshots). Nutzt dieselben Anfragewege wie echte Eingaben. |
 
-Bis Phase 1 verwendet der GameMode den Engine-Standard-Pawn (`ADefaultPawn`, frei fliegend).
+Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlaceholder`, `Materials/MI_WEGround`. Beides wird reproduzierbar von `Tools/Maps/build_placeholder_material.py` und `Tools/Maps/build_garage_map.py` erzeugt (Reihenfolge: Material, dann Map; mit `-RenderOffscreen`, nicht `-nullrhi`, weil die Engine beim Platzieren von Lichtern mit NullRHI abstürzt).
+
+**Tragen – Entscheidung:** Statt Physics Handle werden getragene Gegenstände kinematisch an einen Haltepunkt vor der Kamera angehängt. Grund: Physics Handles ruckeln im Multiplayer (Client-Vorhersage gegen Server-Physik) und können Gegenstände durch Wände drücken. Beim Ablegen übernimmt wieder die Physik. Ein Physics Handle für schwere Objekte (z. B. Motor schieben) kann später ergänzt werden.
+
+**Bekannte Vereinfachung Sprint:** Der Client setzt die Sprintgeschwindigkeit sofort und meldet sie per RPC; bis das RPC ankommt, kann es sehr kurze Positionskorrekturen geben. Ausreichend für Koop; eine saubere Lösung (Custom-Flag im `FSavedMove`) ist vorgemerkt, falls es sich im Test störend anfühlt.
 
 ## 4. Netzwerkarchitektur (Multiplayer von Anfang an)
 

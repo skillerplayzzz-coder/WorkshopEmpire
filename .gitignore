@@ -23,6 +23,10 @@ Build/
 Plugins/**/Binaries/
 Plugins/**/Intermediate/
 
+# Per-user editor content
+Content/Developers/
+Content/Collections/
+
 # Misc
 *.pdb
 *.tmp

@@ -1,6 +1,6 @@
 # WORKSHOP EMPIRE – Game Design
 
-Stand: Phase 0 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
+Stand: Phase 1 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
 
 ## 1. Spielkonzept
 
@@ -37,6 +37,19 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
+### 3.1 Steuerung (Stand Phase 1, später frei belegbar)
+
+| Taste | Aktion |
+|---|---|
+| W A S D / Maus | Bewegen / Umsehen |
+| Shift (halten) | Sprinten |
+| Strg oder C (halten) | Ducken |
+| Leertaste | Springen |
+| E | Aufheben, Benutzen (Tor), mit Gegenstand in der Hand: Ablegen (dort, wo man hinschaut) |
+| F | Untersuchen (Name, Beschreibung, Gewicht) / Schließen |
+
+Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromotor, 45 kg) brauchen später Hilfsmittel (Hubwagen, Gabelstapler) oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
+
 ## 4. Wirtschaft
 
 - Währung: Euro, intern ganzzahlige Cent (`FWEMoney`).
@@ -66,4 +79,5 @@ Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Ba
 
 1. Persönliches Konto zusätzlich zum Firmenkonto im Koop? (Vorschlag: nein)
 2. Referenzhardware für das 60-FPS-Ziel (Vorschlag: RTX 3060 / Ryzen 5900X als "empfohlen")
-3. Sprache der Spieltexte zuerst Deutsch, Englisch, oder beides von Anfang an? (Vorschlag: Texte von Anfang an als lokalisierbare FText, Start auf Deutsch)
+3. Sprache der Spieltexte zuerst Deutsch, Englisch, oder beides von Anfang an? (Vorschlag: Texte von Anfang an als lokalisierbare FText, Start auf Deutsch – so umgesetzt in Phase 1)
+4. Sollen zwei Spieler schwere Gegenstände gemeinsam tragen können? (Vorschlag: ja, als Koop-Mechanik in Phase 13; bis dahin Hilfsmittel)

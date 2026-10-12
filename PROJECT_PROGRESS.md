@@ -2,27 +2,30 @@
 
 ## Aktuelle Phase
 
-**Phase 0 – Projektanalyse und Setup: abgeschlossen, wartet auf Freigabe durch Mike.**
-Phase 1 wurde nicht begonnen.
+**Phase 1 – Spielbarer First-Person-Prototyp: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 2 wurde nicht begonnen.
 
 ## Abgeschlossen
 
-- Entwicklungsumgebung geprüft (UE 5.7.4, VS 2026, MSVC 14.50/14.51, Windows SDK 22621/26100)
-- Kein bestehendes Projekt vorhanden; neues UE5-C++-Projekt `WorkshopEmpire` angelegt
-- Module `WECore`, `WorkshopEmpire`, `WorkshopEmpireTests`
-- Game-Framework-Klassen: `AWEGameMode` (Koop-Limit 4), `AWEGameState`, `AWEPlayerState`, `AWEPlayerController`
-- Geldtyp `FWEMoney` (int64 Cent, Überlaufschutz)
-- Konfiguration: Standard-GameMode, Platzhalter-Map, DX12/SM6, Lumen/VSM
-- Dokumentation: diese Datei, GAME_DESIGN.md, TECHNICAL_ARCHITECTURE.md, CHANGELOG.md, TEST_REPORT.md
-- Git-Repository mit `.gitignore` und `.gitattributes`
-- Editor- und Game-Target kompilieren; 5/5 Automation-Tests bestanden
+### Phase 0 – Setup (2026-10-12)
+- Umgebung geprüft (UE 5.7.4, VS 2026), C++-Projekt mit Modulen `WECore`, `WorkshopEmpire`, `WorkshopEmpireTests`
+- Game Framework mit Koop-Limit 4, Geldtyp `FWEMoney`, Doku, Git
+
+### Phase 1 – First-Person-Prototyp (2026-10-12)
+- First-Person-Charakter: Gehen, Sprinten (Shift), Ducken (Strg/C, weiche Kamera), Springen, Mausblick mit einstellbarer Empfindlichkeit (`we.MouseSensitivity`, `we.InvertY`)
+- Interaktionssystem: Schnittstelle `IWEInteractable`, Fokus-Trace, Hinweise "[E] …" / "[F] Untersuchen", Tastennamen aus der Belegung
+- Gegenstände aufnehmen, tragen, ablegen (auf Werkbank/Regal/Boden, wo man hinschaut), untersuchen; Gewichtslimit 30 kg
+- Garagentor zum Öffnen/Schließen
+- Platzhalter-Garage `L_Garage` mit Werkbank, Regal und 6 Gegenständen, per Skript reproduzierbar
+- Server-autoritativ: Reichweitenprüfung, Konfliktschutz (zwei Spieler, ein Gegenstand), Ablegen beim Verlassen
+- 14 Automation-Tests, Netzwerk-Rauchtest mit 2 Clients, automatisierte Screenshots
 
 ## Offene Aufgaben
 
-- Mike: Editor öffnen und Phase 0 prüfen (Anleitung im Development Report / TEST_REPORT.md)
+- Mike: Praxistest Phase 1 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7
-- Optional: Git LFS installieren, bevor große Binär-Assets (Meshes, Texturen, Audio) hinzukommen
-- Optional: Remote-Repository (GitHub/Azure DevOps) für Backups
+- Später: Git LFS vor großen Assets; Remote-Repository für Backups
+- Vorgemerkt: Sprint als `FSavedMove`-Flag, falls Positionskorrekturen spürbar sind; Physics Handle für schwere Objekte
 
 ## Bekannte Fehler
 
@@ -30,8 +33,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 1 – Spielbarer First-Person-Prototyp: Charakter, Bewegung, Kamera, einfache Garage (Platzhalter), Interaktionssystem, Aufheben/Ablegen/Untersuchen, UI-Hinweise, früher Zwei-Spieler-Test im PIE.
+Phase 2 – Items und Inventar: Item-Definitionen als Data Assets, Item-Instanzen (Zustand, Qualität), Inventarkomponente (repliziert), stapelbare Materialien, Inventaroberfläche, einfaches Speichern/Laden. `AWEPickupItem` wird zur Weltdarstellung einer Item-Instanz.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 5 bestanden, 0 fehlgeschlagen.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 14/14 Automation-Tests bestanden, Netzwerk-Rauchtest bestanden, 8 Screenshots geprüft.

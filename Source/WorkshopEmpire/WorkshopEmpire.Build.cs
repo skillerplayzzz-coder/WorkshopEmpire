@@ -17,5 +17,12 @@ public class WorkshopEmpire : ModuleRules
 			"NetCore",
 			"WECore"
 		});
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"UMG",
+			"Slate",
+			"SlateCore"
+		});
 	}
 }

@@ -17,6 +17,73 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 1 – Lauf vom 2026-10-12
+
+Umgebung wie Phase 0. Alle Läufe auf dem Entwicklungs-PC.
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build `WorkshopEmpireEditor Win64 Development` | ✅ 0 Warnungen/Fehler im Projektcode |
+| Build `WorkshopEmpire Win64 Development` (Game) | ✅ erfolgreich |
+| Automation-Suite `WorkshopEmpire` (headless, `-NullRHI`) | ✅ **14/14 bestanden, 0 mit Warnungen**, Bericht `Saved/TestReports/Phase1/index.json` |
+| ↳ `Core.Money.*` (4), `Framework.GameModeDefaults` (jetzt inkl. Pawn = `AWECharacter`) | ✅ Regression ok |
+| ↳ `Gameplay.Carry.PickupConflictDropHandOver`: A hebt auf → B wird abgelehnt → A legt ab → B hebt auf | ✅ |
+| ↳ `Gameplay.Carry.HandsFull`, `Gameplay.Carry.WeightLimit` (45 kg abgelehnt, genau 30 kg erlaubt) | ✅ |
+| ↳ `Gameplay.Carry.DropWhenPlayerLeaves` (Charakter zerstört → Gegenstand frei, Physik an) | ✅ (deckte zuerst eine Lücke im Test-Harness auf: Testwelt startete kein BeginPlay; behoben, danach grün) |
+| ↳ `Gameplay.Carry.DropStopsBeforeWall` (frei: 110 cm vor dem Spieler; Wand 2 m: direkt davor; Wand 60 cm: nie dahinter) | ✅ |
+| ↳ `Gameplay.Interaction.ServerReachValidation` (10 m entfernt abgelehnt, 1,5 m angenommen, `nullptr` abgelehnt) | ✅ |
+| ↳ `Gameplay.Door.ToggleViaInteraction`, `Input.DefaultMapping` (11 Belegungen, E/F/Shift/Leertaste), `UI.PromptFormat` | ✅ |
+| Map-Erzeugung per Skript (`build_placeholder_material.py`, `build_garage_map.py`) | ✅ nach zwei Korrekturen (siehe Behobene Fehler) |
+| Spiel mit Grafik (`-game`, 1280×720) + automatisierte Screenshots `-WEShots=P1` | ✅ 8 Screenshots geprüft: Werkbank, Tor, Seite, Fokus "[E] Aufheben / [F] Untersuchen", Getragen "[E] Ablegen" + "In der Hand: Alter Computer", Untersuchen-Panel (Name, Beschreibung, 9,0 kg), Abgelegt, Motor "Zu schwer zum Tragen (45,0 kg)". Keine Warnungen/Fehler aus Projektcode im Log. |
+| **Netzwerk-Rauchtest Phase 1:** headless Dedicated Server auf `L_Garage` + 2 headless Clients (`-WESmokeRole=A/B`), alle Aktionen über die echten Server-RPCs | ✅ siehe unten |
+
+Netzwerk-Rauchtest im Detail (Server-Log, gekürzt):
+
+```
+Player joined (1/4), Player joined (2/4)
+WECharacter_0 interaction with WEGarageDoor_0 rejected: out of reach      ← A versucht Tor aus ~5 m
+WECharacter_0 picked up WEPickupItem_0                                     ← A hebt Computer auf
+WECharacter_1 interaction with WEPickupItem_0 rejected: Wird gerade getragen ← B gleichzeitig: abgelehnt
+WECharacter_0 dropped WEPickupItem_0 at (-377.5, -40.0, 160.2)             ← A legt auf Werkbank ab
+WECharacter_1 picked up WEPickupItem_0                                     ← B übernimmt
+Player left … / WECharacter_1 dropped WEPickupItem_0 …                     ← B trennt Verbindung: Gegenstand bleibt in der Welt
+```
+
+Client-Sicht: B sieht während A trägt `Holder=<A>` und dieselbe Position wie A (‑265, ‑62, 114); nach dem Ablegen sehen beide den Computer auf der Werkbank (‑375, ‑41, 118,6); Tor bleibt auf beiden Clients `closed`. Logs: `Saved/Logs/P1Net*.log`.
+
+### Behobene Fehler in Phase 1
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Test `DropWhenPlayerLeaves` schlug fehl | Test-Welt ohne GameMode startete kein BeginPlay, daher kein EndPlay | Test-Harness ruft `NotifyBeginPlay`/`EndPlay` auf |
+| Editor-Absturz beim Map-Skript mit `-nullrhi` (Division durch 0 beim Platzieren eines PointLight) | Engine-Problem mit NullRHI | Skripte laufen mit `-RenderOffscreen` |
+| Editor-Absturz beim Neuerzeugen der Map | L_Garage ist Startmap und war geladen, als sie gelöscht wurde | Skript lädt vorher eine leere Engine-Map |
+| Platzhalter-Farben fehlten (alles grau kariert) | Engine-Würfelmaterial hat keinen Farbparameter; danach fehlte `bUsedWithInstancedStaticMeshes` | eigenes `M_WEPlaceholder` mit Flag |
+| Szene überbelichtet, große Gegenstände verdeckten beim Tragen die Sicht | Belichtung / Haltepunkt | Belichtung −0,6, Wandfarben dunkler; große Gegenstände werden weiter vorn/unten gehalten |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Bedienung mit echter Maus/Tastatur (Gefühl von Bewegung, Sprint, Ducken, Kamera) | Braucht einen Menschen – Mikes Praxistest |
+| PIE mit 2 Spielern **mit Grafik** im Editor | Mikes Praxistest; Netzwerklogik ist durch den headless Test abgedeckt |
+| Sprint/Ducken im Netzwerk (Korrekturen sichtbar?) | Nur per Code geprüft; im Rauchtest nicht geskriptet |
+| Tor öffnen über das Netzwerk (Replikation der Animation) | Im Rauchtest nur die Reichweiten-Ablehnung; Öffnen selbst nur im Unit-Test (Standalone) |
+| Gleichzeitige Anfragen im selben Frame | Server verarbeitet RPCs nacheinander; der zeitversetzte Konflikt ist getestet, exakt gleichzeitige nicht |
+| Performance-Messung | Ab Phase 9 geplant |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweis: Beim Start jedes Editors stehen 6× `LogAutomationTest: Error: Condition failed` im Log, noch bevor Projekttests laufen. Das trat bereits in Phase 0 auf (nachträglich im Phase-0-Log geprüft), kommt aus der Engine-Initialisierung und beeinflusst die Projekttests nicht. Es war im Phase-0-Bericht nicht erwähnt.
+
+### Manueller Test für Mike (Phase 1)
+
+Siehe Development Report Phase 1 (gleicher Inhalt, Schritt für Schritt).
+
+---
+
 ## Phase 0 – Lauf vom 2026-10-12
 
 Umgebung: UE 5.7.4, MSVC (VS 2026 18.10.3), Windows 11 Pro, Ryzen 9 5900X, RTX 3060.
