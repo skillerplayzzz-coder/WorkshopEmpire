@@ -73,6 +73,10 @@ protected:
 
 	void UpdateWorkProgress();
 
+	/** Company balance, top right. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> BalanceText;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UBorder> MessagePanel;
 

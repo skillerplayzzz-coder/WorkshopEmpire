@@ -61,12 +61,14 @@ float WEItems::GetConditionValueFactor(EWEItemCondition Condition)
 {
 	switch (Condition)
 	{
+	// Phase 4 balancing: parts from defective devices must still be worth something,
+	// otherwise buying, repairing and disassembling never pays off.
 	case EWEItemCondition::New:       return 1.0f;
-	case EWEItemCondition::VeryGood:  return 0.8f;
-	case EWEItemCondition::Used:      return 0.55f;
-	case EWEItemCondition::Damaged:   return 0.3f;
-	case EWEItemCondition::Defective: return 0.15f;
-	case EWEItemCondition::Scrap:     return 0.05f;
+	case EWEItemCondition::VeryGood:  return 0.85f;
+	case EWEItemCondition::Used:      return 0.7f;
+	case EWEItemCondition::Damaged:   return 0.5f;
+	case EWEItemCondition::Defective: return 0.3f;
+	case EWEItemCondition::Scrap:     return 0.1f;
 	}
 	return 1.f;
 }

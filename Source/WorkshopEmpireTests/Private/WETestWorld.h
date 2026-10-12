@@ -41,6 +41,15 @@ struct FWETestWorld
 		}
 	}
 
+	/** Spawns a game state of class T and registers it with the world (company, market, orders). */
+	template <typename T>
+	T* SpawnGameState()
+	{
+		T* GameState = Spawn<T>(FVector::ZeroVector);
+		World->SetGameState(GameState);
+		return GameState;
+	}
+
 	template <typename T>
 	T* Spawn(const FVector& Location, const FRotator& Rotation = FRotator::ZeroRotator)
 	{

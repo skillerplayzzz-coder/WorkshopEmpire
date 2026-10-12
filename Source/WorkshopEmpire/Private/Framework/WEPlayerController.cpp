@@ -9,6 +9,8 @@
 #include "Player/WECharacter.h"
 #include "UI/WEHUDWidget.h"
 #include "UI/WEInventoryWidget.h"
+#include "UI/WETradeWidget.h"
+#include "Economy/WETraderTerminal.h"
 #include "WELog.h"
 
 #define LOCTEXT_NAMESPACE "WEPlayerController"
@@ -17,6 +19,7 @@ AWEPlayerController::AWEPlayerController()
 {
 	HUDWidgetClass = UWEHUDWidget::StaticClass();
 	InventoryWidgetClass = UWEInventoryWidget::StaticClass();
+	TradeWidgetClass = UWETradeWidget::StaticClass();
 }
 
 void AWEPlayerController::BeginPlay()
@@ -85,6 +88,7 @@ void AWEPlayerController::OpenInventory(UWEInventoryComponent* Container)
 	{
 		return;
 	}
+	CloseTrade();
 	if (!InventoryWidget)
 	{
 		InventoryWidget = CreateWidget<UWEInventoryWidget>(this, InventoryWidgetClass);
@@ -99,14 +103,7 @@ void AWEPlayerController::OpenInventory(UWEInventoryComponent* Container)
 		InventoryWidget->AddToViewport(10);
 	}
 
-	FInputModeGameAndUI Mode;
-	Mode.SetWidgetToFocus(InventoryWidget->TakeWidget());
-	Mode.SetHideCursorDuringCapture(false);
-	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	SetInputMode(Mode);
-	SetShowMouseCursor(true);
-	SetIgnoreLookInput(true);
-	SetIgnoreMoveInput(true);
+	EnterMenuInputMode(InventoryWidget);
 }
 
 void AWEPlayerController::CloseInventory()
@@ -115,10 +112,165 @@ void AWEPlayerController::CloseInventory()
 	{
 		InventoryWidget->RemoveFromParent();
 	}
-	SetInputMode(FInputModeGameOnly());
-	SetShowMouseCursor(false);
+	if (!IsTradeOpen())
+	{
+		SetInputMode(FInputModeGameOnly());
+		SetShowMouseCursor(false);
+		ResetIgnoreLookInput();
+		ResetIgnoreMoveInput();
+	}
+}
+
+void AWEPlayerController::EnterMenuInputMode(UUserWidget* Widget)
+{
+	FInputModeGameAndUI Mode;
+	Mode.SetWidgetToFocus(Widget->TakeWidget());
+	Mode.SetHideCursorDuringCapture(false);
+	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(Mode);
+	SetShowMouseCursor(true);
 	ResetIgnoreLookInput();
 	ResetIgnoreMoveInput();
+	SetIgnoreLookInput(true);
+	SetIgnoreMoveInput(true);
+}
+
+// --- Trade UI ------------------------------------------------------------------------------------
+
+bool AWEPlayerController::IsTradeOpen() const
+{
+	return TradeWidget && TradeWidget->IsInViewport();
+}
+
+void AWEPlayerController::OpenTrade(AWETraderTerminal* Terminal)
+{
+	if (!IsLocalController() || !Terminal || !TradeWidgetClass)
+	{
+		return;
+	}
+	CloseInventory();
+	if (!TradeWidget)
+	{
+		TradeWidget = CreateWidget<UWETradeWidget>(this, TradeWidgetClass);
+	}
+	if (!TradeWidget)
+	{
+		return;
+	}
+	TradeWidget->Setup(Terminal);
+	if (!TradeWidget->IsInViewport())
+	{
+		TradeWidget->AddToViewport(10);
+	}
+	EnterMenuInputMode(TradeWidget);
+}
+
+void AWEPlayerController::CloseTrade()
+{
+	if (TradeWidget && TradeWidget->IsInViewport())
+	{
+		TradeWidget->RemoveFromParent();
+	}
+	if (!IsInventoryOpen())
+	{
+		SetInputMode(FInputModeGameOnly());
+		SetShowMouseCursor(false);
+		ResetIgnoreLookInput();
+		ResetIgnoreMoveInput();
+	}
+}
+
+void AWEPlayerController::ClientOpenTrade_Implementation(AWETraderTerminal* Terminal)
+{
+	OpenTrade(Terminal);
+}
+
+// --- Trade requests --------------------------------------------------------------------------------
+
+void AWEPlayerController::RequestSell(AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity)
+{
+	ServerSell(Terminal, From, Slot, Quantity, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestSellHeld(AWETraderTerminal* Terminal)
+{
+	ServerSellHeld(Terminal, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestBuy(AWETraderTerminal* Terminal, int32 OfferIndex, int32 Quantity)
+{
+	ServerBuy(Terminal, OfferIndex, Quantity, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestAcceptContract(AWETraderTerminal* Terminal, const FGuid& ContractId)
+{
+	ServerAcceptContract(Terminal, ContractId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestDeliverContract(AWETraderTerminal* Terminal, const FGuid& ContractId)
+{
+	ServerDeliverContract(Terminal, ContractId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::DevRequestSellTwice(AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity)
+{
+#if !UE_BUILD_SHIPPING
+	const FGuid Same = FGuid::NewGuid();
+	ServerSell(Terminal, From, Slot, Quantity, Same);
+	ServerSell(Terminal, From, Slot, Quantity, Same);
+#endif
+}
+
+void AWEPlayerController::ServerSell_Implementation(AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->SellFromInventory(GetPawn<AWECharacter>(), From, Slot, Quantity, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerSellHeld_Implementation(AWETraderTerminal* Terminal, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->SellHeldItem(GetPawn<AWECharacter>(), RequestId);
+	}
+}
+
+void AWEPlayerController::ServerBuy_Implementation(AWETraderTerminal* Terminal, int32 OfferIndex, int32 Quantity, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->Buy(GetPawn<AWECharacter>(), OfferIndex, Quantity, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerAcceptContract_Implementation(AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->AcceptContract(GetPawn<AWECharacter>(), ContractId, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerDeliverContract_Implementation(AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->DeliverContract(GetPawn<AWECharacter>(), ContractId, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerDevTeleport_Implementation(FVector Location, FRotator Rotation)
+{
+#if !UE_BUILD_SHIPPING
+	if (APawn* MyPawn = GetPawn())
+	{
+		MyPawn->TeleportTo(Location, Rotation, false, true);
+		ClientSetRotation(Rotation);
+		UE_LOG(LogWENet, Log, TEXT("%s dev-teleported to %s"), *GetName(), *Location.ToCompactString());
+	}
+#endif
 }
 
 void AWEPlayerController::ClientOpenContainer_Implementation(UWEInventoryComponent* Container)

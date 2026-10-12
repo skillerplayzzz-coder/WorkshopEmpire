@@ -367,8 +367,9 @@ TArray<FWEItemInstance> AWEWorkbench::GenerateOutputs(const FWEDisassemblyStep& 
 		uint8 Quality = 50;
 		if (Output.bInheritCondition)
 		{
-			// Components come out roughly in the condition of the source, with some spread.
-			const int32 Index = FMath::Clamp(static_cast<int32>(Source.Condition) + Random.RandRange(-1, 1), 0, static_cast<int32>(EWEItemCondition::Scrap));
+			// A defective device usually has one broken part: the others come out the same or up to two
+			// condition levels better than the device (never worse). Keeps "buy broken, part out" profitable.
+			const int32 Index = FMath::Clamp(static_cast<int32>(Source.Condition) - Random.RandRange(0, 2), 0, static_cast<int32>(EWEItemCondition::Scrap));
 			Condition = static_cast<EWEItemCondition>(Index);
 			Quality = static_cast<uint8>(FMath::Clamp(static_cast<int32>(Source.Quality) + Random.RandRange(-15, 15), 0, 100));
 		}

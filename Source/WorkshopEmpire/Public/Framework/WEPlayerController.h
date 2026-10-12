@@ -37,6 +37,34 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientOpenContainer(UWEInventoryComponent* Container);
 
+	// --- Trade UI (local) ----------------------------------------------------------------------
+
+	void OpenTrade(class AWETraderTerminal* Terminal);
+	void CloseTrade();
+	bool IsTradeOpen() const;
+
+	/** Any full-screen menu (inventory, trade) open. */
+	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen(); }
+
+	/** Server -> owning client: open the market screen after a validated interaction. */
+	UFUNCTION(Client, Reliable)
+	void ClientOpenTrade(class AWETraderTerminal* Terminal);
+
+	// --- Trade requests (each call gets a fresh request id; the server ignores repeats) ----------
+
+	void RequestSell(class AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity);
+	void RequestSellHeld(class AWETraderTerminal* Terminal);
+	void RequestBuy(class AWETraderTerminal* Terminal, int32 OfferIndex, int32 Quantity);
+	void RequestAcceptContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
+	void RequestDeliverContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
+
+	/** Test hook: sends the same request id twice (must be booked once). Not in Shipping. */
+	void DevRequestSellTwice(class AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity);
+
+	/** Development builds only: moves the pawn on the server (test automation). */
+	UFUNCTION(Server, Reliable)
+	void ServerDevTeleport(FVector Location, FRotator Rotation);
+
 	/** Server -> owning client: short on-screen message ("Inventar voll", "Gespeichert"). */
 	UFUNCTION(Client, Reliable)
 	void ClientShowMessage(const FText& Message);
@@ -81,6 +109,29 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerSortInventory(UWEInventoryComponent* Inventory);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSell(class AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSellHeld(class AWETraderTerminal* Terminal, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerBuy(class AWETraderTerminal* Terminal, int32 OfferIndex, int32 Quantity, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerAcceptContract(class AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerDeliverContract(class AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId);
+
+	void EnterMenuInputMode(UUserWidget* Widget);
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UWETradeWidget> TradeWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UWETradeWidget> TradeWidget;
 
 	void ShowLocalMessage(const FText& Message);
 

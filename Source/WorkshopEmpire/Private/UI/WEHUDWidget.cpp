@@ -1,4 +1,4 @@
-﻿#include "UI/WEHUDWidget.h"
+#include "UI/WEHUDWidget.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -6,6 +6,7 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
+#include "Economy/WECompanyComponent.h"
 #include "EngineUtils.h"
 #include "Workshop/WEWorkbench.h"
 #include "Components/TextBlock.h"
@@ -139,6 +140,16 @@ void UWEHUDWidget::NativeOnInitialized()
 		CSlot->SetSize(FVector2D(360.f, 44.f));
 	}
 
+	// Company balance, top right.
+	BalanceText = MakeText(16, FLinearColor(0.55f, 0.95f, 0.6f));
+	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(BalanceText))
+	{
+		CSlot->SetAnchors(FAnchors(1.f, 0.f));
+		CSlot->SetAlignment(FVector2D(1.f, 0.f));
+		CSlot->SetPosition(FVector2D(-28.f, 22.f));
+		CSlot->SetAutoSize(true);
+	}
+
 	// Notification, upper centre.
 	MessagePanel = WidgetTree->ConstructWidget<UBorder>();
 	MessagePanel->SetBrushColor(FLinearColor(0.02f, 0.02f, 0.025f, 0.75f));
@@ -231,7 +242,7 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 	TArray<FWEInteractionPrompt> Prompts;
 	const AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
-	const bool bMenuOpen = PC && PC->IsInventoryOpen();
+	const bool bMenuOpen = PC && PC->IsMenuOpen();
 	if (Interaction && !bMenuOpen)
 	{
 		Interaction->BuildPrompts(Prompts);
@@ -250,6 +261,11 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	}
 
 	UpdateWorkProgress();
+
+	if (const UWECompanyComponent* Company = UWECompanyComponent::Get(this))
+	{
+		BalanceText->SetText(FText::Format(NSLOCTEXT("WEHUD", "BalanceFmt", "Firmenkonto  {0}"), FText::FromString(Company->GetBalance().ToDisplayString())));
+	}
 
 	const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
 	HeldText->SetText(Held ? FText::Format(LOCTEXT("HeldFmt", "In der Hand: {0}"), Held->GetDisplayName()) : FText::GetEmpty());

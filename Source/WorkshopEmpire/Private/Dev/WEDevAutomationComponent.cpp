@@ -18,6 +18,9 @@
 #include "Inventory/WEInventoryComponent.h"
 #include "World/WEPlaceholderProp.h"
 #include "Workshop/WEWorkbench.h"
+#include "Economy/WECompanyComponent.h"
+#include "Economy/WEContractComponent.h"
+#include "Economy/WETraderTerminal.h"
 #include "UObject/UObjectIterator.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -72,6 +75,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("F"))
 	{
 		RunSmokeRoleF();
+	}
+	else if (Role == TEXT("G"))
+	{
+		RunSmokeRoleG();
+	}
+	else if (Role == TEXT("H"))
+	{
+		RunSmokeRoleH();
+	}
+	else if (ShotName.StartsWith(TEXT("P4")))
+	{
+		RunEconomyShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P3")))
 	{
@@ -553,4 +568,154 @@ void UWEDevAutomationComponent::RunWorkbenchShots()
 	});
 	Schedule(38.5f, [this]() { Shot(TEXT("07_Teile_im_Werkbanklager")); });
 	Schedule(39.5f, [this]() { Quit(); });
+}
+// --- Phase 4: economy scenarios ------------------------------------------------------------------
+
+AWETraderTerminal* UWEDevAutomationComponent::FindTerminal() const
+{
+	TActorIterator<AWETraderTerminal> It(GetWorld());
+	return It ? *It : nullptr;
+}
+
+void UWEDevAutomationComponent::TeleportToTerminal(float SideOffset) const
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const AWETraderTerminal* Terminal = FindTerminal();
+	if (PC && Terminal)
+	{
+		// Stand 1.1 m in front of the terminal, facing it.
+		const FVector Front = Terminal->GetActorLocation() + Terminal->GetActorForwardVector() * 110.f
+			+ Terminal->GetActorRightVector() * SideOffset + FVector(0.f, 0.f, 100.f);
+		const FRotator Facing = (Terminal->GetActorLocation() + FVector(0.f, 0.f, 90.f) - Front).Rotation();
+		PC->ServerDevTeleport(Front, Facing);
+	}
+}
+
+int32 UWEDevAutomationComponent::FindOfferIndex(const FString& ItemName) const
+{
+	if (const AWETraderTerminal* Terminal = FindTerminal())
+	{
+		for (const FWEMarketOffer& Offer : Terminal->GetOffers())
+		{
+			if (Offer.Item.GetDisplayName().ToString().Contains(ItemName))
+			{
+				return Offer.OfferIndex;
+			}
+		}
+	}
+	return INDEX_NONE;
+}
+
+void UWEDevAutomationComponent::LogEconomyState(const TCHAR* Step) const
+{
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+	const AWETraderTerminal* Terminal = FindTerminal();
+	TArray<FString> Stock;
+	if (Terminal)
+	{
+		for (const int32 V : Terminal->GetStockRemaining())
+		{
+			Stock.Add(FString::FromInt(V));
+		}
+	}
+	TArray<FString> Orders;
+	if (Contracts)
+	{
+		for (const FWEContract& C : Contracts->GetContracts())
+		{
+			Orders.Add(FString::Printf(TEXT("%s:%s%s"), *C.Title.ToString(),
+				C.State == EWEContractState::Accepted ? TEXT("accepted by ") : TEXT("offered"), *C.AcceptedBy));
+		}
+	}
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Balance=%s Mine=%s Stock=[%s] Motors=%d Screws.Total=%d Orders={%s}"),
+		*Role, Step, Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"), *DescribeInventory(GetMyInventory()),
+		*FString::Join(Stock, TEXT(",")), CountEverywhere(TEXT("Elektromotor")), CountEverywhere(TEXT("Blechschrauben")),
+		*FString::Join(Orders, TEXT(" | ")));
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleG()
+{
+	Schedule(8.f, [this]() { StoreItem(TEXT("Blechschrauben")); });
+	Schedule(10.f, [this]() { TeleportToTerminal(-40.f); });
+	Schedule(12.f, [this]() { LogEconomyState(TEXT("G0 at terminal")); });
+	Schedule(13.f, [this]()
+	{
+		// Same request id sent twice: the server must book it once.
+		AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+		UWEInventoryComponent* Mine = GetMyInventory();
+		if (PC && Mine) { PC->DevRequestSellTwice(FindTerminal(), Mine, FindSlotWith(Mine, TEXT("Blechschrauben")), 10); }
+	});
+	Schedule(16.f, [this]() { LogEconomyState(TEXT("G1 after double-sent sale of 10 screws")); });
+	Schedule(20.f, [this]()
+	{
+		// Race: both players buy the single motor at the same moment.
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner())) { PC->RequestBuy(FindTerminal(), FindOfferIndex(TEXT("Elektromotor")), 1); }
+	});
+	Schedule(24.f, [this]() { LogEconomyState(TEXT("G2 after motor race")); });
+	Schedule(26.f, [this]()
+	{
+		const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+		AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+		if (PC && Contracts && Contracts->GetContracts().Num() > 0) { PC->RequestAcceptContract(FindTerminal(), Contracts->GetContracts()[0].Id); }
+	});
+	Schedule(28.f, [this]() { LogEconomyState(TEXT("G3 after accepting an order")); });
+	Schedule(32.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleH()
+{
+	Schedule(10.f, [this]() { TeleportToTerminal(40.f); });
+	Schedule(12.f, [this]() { LogEconomyState(TEXT("H0 at terminal")); });
+	Schedule(16.f, [this]() { LogEconomyState(TEXT("H1 sees G's sale")); });
+	Schedule(19.5f, [this]()
+	{
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner())) { PC->RequestBuy(FindTerminal(), FindOfferIndex(TEXT("Elektromotor")), 1); }
+	});
+	Schedule(24.f, [this]() { LogEconomyState(TEXT("H2 after motor race")); });
+	Schedule(28.f, [this]() { LogEconomyState(TEXT("H3 sees G's order")); });
+	Schedule(33.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunEconomyShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(3.0f, [this]() { StoreItem(TEXT("Blechschrauben")); StoreItem(TEXT("Kupferkabel")); StoreItem(TEXT("Arbeitsspeicher")); });
+	Schedule(4.0f, [this]() { TeleportToTerminal(0.f); LogEconomyState(TEXT("S0 start")); });
+	Schedule(5.5f, [this]() { LookAt(FindTerminal()); });
+	Schedule(6.5f, [this]() { Shot(TEXT("01_Terminal")); });
+	Schedule(7.0f, [this, PC]() { if (PC) { PC->OpenTrade(FindTerminal()); } });
+	Schedule(8.0f, [this]() { Shot(TEXT("02_Marktplatz")); });
+	Schedule(8.5f, [this, PC]()
+	{
+		UWEInventoryComponent* Mine = GetMyInventory();
+		if (PC && Mine)
+		{
+			PC->RequestSell(FindTerminal(), Mine, FindSlotWith(Mine, TEXT("Blechschrauben")), 0);
+			PC->RequestSell(FindTerminal(), Mine, FindSlotWith(Mine, TEXT("Kupferkabel")), 2);
+		}
+	});
+	Schedule(10.0f, [this]() { Shot(TEXT("03_Verkauft")); LogEconomyState(TEXT("S1 sold")); });
+	Schedule(10.5f, [this, PC]()
+	{
+		if (PC)
+		{
+			PC->RequestBuy(FindTerminal(), FindOfferIndex(TEXT("Alter Computer")), 1);
+			PC->RequestBuy(FindTerminal(), FindOfferIndex(TEXT("Akkuschrauber")), 1);
+		}
+	});
+	Schedule(12.0f, [this]() { Shot(TEXT("04_Gekauft")); LogEconomyState(TEXT("S2 bought")); });
+	Schedule(12.5f, [this, PC]()
+	{
+		const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+		if (PC && Contracts && Contracts->GetContracts().Num() > 0) { PC->RequestAcceptContract(FindTerminal(), Contracts->GetContracts()[0].Id); }
+	});
+	Schedule(13.5f, [this]() { Shot(TEXT("05_Auftrag_angenommen")); LogEconomyState(TEXT("S3 order accepted")); });
+	Schedule(14.0f, [this, PC]()
+	{
+		if (PC) { PC->CloseTrade(); }
+		if (const AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld())) { LookAtPoint(Zone->GetActorLocation()); }
+	});
+	Schedule(15.5f, [this]() { Shot(TEXT("06_Lieferpalette")); });
+	Schedule(16.5f, [this]() { Quit(); });
 }

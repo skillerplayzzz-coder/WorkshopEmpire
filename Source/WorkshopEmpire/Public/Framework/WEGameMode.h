@@ -32,8 +32,14 @@ public:
 	/** Loads Slot into the running session and tells all players. */
 	bool LoadFromSlot(const FString& Slot);
 
+	virtual void InitGameState() override;
+
 protected:
 	virtual void BeginPlay() override;
+
+	/** Company account at the start of a new game (spec §3: 250 €). In cents. */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Economy")
+	int64 StartingCapitalCents = 25000;
 
 	void Autosave();
 	void BroadcastMessage(const FText& Message);

@@ -1,5 +1,6 @@
 #include "Framework/WEGameMode.h"
 
+#include "Economy/WECompanyComponent.h"
 #include "Framework/WEGameState.h"
 #include "Framework/WEPlayerController.h"
 #include "Framework/WEPlayerState.h"
@@ -17,6 +18,15 @@ AWEGameMode::AWEGameMode()
 	PlayerStateClass = AWEPlayerState::StaticClass();
 	PlayerControllerClass = AWEPlayerController::StaticClass();
 	DefaultPawnClass = AWECharacter::StaticClass();
+}
+
+void AWEGameMode::InitGameState()
+{
+	Super::InitGameState();
+	if (const AWEGameState* WEGameState = GetGameState<AWEGameState>(); WEGameState && WEGameState->GetCompany())
+	{
+		WEGameState->GetCompany()->SetBalance(FWEMoney::FromCents(StartingCapitalCents));
+	}
 }
 
 void AWEGameMode::BeginPlay()

@@ -138,8 +138,9 @@ bool FWEDisFullTest::RunTest(const FString& Parameters)
 			PartItem = It;
 		}
 	}
-	TestTrue(TEXT("Component inherits a condition near the source (Damaged +-1)"), PartItem &&
-		FMath::Abs(static_cast<int32>(PartItem->Condition) - static_cast<int32>(EWEItemCondition::Damaged)) <= 1);
+	const int32 SourceLevel = static_cast<int32>(EWEItemCondition::Damaged);
+	TestTrue(TEXT("Component is as good as the source or up to 2 levels better"), PartItem &&
+		static_cast<int32>(PartItem->Condition) <= SourceLevel && static_cast<int32>(PartItem->Condition) >= SourceLevel - 2);
 
 	TestTrue(TEXT("Step 3 (side cutter)"), Bench->TryStartStep(A));
 	Bench->CompleteActiveStep();
@@ -305,7 +306,7 @@ bool FWEDisSaveTest::RunTest(const FString& Parameters)
 	Bench->CompleteActiveStep();
 
 	UWESaveGame* Save = FWESaveSystem::Capture(TW.World);
-	TestEqual(TEXT("Save version 2"), Save->SaveVersion, 2);
+	TestEqual(TEXT("Current save version"), Save->SaveVersion, UWESaveGame::CurrentVersion);
 	Bench->ResetForLoad();
 	FWESaveSystem::Apply(TW.World, Save);
 

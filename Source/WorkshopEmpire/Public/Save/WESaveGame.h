@@ -59,6 +59,34 @@ struct WORKSHOPEMPIRE_API FWESavedDoor
 	UPROPERTY() bool bOpen = false;
 };
 
+/** Since save version 3: customer order. Deadlines are stored as remaining seconds. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedContract
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FGuid Id;
+	UPROPERTY() FString Title;
+	UPROPERTY() FName ItemId;
+	UPROPERTY() int32 Quantity = 1;
+	UPROPERTY() EWEItemCondition MinCondition = EWEItemCondition::Damaged;
+	UPROPERTY() int64 RewardCents = 0;
+	UPROPERTY() bool bAccepted = false;
+	UPROPERTY() float RemainingSeconds = 0.f;
+	UPROPERTY() float DeliverySeconds = 1200.f;
+	UPROPERTY() FString AcceptedBy;
+};
+
+/** Since save version 3: remaining stock of a market terminal (matched by actor name). */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedStock
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	UPROPERTY() TArray<int32> Remaining;
+};
+
 USTRUCT()
 struct WORKSHOPEMPIRE_API FWESavedPlayer
 {
@@ -81,8 +109,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items placed on workbenches). */
-	static constexpr int32 CurrentVersion = 2;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). */
+	static constexpr int32 CurrentVersion = 3;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -91,4 +119,10 @@ public:
 	UPROPERTY() TArray<FWESavedWorldItem> WorldItems;
 	UPROPERTY() TArray<FWESavedContainer> Containers;
 	UPROPERTY() TArray<FWESavedDoor> Doors;
+
+	// Since version 3. Older saves leave these at their defaults: the account keeps its current value.
+	UPROPERTY() int64 CompanyBalanceCents = -1;
+	UPROPERTY() TArray<float> MarketDemand;
+	UPROPERTY() TArray<FWESavedContract> Contracts;
+	UPROPERTY() TArray<FWESavedStock> Stocks;
 };

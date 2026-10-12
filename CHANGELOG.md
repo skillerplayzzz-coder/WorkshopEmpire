@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0] – 2026-10-12 – Phase 4: Wirtschaft und Handel
+
+### Neu
+- Firmenkonto (`UWECompanyComponent`): 250 € Startkapital (Config), Cent-genau, nie negativ, letzte Buchungen; Anzeige oben rechts im HUD.
+- Markt (`UWEMarketComponent`): Nachfrage je Kategorie (0,8–1,2) mit langsamer Schwankung; Preise aus Wert, Zustand, Qualität, Nachfrage und Händlerfaktor.
+- 3 Händler als Data Assets: Schrotthandel Kowalski, Gebrauchtbörse 24, Werkzeug-Versand Hammerl – mit Ankaufskategorien, Angebot und Nachschub.
+- Online-Marktplatz-Terminal in der Garage ([E]): verkaufen aus dem Inventar oder den getragenen Gegenstand (an den besten Bieter), kaufen (Kleinteile ins Inventar, Großes auf die neue Lieferpalette am Tor).
+- Kundenaufträge (`UWEContractComponent`, Auftragskatalog mit 7 Vorlagen): 3 Angebote, annehmen, abliefern mit Mindestzustand, Fristen, Belohnung aufs Firmenkonto.
+- Handelsbildschirm mit Spalten Verkaufen / Kaufen / Kundenaufträge und letzten Buchungen.
+
+### Multiplayer und Sicherheit
+- Alle Käufe, Verkäufe und Auftragsaktionen laufen über Server-RPCs mit Reichweiten-, Zugriffs-, Geld- und Vorratsprüfung.
+- Schutz vor Doppelbuchungen: jede Anfrage trägt eine eindeutige ID, Wiederholungen werden ignoriert (im Netzwerk getestet).
+- Konto, Nachfrage, Aufträge und Vorrat werden an alle Spieler repliziert.
+
+### Balancing
+- Zustandsfaktoren angepasst; Teile aus defekten Geräten kommen gleich gut oder besser heraus. Gemessen: defekten PC kaufen, zerlegen, verkaufen ≈ +6 € Gewinn.
+
+### Technisch
+- Speicherformat Version 3 (Konto, Markt, Aufträge, Händlervorrat).
+- Neues Skript `Tools/Maps/build_economy.py`; Map um Terminal und Lieferpalette ergänzt.
+- 8 neue Automation-Tests (insgesamt 41), darunter ein Balance-Test mit echten Spieldaten; Netzwerktest-Rollen G/H; Screenshot-Lauf P4.
+- Nur in Entwicklungs-Builds: Teleport-RPC und Doppelsende-Hilfe für die Testautomatisierung.
+
 ## [0.3.0] – 2026-10-12 – Phase 3: Werkbank und Zerlegung
 
 ### Neu

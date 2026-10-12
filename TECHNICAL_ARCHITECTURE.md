@@ -61,8 +61,8 @@ Source (`Source/WorkshopEmpire/{Public,Private}/…`):
 | `Inventory/` | Inventarkomponente, Container | 2 ✓ |
 | `Save/` | SaveGame, Versionierung | 2 ✓ (Version 2 seit Phase 3) |
 | `Workshop/` | Werkbank, Zerlegeabläufe, Werkzeuge | 3 ✓ |
-| `Economy/` | Firmenkonto, Händler, Preise, Transaktionen | 4 |
-| `Contracts/` | Aufträge | 4–7 |
+| `Economy/` | Firmenkonto, Markt/Preise, Händler, Terminal, Aufträge | 4 ✓ |
+| `Contracts/` | (Aufträge liegen in `Economy/`, Ausbau in Phase 7) | 7 |
 | `Repair/` | Reparatursystem | 6 |
 | `Building/` | Platzierungssystem | 8 |
 | `Machines/`, `Production/` | Maschinen, Rezepte, Förderbänder | 9–10 |
@@ -79,14 +79,20 @@ Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data As
 - Log-Kategorien: `LogWorkshopEmpire` (allgemein), `LogWENet` (Netzwerk/Sessions); weitere pro System bei Bedarf.
 - Automation-Tests: `WorkshopEmpire.<Bereich>.<System>.<Fall>`.
 
-## 3. Klassen (Stand Phase 3)
+## 3. Klassen (Stand Phase 4)
 
 | Klasse | Datei | Aufgabe |
 |---|---|---|
 | `FWEMoney` | `WECore/Public/WEMoney.h` | Geldbetrag als `int64` Cent. `FromEuros`, `FromCents`, `TryAdd`/`TrySubtract` mit Überlaufprüfung, `ToDisplayString()` ("1.234,56 €"). BlueprintType, replizierbar. |
 | `LogWorkshopEmpire`, `LogWENet` | `WECore/Public/WELog.h` | Log-Kategorien |
-| `AWEGameMode` | `WorkshopEmpire/Public/Framework/WEGameMode.h` | Serverregeln. Setzt GameState/PlayerState/PlayerController und `AWECharacter` als Pawn. `MaxCoopPlayers` (Config, Standard 4); `PreLogin` lehnt weitere Spieler ab. `SaveToSlot`/`LoadFromSlot`, Autosave alle `AutosaveIntervalSeconds` (Config, 300 s), wendet den zuletzt geladenen Stand auf später beitretende Spieler an. |
-| `AWEGameState` | `.../Framework/WEGameState.h` | Platzhalter für den replizierten Unternehmenszustand (Konto, Freischaltungen). |
+| `AWEGameMode` | `WorkshopEmpire/Public/Framework/WEGameMode.h` | Serverregeln, setzt das Startkapital. Setzt GameState/PlayerState/PlayerController und `AWECharacter` als Pawn. `MaxCoopPlayers` (Config, Standard 4); `PreLogin` lehnt weitere Spieler ab. `SaveToSlot`/`LoadFromSlot`, Autosave alle `AutosaveIntervalSeconds` (Config, 300 s), wendet den zuletzt geladenen Stand auf später beitretende Spieler an. |
+| `AWEGameState` | `.../Framework/WEGameState.h` | Gemeinsamer Zustand aller Spieler: `UWECompanyComponent` (Konto), `UWEMarketComponent` (Nachfrage), `UWEContractComponent` (Kundenaufträge). |
+| `UWECompanyComponent` | `.../Economy/WECompanyComponent.h` | Firmenkonto in `FWEMoney` (Cent), nur der Server bucht (`Deposit`, `TryWithdraw`, nie unter 0, Überlaufschutz), letzte 12 Buchungen repliziert. `RegisterRequest(FGuid)`: jede Client-Anfrage trägt eine ID, Wiederholungen werden ignoriert (Schutz vor Doppelbuchung). Startkapital 250 € aus `AWEGameMode::StartingCapitalCents` (Config). |
+| `UWEMarketComponent` | `.../Economy/WEMarketComponent.h` | Nachfragefaktor je Kategorie (0,8–1,2, alle 5 min leichte Zufallsbewegung mit Zug zur Mitte, repliziert). Preisfunktionen: Marktwert = Schätzwert × Nachfrage; Ankauf durch Händler = 60 % × Händlerfaktor; Verkauf an Spieler = 130 % × Angebotsfaktor (kein Arbitrage-Gewinn möglich). |
+| `UWETraderDefinition` | `.../Economy/WETraderDefinition.h` | Data Asset je Händler: was er ankauft (Kategorie + Faktor), was er verkauft (Item, Menge, Zustand, Qualität, Preisfaktor), Nachschub-Intervall. |
+| `AWETraderTerminal`, `AWEDeliveryZone` | `.../Economy/WETraderTerminal.h` | Online-Marktplatz in der Garage: [E] öffnet den Handel. Server-Funktionen `SellFromInventory`, `SellHeldItem`, `Buy`, `AcceptContract`, `DeliverContract` mit Reichweite, Zugriff, Geld, Vorrat und Anfrage-ID. Verkauft wird an den Händler mit dem besten Preis. Reihenfolge innerhalb eines Handels: erst Ware bzw. Geld prüfen, dann buchen, dann übergeben. Kleinteile ins Inventar, sperrige Käufe auf die Lieferpalette. Vorrat repliziert. |
+| `UWEContractComponent`, `UWEContractCatalog` | `.../Economy/WEContractComponent.h` | Kundenaufträge aus Vorlagen (Data Asset): immer 3 Angebote, max. 3 angenommene, Frist, Belohnung = Marktwert × Faktor; Abliefern nimmt passende Gegenstände (Zustand mindestens X, nicht teilzerlegt) aus dem Inventar und zahlt aufs Firmenkonto. |
+| `UWETradeWidget`, `UWETradeRowWidget` | `.../UI/WETradeWidget.h` | Handelsbildschirm (C++-UMG): Konto, Verkaufen/Kaufen/Aufträge, letzte Buchungen. Baut Listen nur bei Änderungen neu. |
 | `AWEPlayerState` | `.../Framework/WEPlayerState.h` | Trägt das Spielerinventar (`UWEInventoryComponent`, 20 Plätze, 25 kg), damit es Respawns übersteht und pro Spieler gespeichert werden kann. |
 | `AWEPlayerController` | `.../Framework/WEPlayerController.h` | HUD und Inventarfenster (lokal). Server-RPCs für Inventar: `ServerMoveItem`, `ServerQuickTransfer`, `ServerDropFromInventory`, `ServerSortInventory`; Server prüft Zugriff (`CanUseInventory`). `ClientOpenContainer`, `ClientShowMessage`. Speichern/Laden nur für den Host (F5/F9, Konsole `WESave <Slot>`/`WELoad <Slot>`). |
 | `AWECharacter` | `.../Player/WECharacter.h` | First-Person-Charakter: Kamera (90° FOV, weiches Ducken), Gehen 300 / Sprinten 550 / Ducken 150 cm/s, Springen. Tragen: `HeldItem` (repliziert), `TryPickUpItem`/`DropHeldItem` nur auf dem Server, max. 30 kg. Ablegen dort, wo man hinschaut (bis 250 cm), sonst 110 cm vor dem Spieler. Lässt Gegenstände beim Verlassen (EndPlay) fallen. Platzhalter-Körper (Zylinder) für andere Spieler. |
@@ -108,7 +114,7 @@ Content (`Content/WorkshopEmpire/…`): `Maps/`, `Blueprints/`, `Data/` (Data As
 | `UWEHUDWidget` | `.../UI/WEHUDWidget.h` | C++-UMG-HUD ohne Widget-Asset: Fadenkreuz, "[E] Aufheben", "In der Hand: …", Untersuchen-Panel, Kurzmeldungen ("Gespeichert", "Inventar voll"). Liest nur Zustand. |
 | `UWEDevAutomationComponent` | `.../Dev/WEDevAutomationComponent.h` | Nur Nicht-Shipping: `-WESmokeRole=A|B` (Tragen), `C|D` (Inventar), `-WEShots=P1…` bzw. `P2…` (Screenshots, P2 inkl. Speichern/Laden). Nutzt dieselben Anfragewege wie echte Eingaben. |
 
-Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlaceholder`, `Materials/MI_WEGround`, `Data/Items/DA_Item_*` (18 Gegenstände), `Data/Disassembly/DIS_*` (3 Zerlegeabläufe), `Audio/SFX_*` (5 synthetisch erzeugte Platzhalter-Sounds). Alles wird reproduzierbar von `Tools/Maps/build_placeholder_material.py`, `build_audio.py`, `build_item_definitions.py` und `build_garage_map.py` erzeugt (in dieser Reihenfolge; mit `-RenderOffscreen`, nicht `-nullrhi`, weil die Engine beim Platzieren von Lichtern mit NullRHI abstürzt).
+Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlaceholder`, `Materials/MI_WEGround`, `Data/Items/DA_Item_*` (18 Gegenstände), `Data/Disassembly/DIS_*` (3 Zerlegeabläufe), `Data/Economy/` (3 Händler, Auftragskatalog), `Audio/SFX_*` (5 synthetisch erzeugte Platzhalter-Sounds). Alles wird reproduzierbar von `Tools/Maps/build_placeholder_material.py`, `build_audio.py`, `build_item_definitions.py`, `build_economy.py` und `build_garage_map.py` erzeugt (in dieser Reihenfolge; mit `-RenderOffscreen`, nicht `-nullrhi`, weil die Engine beim Platzieren von Lichtern mit NullRHI abstürzt).
 
 **Tragen – Entscheidung:** Statt Physics Handle werden getragene Gegenstände kinematisch an einen Haltepunkt vor der Kamera angehängt. Grund: Physics Handles ruckeln im Multiplayer (Client-Vorhersage gegen Server-Physik) und können Gegenstände durch Wände drücken. Beim Ablegen übernimmt wieder die Physik. Ein Physics Handle für schwere Objekte (z. B. Motor schieben) kann später ergänzt werden.
 
@@ -128,7 +134,7 @@ Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlac
 
 | Zustand | Ort | Repliziert an |
 |---|---|---|
-| Firmenkonto, Unternehmensstufe, Freischaltungen | `AWEGameState` (bzw. ein `UWECompanyComponent` daran) | alle |
+| Firmenkonto, Marktnachfrage, Kundenaufträge (später Unternehmensstufe, Freischaltungen) | Komponenten an `AWEGameState` | alle |
 | Spielername, persönliche Statistik | `AWEPlayerState` | alle |
 | Spielerinventar | `UWEInventoryComponent` am `AWEPlayerState` | alle (Fast Array, nur Änderungen). Zugriff (verschieben/entnehmen) nur für den Besitzer, serverseitig geprüft. Eine Einschränkung der Sichtbarkeit auf den Besitzer ist für später vorgemerkt (bei 4 Spielern unkritisch). |
 | Weltgegenstände | Item-Actor, `bReplicates`, Dormancy wenn ruhend | relevante Clients |
@@ -139,7 +145,7 @@ Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlac
 
 **Konflikte (Spec §17.6):** Server verarbeitet RPCs sequenziell im Game-Thread; jede Aktion prüft vor Ausführung erneut den aktuellen Zustand (z. B. "liegt der Gegenstand noch da / gehört er niemandem"). Getragene Gegenstände sind über `Holder` serverseitig reserviert und werden beim Verlassen freigegeben. Ein eingesteckter Gegenstand verschwindet im selben Server-Frame aus der Welt, eine zweite Anfrage findet ihn nicht mehr.
 
-**Geld:** nur über `FWEMoney`, nur auf dem Server verändert, keine Float-Beträge.
+**Geld:** nur über `FWEMoney`, nur auf dem Server verändert, keine Float-Beträge (Preisfaktoren werden einmal pro Rechnung auf ganze Cent gerundet). Jede Kauf-/Verkaufs-/Auftragsanfrage trägt eine GUID; der Server merkt sich die letzten 512 und ignoriert Wiederholungen (im Netzwerktest geprüft).
 
 **Performance:** keine Ticks für Maschinen/Items; stattdessen Timer und ein zentraler Simulations-Manager (Subsystem) mit festem Intervall. Net-Dormancy für ruhende Objekte, `NetUpdateFrequency` pro Klasse.
 
@@ -151,7 +157,7 @@ Content: `Content/WorkshopEmpire/Maps/L_Garage` (Start-Map), `Materials/M_WEPlac
 
 - **Wer speichert:** nur der Host/Server (`FWESaveSystem`, aufgerufen von `AWEGameMode`). Clients sehen eine Meldung "Nur der Host kann speichern".
 - **Wann:** F5 = Schnellspeichern (Slot `Quicksave`), F9 = Schnellladen, Konsole `WESave <Slot>` / `WELoad <Slot>` für beliebig viele benannte Spielstände, Autosave alle 300 s (Slot `Autosave`).
-- **Was:** `UWESaveGame` (Version 2; Version-1-Stände bleiben lesbar, fehlende Felder = Standardwert): Kartenname, Zeitpunkt, Spieler (Schlüssel "Host" bzw. Unique Net Id, Position, Blickrichtung, Inventar), alle Weltgegenstände (Item inkl. Zerlegefortschritt + Transform; getragene an der Ablegeposition; auf einer Werkbank liegende werden dort wieder abgelegt), alle Lager (über den stabilen Actor-Namen in der Map), Torzustände. Gegenstände werden über die stabile `ItemId` gespeichert, nicht über den Asset-Pfad; unbekannte Ids werden beim Laden übersprungen und geloggt.
+- **Was:** `UWESaveGame` (Version 3; ältere Stände bleiben lesbar, fehlende Felder = Standardwert, das Konto bleibt dann unverändert): Kartenname, Zeitpunkt, Spieler (Schlüssel "Host" bzw. Unique Net Id, Position, Blickrichtung, Inventar), alle Weltgegenstände (Item inkl. Zerlegefortschritt + Transform; getragene an der Ablegeposition; auf einer Werkbank liegende werden dort wieder abgelegt), alle Lager (über den stabilen Actor-Namen in der Map), Torzustände, Firmenkonto, Marktnachfrage, Kundenaufträge (Restzeit), Händlervorrat. Gegenstände werden über die stabile `ItemId` gespeichert, nicht über den Asset-Pfad; unbekannte Ids werden beim Laden übersprungen und geloggt.
 - **Dateiformat:** `Saved/SaveGames/WorkshopEmpire/<Slot>.wesave` = Kopf (`WESV`, Formatversion, Größe, CRC32) + UE-SaveGame-Daten.
 - **Schutz vor beschädigten Spielständen:** Schreiben in `<Slot>.tmp`, alter Stand wird zu `<Slot>.bak`, dann Umbenennen. Beim Laden werden Kopf, Größe und CRC geprüft, bevor deserialisiert wird; ist die Hauptdatei kaputt, wird die `.bak` geladen. Neuere Spielstandversionen und andere Karten werden mit Meldung abgelehnt. Ungültige Slot-Namen (z. B. `../`) werden abgelehnt.
 - **Laden:** ersetzt alle Weltgegenstände, setzt Lager und Tore, stellt verbundene Spieler wieder her; später beitretende Spieler bekommen ihren Stand beim Login.

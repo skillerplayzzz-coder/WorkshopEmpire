@@ -2,39 +2,39 @@
 
 ## Aktuelle Phase
 
-**Phase 3 – Werkbank und Zerlegung: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 4 wurde nicht begonnen.
+**Phase 4 – Wirtschaft und Handel: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 5 wurde nicht begonnen.
 
 ## Abgeschlossen
 
 ### Phase 0 – Setup (2026-10-12)
-- Umgebung geprüft (UE 5.7.4, VS 2026), C++-Projekt mit Modulen `WECore`, `WorkshopEmpire`, `WorkshopEmpireTests`
-- Game Framework mit Koop-Limit 4, Geldtyp `FWEMoney`, Doku, Git
+- Umgebung geprüft (UE 5.7.4, VS 2026), C++-Projekt mit Modulen `WECore`, `WorkshopEmpire`, `WorkshopEmpireTests`, Doku, Git
 
 ### Phase 1 – First-Person-Prototyp (2026-10-12)
-- Bewegung, Interaktionssystem mit Hinweisen, Tragen/Ablegen/Untersuchen, Garagentor, Platzhalter-Garage
-- Server-autoritativ mit Reichweitenprüfung und Konfliktschutz
+- Bewegung, Interaktion, Tragen/Ablegen/Untersuchen, Garagentor, Platzhalter-Garage; server-autoritativ
 
 ### Phase 2 – Items und Inventar (2026-10-12)
-- Datengetriebene Gegenstände (Data Assets), Item-Instanzen mit Zustand/Qualität/Menge/ID
-- Spielerinventar, Werkbank- und Regallager, Stapeln, Inventarfenster mit Drag & Drop
-- Speichern/Laden mit Slots, Autosave und Schutz gegen beschädigte Dateien
+- Datengetriebene Gegenstände, Inventar mit Drag & Drop, Lager, Speichern/Laden mit Schutz gegen beschädigte Dateien
 
 ### Phase 3 – Werkbank und Zerlegung (2026-10-12)
-- Werkbank: sperrigen Gegenstand tragen und mit [E] auf die Werkbank legen, mit [R] wieder herunternehmen
-- Wiederverwendbare Zerlegeabläufe als Data Assets: Alter Computer (7 Schritte), Röhrenmonitor (4), Karton mit Kabeln (1)
-- Werkzeuge: Schraubendreher, Seitenschneider (in der Garage), Akkuschrauber (definiert, ×2,5 schneller, noch nicht in der Welt)
-- Ergebnisse: Komponenten (Grafikkarte, Arbeitsspeicher, Netzteil, Mainboard) mit vererbtem Zustand und Rohstoffe (Stahlschrott, Kunststoffteile, Kupferkabel, Glasbruch, Elektronikschrott, Schrauben)
-- Feedback: Fortschrittsbalken, Leiste an der Werkbank, Meldung mit den gewonnenen Teilen, 5 selbst erzeugte Sounds
-- Koop: ein Arbeitsschritt gleichzeitig, wer weggeht bekommt nichts, beide Spieler sehen dieselbe Werkbank
-- Speichern: Zerlegefortschritt und Gegenstand auf der Werkbank (Speicherversion 2)
+- Werkbank mit schrittweisem Zerlegen, Werkzeuge, Komponenten und Rohstoffe, Feedback, Sounds
+
+### Phase 4 – Wirtschaft und Handel (2026-10-12)
+- Firmenkonto: 250 € Startkapital, Cent-genau, nur der Server bucht, Schutz vor Doppelbuchungen
+- Markt mit schwankender Nachfrage je Kategorie; Preise aus Wert, Zustand, Qualität, Nachfrage und Händler
+- Online-Marktplatz-Terminal in der Garage mit 3 Händlern (Schrotthandel, Gebrauchtbörse, Werkzeug-Versand)
+- Verkaufen (aus dem Inventar oder den getragenen Gegenstand), Kaufen (Kleinteile ins Inventar, Großes auf die Lieferpalette)
+- Kundenaufträge: Angebote, Annehmen, Abliefern, Fristen, Belohnung aufs Firmenkonto
+- Kontoanzeige im HUD, Handelsbildschirm mit letzten Buchungen
+- Balancing: defekter PC kaufen → zerlegen → verkaufen bringt im Schnitt ca. 6 € Gewinn
+- Speicherversion 3 (Konto, Markt, Aufträge, Vorrat)
 
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 3 (Anleitung im Development Report), Sounds anhören
-- Mike: offene Produktentscheidungen in GAME_DESIGN.md §7
+- Mike: Praxistest Phase 4 (Anleitung im Development Report)
+- Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager (Phase 8); kleine Gegenstände aus dem Inventar auf die Werkbank legen; Werkzeugtasche
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager
 
 ## Bekannte Fehler
 
@@ -42,8 +42,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 4 – Wirtschaft und Handel: Firmenkonto (250 € Startkapital, `FWEMoney`, serverseitig), Händler mit Kauf- und Verkaufspreisen (abhängig von Zustand, Qualität, Nachfrage), Gegenstände verkaufen und kaufen, erste Kundenaufträge, Transaktionsprüfungen gegen Doppelbuchungen.
+Phase 5 – Erster vollständiger Gameplay-Loop (Vertical Slice): beschaffen → zerlegen → verkaufen → Werkzeuge kaufen → Werkstatt verbessern → Fortschritt speichern, als zusammenhängender, wiederholbarer Ablauf mit erstem Werkstatt-Upgrade und Spielstart-Ablauf. Laut Spezifikation besonders gründlich zu testen.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 33/33 Automation-Tests, Netzwerktests Phase 1–3 bestanden, Zerlegung im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 41/41 Automation-Tests, Netzwerktests A/B, C/D, E/F, G/H bestanden, Handel im Spiel mit Screenshots geprüft.

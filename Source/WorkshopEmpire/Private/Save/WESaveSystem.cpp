@@ -18,6 +18,10 @@
 #include "WELog.h"
 #include "World/WEGarageDoor.h"
 #include "Workshop/WEWorkbench.h"
+#include "Economy/WECompanyComponent.h"
+#include "Economy/WEContractComponent.h"
+#include "Economy/WEMarketComponent.h"
+#include "Economy/WETraderTerminal.h"
 
 #define LOCTEXT_NAMESPACE "WESaveSystem"
 
@@ -186,6 +190,38 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	{
 		Save->Doors.Add({ It->GetFName(), It->IsOpen() });
 	}
+
+	// Economy (version 3).
+	if (const UWECompanyComponent* Company = UWECompanyComponent::Get(World))
+	{
+		Save->CompanyBalanceCents = Company->GetBalance().GetCents();
+	}
+	if (const UWEMarketComponent* Market = UWEMarketComponent::Get(World))
+	{
+		Save->MarketDemand = Market->GetAllDemand();
+	}
+	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(World))
+	{
+		const float Now = Contracts->GetServerTime();
+		for (const FWEContract& Contract : Contracts->GetContracts())
+		{
+			FWESavedContract& Saved = Save->Contracts.AddDefaulted_GetRef();
+			Saved.Id = Contract.Id;
+			Saved.Title = Contract.Title.ToString();
+			Saved.ItemId = Contract.Item ? Contract.Item->ItemId : NAME_None;
+			Saved.Quantity = Contract.Quantity;
+			Saved.MinCondition = Contract.MinCondition;
+			Saved.RewardCents = Contract.Reward.GetCents();
+			Saved.bAccepted = Contract.State == EWEContractState::Accepted;
+			Saved.RemainingSeconds = FMath::Max(0.f, Contract.ExpiresAt - Now);
+			Saved.DeliverySeconds = Contract.DeliverySeconds;
+			Saved.AcceptedBy = Contract.AcceptedBy;
+		}
+	}
+	for (TActorIterator<AWETraderTerminal> It(World); It; ++It)
+	{
+		Save->Stocks.Add({ It->GetFName(), It->GetStockRemaining() });
+	}
 	return Save;
 }
 
@@ -248,6 +284,50 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 			{
 				Door->SetOpen(Saved->bOpen);
 			}
+		}
+		if (AWETraderTerminal* Terminal = Cast<AWETraderTerminal>(Actor))
+		{
+			if (const FWESavedStock* Saved = Save->Stocks.FindByPredicate([Terminal](const FWESavedStock& S) { return S.ActorName == Terminal->GetFName(); }))
+			{
+				Terminal->SetStockRemaining(Saved->Remaining);
+			}
+		}
+	}
+
+	// Economy (version 3; older saves keep the current account and market).
+	if (Save->CompanyBalanceCents >= 0)
+	{
+		if (UWECompanyComponent* Company = UWECompanyComponent::Get(World))
+		{
+			Company->SetBalance(FWEMoney::FromCents(Save->CompanyBalanceCents));
+		}
+		if (UWEMarketComponent* Market = UWEMarketComponent::Get(World); Market && Save->MarketDemand.Num() > 0)
+		{
+			Market->SetAllDemand(Save->MarketDemand);
+		}
+		if (UWEContractComponent* Contracts = UWEContractComponent::Get(World))
+		{
+			const float Now = Contracts->GetServerTime();
+			TArray<FWEContract> Restored;
+			for (const FWESavedContract& Saved : Save->Contracts)
+			{
+				FWEContract Contract;
+				Contract.Id = Saved.Id;
+				Contract.Title = FText::FromString(Saved.Title);
+				Contract.Item = UWEItemDefinition::FindById(Saved.ItemId);
+				Contract.Quantity = Saved.Quantity;
+				Contract.MinCondition = Saved.MinCondition;
+				Contract.Reward = FWEMoney::FromCents(Saved.RewardCents);
+				Contract.State = Saved.bAccepted ? EWEContractState::Accepted : EWEContractState::Offered;
+				Contract.ExpiresAt = Now + Saved.RemainingSeconds;
+				Contract.DeliverySeconds = Saved.DeliverySeconds;
+				Contract.AcceptedBy = Saved.AcceptedBy;
+				if (Contract.Item)
+				{
+					Restored.Add(Contract);
+				}
+			}
+			Contracts->SetContracts(Restored);
 		}
 	}
 

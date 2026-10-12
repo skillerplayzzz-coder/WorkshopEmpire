@@ -49,6 +49,15 @@ protected:
 	void RunSmokeRoleD();
 	void RunInventoryShots();
 
+	// Phase 4: economy scenarios (-WESmokeRole=G|H, -WEShots=P4...)
+	void RunSmokeRoleG();
+	void RunSmokeRoleH();
+	void RunEconomyShots();
+	class AWETraderTerminal* FindTerminal() const;
+	void TeleportToTerminal(float SideOffset) const;
+	void LogEconomyState(const TCHAR* Step) const;
+	int32 FindOfferIndex(const FString& ItemName) const;
+
 	// Phase 3: workbench scenarios (-WESmokeRole=E|F, -WEShots=P3...)
 	void RunSmokeRoleE();
 	void RunSmokeRoleF();

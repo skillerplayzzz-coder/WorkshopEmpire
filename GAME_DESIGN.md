@@ -1,6 +1,6 @@
 # WORKSHOP EMPIRE – Game Design
 
-Stand: Phase 3 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
+Stand: Phase 4 (2026-10-12). Vollständige Spezifikation: `Docs/MASTER_PROMPT_V1.0.md`. Dieses Dokument fasst die Designentscheidungen zusammen und wird mit jeder Phase präzisiert.
 
 ## 1. Spielkonzept
 
@@ -75,7 +75,7 @@ Im Inventar: Ziehen = verschieben, Shift+Ziehen = halber Stapel, Doppelklick = z
 | Röhrenmonitor | 4 | Schrauben, Kunststoff, Elektronikschrott, Kupferkabel, Glasbruch, Stahlschrott |
 | Karton mit Kabeln | 1 | Kupferkabel, Kunststoffteile |
 
-Komponenten erben den Zustand der Quelle (±1 Stufe) und eine leicht schwankende Qualität; Rohstoffe stapeln immer. Im Koop arbeitet immer nur ein Spieler gleichzeitig an einer Werkbank, die Spieler können sich aber abwechseln.
+Komponenten kommen im Zustand der Quelle oder bis zu zwei Stufen besser heraus (ein defektes Gerät hat meist nur ein kaputtes Teil) und mit leicht schwankender Qualität; Rohstoffe stapeln immer. Im Koop arbeitet immer nur ein Spieler gleichzeitig an einer Werkbank, die Spieler können sich aber abwechseln.
 
 Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromotor, 45 kg) brauchen später Hilfsmittel (Hubwagen, Gabelstapler) oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
 
@@ -87,7 +87,21 @@ Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromo
 - Preisfaktoren: Zustand, Qualität, Materialwert, Nachfrage, Seltenheit, Bearbeitungskosten, Marktschwankung.
 - Balance-Leitlinie: kleine Gewinne am Anfang, keine schnelle Eskalation, Millionen erst spät.
 
-**Offene Designfrage (für Phase 4):** Gibt es neben dem Firmenkonto ein persönliches Spielerkonto im Koop? Vorschlag: nein, nur Firmenkonto (einfacher, passt zu "gemeinsames Unternehmen").
+### 4.1 Stand Phase 4
+
+- **Firmenkonto:** Start 250 €, ein gemeinsames Konto für alle Koop-Spieler (kein persönliches Konto – so umgesetzt, bis Mike anders entscheidet).
+- **Preise:** Marktwert = Grundwert × Zustandsfaktor (Neu 1,0 · Sehr gut 0,85 · Gebraucht 0,7 · Beschädigt 0,5 · Defekt 0,3 · Schrott 0,1) × Qualitätsfaktor (0,75–1,25) × Nachfrage der Kategorie (0,8–1,2, ändert sich alle 5 Minuten leicht). Händler zahlen 60 % davon (× eigener Faktor je Kategorie), beim Kauf zahlt man 130 %.
+- **Händler** (am Online-Marktplatz in der Garage):
+
+| Händler | kauft an | verkauft |
+|---|---|---|
+| Schrotthandel Kowalski | Rohstoffe, Metallschrott (besser), Ersatzteile (schlechter), Motoren | Kabelkartons, alte Elektromotoren |
+| Gebrauchtbörse 24 | Elektronik, Ersatzteile, Haushaltsgeräte, Werkzeug, Sammlerstücke | defekte Computer, Röhrenmonitore, RAM |
+| Werkzeug-Versand Hammerl | Werkzeug (schlecht) | Schraubendreher, Seitenschneider, Akkuschrauber |
+
+- **Lieferung:** Kleinteile ins Inventar, Großes auf die Lieferpalette am Tor. Händler füllen ihren Vorrat alle 10–30 Minuten auf.
+- **Kundenaufträge:** immer 3 Angebote (verschwinden nach 10 Minuten), höchstens 3 angenommene gleichzeitig, Frist 15–30 Minuten, Belohnung ca. 1,3–1,7 × Marktwert. Beispiele: "Bastler sucht Arbeitsspeicher", "Elektriker sucht Kupferkabel", "Recyclinghof nimmt Stahlschrott".
+- **Gemessene Startbalance:** Defekten PC kaufen (14,43 €) → zerlegen → Teile verkaufen bringt im Schnitt 20,57 €, also etwa 6 € Gewinn in ein paar Minuten. Über Aufträge mehr. Ein Akkuschrauber (ca. 69 €) ist das erste sinnvolle Sparziel.
 
 ## 5. Progression (Designziele, durch Playtests zu prüfen)
 
@@ -106,7 +120,7 @@ Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Ba
 
 ## 7. Offene Produktentscheidungen (Mike)
 
-1. Persönliches Konto zusätzlich zum Firmenkonto im Koop? (Vorschlag: nein)
+1. Persönliches Konto zusätzlich zum Firmenkonto im Koop? (Vorschlag: nein – vorerst so umgesetzt: nur Firmenkonto)
 2. Referenzhardware für das 60-FPS-Ziel (Vorschlag: RTX 3060 / Ryzen 5900X als "empfohlen")
 3. Sprache der Spieltexte zuerst Deutsch, Englisch, oder beides von Anfang an? (Vorschlag: Texte von Anfang an als lokalisierbare FText, Start auf Deutsch – so umgesetzt in Phase 1)
 4. Sollen zwei Spieler schwere Gegenstände gemeinsam tragen können? (Vorschlag: ja, als Koop-Mechanik in Phase 13; bis dahin Hilfsmittel)

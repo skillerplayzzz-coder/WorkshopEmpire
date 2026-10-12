@@ -17,6 +17,48 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 4 – Lauf vom 2026-10-12
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **41/41 bestanden, 0 mit Warnungen** (33 alte + 8 neue), Bericht `Saved/TestReports/Phase4/index.json` |
+| ↳ `Economy.CompanyAccount` (Start 250 €, nie unter 0, negative Beträge abgelehnt, Buchungsliste, doppelte/ungültige Anfrage-ID abgelehnt) | ✅ |
+| ↳ `Economy.PricingRules` (Neu 10 € → Händler zahlt 6,00 €, Nachfrage 1,2 → 7,20 €, Zustand, Begrenzung 0,8–1,2 auch nach 200 Schritten, Kategorie ohne Käufer = 0, teilzerlegt = 0, Kaufpreis > Verkaufspreis) | ✅ |
+| ↳ `Economy.SellFromInventory` (4 Schrauben = +2,40 €, gleiche Anfrage zweimal = einmal gebucht, fremdes Inventar, zu weit weg) | ✅ |
+| ↳ `Economy.BuyStockAndDelivery` (RAM 13,00 € ins Inventar, PC auf die Palette, Vorrat, ausverkauft, zu wenig Geld ändert nichts) | ✅ |
+| ↳ `Economy.SellCarriedItem`, `Economy.CustomerOrders` (Angebote, Belohnung, Annehmen, Mindestzustand, Abliefern, Limit 3, Ablauf) | ✅ |
+| ↳ `Economy.BalanceDefectivePcIsProfitable` (echte Spieldaten, 30 Durchläufe: kaufen → zerlegen → verkaufen) | ✅ Kosten 14,43 €, Teile im Schnitt 20,57 €, **Gewinn 6,14 €** |
+| ↳ `Save.EconomyRoundTrip` (Version 3: Konto, Nachfrage, Vorrat, angenommener Auftrag) | ✅ |
+| Erzeugung der Händler- und Auftragsdaten und der Map per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P4`): Terminal → Handel öffnen → 50 Schrauben und 2 Kabel verkaufen → defekten PC und Akkuschrauber kaufen → Auftrag annehmen → Lieferpalette | ✅ 6 Screenshots geprüft; Konto 250,00 → 252,56 → 169,39 €, PC steht auf der Palette, Akkuschrauber im Inventar |
+| **Netzwerktest Wirtschaft** (`-WESmokeRole=G/H`) | ✅ G verkauft 10 Schrauben mit **derselben Anfrage-ID zweimal** → Server bucht einmal (+0,28 €) und meldet die Wiederholung; H sieht denselben Kontostand. Beide kaufen gleichzeitig den **einzigen Elektromotor** → nur G bekommt ihn, H erhält "Nicht mehr vorrätig", Konto −18,95 € einmal, 2 Motoren in der Welt (Original + 1 gekaufter). G nimmt einen Auftrag an, H sieht "angenommen von …". |
+| **Regression Netzwerktests A/B, C/D, E/F** | ✅ unverändert |
+
+### Behobene Fehler / Anpassungen in Phase 4
+
+| Problem | Ursache | Behebung |
+|---|---|---|
+| Defekten PC kaufen und zerlegen hätte nach meiner Überschlagsrechnung Verlust gebracht (~14 € Einkauf, ~13 € Teile) | Teile erbten den schlechten Zustand des Geräts | Teile kommen gleich gut oder bis 2 Stufen besser heraus; Zustandsfaktoren angepasst (Defekt 0,3, Schrott 0,1). Jetzt per Test gemessen: +6,14 € im Schnitt |
+| Test `Save.WorkbenchProgress` erwartete Version 2 | Speicherversion ist jetzt 3 | prüft die aktuelle Version |
+| Compilerfehler (`Slot` verdeckt UWidget-Member, Referenz auf `TObjectPtr`) | – | umbenannt / Signatur angepasst |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Klicken mit echter Maus im Handelsbildschirm | Mikes Praxistest; die Knöpfe rufen dieselben Funktionen wie die getesteten |
+| Nachschub nach 10–30 Minuten, Nachfrageänderung nach 5 Minuten, Auftragsfrist im Spiel ablaufen lassen | Nicht abgewartet; dieselben Funktionen sind in Unit-Tests direkt aufgerufen |
+| Aufträge im Netzwerk abliefern | Nur Annehmen im Netzwerktest; Abliefern im Unit-Test |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Die Preise sind erste Werte; das Balancing über viele Spielstunden folgt in Phase 16.
+
+---
+
 ## Phase 3 – Lauf vom 2026-10-12
 
 ### Ausgeführt
