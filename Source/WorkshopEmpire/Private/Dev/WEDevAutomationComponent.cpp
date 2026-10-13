@@ -22,6 +22,10 @@
 #include "Economy/WEContractComponent.h"
 #include "Economy/WETraderTerminal.h"
 #include "UObject/UObjectIterator.h"
+#include "Components/LightComponent.h"
+#include "Engine/Light.h"
+#include "Items/WEItemDefinition.h"
+#include "Progression/WEProgressionComponent.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
 {
@@ -83,6 +87,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("H"))
 	{
 		RunSmokeRoleH();
+	}
+	else if (Role == TEXT("I"))
+	{
+		RunSmokeRoleI();
+	}
+	else if (Role == TEXT("J"))
+	{
+		RunSmokeRoleJ();
+	}
+	else if (ShotName.StartsWith(TEXT("P5")))
+	{
+		RunLoopShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P4")))
 	{
@@ -718,4 +734,139 @@ void UWEDevAutomationComponent::RunEconomyShots()
 	});
 	Schedule(15.5f, [this]() { Shot(TEXT("06_Lieferpalette")); });
 	Schedule(16.5f, [this]() { Quit(); });
+}
+
+// --- Phase 5: full loop and progression ----------------------------------------------------------
+
+void UWEDevAutomationComponent::LogProgressState(const TCHAR* Step) const
+{
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const AWEPlaceholderProp* Shelf2 = nullptr;
+	for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It)
+	{
+		Shelf2 = It->GetRequiredUpgrade() == TEXT("SecondShelf") ? *It : Shelf2;
+	}
+	float Lamp = -1.f;
+	for (TActorIterator<ALight> It(GetWorld()); It && Lamp < 0.f; ++It)
+	{
+		Lamp = It->ActorHasTag(TEXT("WE_WorkshopLight")) && It->GetLightComponent() ? It->GetLightComponent()->Intensity : Lamp;
+	}
+	TArray<FString> Owned;
+	if (Progression)
+	{
+		for (const FName& Id : Progression->GetOwnedUpgrades())
+		{
+			Owned.Add(Id.ToString());
+		}
+	}
+	const AWEWorkbench* Bench = FindBench();
+	const UWEInventoryComponent* Mine = GetMyInventory();
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Balance=%s Upgrades=[%s] Guide=%d Shelf2=%s Lamp=%.1f MyMaxKg=%.1f BenchSlots=%d Mine=%s"),
+		*Role, Step, Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"), *FString::Join(Owned, TEXT(",")),
+		Progression ? Progression->GetGuideStep() : -1,
+		Shelf2 ? (Shelf2->IsUnlocked() && !Shelf2->IsHidden() ? TEXT("visible") : TEXT("locked")) : TEXT("<none>"),
+		Lamp, Mine ? Mine->GetMaxWeightKg() : 0.f, Bench ? Bench->GetStorage()->GetNumSlots() : 0, *DescribeInventory(Mine));
+}
+
+void UWEDevAutomationComponent::SellAllParts()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	UWEInventoryComponent* Mine = GetMyInventory();
+	if (!PC || !Mine)
+	{
+		return;
+	}
+	for (const FWEInventorySlotData& Slot : Mine->GetAllSlots())
+	{
+		if (Slot.Item.Definition && Slot.Item.Definition->ToolType == EWEToolType::None)
+		{
+			PC->RequestSell(FindTerminal(), Mine, Slot.SlotIndex, 0);
+		}
+	}
+}
+
+void UWEDevAutomationComponent::RunLoopShots()
+{
+	// The complete vertical slice in one unattended run, through normal player requests.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(3.0f, [this]() { StoreItem(TEXT("Schraubendreher")); StoreItem(TEXT("Seitenschneider")); });
+	Schedule(4.5f, [this]() { LookAt(FindItemByName(TEXT("Computer"))); LogProgressState(TEXT("S0 tools stored")); });
+	Schedule(5.5f, [this]() { Shot(TEXT("01_Leitfaden")); });
+	Schedule(6.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindItemByName(TEXT("Computer"))); } });
+	Schedule(6.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-250.f, 0.f, 100.f), FRotator(0.f, 180.f, 0.f)); } }); // walk to the bench
+	Schedule(7.5f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(8.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(9.0f, [this]() { Shot(TEXT("02_Auf_der_Werkbank")); LogBenchState(TEXT("S1 placed")); StartAutoSteps(); });
+	Schedule(38.0f, [this, PC]()
+	{
+		LogBenchState(TEXT("S2 disassembled"));
+		if (AWEWorkbench* B = FindBench(); B && PC) { LookAtPoint(B->GetWorkSpotLocation()); PC->OpenInventory(B->GetStorage()); }
+	});
+	Schedule(39.0f, [this]() { Shot(TEXT("03_Werkbanklager")); });
+	Schedule(39.5f, [this, PC]() { if (AWEWorkbench* B = FindBench(); B && PC) { PC->RequestTakeAll(B->GetStorage()); } });
+	Schedule(40.5f, [this]() { Shot(TEXT("04_Alles_genommen")); LogProgressState(TEXT("S3 took all")); });
+	Schedule(41.0f, [this, PC]() { if (PC) { PC->CloseInventory(); } TeleportToTerminal(0.f); });
+	Schedule(42.5f, [this, PC]() { LookAt(FindTerminal()); if (PC) { PC->OpenTrade(FindTerminal()); } });
+	Schedule(43.5f, [this]() { Shot(TEXT("05_Markt_mit_Upgrades")); SellAllParts(); });
+	Schedule(45.0f, [this]() { Shot(TEXT("06_Teile_verkauft")); LogProgressState(TEXT("S4 sold parts")); });
+	Schedule(45.5f, [this, PC]()
+	{
+		if (PC)
+		{
+			PC->RequestBuyUpgrade(FindTerminal(), TEXT("LedLights"));
+			PC->RequestBuyUpgrade(FindTerminal(), TEXT("SecondShelf"));
+		}
+	});
+	Schedule(47.0f, [this]() { Shot(TEXT("07_Upgrades_gekauft")); LogProgressState(TEXT("S5 bought upgrades")); });
+	Schedule(47.5f, [this, PC]()
+	{
+		if (PC) { PC->CloseTrade(); }
+		LookAtPoint(FVector(150.f, -272.f, 110.f));
+	});
+	Schedule(49.0f, [this]() { Shot(TEXT("08_Regal2_und_LED")); });
+	Schedule(49.5f, [this, PC]() { if (PC) { PC->RequestSave(TEXT("DevP5")); } });
+	Schedule(50.5f, [this]() { Shot(TEXT("09_Gespeichert_Leitfaden_fertig")); LogProgressState(TEXT("S6 saved")); });
+	Schedule(51.0f, [this, PC]() { if (PC) { PC->RequestLoad(TEXT("DevP5")); } });
+	Schedule(53.0f, [this]() { LookAtPoint(FVector(150.f, -272.f, 110.f)); LogProgressState(TEXT("S7 after load")); });
+	Schedule(54.0f, [this]() { Shot(TEXT("10_Nach_dem_Laden")); });
+	Schedule(55.0f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleI()
+{
+	// Listen-server host: buys two upgrades and saves; must later see the client's purchase.
+	Schedule(10.f, [this]() { TeleportToTerminal(-40.f); });
+	Schedule(12.f, [this]() { LogProgressState(TEXT("I0 host at terminal")); });
+	Schedule(50.f, [this]()
+	{
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner()))
+		{
+			PC->RequestBuyUpgrade(FindTerminal(), TEXT("LedLights"));
+			PC->RequestBuyUpgrade(FindTerminal(), TEXT("SecondShelf"));
+		}
+	});
+	Schedule(53.f, [this]() { LogProgressState(TEXT("I1 host bought LED+shelf")); });
+	Schedule(56.f, [this]() { if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner())) { PC->RequestSave(TEXT("DevNetP5")); } });
+	Schedule(58.f, [this]() { LogProgressState(TEXT("I2 host saved")); });
+	Schedule(78.f, [this]() { LogProgressState(TEXT("I3 host final")); });
+	Schedule(80.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleJ()
+{
+	// Client: must see the host's upgrades (shelf, lamps), cannot buy one twice, and its own purchase reaches everyone.
+	Schedule(8.f, [this]() { TeleportToTerminal(40.f); });
+	Schedule(10.f, [this]() { LogProgressState(TEXT("J0 client joined")); });
+	Schedule(30.f, [this]() { LogProgressState(TEXT("J1 client sees host upgrades")); });
+	Schedule(32.f, [this]()
+	{
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner()))
+		{
+			PC->RequestBuyUpgrade(FindTerminal(), TEXT("LedLights")); // already owned: refused
+			PC->RequestBuyUpgrade(FindTerminal(), TEXT("ToolBelt"));
+		}
+	});
+	Schedule(35.f, [this]() { LogProgressState(TEXT("J2 client bought tool belt")); });
+	Schedule(40.f, [this]() { Quit(); });
 }

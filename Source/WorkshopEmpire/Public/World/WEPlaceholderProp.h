@@ -34,7 +34,17 @@ public:
 	/** Height of the main surface (bench top / lowest shelf board) in cm. */
 	float GetSurfaceHeight() const;
 
-	bool HasStorage() const { return bHasStorage; }
+	bool HasStorage() const { return bHasStorage && bUnlocked; }
+
+	/** Upgrade id this furniture needs (None = always there). */
+	FName GetRequiredUpgrade() const { return RequiredUpgrade; }
+
+	/** Shows/hides the furniture and its collision (bought upgrade). Any machine. */
+	void SetUnlocked(bool bInUnlocked);
+	bool IsUnlocked() const { return bUnlocked; }
+
+	/** Extra storage slots from upgrades (applied on every machine). */
+	void SetStorageBonusSlots(int32 Bonus);
 	UWEInventoryComponent* GetStorage() const { return Storage; }
 
 	// IWEInteractable
@@ -78,4 +88,11 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Storage", meta = (EditCondition = "bHasStorage", Units = "kg"))
 	float StorageMaxWeightKg = 150.f;
+
+	/** If set, the furniture is hidden until the company owns this upgrade. */
+	UPROPERTY(EditAnywhere, Category = "Prop")
+	FName RequiredUpgrade;
+
+	bool bUnlocked = true;
+	int32 StorageBonusSlots = 0;
 };

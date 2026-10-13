@@ -73,6 +73,13 @@ protected:
 
 	void UpdateWorkProgress();
 
+	/** "Erste Schritte" / next goal, top left. */
+	UPROPERTY(Transient)
+	TObjectPtr<UBorder> GuidePanel;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> GuideText;
+
 	/** Company balance, top right. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> BalanceText;

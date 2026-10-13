@@ -17,6 +17,49 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 5 – Lauf vom 2026-10-13
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **46/46 bestanden, 0 mit Warnungen** (41 alte + 5 neue), Bericht `Saved/TestReports/Phase5/index.json` |
+| ↳ `Loop.FullVerticalSlice` (**echte Spieldaten**, dieselben Server-Funktionen wie die Spieleranfragen): 250 € → Schraubendreher, Seitenschneider und defekten PC kaufen → PC zur Werkbank tragen → alle 7 Schritte zerlegen → "Alles nehmen" → alle Teile verkaufen → Werkbank-Unterschrank kaufen → speichern → Konto, Upgrades und Leitfaden zurücksetzen → laden | ✅ 250,00 → 213,15 → 234,36 € (**+21,21 € durch die Teile**) → Upgrade −35 € (+6 Werkbankplätze); nach dem Laden Konto, Upgrade, Wirkung und Leitfaden wieder da |
+| ↳ ebenda: Upgrade-Ablehnungen (schon gekauft, Voraussetzung fehlt, unbekannt, zu wenig Geld, wiederholte Anfrage-ID) | ✅ keine davon kostet Geld; nur das eine erlaubte Upgrade wurde abgebucht |
+| ↳ `Progression.UpgradeEffectsAndRules` (+6 Werkbankplätze, +10 kg Inventar, Arbeitstempo ×1,25 → 2,5 s werden 2,0 s, Lampen ×2 ohne Aufaddieren beim erneuten Anwenden, Voraussetzung, kein Doppelkauf) | ✅ |
+| ↳ `Progression.FurnitureUnlock` (zweites Regal vor dem Kauf unsichtbar und ohne Lager, danach sichtbar und nutzbar) | ✅ |
+| ↳ `Progression.GuideFollowsEvents` (6 Schritte nur in der richtigen Reihenfolge, danach "Nächstes Ziel") | ✅ |
+| ↳ `Inventory.TransferAllKeepsWhatDoesNotFit` (nimmt, was passt; Rest bleibt; nichts geht verloren, Gewichtsgrenze hält) | ✅ |
+| Erzeugung der Upgrade-Daten (6 Upgrades) und der Map (zweites Regal, markierte Lampen) per Skript | ✅ |
+| **Spiel mit Grafik, kompletter Ablauf** (`-WEShots=P5`, 2 Läufe) | ✅ 10 Screenshots geprüft: Werkzeuge einstecken → Computer zur Werkbank tragen → 7 Schritte zerlegen → Werkbanklager → "Alles nehmen" → Marktplatz mit Spalte "Werkstatt verbessern" → alle Teile verkauft (+11,36 € bzw. +17,51 €, je nach Zufall der Teile) → LED-Beleuchtung und zweites Regal gekauft (Regal erscheint, Lampen doppelt so hell) → speichern → laden. Leitfaden zählte jeden Schritt korrekt bis 6/6 und zeigt danach "Nächstes Ziel: Werkbank-Unterschrank (35,00 €)". |
+| **Netzwerktest Koop als Listen-Server** (`-WESmokeRole=I` Host / `J` Client, neu) | ✅ Host kauft LED + Regal → Client sieht 160,00 €, beide Upgrades, Regal sichtbar, Lampe 60 statt 30. Client versucht LED erneut → "Bereits gekauft", kein Geld weg. Client kauft Werkzeuggürtel → Host und Client: 90,00 €, Tragkraft beider Spieler 35 kg. Host speichert ("Gespeichert: DevNetP5", auch beim Client gemeldet). |
+| **Regression Netzwerktests A/B, C/D, E/F, G/H** (Dedicated Server + 2 Clients) | ✅ unverändert (50 Schrauben / 1 RAM bleiben erhalten, doppelte Anfrage einmal gebucht, Motor nur einmal verkauft) |
+
+### Behobene Fehler in Phase 5
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Leitfaden blieb bei Schritt 1 ("Werkzeug einstecken") stehen, wenn das Werkzeug gekauft statt aufgehoben wurde (vom Loop-Test gefunden) | Gekaufte Kleinteile landen direkt im Inventar, nur das Aufheben zählte | Ein gekauftes Werkzeug im Inventar zählt genauso |
+| Dritte Zeile des Leitfadens wurde abgeschnitten (Screenshot) | Feste Höhe des Kastens | Kasten wächst mit dem Text |
+| Test-Skript legte den Computer neben die Werkbank | Seit dem Umbau in Phase 4 steht man beim Start ~1,9 m weit weg | Skript geht vorher zur Werkbank (nur der Testablauf) |
+| Test `Save.EconomyRoundTrip` erwartete Version 3 | Speicherversion ist jetzt 4 | prüft die aktuelle Version |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Kompletter Ablauf mit echter Maus und Tastatur | Mikes Praxistest; die Knöpfe rufen dieselben Funktionen wie die getesteten |
+| Speichern/Laden mit zwei Spielern **mit Grafik** | Nur headless Listen-Server; Laden im Koop nicht ausgelöst (nur Speichern) |
+| Upgrades Arbeitsmatte und Profi-Werkbank im Spiel | Nur im Unit-Test (Tempo ×1,25); im Spiel erst nach mehreren Durchläufen erreichbar |
+| Spielstand aus Phase 4 (Version 3) im Spiel laden | Migration per Code (fehlende Felder → keine Upgrades); nicht mit einer echten alten Datei geprüft |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Preise der Upgrades sind erste Werte (6–21 € Gewinn pro PC → 2–10 PCs pro Upgrade).
+
+---
+
 ## Phase 4 – Lauf vom 2026-10-12
 
 ### Ausgeführt

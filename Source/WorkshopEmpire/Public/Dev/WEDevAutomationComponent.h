@@ -58,6 +58,13 @@ protected:
 	void LogEconomyState(const TCHAR* Step) const;
 	int32 FindOfferIndex(const FString& ItemName) const;
 
+	// Phase 5: full loop / progression (-WESmokeRole=I|J on a listen server, -WEShots=P5...)
+	void RunSmokeRoleI();
+	void RunSmokeRoleJ();
+	void RunLoopShots();
+	void SellAllParts();
+	void LogProgressState(const TCHAR* Step) const;
+
 	// Phase 3: workbench scenarios (-WESmokeRole=E|F, -WEShots=P3...)
 	void RunSmokeRoleE();
 	void RunSmokeRoleF();

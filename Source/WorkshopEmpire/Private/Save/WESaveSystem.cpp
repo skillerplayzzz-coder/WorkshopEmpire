@@ -22,6 +22,7 @@
 #include "Economy/WEContractComponent.h"
 #include "Economy/WEMarketComponent.h"
 #include "Economy/WETraderTerminal.h"
+#include "Progression/WEProgressionComponent.h"
 
 #define LOCTEXT_NAMESPACE "WESaveSystem"
 
@@ -222,6 +223,14 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	{
 		Save->Stocks.Add({ It->GetFName(), It->GetStockRemaining() });
 	}
+
+	// Progression (version 4).
+	if (const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(World))
+	{
+		Save->bHasProgression = true;
+		Save->OwnedUpgrades = Progression->GetOwnedUpgrades();
+		Save->GuideStep = Progression->GetGuideStep();
+	}
 	return Save;
 }
 
@@ -269,7 +278,15 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 		}
 	}
 
-	// 2) Containers and doors, matched by actor name.
+	// 2) Upgrades first (they change storage sizes), then containers and doors, matched by actor name.
+	if (Save->bHasProgression)
+	{
+		if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(World))
+		{
+			Progression->SetOwnedUpgrades(Save->OwnedUpgrades);
+			Progression->SetGuideStep(Save->GuideStep);
+		}
+	}
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
 		AActor* Actor = *It;

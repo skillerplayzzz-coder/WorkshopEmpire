@@ -57,6 +57,9 @@ protected:
 	UFUNCTION()
 	void HandleSortContainer();
 
+	UFUNCTION()
+	void HandleTakeAll();
+
 	void BuildPanel(FWEInventoryPanel& Panel, UWEInventoryComponent* Inventory, bool bIsPlayer);
 	void RefreshPanel(FWEInventoryPanel& Panel);
 	void HandleInventoryChanged(UWEInventoryComponent* Inventory);

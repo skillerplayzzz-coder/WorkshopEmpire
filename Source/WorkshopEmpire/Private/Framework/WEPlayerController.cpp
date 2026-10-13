@@ -207,6 +207,45 @@ void AWEPlayerController::RequestAcceptContract(AWETraderTerminal* Terminal, con
 	ServerAcceptContract(Terminal, ContractId, FGuid::NewGuid());
 }
 
+void AWEPlayerController::RequestBuyUpgrade(AWETraderTerminal* Terminal, FName UpgradeId)
+{
+	ServerBuyUpgrade(Terminal, UpgradeId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::ServerBuyUpgrade_Implementation(AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->BuyUpgrade(GetPawn<AWECharacter>(), UpgradeId, RequestId);
+	}
+}
+
+void AWEPlayerController::RequestTakeAll(UWEInventoryComponent* From)
+{
+	ServerTakeAll(From);
+}
+
+void AWEPlayerController::ServerTakeAll_Implementation(UWEInventoryComponent* From)
+{
+	ExecuteTakeAll(From);
+}
+
+bool AWEPlayerController::ExecuteTakeAll(UWEInventoryComponent* From)
+{
+	const AWECharacter* WECharacter = GetPawn<AWECharacter>();
+	UWEInventoryComponent* Mine = WECharacter ? WECharacter->GetPlayerInventory() : nullptr;
+	if (!HasAuthority() || !Mine || From == Mine || !CanUseInventory(From))
+	{
+		return false;
+	}
+	const int32 Moved = From->TransferAllTo(Mine);
+	if (From->GetAllSlots().Num() > 0)
+	{
+		ClientShowMessage(LOCTEXT("NotAllFit", "Nicht alles passt ins Inventar"));
+	}
+	return Moved > 0;
+}
+
 void AWEPlayerController::RequestDeliverContract(AWETraderTerminal* Terminal, const FGuid& ContractId)
 {
 	ServerDeliverContract(Terminal, ContractId, FGuid::NewGuid());

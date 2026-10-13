@@ -17,6 +17,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "Workshop/WEDisassemblyDefinition.h"
+#include "Progression/WEProgressionComponent.h"
 #include "World/WEPlaceholderVisuals.h"
 
 #define LOCTEXT_NAMESPACE "WEWorkbench"
@@ -154,6 +155,7 @@ bool AWEWorkbench::PlaceItem(AWEPickupItem* Item)
 	PlacedItem = Item;
 	Item->HandlePlacedOnWorkbench(this, WorkPoint);
 	RaiseEvent(EWEWorkbenchEvent::Placed);
+	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemPlacedOnBench); }
 	UE_LOG(LogWENet, Log, TEXT("%s: %s placed (step %d/%d)"), *GetName(), *Item->GetDisplayName().ToString(), GetNextStepIndex(), GetNumSteps());
 	return true;
 }
@@ -272,7 +274,8 @@ bool AWEWorkbench::TryStartStep(AWECharacter* Character)
 		return false;
 	}
 	const FWEDisassemblyStep* Step = GetNextStep();
-	const float Speed = FindToolSpeed(Character, Step->RequiredTool);
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f);
 
 	Work.StepIndex = GetNextStepIndex();
 	Work.Worker = Character;
@@ -337,6 +340,7 @@ void AWEWorkbench::CompleteActiveStep()
 		Done->Destroy();
 		DeliverOutputs(Outputs, Worker);
 		RaiseEvent(EWEWorkbenchEvent::Finished);
+		if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::DisassemblyFinished); }
 		if (AWEPlayerController* PC = Cast<AWEPlayerController>(Worker->GetController()))
 		{
 			PC->ClientShowMessage(FText::Format(LOCTEXT("FinishedMsg", "Vollständig zerlegt: {0}"), Name));

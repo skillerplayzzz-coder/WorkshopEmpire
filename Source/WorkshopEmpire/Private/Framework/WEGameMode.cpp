@@ -2,6 +2,7 @@
 
 #include "Economy/WECompanyComponent.h"
 #include "Framework/WEGameState.h"
+#include "Progression/WEProgressionComponent.h"
 #include "Framework/WEPlayerController.h"
 #include "Framework/WEPlayerState.h"
 #include "Player/WECharacter.h"
@@ -80,11 +81,22 @@ void AWEGameMode::BroadcastMessage(const FText& Message)
 
 bool AWEGameMode::SaveToSlot(const FString& Slot)
 {
+	// The "save" guide step counts as done *in* the save, so loading it does not ask to save again.
+	UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	const int32 GuideBefore = Progression ? Progression->GetGuideStep() : 0;
+	if (Progression)
+	{
+		Progression->NotifyEvent(EWEProgressEvent::GameSaved);
+	}
 	FText Error;
 	if (FWESaveSystem::SaveWorld(GetWorld(), Slot, Error))
 	{
 		BroadcastMessage(FText::Format(LOCTEXT("Saved", "Gespeichert: {0}"), FText::FromString(Slot)));
 		return true;
+	}
+	if (Progression)
+	{
+		Progression->SetGuideStep(GuideBefore);
 	}
 	BroadcastMessage(FText::Format(LOCTEXT("SaveFailed", "Speichern fehlgeschlagen: {0}"), Error));
 	return false;

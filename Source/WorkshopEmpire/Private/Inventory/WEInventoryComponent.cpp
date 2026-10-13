@@ -351,6 +351,37 @@ EWEInventoryResult UWEInventoryComponent::MoveItem(int32 FromSlot, UWEInventoryC
 	return EWEInventoryResult::Success;
 }
 
+int32 UWEInventoryComponent::TransferAllTo(UWEInventoryComponent* Target)
+{
+	if (!HasAuthorityToModify() || !Target || Target == this || !Target->HasAuthorityToModify())
+	{
+		return 0;
+	}
+	int32 Moved = 0;
+	for (const FWEInventorySlotData& Slot : GetAllSlots())
+	{
+		const int32 Movable = Target->GetAddableQuantity(Slot.Item);
+		if (Movable <= 0)
+		{
+			continue;
+		}
+		FWEItemInstance Removed;
+		RemoveFromSlot(Slot.SlotIndex, Movable, Removed);
+		int32 Added = 0;
+		Target->TryAddItem(Removed, Added);
+		if (Added < Removed.Quantity)
+		{
+			// Never lose items: put back what did not fit.
+			FWEItemInstance Rest = Removed;
+			Rest.Quantity -= Added;
+			int32 Back = 0;
+			TryAddItem(Rest, Back);
+		}
+		Moved += Added;
+	}
+	return Moved;
+}
+
 void UWEInventoryComponent::SortItems()
 {
 	if (!HasAuthorityToModify())

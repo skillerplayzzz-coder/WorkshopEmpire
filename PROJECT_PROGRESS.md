@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 4 – Wirtschaft und Handel: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 5 wurde nicht begonnen.
+**Phase 5 – Erster vollständiger Gameplay-Loop (Vertical Slice): abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 6 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -29,9 +29,18 @@ Phase 5 wurde nicht begonnen.
 - Balancing: defekter PC kaufen → zerlegen → verkaufen bringt im Schnitt ca. 6 € Gewinn
 - Speicherversion 3 (Konto, Markt, Aufträge, Vorrat)
 
+### Phase 5 – Vertical Slice (2026-10-13)
+- Kompletter Ablauf spielbar: Werkzeug und Gerät besorgen → zerlegen → "Alles nehmen" → Teile verkaufen → in die Werkstatt investieren → speichern
+- 6 Werkstatt-Upgrades (Daten-Asset): LED-Beleuchtung, Werkbank-Unterschrank, zweites Regal, Werkzeuggürtel, Arbeitsmatte, Profi-Werkbank; teils mit Voraussetzung
+- Wirkungen: mehr Werkbankplätze, mehr Tragkraft für alle, schnelleres Zerlegen, hellere Lampen, neues Möbelstück erscheint
+- Neue Spalte "Werkstatt verbessern" am Marktplatz; Kauf nur über den Server, gilt für das ganze Team
+- Leitfaden "Erste Schritte (1/6)" oben links, rückt nur bei echten Aktionen vor; danach "Nächstes Ziel"
+- "Alles nehmen"-Knopf in Lagern
+- Speicherversion 4 (Upgrades, Leitfaden)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 4 (Anleitung im Development Report)
+- Mike: Praxistest Phase 5 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
 - Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager
@@ -42,8 +51,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 5 – Erster vollständiger Gameplay-Loop (Vertical Slice): beschaffen → zerlegen → verkaufen → Werkzeuge kaufen → Werkstatt verbessern → Fortschritt speichern, als zusammenhängender, wiederholbarer Ablauf mit erstem Werkstatt-Upgrade und Spielstart-Ablauf. Laut Spezifikation besonders gründlich zu testen.
+Phase 6 laut Spezifikation (MASTER_PROMPT), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-12: 41/41 Automation-Tests, Netzwerktests A/B, C/D, E/F, G/H bestanden, Handel im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-13: 46/46 Automation-Tests (inkl. kompletter Loop mit echten Daten), Koop-Test als Listen-Server (I/J), Netzwerktests A–H bestanden, kompletter Ablauf im Spiel mit Screenshots geprüft.

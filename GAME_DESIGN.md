@@ -103,6 +103,25 @@ Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromo
 - **Kundenaufträge:** immer 3 Angebote (verschwinden nach 10 Minuten), höchstens 3 angenommene gleichzeitig, Frist 15–30 Minuten, Belohnung ca. 1,3–1,7 × Marktwert. Beispiele: "Bastler sucht Arbeitsspeicher", "Elektriker sucht Kupferkabel", "Recyclinghof nimmt Stahlschrott".
 - **Gemessene Startbalance:** Defekten PC kaufen (14,43 €) → zerlegen → Teile verkaufen bringt im Schnitt 20,57 €, also etwa 6 € Gewinn in ein paar Minuten. Über Aufträge mehr. Ein Akkuschrauber (ca. 69 €) ist das erste sinnvolle Sparziel.
 
+### 4.2 Vertical Slice (Stand Phase 5)
+
+Der erste vollständige Ablauf: **Werkzeug und Gerät besorgen → zur Werkbank tragen → zerlegen → "Alles nehmen" → Teile am Marktplatz verkaufen → Geld in die Werkstatt stecken → speichern.** Gemessen (Test mit echten Daten): ein gekaufter defekter PC bringt je nach Zufall 6–21 € Gewinn, der Computer, der schon in der Garage steht, 11–18 €.
+
+**Leitfaden** (oben links, 6 Schritte, rückt nur bei echten Aktionen vor): Werkzeug einstecken → Computer auf die Werkbank → zerlegen → Teile verkaufen → etwas kaufen → speichern. Danach zeigt er als "Nächstes Ziel" das günstigste noch kaufbare Upgrade.
+
+**Werkstatt-Upgrades** (Marktplatz, Spalte "Werkstatt verbessern", vom Firmenkonto, gelten für das ganze Team):
+
+| Upgrade | Preis | Wirkung | Voraussetzung |
+|---|---|---|---|
+| LED-Werkstattbeleuchtung | 30 € | Lampen doppelt so hell | – |
+| Werkbank-Unterschrank | 35 € | +6 Plätze im Werkbanklager | – |
+| Zweites Regal | 60 € | neues Regal (15 Plätze, 150 kg) neben dem Tor | – |
+| Werkzeuggürtel und Tragegurt | 70 € | +10 kg Tragkraft für alle Spieler | – |
+| Arbeitsmatte und Magnetschale | 80 € | Zerlegen 25 % schneller | Werkbank-Unterschrank |
+| Profi-Werkbankausstattung | 220 € | nochmals 25 % schneller, +6 Plätze | Arbeitsmatte |
+
+Ziel: Das erste Upgrade nach etwa 2–5 PCs, alle nach etwa einer Stunde. Erste Werte, Balancing in Phase 16.
+
 ## 5. Progression (Designziele, durch Playtests zu prüfen)
 
 | Abschnitt | Spielzeit (Ziel) | Inhalt |

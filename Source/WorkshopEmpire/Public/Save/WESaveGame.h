@@ -109,8 +109,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). */
-	static constexpr int32 CurrentVersion = 3;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). */
+	static constexpr int32 CurrentVersion = 4;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -125,4 +125,9 @@ public:
 	UPROPERTY() TArray<float> MarketDemand;
 	UPROPERTY() TArray<FWESavedContract> Contracts;
 	UPROPERTY() TArray<FWESavedStock> Stocks;
+
+	// Since version 4. Older saves: no upgrades, guide at its current step (bHasProgression false).
+	UPROPERTY() bool bHasProgression = false;
+	UPROPERTY() TArray<FName> OwnedUpgrades;
+	UPROPERTY() int32 GuideStep = 0;
 };

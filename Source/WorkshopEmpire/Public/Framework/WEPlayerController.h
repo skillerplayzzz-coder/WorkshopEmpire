@@ -56,6 +56,13 @@ public:
 	void RequestSellHeld(class AWETraderTerminal* Terminal);
 	void RequestBuy(class AWETraderTerminal* Terminal, int32 OfferIndex, int32 Quantity);
 	void RequestAcceptContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
+	void RequestBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId);
+
+	/** Moves every stack from a container into the player inventory (as much as fits). */
+	void RequestTakeAll(UWEInventoryComponent* From);
+
+	/** Server-side execution of RequestTakeAll (public for tests). */
+	bool ExecuteTakeAll(UWEInventoryComponent* From);
 	void RequestDeliverContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
 
 	/** Test hook: sends the same request id twice (must be booked once). Not in Shipping. */
@@ -121,6 +128,12 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerAcceptContract(class AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerTakeAll(UWEInventoryComponent* From);
 
 	UFUNCTION(Server, Reliable)
 	void ServerDeliverContract(class AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId);

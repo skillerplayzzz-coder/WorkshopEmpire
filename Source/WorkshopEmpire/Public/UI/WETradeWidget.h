@@ -18,6 +18,7 @@ enum class EWETradeRowKind : uint8
 	SellHeld,
 	Buy,
 	Contract,
+	Upgrade,
 	Info
 };
 
@@ -37,6 +38,7 @@ public:
 	int32 OfferIndex = INDEX_NONE;
 	FGuid ContractId;
 	bool bContractAccepted = false;
+	FName UpgradeId;
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -88,6 +90,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> SellList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> BuyList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> ContractList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> UpgradeList;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HistoryText;
 
 	FString LastSignature;

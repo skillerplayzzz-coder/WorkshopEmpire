@@ -5,6 +5,7 @@
 #include "Inventory/WEInventoryComponent.h"
 #include "Items/WEPickupItem.h"
 #include "Player/WECharacter.h"
+#include "Progression/WEProgressionComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -89,15 +90,21 @@ void AWEPlaceholderProp::OnConstruction(const FTransform& Transform)
 	}
 
 	ApplyTint();
-	Storage->Configure(StorageName, StorageSlots, StorageMaxWeightKg);
+	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
 }
 
 void AWEPlaceholderProp::BeginPlay()
 {
 	// Same values on server and clients (they come from the map), so slot counts match without replication.
-	Storage->Configure(StorageName, StorageSlots, StorageMaxWeightKg);
+	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
 	Super::BeginPlay();
 	ApplyTint();
+	if (!RequiredUpgrade.IsNone())
+	{
+		// Locked until the company owns the upgrade (also on clients before the game state arrived).
+		const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+		SetUnlocked(Progression && Progression->HasUpgrade(RequiredUpgrade));
+	}
 }
 
 FText AWEPlaceholderProp::GetInteractionText(const AWECharacter* Interactor) const
@@ -107,7 +114,7 @@ FText AWEPlaceholderProp::GetInteractionText(const AWECharacter* Interactor) con
 
 bool AWEPlaceholderProp::CanInteract(const AWECharacter* Interactor, FText& OutReason) const
 {
-	return bHasStorage && Interactor != nullptr;
+	return HasStorage() && Interactor != nullptr;
 }
 
 void AWEPlaceholderProp::Interact(AWECharacter* Interactor)
@@ -141,4 +148,18 @@ bool AWEPlaceholderProp::GetExamineInfo(FWEExamineInfo& OutInfo) const
 void AWEPlaceholderProp::ApplyTint()
 {
 	WEPlaceholder::ApplyTint(Boxes, PlaceholderMaterial, Tint);
+}
+
+void AWEPlaceholderProp::SetUnlocked(bool bInUnlocked)
+{
+	bUnlocked = bInUnlocked;
+	SetActorHiddenInGame(!bUnlocked);
+	SetActorEnableCollision(bUnlocked);
+}
+
+void AWEPlaceholderProp::SetStorageBonusSlots(int32 Bonus)
+{
+	StorageBonusSlots = FMath::Max(0, Bonus);
+	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
+	Storage->NotifyChanged();
 }

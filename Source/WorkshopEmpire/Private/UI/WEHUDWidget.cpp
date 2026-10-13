@@ -7,6 +7,7 @@
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Economy/WECompanyComponent.h"
+#include "Progression/WEProgressionComponent.h"
 #include "EngineUtils.h"
 #include "Workshop/WEWorkbench.h"
 #include "Components/TextBlock.h"
@@ -140,6 +141,21 @@ void UWEHUDWidget::NativeOnInitialized()
 		CSlot->SetSize(FVector2D(360.f, 44.f));
 	}
 
+	// Guide / next goal, top left.
+	GuidePanel = WidgetTree->ConstructWidget<UBorder>();
+	GuidePanel->SetBrushColor(FLinearColor(0.02f, 0.02f, 0.025f, 0.6f));
+	GuidePanel->SetPadding(FMargin(12.f, 8.f));
+	GuideText = MakeText(14, FLinearColor(1.f, 0.88f, 0.6f), false);
+	GuideText->SetWrapTextAt(406.f); // the panel grows with the text (long steps need three lines)
+	GuidePanel->SetContent(GuideText);
+	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(GuidePanel))
+	{
+		CSlot->SetAnchors(FAnchors(0.f, 0.f));
+		CSlot->SetAlignment(FVector2D(0.f, 0.f));
+		CSlot->SetPosition(FVector2D(24.f, 20.f));
+		CSlot->SetAutoSize(true);
+	}
+
 	// Company balance, top right.
 	BalanceText = MakeText(16, FLinearColor(0.55f, 0.95f, 0.6f));
 	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(BalanceText))
@@ -261,6 +277,16 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	}
 
 	UpdateWorkProgress();
+
+	if (const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this))
+	{
+		GuideText->SetText(Progression->GetGuideText());
+		GuidePanel->SetVisibility(ESlateVisibility::HitTestInvisible);
+	}
+	else
+	{
+		GuidePanel->SetVisibility(ESlateVisibility::Collapsed);
+	}
 
 	if (const UWECompanyComponent* Company = UWECompanyComponent::Get(this))
 	{

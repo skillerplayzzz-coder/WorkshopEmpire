@@ -114,7 +114,21 @@ void UWEInventoryWidget::BuildPanel(FWEInventoryPanel& Panel, UWEInventoryCompon
 	{
 		SortButton->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleSortContainer);
 	}
-	if (UVerticalBoxSlot* ButtonSlot = Panel.Root->AddChildToVerticalBox(SortButton))
+	UHorizontalBox* Buttons = WidgetTree->ConstructWidget<UHorizontalBox>();
+	if (!bIsPlayer)
+	{
+		UButton* TakeAllButton = WidgetTree->ConstructWidget<UButton>();
+		UTextBlock* TakeAllLabel = WEInvStyle::MakeText(WidgetTree, 12, FLinearColor(0.05f, 0.05f, 0.05f));
+		TakeAllLabel->SetText(LOCTEXT("TakeAll", "Alles nehmen"));
+		TakeAllButton->SetContent(TakeAllLabel);
+		TakeAllButton->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleTakeAll);
+		if (UHorizontalBoxSlot* TakeSlot = Buttons->AddChildToHorizontalBox(TakeAllButton))
+		{
+			TakeSlot->SetPadding(FMargin(0.f, 0.f, 6.f, 0.f));
+		}
+	}
+	Buttons->AddChildToHorizontalBox(SortButton);
+	if (UVerticalBoxSlot* ButtonSlot = Panel.Root->AddChildToVerticalBox(Buttons))
 	{
 		ButtonSlot->SetHorizontalAlignment(HAlign_Right);
 		ButtonSlot->SetPadding(FMargin(0.f, 8.f, 0.f, 0.f));
@@ -204,6 +218,14 @@ void UWEInventoryWidget::HandleSortPlayer()
 	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
 	{
 		PC->RequestSort(PlayerPanel.Inventory);
+	}
+}
+
+void UWEInventoryWidget::HandleTakeAll()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
+	{
+		PC->RequestTakeAll(ContainerPanel.Inventory);
 	}
 }
 

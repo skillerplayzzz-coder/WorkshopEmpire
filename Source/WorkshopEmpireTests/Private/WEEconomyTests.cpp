@@ -369,7 +369,7 @@ bool FWEEconomySaveTest::RunTest(const FString& Parameters)
 	F.Contracts->Accept(ContractId, TEXT("Mike"));
 
 	UWESaveGame* Save = FWESaveSystem::Capture(F.TW.World);
-	TestEqual(TEXT("Version 3"), Save->SaveVersion, 3);
+	TestEqual(TEXT("Current save version"), Save->SaveVersion, UWESaveGame::CurrentVersion);
 
 	F.Company->SetBalance(FWEMoney::FromEuros(1));
 	F.Market->SetDemand(EWEItemCategory::Electronics, 1.f);

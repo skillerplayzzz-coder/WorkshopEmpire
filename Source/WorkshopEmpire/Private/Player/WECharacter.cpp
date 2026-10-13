@@ -16,6 +16,8 @@
 #include "InputActionValue.h"
 #include "Inventory/WEInventoryComponent.h"
 #include "Workshop/WEWorkbench.h"
+#include "Progression/WEProgressionComponent.h"
+#include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/WEInputConfig.h"
@@ -422,6 +424,10 @@ bool AWECharacter::TryStoreWorldItem(AWEPickupItem* Item)
 		Item->SetItem(Rest);
 	}
 	UE_LOG(LogWENet, Log, TEXT("%s stored %d x %s"), *GetName(), Added, *WorldItem.GetDisplayName().ToString());
+	if (WorldItem.Definition->ToolType != EWEToolType::None)
+	{
+		if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ToolStored); }
+	}
 	return true;
 }
 

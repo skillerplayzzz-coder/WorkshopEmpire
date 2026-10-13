@@ -1,7 +1,7 @@
 """
 Builds the Phase 1 placeholder level /Game/WorkshopEmpire/Maps/L_Garage from scratch.
 
-Run after build_placeholder_material.py, build_audio.py, build_item_definitions.py and build_economy.py (overwrites the map):
+Run after build_placeholder_material.py, build_audio.py, build_item_definitions.py, build_economy.py and build_progression.py (overwrites the map):
   UnrealEditor-Cmd.exe <WorkshopEmpire.uproject> -ExecutePythonScript="<this file>" -unattended -nullrhi -nosplash
 
 Everything is a placeholder made from engine basic shapes; real assets come in Phase 15.
@@ -75,6 +75,7 @@ for i, x in enumerate((-220.0, 160.0)):
     lc.set_intensity(30.0)
     lc.set_attenuation_radius(1200.0)
     lc.set_light_color(unreal.LinearColor(1.0, 0.86, 0.68, 1.0))
+    lamp.set_editor_property("tags", ["WE_WorkshopLight"])  # brightened by the LED upgrade
 
 # --- Ground --------------------------------------------------------------------------------------
 ground = spawn(unreal.StaticMeshActor, (0, 0, -2), label="Ground", folder="World")
@@ -104,6 +105,16 @@ shelf.set_editor_property("storage_name", unreal.Text("Regal"))
 shelf.set_editor_property("storage_slots", 15)
 shelf.set_editor_property("storage_max_weight_kg", 150.0)
 
+# Second shelf, hidden until the "SecondShelf" upgrade is bought (Phase 5).
+shelf2 = spawn(unreal.WEPlaceholderProp, (150, -272, 0), (0.0, 90.0, 0.0), "Shelf2", "World")
+shelf2.set_editor_property("prop_type", unreal.WEPlaceholderPropType.SHELF)
+shelf2.set_editor_property("size", unreal.Vector(50.0, 180.0, 200.0))
+shelf2.set_editor_property("tint", unreal.LinearColor(0.20, 0.35, 0.45, 1.0))
+shelf2.set_editor_property("has_storage", True)
+shelf2.set_editor_property("storage_name", unreal.Text("Regal 2"))
+shelf2.set_editor_property("storage_slots", 15)
+shelf2.set_editor_property("storage_max_weight_kg", 150.0)
+shelf2.set_editor_property("required_upgrade", "SecondShelf")
 # --- Items (definitions: Tools/Maps/build_item_definitions.py) -----------------------------------
 COND = unreal.WEItemCondition
 # Bulky things to disassemble stand on the floor; the left half of the bench is the work spot.

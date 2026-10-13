@@ -134,6 +134,9 @@ public:
 	 */
 	EWEInventoryResult MoveItem(int32 FromSlot, UWEInventoryComponent* Target, int32 ToSlot, int32 Quantity = 0);
 
+	/** Server only. Moves every stack into Target as far as it fits (stacking first). Returns units moved. */
+	int32 TransferAllTo(UWEInventoryComponent* Target);
+
 	/** Merges stacks and orders by category, name, condition. */
 	void SortItems();
 

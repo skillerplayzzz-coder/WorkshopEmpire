@@ -20,6 +20,8 @@
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
 #include "Player/WECharacter.h"
+#include "Progression/WEProgressionComponent.h"
+#include "Progression/WEUpgradeDefinition.h"
 #include "Styling/CoreStyle.h"
 
 #define LOCTEXT_NAMESPACE "WETrade"
@@ -143,7 +145,7 @@ UVerticalBox* UWETradeWidget::MakeColumn(const FText& Title, TObjectPtr<UScrollB
 		S->SetPadding(FMargin(0.f, 0.f, 0.f, 6.f));
 	}
 	USizeBox* Box = WidgetTree->ConstructWidget<USizeBox>();
-	Box->SetWidthOverride(400.f);
+	Box->SetWidthOverride(300.f);
 	Box->SetHeightOverride(430.f);
 	OutList = WidgetTree->ConstructWidget<UScrollBox>();
 	Box->SetContent(OutList);
@@ -192,7 +194,8 @@ void UWETradeWidget::NativeOnInitialized()
 	UVerticalBox* SellColumn = MakeColumn(LOCTEXT("Sell", "Verkaufen"), SellList);
 	UVerticalBox* BuyColumn = MakeColumn(LOCTEXT("Buy", "Kaufen"), BuyList);
 	UVerticalBox* ContractColumn = MakeColumn(LOCTEXT("Contracts", "Kundenaufträge"), ContractList);
-	for (UVerticalBox* Column : { SellColumn, BuyColumn, ContractColumn })
+	UVerticalBox* UpgradeColumn = MakeColumn(LOCTEXT("Upgrades", "Werkstatt verbessern"), UpgradeList);
+	for (UVerticalBox* Column : { SellColumn, BuyColumn, ContractColumn, UpgradeColumn })
 	{
 		if (UHorizontalBoxSlot* S = Columns->AddChildToHorizontalBox(Column))
 		{
@@ -257,6 +260,13 @@ FString UWETradeWidget::BuildSignature() const
 		for (const float D : Market->GetAllDemand())
 		{
 			Sig << FMath::RoundToInt(D * 100.f) << TEXT(",");
+		}
+	}
+	if (const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this))
+	{
+		for (const FName& Id : Progression->GetOwnedUpgrades())
+		{
+			Sig << TEXT("|u:") << *Id.ToString();
 		}
 	}
 	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(this))
@@ -366,6 +376,24 @@ void UWETradeWidget::Rebuild()
 			LOCTEXT("NoContractsDetail", "Neue Anfragen kommen laufend herein."), FText::GetEmpty(), FText::GetEmpty(), false);
 	}
 
+	// Workshop upgrades.
+	UpgradeList->ClearChildren();
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	if (Progression && Progression->GetCatalog())
+	{
+		for (const FWEUpgradeDefinition& Upgrade : Progression->GetCatalog()->Upgrades)
+		{
+			const bool bOwned = Progression->HasUpgrade(Upgrade.Id);
+			const FText Blocked = Progression->GetBlockReason(Upgrade);
+			UWETradeRowWidget* Row = AddRow(UpgradeList);
+			Row->UpgradeId = Upgrade.Id;
+			Row->Configure(this, EWETradeRowKind::Upgrade, Upgrade.DisplayName,
+				bOwned ? LOCTEXT("Owned", "✓ gekauft") : (Blocked.IsEmpty() ? Upgrade.Description : Blocked),
+				bOwned ? FText::GetEmpty() : WETradeStyle::Money(Upgrade.Cost),
+				bOwned ? FText::GetEmpty() : LOCTEXT("BuyUpgrade", "Kaufen"), !bOwned && Blocked.IsEmpty() && Balance >= Upgrade.Cost);
+		}
+	}
+
 	// Recent bookings.
 	FString History = LOCTEXT("History", "Letzte Buchungen:").ToString();
 	if (Company)
@@ -442,6 +470,9 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 		break;
 	case EWETradeRowKind::Buy:
 		PC->RequestBuy(Terminal, Row->OfferIndex, 1);
+		break;
+	case EWETradeRowKind::Upgrade:
+		PC->RequestBuyUpgrade(Terminal, Row->UpgradeId);
 		break;
 	case EWETradeRowKind::Contract:
 		if (Row->bContractAccepted)

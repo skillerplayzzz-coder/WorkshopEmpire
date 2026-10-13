@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0] – 2026-10-13 – Phase 5: Erster vollständiger Gameplay-Loop (Vertical Slice)
+
+### Neu
+- Werkstatt-Upgrades als Data Asset (`DA_UpgradeCatalog`, 6 Stück): LED-Beleuchtung, Werkbank-Unterschrank, zweites Regal, Werkzeuggürtel, Arbeitsmatte, Profi-Werkbank – teils mit Voraussetzung.
+- Wirkungen: mehr Werkbankplätze, mehr Tragkraft für alle Spieler, schnelleres Zerlegen, hellere Lampen, das zweite Regal erscheint erst nach dem Kauf.
+- Marktplatz: neue Spalte "Werkstatt verbessern" (gekauft / Voraussetzung / Kaufen).
+- Leitfaden oben links: "Erste Schritte (1/6)" führt durch den ganzen Ablauf, danach "Nächstes Ziel: …".
+- Knopf "Alles nehmen" in Lagern (z. B. alle Teile aus der Werkbank ins Inventar).
+
+### Multiplayer und Sicherheit
+- Upgrades kauft nur der Server (Reichweite, Voraussetzung, Doppelkauf, Geld, Anfrage-ID); sie gelten für das ganze Team und werden an alle repliziert. Im Koop als Listen-Server getestet.
+
+### Behoben
+- Gekaufte Werkzeuge zählten nicht für den ersten Leitfaden-Schritt.
+
+### Technisch
+- Speicherformat Version 4 (Upgrades, Leitfaden); ältere Spielstände bleiben ladbar.
+- Neues Skript `Tools/Maps/build_progression.py`; Map um zweites Regal und markierte Werkstattlampen ergänzt.
+- 5 neue Automation-Tests (insgesamt 46), darunter der komplette Ablauf mit echten Spieldaten; Netzwerktest-Rollen I/J (Listen-Server); Screenshot-Lauf P5 mit dem ganzen Ablauf.
+
 ## [0.4.0] – 2026-10-12 – Phase 4: Wirtschaft und Handel
 
 ### Neu

@@ -89,6 +89,9 @@ public:
 	EWETradeResult SellFromInventory(AWECharacter* Character, UWEInventoryComponent* Inventory, int32 Slot, int32 Quantity, const FGuid& RequestId);
 	EWETradeResult SellHeldItem(AWECharacter* Character, const FGuid& RequestId);
 	EWETradeResult Buy(AWECharacter* Character, int32 OfferIndex, int32 Quantity, const FGuid& RequestId);
+	/** Buys a workshop upgrade for the company (spec §5.5). */
+	EWETradeResult BuyUpgrade(AWECharacter* Character, FName UpgradeId, const FGuid& RequestId);
+
 	EWETradeResult AcceptContract(AWECharacter* Character, const FGuid& ContractId, const FGuid& RequestId);
 	EWETradeResult DeliverContract(AWECharacter* Character, const FGuid& ContractId, const FGuid& RequestId);
 

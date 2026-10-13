@@ -19,6 +19,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "Progression/WEProgressionComponent.h"
+#include "Progression/WEUpgradeDefinition.h"
 
 #define LOCTEXT_NAMESPACE "WETraderTerminal"
 
@@ -329,6 +331,7 @@ EWETradeResult AWETraderTerminal::SellFromInventory(AWECharacter* Character, UWE
 	Company->Deposit(Price, FString::Printf(TEXT("Verkauf: %s an %s"), *What, *Trader->DisplayName.ToString()), PlayerNameOf(Character));
 	Notify(Character, FText::FromString(FString::Printf(TEXT("+%s  für %s"), *Price.ToDisplayString(), *What)));
 	UE_LOG(LogWENet, Log, TEXT("%s sold %s for %s"), *Character->GetName(), *What, *Price.ToDisplayString());
+	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemSold); }
 	return EWETradeResult::Success;
 }
 
@@ -362,6 +365,7 @@ EWETradeResult AWETraderTerminal::SellHeldItem(AWECharacter* Character, const FG
 	Company->Deposit(Price, FString::Printf(TEXT("Verkauf: %s an %s"), *What, *Trader->DisplayName.ToString()), PlayerNameOf(Character));
 	Notify(Character, FText::FromString(FString::Printf(TEXT("+%s  für %s"), *Price.ToDisplayString(), *What)));
 	UE_LOG(LogWENet, Log, TEXT("%s sold carried %s for %s"), *Character->GetName(), *What, *Price.ToDisplayString());
+	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemSold); }
 	return EWETradeResult::Success;
 }
 
@@ -373,6 +377,12 @@ void AWETraderTerminal::DeliverPurchase(AWECharacter* Character, const FWEItemIn
 		int32 Added = 0;
 		Inventory->TryAddItem(Item, Added);
 		Rest.Quantity -= Added;
+		// A bought tool that lands directly in the inventory counts like one picked up by hand.
+		UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+		if (Added > 0 && Item.Definition->ToolType != EWEToolType::None && Progression)
+		{
+			Progression->NotifyEvent(EWEProgressEvent::ToolStored);
+		}
 	}
 	if (Rest.Quantity <= 0)
 	{
@@ -447,6 +457,51 @@ EWETradeResult AWETraderTerminal::Buy(AWECharacter* Character, int32 OfferIndex,
 	Notify(Character, FText::FromString(FString::Printf(TEXT("-%s  %s gekauft%s"), *Price.ToDisplayString(), *What,
 		bToPallet ? TEXT(" (steht auf der Lieferpalette)") : TEXT(""))));
 	UE_LOG(LogWENet, Log, TEXT("%s bought %s for %s"), *Character->GetName(), *What, *Price.ToDisplayString());
+	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::PurchaseMade); }
+	return EWETradeResult::Success;
+}
+
+EWETradeResult AWETraderTerminal::BuyUpgrade(AWECharacter* Character, FName UpgradeId, const FGuid& RequestId)
+{
+	UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	const FWEUpgradeDefinition* Upgrade = Progression && Progression->GetCatalog() ? Progression->GetCatalog()->Find(UpgradeId) : nullptr;
+	if (!HasAuthority() || !Company || !Character || !Upgrade)
+	{
+		return EWETradeResult::InvalidItem;
+	}
+	if (!IsWithinUseRange(Character))
+	{
+		return EWETradeResult::OutOfReach;
+	}
+	const FText Blocked = Progression->GetBlockReason(*Upgrade);
+	if (!Blocked.IsEmpty())
+	{
+		Notify(Character, Blocked);
+		return EWETradeResult::OutOfStock;
+	}
+	if (!Company->CanAfford(Upgrade->Cost))
+	{
+		Notify(Character, ResultText(EWETradeResult::NotEnoughMoney));
+		return EWETradeResult::NotEnoughMoney;
+	}
+	if (!Company->RegisterRequest(RequestId))
+	{
+		return EWETradeResult::Duplicate;
+	}
+	if (!Company->TryWithdraw(Upgrade->Cost, FString::Printf(TEXT("Werkstatt: %s"), *Upgrade->DisplayName.ToString()), PlayerNameOf(Character)))
+	{
+		return EWETradeResult::NotEnoughMoney;
+	}
+	if (!Progression->GrantUpgrade(UpgradeId))
+	{
+		// Should not happen (checked above); never keep the money without the upgrade.
+		Company->Deposit(Upgrade->Cost, TEXT("Rückbuchung Werkstatt-Upgrade"), PlayerNameOf(Character));
+		return EWETradeResult::InvalidItem;
+	}
+	Notify(Character, FText::Format(LOCTEXT("UpgradeBought", "Werkstatt verbessert: {0}"), Upgrade->DisplayName));
+	Progression->NotifyEvent(EWEProgressEvent::PurchaseMade);
+	UE_LOG(LogWENet, Log, TEXT("%s bought upgrade %s for %s"), *Character->GetName(), *UpgradeId.ToString(), *Upgrade->Cost.ToDisplayString());
 	return EWETradeResult::Success;
 }
 

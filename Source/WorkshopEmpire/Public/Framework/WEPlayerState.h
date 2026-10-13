@@ -20,7 +20,15 @@ public:
 
 	UWEInventoryComponent* GetInventory() const { return Inventory; }
 
+	/** Capacity bonus from company upgrades (applied on every machine). */
+	void ApplyInventoryBonus(float ExtraKg);
+
+	static constexpr int32 BaseSlots = 20;
+	static constexpr float BaseWeightKg = 25.f;
+
 protected:
+	virtual void BeginPlay() override;
+
 	UPROPERTY(VisibleAnywhere, Category = "Inventory")
 	TObjectPtr<UWEInventoryComponent> Inventory;
 };
