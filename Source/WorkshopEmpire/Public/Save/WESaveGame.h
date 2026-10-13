@@ -18,6 +18,11 @@ struct WORKSHOPEMPIRE_API FWESavedItem
 	UPROPERTY() uint8 Quality = 50;
 	/** Since save version 2. Missing in version 1 files -> 0 (intact). */
 	UPROPERTY() uint8 DisassemblyStep = 0;
+	/** Since save version 5: repair state (FWERepairState). Older files -> nothing known yet. */
+	UPROPERTY() uint8 RepairFaults = 0;
+	UPROPERTY() uint8 RepairRemoved = 0;
+	UPROPERTY() uint8 RepairReplaced = 0;
+	UPROPERTY() uint8 RepairFlags = 0;
 };
 
 USTRUCT()
@@ -75,6 +80,10 @@ struct WORKSHOPEMPIRE_API FWESavedContract
 	UPROPERTY() float RemainingSeconds = 0.f;
 	UPROPERTY() float DeliverySeconds = 1200.f;
 	UPROPERTY() FString AcceptedBy;
+	/** Since save version 5: 0 = supply, 1 = repair order (+ the customer's device id). */
+	UPROPERTY() uint8 Kind = 0;
+	UPROPERTY() EWEItemCondition CustomerCondition = EWEItemCondition::Defective;
+	UPROPERTY() FGuid CustomerItemId;
 };
 
 /** Since save version 3: remaining stock of a market terminal (matched by actor name). */
@@ -109,8 +118,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). */
-	static constexpr int32 CurrentVersion = 4;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). */
+	static constexpr int32 CurrentVersion = 5;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;

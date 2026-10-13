@@ -72,6 +72,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerDevTeleport(FVector Location, FRotator Rotation);
 
+	/** Development builds only: adds a customer order offer from a fixed template (test automation). */
+	UFUNCTION(Server, Reliable)
+	void ServerDevAddContractOffer(int32 TemplateIndex);
+
 	/** Server -> owning client: short on-screen message ("Inventar voll", "Gespeichert"). */
 	UFUNCTION(Client, Reliable)
 	void ClientShowMessage(const FText& Message);

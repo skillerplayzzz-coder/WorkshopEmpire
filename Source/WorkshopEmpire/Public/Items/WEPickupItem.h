@@ -38,6 +38,8 @@ public:
 	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const override;
 	virtual bool GetSecondaryInteraction(const AWECharacter* Interactor, FText& OutText) const override;
 	virtual void InteractSecondary(AWECharacter* Interactor) override;
+	virtual bool GetAlternativeInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const override;
+	virtual void InteractAlternative(AWECharacter* Interactor) override;
 
 	/** Server only, called by AWEWorkbench. Locks the item onto the bench's work spot. */
 	void HandlePlacedOnWorkbench(class AWEWorkbench* Bench, USceneComponent* AttachTo);

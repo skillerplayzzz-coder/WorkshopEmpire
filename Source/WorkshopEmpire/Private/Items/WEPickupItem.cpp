@@ -219,6 +219,15 @@ bool AWEPickupItem::GetExamineInfo(FWEExamineInfo& OutInfo) const
 		OutInfo.Details.Add(FText::Format(LOCTEXT("DisassemblyLine", "Zerlegbar: Schritt {0} von {1} erledigt"),
 			FText::AsNumber(Item.DisassemblyStep), FText::AsNumber(Def->Disassembly->NumSteps())));
 	}
+	const FText RepairStatus = AWEWorkbench::GetRepairStatusText(Item);
+	if (!RepairStatus.IsEmpty())
+	{
+		OutInfo.Details.Add(FText::Format(LOCTEXT("RepairStatusLine", "Reparatur: {0}"), RepairStatus));
+	}
+	if (Item.IsCustomerItem())
+	{
+		OutInfo.Details.Add(LOCTEXT("CustomerLine", "Kundengerät (Reparaturauftrag) – nicht verkaufen oder zerlegen"));
+	}
 	if (Def->ToolType != EWEToolType::None)
 	{
 		OutInfo.Details.Add(FText::Format(LOCTEXT("ToolLine", "Werkzeug: {0} (Tempo ×{1})"),
@@ -310,6 +319,33 @@ void AWEPickupItem::InteractSecondary(AWECharacter* Interactor)
 	if (PlacedOn)
 	{
 		PlacedOn->TakeOffItem(Interactor);
+	}
+}
+
+bool AWEPickupItem::GetAlternativeInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const
+{
+	if (!PlacedOn || PlacedOn->IsBusy())
+	{
+		return false; // the [E] line already says "Arbeite …" / "Wird gerade bearbeitet"
+	}
+	FText Reason;
+	if (PlacedOn->CanStartRepairStep(Interactor, Reason))
+	{
+		OutText = FText::Format(LOCTEXT("RepairPrompt", "Reparieren: {0}"), PlacedOn->GetNextRepairPrompt());
+		return true;
+	}
+	if (!Reason.IsEmpty())
+	{
+		OutReason = FText::Format(LOCTEXT("RepairBlocked", "Reparieren: {0}"), Reason);
+	}
+	return false;
+}
+
+void AWEPickupItem::InteractAlternative(AWECharacter* Interactor)
+{
+	if (PlacedOn)
+	{
+		PlacedOn->TryStartRepairStep(Interactor);
 	}
 }
 

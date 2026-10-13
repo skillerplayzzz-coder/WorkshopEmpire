@@ -65,6 +65,10 @@ FWESavedItem FWESaveSystem::ToSaved(const FWEItemInstance& Item)
 	Saved.Condition = Item.Condition;
 	Saved.Quality = Item.Quality;
 	Saved.DisassemblyStep = Item.DisassemblyStep;
+	Saved.RepairFaults = Item.Repair.Faults;
+	Saved.RepairRemoved = Item.Repair.Removed;
+	Saved.RepairReplaced = Item.Repair.Replaced;
+	Saved.RepairFlags = Item.Repair.Flags;
 	return Saved;
 }
 
@@ -82,6 +86,10 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 	OutItem.Condition = Saved.Condition;
 	OutItem.Quality = FMath::Min<uint8>(Saved.Quality, 100);
 	OutItem.DisassemblyStep = Saved.DisassemblyStep;
+	OutItem.Repair.Faults = Saved.RepairFaults;
+	OutItem.Repair.Removed = Saved.RepairRemoved;
+	OutItem.Repair.Replaced = Saved.RepairReplaced;
+	OutItem.Repair.Flags = Saved.RepairFlags;
 	return true;
 }
 
@@ -217,6 +225,9 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 			Saved.RemainingSeconds = FMath::Max(0.f, Contract.ExpiresAt - Now);
 			Saved.DeliverySeconds = Contract.DeliverySeconds;
 			Saved.AcceptedBy = Contract.AcceptedBy;
+			Saved.Kind = static_cast<uint8>(Contract.Kind);
+			Saved.CustomerCondition = Contract.CustomerCondition;
+			Saved.CustomerItemId = Contract.CustomerItemId;
 		}
 	}
 	for (TActorIterator<AWETraderTerminal> It(World); It; ++It)
@@ -339,6 +350,9 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 				Contract.ExpiresAt = Now + Saved.RemainingSeconds;
 				Contract.DeliverySeconds = Saved.DeliverySeconds;
 				Contract.AcceptedBy = Saved.AcceptedBy;
+				Contract.Kind = Saved.Kind == 1 ? EWEContractKind::Repair : EWEContractKind::Supply;
+				Contract.CustomerCondition = Saved.CustomerCondition;
+				Contract.CustomerItemId = Saved.CustomerItemId;
 				if (Contract.Item)
 				{
 					Restored.Add(Contract);

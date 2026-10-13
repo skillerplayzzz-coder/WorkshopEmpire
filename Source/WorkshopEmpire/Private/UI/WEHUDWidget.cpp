@@ -220,7 +220,7 @@ void UWEHUDWidget::UpdateWorkProgress()
 	WorkBox->SetVisibility(ESlateVisibility::HitTestInvisible);
 	const float Progress = Shown->GetProgress();
 	WorkProgress->SetPercent(Progress);
-	WorkText->SetText(FText::Format(NSLOCTEXT("WEHUD", "WorkFmt", "{0} … {1} %"), Shown->GetNextStepPrompt(),
+	WorkText->SetText(FText::Format(NSLOCTEXT("WEHUD", "WorkFmt", "{0} … {1} %"), Shown->GetActiveJobText(),
 		FText::AsNumber(FMath::RoundToInt(Progress * 100.f))));
 }
 

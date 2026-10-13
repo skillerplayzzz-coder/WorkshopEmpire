@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 5 – Erster vollständiger Gameplay-Loop (Vertical Slice): abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 6 wurde nicht begonnen.
+**Phase 6 – Reparatursystem: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 7 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -38,12 +38,22 @@ Phase 6 wurde nicht begonnen.
 - "Alles nehmen"-Knopf in Lagern
 - Speicherversion 4 (Upgrades, Leitfaden)
 
+### Phase 6 – Reparatursystem (2026-10-13)
+- Reparieren an der Werkbank mit [Q]: Fehler suchen (Multimeter) → defektes Teil ausbauen → Ersatzteil einbauen → Funktionstest → optional aufbereiten
+- Fehler sind pro Gerät verborgen und werden erst durch die Diagnose sichtbar; beschädigte Ersatzteile können den Funktionstest nicht bestehen
+- Ersatzteile kommen aus dem Inventar oder dem Werkbanklager, gekauft oder aus einem anderen zerlegten Gerät
+- Qualitätsverbesserung: Reinigungsset hebt die Qualität, ab 80 % wird ein Gerät "Sehr gut"
+- Neue Gegenstände: Multimeter, Lötkolben, Kondensatoren-Set, Reinigungsset; neuer Händler "Ersatzteil-Express"
+- Reparaturaufträge: Kunde bringt ein defektes Gerät (Lieferpalette), Rückgabe repariert in der Hand
+- Kaputte Geräte sind deutlich weniger wert als funktionierende; gemessen pro PC: Reparieren +8 €, mit Aufbereiten +18 €, Zerlegen +6 €
+- Speicherversion 5 (Reparaturstand, Reparaturaufträge)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 5 (Anleitung im Development Report)
+- Mike: Praxistest Phase 6 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen
 
 ## Bekannte Fehler
 
@@ -51,8 +61,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 6 laut Spezifikation (MASTER_PROMPT), erst nach Mikes Freigabe.
+Phase 7 – Erweiterte Beschaffung (Schrottplatz, Gebrauchtwarenhandel, Retourenpaletten, Auktionen, seltene Funde), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-13: 46/46 Automation-Tests (inkl. kompletter Loop mit echten Daten), Koop-Test als Listen-Server (I/J), Netzwerktests A–H bestanden, kompletter Ablauf im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-13: 53/53 Automation-Tests (inkl. Reparatur-Balance mit echten Daten), Netzwerktests A–L (inkl. Reparaturauftrag mit 2 Spielern) bestanden, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.

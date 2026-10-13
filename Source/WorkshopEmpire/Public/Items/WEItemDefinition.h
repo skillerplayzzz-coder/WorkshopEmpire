@@ -9,6 +9,7 @@
 class UStaticMesh;
 class UTexture2D;
 class UWEDisassemblyDefinition;
+class UWERepairDefinition;
 
 /**
  * Static, data-driven description of an item type (spec §7). One Data Asset per item type in
@@ -74,6 +75,19 @@ public:
 	TObjectPtr<UWEDisassemblyDefinition> Disassembly;
 
 	bool CanBeDisassembled() const;
+
+	/** Repair procedure at the workbench (faults, spare parts, test). Needs bRepairable. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing", meta = (EditCondition = "bRepairable"))
+	TObjectPtr<UWERepairDefinition> Repair;
+
+	bool CanBeRepaired() const;
+
+	/**
+	 * Extra value factor while the item is broken (condition "Beschädigt" or worse). Complex devices
+	 * are worth far less broken than working, so that repairing pays off. 1 = no extra loss.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing", meta = (ClampMin = "0.05", ClampMax = "1"))
+	float BrokenValueMultiplier = 1.f;
 
 	/** If this item is a tool: which kind (None = not a tool). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Tool")

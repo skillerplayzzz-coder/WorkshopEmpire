@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.6.0] – 2026-10-13 – Phase 6: Reparatursystem
+
+### Neu
+- Reparieren an der Werkbank mit der neuen Taste [Q]: Fehler suchen (Multimeter) → defektes Teil ausbauen → Ersatzteil einbauen → Funktionstest → optional reinigen und aufbereiten.
+- Verborgene Fehler je Gerät (`UWERepairDefinition`, Data Assets `REP_OldComputer`, `REP_CrtMonitor`): beschädigte Geräte haben einen, defekte einen oder zwei; erst die Diagnose zeigt sie.
+- Ersatzteile aus dem Inventar oder dem Werkbanklager – gekauft oder aus einem anderen Gerät. Beschädigte Ersatzteile können den Funktionstest nicht bestehen.
+- Qualitätsverbesserung: Reinigungsset hebt die Qualität um 30 %, ab 80 % wird ein Gerät "Sehr gut".
+- Neue Gegenstände: Multimeter, Lötkolben, Kondensatoren-Set, Reinigungsset. Neuer Händler "Ersatzteil-Express" (gebrauchte Netzteile, RAM, Grafikkarte, Mainboard, Kondensatoren, Reinigungssets).
+- Reparaturaufträge: Kunde bringt sein Gerät (erscheint an der Lieferpalette), Rückgabe repariert in der Hand; Kundengeräte können nicht verkauft oder zerlegt werden.
+- Untersuchen [F] und Werkbank zeigen den Reparaturstand ("Netzteil defekt (ausgebaut)" …).
+
+### Balancing
+- Alter Computer 75 € Grundwert, kaputt ×0,42 (defekt beim Händler 11,36 €); Röhrenmonitor 30 €, kaputt ×0,5.
+- Gemessen pro PC: Zerlegen +5,81 €, Reparieren +8,20 €, Reparieren und Aufbereiten +17,70 €.
+- Beim Zerlegen kommen bekannte kaputte Teile als "Defekt" heraus; ein für die Reparatur ausgebautes Teil fehlt beim Zerlegen (keine Verdopplung).
+
+### Behoben
+- Marktplatz zeigte direkt nach einem Kauf für ein Bild übereinanderliegende Zeilen.
+
+### Technisch
+- Speicherformat Version 5 (Reparaturstand jedes Gegenstands, Reparaturaufträge).
+- Interaktions-Schnittstelle um eine dritte Aktion ([Q]) erweitert; 17 Tastenbelegungen.
+- 7 neue Automation-Tests (insgesamt 53), darunter ein Balance-Test für Reparatur mit echten Spieldaten; Netzwerktest-Rollen K/L (Reparaturauftrag mit 2 Spielern); Screenshot-Lauf P6.
+- Nur in Entwicklungs-Builds: `ServerDevAddContractOffer` für die Testautomatisierung.
+
 ## [0.5.0] – 2026-10-13 – Phase 5: Erster vollständiger Gameplay-Loop (Vertical Slice)
 
 ### Neu

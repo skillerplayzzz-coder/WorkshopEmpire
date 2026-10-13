@@ -65,6 +65,22 @@ protected:
 	void SellAllParts();
 	void LogProgressState(const TCHAR* Step) const;
 
+	// Phase 6: repair scenarios (-WESmokeRole=K|L on a dedicated server, -WEShots=P6...)
+	void RunSmokeRoleK();
+	void RunSmokeRoleL();
+	void RunRepairShots();
+	/** Keeps starting the next repair step ([Q]) until nothing is left; then calls OnAutoRepairDone. */
+	void StartAutoRepair(TFunction<void()> OnDone);
+	void AutoRepairTick();
+	void BuyPartsForPlacedItem();
+	void LogRepairState(const TCHAR* Step) const;
+	void TeleportToBench(float SideOffset = 0.f) const;
+	class AWEPickupItem* FindCustomerDevice() const;
+	int32 FindOfferFor(const class UWEItemDefinition* Def) const;
+	FTimerHandle AutoRepairTimer;
+	TFunction<void()> OnAutoRepairDone;
+	bool bAutoRepairSawBroken = false;
+
 	// Phase 3: workbench scenarios (-WESmokeRole=E|F, -WEShots=P3...)
 	void RunSmokeRoleE();
 	void RunSmokeRoleF();

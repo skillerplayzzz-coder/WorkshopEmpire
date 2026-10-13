@@ -9,6 +9,16 @@
 
 class AWECharacter;
 class UWEItemDefinition;
+struct FWEItemInstance;
+
+UENUM(BlueprintType)
+enum class EWEContractKind : uint8
+{
+	/** Customer wants items: deliver them from the inventory. */
+	Supply,
+	/** Customer brings a broken device (on the delivery pallet): repair it and hand it back. */
+	Repair
+};
 
 /** Blueprint for generated customer orders. */
 USTRUCT(BlueprintType)
@@ -21,6 +31,13 @@ struct WORKSHOPEMPIRE_API FWEContractTemplate
 	FText Title;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
+	EWEContractKind Kind = EWEContractKind::Supply;
+
+	/** Repair orders: condition of the customer's device when it arrives. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (EditCondition = "Kind == EWEContractKind::Repair"))
+	EWEItemCondition CustomerCondition = EWEItemCondition::Defective;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
 	TObjectPtr<UWEItemDefinition> Item;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1"))
@@ -29,7 +46,7 @@ struct WORKSHOPEMPIRE_API FWEContractTemplate
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1"))
 	int32 MaxQuantity = 1;
 
-	/** Worst condition the customer still accepts. */
+	/** Worst condition the customer still accepts (repair orders: condition after the repair). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
 	EWEItemCondition MinCondition = EWEItemCondition::Damaged;
 
@@ -77,6 +94,10 @@ struct WORKSHOPEMPIRE_API FWEContract
 	/** Accepted: duration after accepting, in seconds (copied from the template). */
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") float DeliverySeconds = 1200.f;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") FString AcceptedBy;
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") EWEContractKind Kind = EWEContractKind::Supply;
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") EWEItemCondition CustomerCondition = EWEItemCondition::Defective;
+	/** Repair orders: instance id of the customer's device (spawned when the order is accepted). */
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") FGuid CustomerItemId;
 };
 
 UENUM()
@@ -116,8 +137,11 @@ public:
 	/** Server time (or local time in tests without game state). */
 	float GetServerTime() const;
 
-	/** Items in Character's inventory that would count for Contract. */
+	/** Items in Character's inventory that would count for Contract (repair orders: 1 if the repaired device is in the hands). */
 	static int32 CountDeliverable(const FWEContract& Contract, const AWECharacter* Character);
+
+	/** Repair orders: the customer's device is repaired (working, not taken apart). */
+	static bool IsRepairedCustomerItem(const FWEContract& Contract, const FWEItemInstance& Item);
 
 	// --- Server only ------------------------------------------------------------------------------
 
@@ -134,6 +158,9 @@ public:
 
 	/** Loading / tests. */
 	void SetContracts(const TArray<FWEContract>& InContracts);
+
+	/** Repair orders: removes the customer's device from the world (order expired: the customer took it back). */
+	void RemoveCustomerItem(const FGuid& ItemId);
 
 	FWEOnContractsChanged OnContractsChanged;
 

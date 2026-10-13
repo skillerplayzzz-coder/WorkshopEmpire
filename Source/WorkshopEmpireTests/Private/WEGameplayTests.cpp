@@ -194,7 +194,8 @@ bool FWEInputConfigTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Quicksave on F5"), Config->GetKeyForAction(Config->QuickSaveAction), EKeys::F5);
 	TestEqual(TEXT("Quickload on F9"), Config->GetKeyForAction(Config->QuickLoadAction), EKeys::F9);
 	TestEqual(TEXT("Secondary on R"), Config->GetKeyForAction(Config->SecondaryAction), EKeys::R);
-	TestEqual(TEXT("Mapping count"), Config->MappingContext->GetMappings().Num(), 16);
+	TestEqual(TEXT("Repair on Q"), Config->GetKeyForAction(Config->AlternativeAction), EKeys::Q);
+	TestEqual(TEXT("Mapping count"), Config->MappingContext->GetMappings().Num(), 17);
 	return true;
 }
 

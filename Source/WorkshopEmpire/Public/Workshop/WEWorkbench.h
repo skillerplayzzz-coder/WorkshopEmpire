@@ -23,6 +23,30 @@ enum class EWEWorkbenchEvent : uint8
 	Finished
 };
 
+/** Kind of repair work (§9.5). None = the running job is a disassembly step. */
+UENUM()
+enum class EWERepairStepKind : uint8
+{
+	None,
+	Diagnose,
+	Remove,
+	Install,
+	Test,
+	Refurbish
+};
+
+/** The next repair action for the item on the bench (computed, not replicated). */
+struct WORKSHOPEMPIRE_API FWERepairStepInfo
+{
+	EWERepairStepKind Kind = EWERepairStepKind::None;
+	int32 FaultIndex = INDEX_NONE;
+	FText Text;
+	EWEToolType Tool = EWEToolType::None;
+	float Seconds = 0.f;
+	/** Spare part (Install) or consumable (Refurbish) that the step uses up. */
+	const class UWEItemDefinition* Material = nullptr;
+};
+
 /** Replicated state of the current job. Clients compute progress locally from the server time. */
 USTRUCT()
 struct WORKSHOPEMPIRE_API FWEWorkbenchWork
@@ -34,6 +58,10 @@ struct WORKSHOPEMPIRE_API FWEWorkbenchWork
 	UPROPERTY() float StartServerTime = 0.f;
 	UPROPERTY() float Duration = 0.f;
 	UPROPERTY() TObjectPtr<AWECharacter> Worker;
+
+	/** Repair job kind (None = disassembly step) and the fault it works on. */
+	UPROPERTY() EWERepairStepKind RepairKind = EWERepairStepKind::None;
+	UPROPERTY() int8 RepairFault = INDEX_NONE;
 
 	/** Incremented on every event so clients react even to repeated events (sounds, effects). */
 	UPROPERTY() uint16 EventCounter = 0;
@@ -105,6 +133,32 @@ public:
 	/** 0..1 progress of the running step (any machine). */
 	float GetProgress() const;
 
+	// --- Repair (§9.5) -----------------------------------------------------------------------------
+
+	/** Next repair action for the placed item. Kind None if there is none; OutReason then says why (may be empty). */
+	FWERepairStepInfo GetNextRepairStep(FText& OutReason) const;
+
+	/** E.g. "Fehler suchen (Multimeter)". */
+	FText GetNextRepairPrompt() const;
+
+	/** Text of the running job (repair or disassembly step) for the progress bar. */
+	FText GetActiveJobText() const;
+
+	bool CanStartRepairStep(const AWECharacter* Character, FText& OutReason) const;
+
+	/** Server only. Starts the next repair action for Character. */
+	bool TryStartRepairStep(AWECharacter* Character);
+
+	/** Readable repair status of an item, e.g. "Netzteil defekt (ausgebaut)". Empty if nothing known. */
+	static FText GetRepairStatusText(const FWEItemInstance& Item);
+
+	/**
+	 * Finds the best usable spare part (condition at least "Beschädigt", not a customer item) in the
+	 * character's inventory, then in Storage. Returns false if there is none.
+	 */
+	static bool FindSparePart(const AWECharacter* Character, const class UWEInventoryComponent* InStorage, const UWEItemDefinition* Part,
+		class UWEInventoryComponent*& OutInventory, int32& OutSlot);
+
 	/** Best speed multiplier of a matching tool in the character's inventory; <= 0 if missing. Hands = 1. */
 	static float FindToolSpeed(const AWECharacter* Character, EWEToolType Tool);
 
@@ -130,8 +184,12 @@ protected:
 	void RaiseEvent(EWEWorkbenchEvent Event);
 	float GetServerTime() const;
 	TArray<FWEItemInstance> GenerateOutputs(const FWEDisassemblyStep& Step, const FWEItemInstance& Source);
-	void DeliverOutputs(const TArray<FWEItemInstance>& Outputs, AWECharacter* Worker);
+	void DeliverOutputs(const TArray<FWEItemInstance>& Outputs, AWECharacter* Worker, bool bAnnounce = true);
 	void UpdateIndicator();
+	void CompleteRepairStep(AWECharacter* Worker);
+	/** Rolls the hidden faults of a broken repairable device once (server). */
+	void EnsureFaultsRolled(FWEItemInstance& Item);
+	void ShowMessage(AWECharacter* Character, const FText& Message) const;
 	void PlayEventSound(EWEWorkbenchEvent Event) const;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")

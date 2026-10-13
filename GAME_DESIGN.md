@@ -37,7 +37,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
-### 3.1 Steuerung (Stand Phase 2, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 6, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -48,6 +48,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | E | Kleinteile aufheben (ins Inventar), sperrige Gegenstände tragen, Tor/Werkbank/Regal öffnen; mit Gegenstand in der Hand: Ablegen (dort, wo man hinschaut) |
 | F | Untersuchen (Kategorie, Zustand, Qualität, Gewicht, Schätzwert, Zerlegefortschritt) / Schließen |
 | R | Zweite Aktion, z. B. Gegenstand von der Werkbank nehmen |
+| Q | Reparieren: nächster Reparaturschritt am Gerät auf der Werkbank |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
 
@@ -77,6 +78,25 @@ Im Inventar: Ziehen = verschieben, Shift+Ziehen = halber Stapel, Doppelklick = z
 
 Komponenten kommen im Zustand der Quelle oder bis zu zwei Stufen besser heraus (ein defektes Gerät hat meist nur ein kaputtes Teil) und mit leicht schwankender Qualität; Rohstoffe stapeln immer. Im Koop arbeitet immer nur ein Spieler gleichzeitig an einer Werkbank, die Spieler können sich aber abwechseln.
 
+### 3.4 Reparieren (Stand Phase 6)
+
+Ein Gerät auf der Werkbank kann man entweder zerlegen ([E]) oder reparieren ([Q]). Beides zusammen geht nicht: Ein teilweise zerlegtes Gerät ist nicht mehr reparierbar.
+
+1. **Fehler suchen** (Multimeter): Ein beschädigtes Gerät hat genau einen kaputten Teil, ein defektes Gerät einen oder (30 %) zwei. Erst die Diagnose zeigt welche, z. B. "Diagnose: Netzteil defekt". [F] Untersuchen zeigt den Stand.
+2. **Defektes Teil ausbauen**: Das kaputte Teil landet im Werkbanklager (Zustand "Defekt", noch ein paar Cent wert).
+3. **Ersatzteil einbauen**: nimmt das beste passende Teil aus dem Inventar oder dem Werkbanklager ("Beschädigt" oder besser). Woher es kommt, entscheidet der Spieler: gekauft (bequem, teurer) oder aus einem anderen zerlegten Gerät (billiger).
+4. **Funktionstest**: Sind alle Fehler behoben, läuft das Gerät wieder: Zustand "Gebraucht", Qualität +15. Ein beschädigtes Ersatzteil versagt mit 50 %, dann muss es wieder raus.
+5. **Reinigen und aufbereiten** (optional, Reinigungsset): Qualität +30; ab 80 % wird das Gerät "Sehr gut". Einmal pro Gerät.
+
+| Gerät | mögliche Fehler (Ersatzteil, Werkzeug) |
+|---|---|
+| Alter Computer | Netzteil (Schraubendreher), Arbeitsspeicher (Hände), Grafikkarte (Schraubendreher), Mainboard (Schraubendreher) |
+| Röhrenmonitor | aufgeblähte Kondensatoren (Kondensatoren-Set, Lötkolben), gebrochenes Netzkabel (Kupferkabel, Seitenschneider) |
+
+Wer ein defektes Gerät zerlegt, nachdem die Fehler feststehen, bekommt die kaputten Teile als "Defekt" heraus; ein schon für die Reparatur ausgebautes Teil fehlt beim Zerlegen.
+
+**Reparaturaufträge:** Ein Kunde bringt sein Gerät (es erscheint beim Annehmen an der Lieferpalette). Man repariert es und liefert es in der Hand am Marktplatz ab. Kundengeräte kann man nicht verkaufen oder zerlegen. Läuft die Frist ab, holt der Kunde sein Gerät wieder ab.
+
 Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromotor, 45 kg) brauchen später Hilfsmittel (Hubwagen, Gabelstapler) oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
 
 ## 4. Wirtschaft
@@ -97,7 +117,8 @@ Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromo
 |---|---|---|
 | Schrotthandel Kowalski | Rohstoffe, Metallschrott (besser), Ersatzteile (schlechter), Motoren | Kabelkartons, alte Elektromotoren |
 | Gebrauchtbörse 24 | Elektronik, Ersatzteile, Haushaltsgeräte, Werkzeug, Sammlerstücke | defekte Computer, Röhrenmonitore, RAM |
-| Werkzeug-Versand Hammerl | Werkzeug (schlecht) | Schraubendreher, Seitenschneider, Akkuschrauber |
+| Werkzeug-Versand Hammerl | Werkzeug (schlecht) | Schraubendreher, Seitenschneider, Akkuschrauber, Multimeter, Lötkolben |
+| Ersatzteil-Express (Phase 6) | Ersatzteile, Elektronik | gebrauchte Netzteile, RAM, Grafikkarte, Mainboard; Kondensatoren-Sets, Reinigungssets |
 
 - **Lieferung:** Kleinteile ins Inventar, Großes auf die Lieferpalette am Tor. Händler füllen ihren Vorrat alle 10–30 Minuten auf.
 - **Kundenaufträge:** immer 3 Angebote (verschwinden nach 10 Minuten), höchstens 3 angenommene gleichzeitig, Frist 15–30 Minuten, Belohnung ca. 1,3–1,7 × Marktwert. Beispiele: "Bastler sucht Arbeitsspeicher", "Elektriker sucht Kupferkabel", "Recyclinghof nimmt Stahlschrott".
@@ -121,6 +142,13 @@ Der erste vollständige Ablauf: **Werkzeug und Gerät besorgen → zur Werkbank 
 | Profi-Werkbankausstattung | 220 € | nochmals 25 % schneller, +6 Plätze | Arbeitsmatte |
 
 Ziel: Das erste Upgrade nach etwa 2–5 PCs, alle nach etwa einer Stunde. Erste Werte, Balancing in Phase 16.
+
+### 4.3 Reparatur (Stand Phase 6)
+
+- **Wert kaputter Geräte:** Komplexe Geräte sind kaputt deutlich weniger wert als funktionierend (zusätzlicher Faktor im Datensatz: PC ×0,42, Röhrenmonitor ×0,5). Der Alte Computer hat jetzt 75 € Grundwert; defekt kostet er beim Händler 11,36 €.
+- **Gemessen** (Test mit echten Daten, 30 PCs, Ersatzteile gebraucht gekauft): Zerlegen +5,81 €, Reparieren +8,20 €, Reparieren und Aufbereiten +17,70 € pro PC. Mit Teilen aus einem zweiten PC statt gekauften lohnt sich die Reparatur noch mehr.
+- **Einstiegskosten:** Multimeter ca. 18 €, Reinigungsset ca. 3 €, Lötkolben ca. 22 € (nur für Monitore).
+- **Reparaturaufträge:** Belohnung = Wert des reparierten Geräts × 0,45 (PC, ca. 24 €) bzw. × 0,6 (Monitor); das Ersatzteil zahlt die Werkstatt.
 
 ## 5. Progression (Designziele, durch Playtests zu prüfen)
 

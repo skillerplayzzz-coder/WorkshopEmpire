@@ -85,6 +85,7 @@ protected:
 	void Input_Interact();
 	void Input_Examine();
 	void Input_Secondary();
+	void Input_Alternative();
 	void Input_Inventory();
 	void Input_QuickSave();
 	void Input_QuickLoad();

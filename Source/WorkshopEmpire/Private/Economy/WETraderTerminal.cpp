@@ -307,6 +307,11 @@ EWETradeResult AWETraderTerminal::SellFromInventory(AWECharacter* Character, UWE
 	{
 		return EWETradeResult::InvalidItem;
 	}
+	if (Item->IsCustomerItem())
+	{
+		Notify(Character, LOCTEXT("CustomerNoSale", "Gehört einem Kunden – über den Auftrag zurückgeben"));
+		return EWETradeResult::InvalidItem;
+	}
 	FWEItemInstance Selling = *Item;
 	Selling.Quantity = Quantity <= 0 ? Item->Quantity : FMath::Min(Quantity, Item->Quantity);
 	const UWETraderDefinition* Trader = nullptr;
@@ -348,6 +353,11 @@ EWETradeResult AWETraderTerminal::SellHeldItem(AWECharacter* Character, const FG
 		return EWETradeResult::OutOfReach;
 	}
 	const FWEItemInstance Item = Held->GetItem();
+	if (Item.IsCustomerItem())
+	{
+		Notify(Character, LOCTEXT("CustomerNoSaleHeld", "Gehört einem Kunden – über den Auftrag zurückgeben"));
+		return EWETradeResult::InvalidItem;
+	}
 	const UWETraderDefinition* Trader = nullptr;
 	const FWEMoney Price = GetBestSellPrice(Item, &Trader);
 	if (!Trader || Price.IsZero())
@@ -547,6 +557,7 @@ EWETradeResult AWETraderTerminal::DeliverContract(AWECharacter* Character, const
 	}
 	const FWEContract* Contract = Contracts->FindContract(ContractId);
 	const FWEMoney Reward = Contract ? Contract->Reward : FWEMoney();
+	const bool bRepairOrder = Contract && Contract->Kind == EWEContractKind::Repair;
 	if (!Company->RegisterRequest(RequestId))
 	{
 		return EWETradeResult::Duplicate;
@@ -554,9 +565,9 @@ EWETradeResult AWETraderTerminal::DeliverContract(AWECharacter* Character, const
 	const EWEContractResult Result = Contracts->Deliver(ContractId, Character);
 	if (Result != EWEContractResult::Success)
 	{
-		Notify(Character, Result == EWEContractResult::MissingItems
-			? LOCTEXT("Missing", "Passende Gegenstände fehlen im Inventar")
-			: ResultText(EWETradeResult::ContractFailed));
+		Notify(Character, Result != EWEContractResult::MissingItems ? ResultText(EWETradeResult::ContractFailed)
+			: bRepairOrder ? LOCTEXT("MissingRepair", "Das reparierte Kundengerät muss in den Händen sein")
+			: LOCTEXT("Missing", "Passende Gegenstände fehlen im Inventar"));
 		return EWETradeResult::ContractFailed;
 	}
 	Notify(Character, FText::Format(LOCTEXT("Delivered", "Auftrag erledigt: +{0}"), FText::FromString(Reward.ToDisplayString())));

@@ -1,6 +1,6 @@
 """
 Creates/updates the economy Data Assets in /Game/WorkshopEmpire/Data/Economy:
-  DA_Trader_Scrapyard, DA_Trader_UsedGoods, DA_Trader_ToolShop  (what traders buy and sell)
+  DA_Trader_Scrapyard, DA_Trader_UsedGoods, DA_Trader_ToolShop, DA_Trader_SpareParts  (what traders buy and sell)
   DA_ContractCatalog                                            (customer order templates)
 
 Run after build_item_definitions.py and before build_garage_map.py:
@@ -60,7 +60,13 @@ TRADERS = [
      [stock("OldComputer", 4, Q.DEFECTIVE, 35), stock("CrtMonitor", 2, Q.DAMAGED, 40), stock("RamModule", 3, Q.USED, 55)]),
     ("DA_Trader_ToolShop", "Werkzeug-Versand Hammerl", 30.0,
      [rate(C.TOOL, 0.7), rate(C.POWER_TOOL, 0.7)],
-     [stock("Screwdriver", 5, Q.NEW, 80), stock("SideCutter", 3, Q.NEW, 80), stock("CordlessDrill", 2, Q.NEW, 85)]),
+     [stock("Screwdriver", 5, Q.NEW, 80), stock("SideCutter", 3, Q.NEW, 80), stock("CordlessDrill", 2, Q.NEW, 85),
+      stock("Multimeter", 3, Q.NEW, 80), stock("SolderingIron", 2, Q.NEW, 80)]),
+    # Phase 6: spare parts for repairs (buying is convenient; parts from another device are cheaper).
+    ("DA_Trader_SpareParts", "Ersatzteil-Express", 20.0,
+     [rate(C.SPARE_PART, 0.9), rate(C.ELECTRONICS, 0.9)],
+     [stock("PowerSupply", 3, Q.USED, 55), stock("RamModule", 4, Q.USED, 55), stock("GraphicsCard", 1, Q.USED, 50), stock("Mainboard", 1, Q.USED, 50),
+      stock("Capacitors", 10, Q.NEW, 80), stock("CleaningKit", 10, Q.NEW, 80)]),
 ]
 
 for name, display, restock, buys, offers in TRADERS:
@@ -72,9 +78,13 @@ for name, display, restock, buys, offers in TRADERS:
     eal.save_asset(path)
 
 
-def template(title, suffix, lo, hi, min_condition, factor, minutes):
+def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=None):
     t = unreal.WEContractTemplate()
     t.set_editor_property("title", unreal.Text(title))
+    if repair_from is not None:
+        # Repair order: the customer's device arrives in condition repair_from, must come back min_condition.
+        t.set_editor_property("kind", unreal.WEContractKind.REPAIR)
+        t.set_editor_property("customer_condition", repair_from)
     t.set_editor_property("item", item(suffix))
     t.set_editor_property("min_quantity", lo)
     t.set_editor_property("max_quantity", hi)
@@ -93,6 +103,10 @@ catalog.set_editor_property("templates", [
     template("PC-Notdienst sucht ein Netzteil", "PowerSupply", 1, 1, Q.DAMAGED, 1.5, 25.0),
     template("Recyclinghof nimmt Stahlschrott", "SteelScrap", 5, 10, Q.SCRAP, 1.3, 30.0),
     template("Retro-Sammler sucht ein Mainboard", "Mainboard", 1, 1, Q.DEFECTIVE, 1.7, 30.0),
+    # Repair orders (Phase 6): reward = value of the repaired device x factor (labour fee).
+    template("Kundin bringt ihren PC: startet nicht mehr", "OldComputer", 1, 1, Q.USED, 0.45, 30.0, repair_from=Q.DEFECTIVE),
+    template("Büro-PC zur Reparatur", "OldComputer", 1, 1, Q.USED, 0.45, 30.0, repair_from=Q.DAMAGED),
+    template("Röhrenmonitor flackert – bitte reparieren", "CrtMonitor", 1, 1, Q.USED, 0.6, 30.0, repair_from=Q.DAMAGED),
 ])
 eal.save_asset(catalog_path)
 

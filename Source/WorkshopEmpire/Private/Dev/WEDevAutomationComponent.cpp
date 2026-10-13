@@ -25,6 +25,7 @@
 #include "Components/LightComponent.h"
 #include "Engine/Light.h"
 #include "Items/WEItemDefinition.h"
+#include "Workshop/WERepairDefinition.h"
 #include "Progression/WEProgressionComponent.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -95,6 +96,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("J"))
 	{
 		RunSmokeRoleJ();
+	}
+	else if (Role == TEXT("K"))
+	{
+		RunSmokeRoleK();
+	}
+	else if (Role == TEXT("L"))
+	{
+		RunSmokeRoleL();
+	}
+	else if (ShotName.StartsWith(TEXT("P6")))
+	{
+		RunRepairShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P5")))
 	{
@@ -528,6 +541,7 @@ void UWEDevAutomationComponent::RunSmokeRoleE()
 	{
 		if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindItemByName(TEXT("Computer"))); }
 	});
+	Schedule(11.f, [this]() { TeleportToBench(); }); // the spawn point is random; some are out of reach of the bench
 	Schedule(12.f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
 	Schedule(13.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
 	Schedule(15.f, [this]() { LogBenchState(TEXT("E1 placed")); StartAutoSteps(); });
@@ -869,4 +883,315 @@ void UWEDevAutomationComponent::RunSmokeRoleJ()
 	});
 	Schedule(35.f, [this]() { LogProgressState(TEXT("J2 client bought tool belt")); });
 	Schedule(40.f, [this]() { Quit(); });
+}
+
+// --- Phase 6: repair -----------------------------------------------------------------------------
+
+void UWEDevAutomationComponent::TeleportToBench(float SideOffset) const
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner()))
+	{
+		PC->ServerDevTeleport(FVector(-250.f, SideOffset, 100.f), FRotator(0.f, 180.f, 0.f));
+	}
+}
+
+AWEPickupItem* UWEDevAutomationComponent::FindCustomerDevice() const
+{
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+	{
+		if (It->GetItem().IsCustomerItem())
+		{
+			return *It;
+		}
+	}
+	return nullptr;
+}
+
+int32 UWEDevAutomationComponent::FindOfferFor(const UWEItemDefinition* Def) const
+{
+	if (const AWETraderTerminal* Terminal = FindTerminal())
+	{
+		for (const FWEMarketOffer& Offer : Terminal->GetOffers())
+		{
+			if (Offer.Item.Definition == Def && Offer.Remaining > 0)
+			{
+				return Offer.OfferIndex;
+			}
+		}
+	}
+	return INDEX_NONE;
+}
+
+void UWEDevAutomationComponent::LogRepairState(const TCHAR* Step) const
+{
+	const AWEWorkbench* Bench = FindBench();
+	const AWEPickupItem* Placed = Bench ? Bench->GetPlacedItem() : nullptr;
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+	TArray<FString> Orders;
+	if (Contracts)
+	{
+		for (const FWEContract& C : Contracts->GetContracts())
+		{
+			if (C.Kind == EWEContractKind::Repair)
+			{
+				Orders.Add(FString::Printf(TEXT("%s:%s%s"), *C.Title.ToString(), C.State == EWEContractState::Accepted ? TEXT("accepted by ") : TEXT("offered"), *C.AcceptedBy));
+			}
+		}
+	}
+	const AWEPickupItem* Customer = FindCustomerDevice();
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Placed=%s Cond=%s Q=%d Repair='%s' Next='%s' Busy=%d Worker=%s Balance=%s Customer=%s RepairOrders={%s} Mine=%s Bench=%s"),
+		*Role, Step,
+		Placed ? *Placed->GetDisplayName().ToString() : TEXT("none"),
+		Placed ? *WEItems::GetConditionText(Placed->GetItem().Condition).ToString() : TEXT("-"),
+		Placed ? Placed->GetItem().Quality : 0,
+		Placed ? *AWEWorkbench::GetRepairStatusText(Placed->GetItem()).ToString() : TEXT("-"),
+		Bench ? *Bench->GetNextRepairPrompt().ToString() : TEXT("-"),
+		Bench && Bench->IsBusy() ? 1 : 0, Bench ? *GetNameSafe(Bench->GetWorker()) : TEXT("-"),
+		Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"),
+		Customer ? *FString::Printf(TEXT("%s(%s)"), *Customer->GetDisplayName().ToString(), *WEItems::GetConditionText(Customer->GetItem().Condition).ToString()) : TEXT("none"),
+		*FString::Join(Orders, TEXT(" | ")), *DescribeInventory(GetMyInventory()), *DescribeInventory(Bench ? Bench->GetStorage() : nullptr));
+}
+
+void UWEDevAutomationComponent::BuyPartsForPlacedItem()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const AWEWorkbench* Bench = FindBench();
+	const AWEPickupItem* Placed = Bench ? Bench->GetPlacedItem() : nullptr;
+	const UWEItemDefinition* Def = Placed ? Placed->GetItem().Definition.Get() : nullptr;
+	if (!PC || !Def || !Def->CanBeRepaired())
+	{
+		return;
+	}
+	const FWERepairState& State = Placed->GetItem().Repair;
+	for (int32 i = 0; i < Def->Repair->Faults.Num(); ++i)
+	{
+		if (!FWERepairState::HasBit(State.Faults, i) || FWERepairState::HasBit(State.Replaced, i))
+		{
+			continue;
+		}
+		const UWEItemDefinition* Part = Def->Repair->Faults[i].Part;
+		const int32 Offer = FindOfferFor(Part);
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] buy spare part %s -> offer %d"), *Role, *GetNameSafe(Part), Offer);
+		if (Offer != INDEX_NONE)
+		{
+			PC->RequestBuy(FindTerminal(), Offer, 1);
+		}
+	}
+}
+
+void UWEDevAutomationComponent::StartAutoRepair(TFunction<void()> OnDone)
+{
+	OnAutoRepairDone = MoveTemp(OnDone);
+	bAutoRepairSawBroken = false;
+	GetWorld()->GetTimerManager().SetTimer(AutoRepairTimer, this, &UWEDevAutomationComponent::AutoRepairTick, 0.5f, true);
+}
+
+void UWEDevAutomationComponent::AutoRepairTick()
+{
+	AWEWorkbench* Bench = FindBench();
+	AWECharacter* C = GetCharacter();
+	AWEPickupItem* Placed = Bench ? Bench->GetPlacedItem() : nullptr;
+	if (!Bench || !C || !Placed)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(AutoRepairTimer);
+		return;
+	}
+	if (Bench->IsBusy())
+	{
+		return;
+	}
+	if (bAutoRepairSawBroken && !Placed->GetItem().IsBroken())
+	{
+		bAutoRepairSawBroken = false;
+		Shot(TEXT("08_Funktionstest_bestanden"));
+		LogRepairState(TEXT("auto-repair: test passed"));
+	}
+	bAutoRepairSawBroken |= Placed->GetItem().IsBroken();
+	FText Reason;
+	if (!Bench->CanStartRepairStep(C, Reason))
+	{
+		if (Bench->GetNextRepairStep(Reason).Kind == EWERepairStepKind::None || !Reason.ToString().Contains(TEXT("Arbeite")))
+		{
+			GetWorld()->GetTimerManager().ClearTimer(AutoRepairTimer);
+			UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] auto-repair finished: %s"), *Role, *Reason.ToString());
+			if (OnAutoRepairDone)
+			{
+				TFunction<void()> Done = MoveTemp(OnAutoRepairDone);
+				Done();
+			}
+		}
+		return;
+	}
+	LookAtPoint(Placed->GetActorLocation());
+	LogRepairState(TEXT("auto-repair step"));
+	C->GetInteractionComponent()->RequestAlternativeInteractWith(Placed);
+}
+
+void UWEDevAutomationComponent::RunRepairShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Placed = [this]() -> AWEPickupItem* { const AWEWorkbench* B = FindBench(); return B ? B->GetPlacedItem() : nullptr; };
+	Schedule(3.0f, [this]() { StoreItem(TEXT("Schraubendreher")); StoreItem(TEXT("Seitenschneider")); });
+	Schedule(4.0f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(5.5f, [this, PC]() { LookAt(FindTerminal()); if (PC) { PC->OpenTrade(FindTerminal()); } });
+	Schedule(6.5f, [this, PC]()
+	{
+		Shot(TEXT("01_Markt_Ersatzteile"));
+		if (PC)
+		{
+			PC->RequestBuy(FindTerminal(), FindOfferFor(UWEItemDefinition::FindById(TEXT("Multimeter"))), 1);
+			PC->RequestBuy(FindTerminal(), FindOfferFor(UWEItemDefinition::FindById(TEXT("CleaningKit"))), 1);
+		}
+	});
+	Schedule(8.0f, [this, PC]()
+	{
+		LogRepairState(TEXT("S0 bought multimeter"));
+		if (PC) { PC->CloseTrade(); PC->ServerDevTeleport(FVector(-190.f, -40.f, 100.f), FRotator(0.f, 180.f, 0.f)); }
+	});
+	Schedule(9.0f, [this]() { LookAt(FindItemByName(TEXT("Computer"))); });
+	Schedule(9.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindItemByName(TEXT("Computer"))); } });
+	Schedule(10.5f, [this]() { TeleportToBench(); });
+	Schedule(11.5f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(12.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(13.0f, [this, Placed]() { if (AWEPickupItem* P = Placed()) { LookAtPoint(P->GetActorLocation()); } });
+	Schedule(13.5f, [this]() { Shot(TEXT("02_Werkbank_Q_Reparieren")); LogRepairState(TEXT("S1 placed")); });
+	Schedule(14.0f, [this, Placed]() { if (AWECharacter* C = GetCharacter(); C && Placed()) { C->GetInteractionComponent()->RequestAlternativeInteractWith(Placed()); } });
+	Schedule(16.0f, [this]() { Shot(TEXT("03_Fehlersuche_laeuft")); });
+	Schedule(18.8f, [this]() { Shot(TEXT("04_Diagnose")); LogRepairState(TEXT("S2 diagnosed")); });
+	Schedule(19.3f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->ToggleExamine(); } });
+	Schedule(20.3f, [this]() { Shot(TEXT("05_Untersuchen_Fehler")); });
+	Schedule(20.8f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->CloseExamine(); } TeleportToTerminal(0.f); });
+	Schedule(22.3f, [this, PC]() { LookAt(FindTerminal()); if (PC) { PC->OpenTrade(FindTerminal()); } BuyPartsForPlacedItem(); });
+	Schedule(23.8f, [this, PC]() { Shot(TEXT("06_Ersatzteil_gekauft")); LogRepairState(TEXT("S3 bought parts")); if (PC) { PC->CloseTrade(); } });
+	Schedule(24.5f, [this]() { TeleportToBench(); });
+	Schedule(25.5f, [this, PC, Placed]()
+	{
+		if (AWEPickupItem* P = Placed()) { LookAtPoint(P->GetActorLocation()); }
+		Schedule(4.5f, [this]() { Shot(TEXT("07_Reparatur_laeuft")); LogRepairState(TEXT("S4 repairing")); });
+		StartAutoRepair([this, PC, Placed]()
+		{
+			LogRepairState(TEXT("S5 repaired and refurbished"));
+			Schedule(0.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->ToggleExamine(); } });
+			Schedule(1.5f, [this]() { Shot(TEXT("09_Untersuchen_repariert")); });
+			Schedule(2.0f, [this, Placed]()
+			{
+				if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->CloseExamine(); if (Placed()) { C->GetInteractionComponent()->RequestSecondaryInteractWith(Placed()); } }
+			});
+			Schedule(3.0f, [this]() { TeleportToTerminal(0.f); });
+			Schedule(4.5f, [this, PC]() { LookAt(FindTerminal()); if (PC) { PC->OpenTrade(FindTerminal()); } });
+			Schedule(5.5f, [this]() { Shot(TEXT("10_Verkauf_reparierter_PC")); LogRepairState(TEXT("S6 at terminal with repaired PC")); });
+			Schedule(6.0f, [PC, this]() { if (PC) { PC->RequestSellHeld(FindTerminal()); } });
+			Schedule(7.5f, [this]() { Shot(TEXT("11_Verkauft")); LogRepairState(TEXT("S7 sold")); });
+			Schedule(8.5f, [this]() { Quit(); });
+		});
+	});
+	Schedule(110.f, [this]() { LogRepairState(TEXT("timeout")); Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleK()
+{
+	// Repair order end to end over the network: accept, carry, diagnose, buy part, repair, deliver.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(8.f, [this]() { StoreItem(TEXT("Schraubendreher")); StoreItem(TEXT("Seitenschneider")); });
+	Schedule(10.f, [this]() { TeleportToTerminal(-40.f); });
+	Schedule(12.f, [this, PC]()
+	{
+		if (PC)
+		{
+			PC->ServerDevAddContractOffer(8); // "Büro-PC zur Reparatur"
+			PC->RequestBuy(FindTerminal(), FindOfferFor(UWEItemDefinition::FindById(TEXT("Multimeter"))), 1);
+		}
+	});
+	Schedule(14.f, [this, PC]()
+	{
+		// The order added above is the last repair offer in the list.
+		const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+		FGuid Chosen;
+		for (const FWEContract& C : Contracts ? Contracts->GetContracts() : TArray<FWEContract>())
+		{
+			Chosen = C.Kind == EWEContractKind::Repair && C.State == EWEContractState::Offered ? C.Id : Chosen;
+		}
+		if (PC && Chosen.IsValid())
+		{
+			PC->RequestAcceptContract(FindTerminal(), Chosen);
+		}
+	});
+	Schedule(16.f, [this, PC]()
+	{
+		LogRepairState(TEXT("K0 accepted repair order"));
+		if (const AWEPickupItem* Device = FindCustomerDevice(); Device && PC)
+		{
+			const FVector Spot = Device->GetActorLocation() + FVector(-140.f, 0.f, 0.f);
+			PC->ServerDevTeleport(FVector(Spot.X, Spot.Y, 100.f), FRotator(0.f, 0.f, 0.f));
+		}
+	});
+	Schedule(17.5f, [this]() { LookAt(FindCustomerDevice()); });
+	Schedule(18.f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindCustomerDevice()); } });
+	Schedule(19.5f, [this]() { TeleportToBench(); });
+	Schedule(20.5f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(21.f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(22.5f, [this]()
+	{
+		LogRepairState(TEXT("K1 placed customer device"));
+		const AWEWorkbench* B = FindBench();
+		if (AWECharacter* C = GetCharacter(); C && B && B->GetPlacedItem())
+		{
+			LookAtPoint(B->GetPlacedItem()->GetActorLocation());
+			C->GetInteractionComponent()->RequestAlternativeInteractWith(B->GetPlacedItem());
+		}
+	});
+	Schedule(28.f, [this]() { LogRepairState(TEXT("K2 diagnosed")); TeleportToTerminal(-40.f); });
+	Schedule(30.f, [this]() { BuyPartsForPlacedItem(); });
+	Schedule(32.f, [this]() { TeleportToBench(); });
+	Schedule(33.f, [this, PC]()
+	{
+		StartAutoRepair([this, PC]()
+		{
+			LogRepairState(TEXT("K3 repaired"));
+			Schedule(0.5f, [this]()
+			{
+				const AWEWorkbench* B = FindBench();
+				if (AWECharacter* C = GetCharacter(); C && B && B->GetPlacedItem()) { C->GetInteractionComponent()->RequestSecondaryInteractWith(B->GetPlacedItem()); }
+			});
+			Schedule(2.0f, [this]() { TeleportToTerminal(-40.f); });
+			Schedule(4.0f, [this, PC]()
+			{
+				const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+				for (const FWEContract& C : Contracts ? Contracts->GetContracts() : TArray<FWEContract>())
+				{
+					if (C.Kind == EWEContractKind::Repair && C.State == EWEContractState::Accepted && PC)
+					{
+						PC->RequestDeliverContract(FindTerminal(), C.Id);
+					}
+				}
+			});
+			Schedule(6.5f, [this]() { LogRepairState(TEXT("K4 delivered")); });
+			Schedule(9.0f, [this]() { Quit(); });
+		});
+	});
+	Schedule(95.f, [this]() { LogRepairState(TEXT("K timeout")); Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleL()
+{
+	// Second player: sees the order and the repair, cannot interfere while the bench is busy.
+	Schedule(10.f, [this]() { TeleportToTerminal(40.f); });
+	Schedule(16.f, [this]() { LogRepairState(TEXT("L0 sees order")); });
+	Schedule(22.f, [this]() { TeleportToBench(70.f); });
+	Schedule(24.f, [this]()
+	{
+		LogRepairState(TEXT("L1 at bench while K diagnoses"));
+		const AWEWorkbench* B = FindBench();
+		if (AWECharacter* C = GetCharacter(); C && B && B->GetPlacedItem())
+		{
+			LookAtPoint(B->GetPlacedItem()->GetActorLocation());
+			C->GetInteractionComponent()->RequestAlternativeInteractWith(B->GetPlacedItem()); // busy: must be refused
+			C->GetInteractionComponent()->RequestSecondaryInteractWith(B->GetPlacedItem()); // take off while busy: refused
+		}
+	});
+	Schedule(26.f, [this]() { LogRepairState(TEXT("L2 after trying to interfere")); });
+	Schedule(40.f, [this]() { LogRepairState(TEXT("L3 sees repair")); });
+	Schedule(70.f, [this]() { LogRepairState(TEXT("L4 final")); });
+	Schedule(73.f, [this]() { Quit(); });
 }

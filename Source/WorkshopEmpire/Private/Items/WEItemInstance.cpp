@@ -16,7 +16,7 @@ FWEItemInstance FWEItemInstance::Make(UWEItemDefinition* InDefinition, int32 InQ
 bool FWEItemInstance::CanStackWith(const FWEItemInstance& Other) const
 {
 	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition
-		&& DisassemblyStep == Other.DisassemblyStep;
+		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair;
 }
 
 float FWEItemInstance::GetUnitWeightKg() const
@@ -30,7 +30,12 @@ FWEMoney FWEItemInstance::GetEstimatedValue() const
 	{
 		return FWEMoney();
 	}
-	const double Factor = WEItems::GetConditionValueFactor(Condition) * (0.75 + 0.5 * (Quality / 100.0));
+	double Factor = WEItems::GetConditionValueFactor(Condition) * (0.75 + 0.5 * (Quality / 100.0));
+	if (IsBroken())
+	{
+		// A broken complex device is worth much less than a working one (repairing must pay off).
+		Factor *= Definition->BrokenValueMultiplier;
+	}
 	const double Cents = static_cast<double>(Definition->BaseValue.GetCents()) * Factor * Quantity;
 	return FWEMoney::FromCents(static_cast<int64>(FMath::RoundToDouble(Cents)));
 }
@@ -44,6 +49,10 @@ FText FWEItemInstance::GetDisplayName() const
 	if (IsPartiallyDisassembled())
 	{
 		return FText::Format(NSLOCTEXT("WEItemInstance", "PartlyDisassembled", "{0} (teilweise zerlegt)"), Definition->DisplayName);
+	}
+	if (Repair.IsInProgress())
+	{
+		return FText::Format(NSLOCTEXT("WEItemInstance", "InRepair", "{0} (in Reparatur)"), Definition->DisplayName);
 	}
 	return Definition->DisplayName;
 }

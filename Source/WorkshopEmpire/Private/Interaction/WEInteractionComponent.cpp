@@ -247,6 +247,60 @@ bool UWEInteractionComponent::ExecuteInteractSecondary(AActor* Target)
 	return true;
 }
 
+void UWEInteractionComponent::RequestAlternativeInteraction()
+{
+	const AWECharacter* Character = GetCharacter();
+	if (Character && !Character->GetHeldItem())
+	{
+		RequestAlternativeInteractWith(FocusedActor.Get());
+	}
+}
+
+void UWEInteractionComponent::RequestAlternativeInteractWith(AActor* Target)
+{
+	if (!Target)
+	{
+		return;
+	}
+	if (GetOwner()->HasAuthority())
+	{
+		ExecuteInteractAlternative(Target);
+	}
+	else
+	{
+		ServerInteractAlternative(Target);
+	}
+}
+
+void UWEInteractionComponent::ServerInteractAlternative_Implementation(AActor* Target)
+{
+	ExecuteInteractAlternative(Target);
+}
+
+bool UWEInteractionComponent::ExecuteInteractAlternative(AActor* Target)
+{
+	AWECharacter* Character = GetCharacter();
+	IWEInteractable* Interactable = Cast<IWEInteractable>(Target);
+	if (!Character || !Character->HasAuthority() || !IsValid(Target) || !Interactable)
+	{
+		return false;
+	}
+	if (!IsWithinReach(Character, Target, InteractionRange + ServerRangeTolerance))
+	{
+		UE_LOG(LogWENet, Warning, TEXT("%s alternative interaction with %s rejected: out of reach"), *Character->GetName(), *Target->GetName());
+		return false;
+	}
+	FText Text;
+	FText Reason;
+	if (!Interactable->GetAlternativeInteraction(Character, Text, Reason))
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s alternative interaction with %s rejected: %s"), *Character->GetName(), *Target->GetName(), *Reason.ToString());
+		return false;
+	}
+	Interactable->InteractAlternative(Character);
+	return true;
+}
+
 // --- Examine / prompts (local) -----------------------------------------------------------------
 
 void UWEInteractionComponent::ToggleExamine()
@@ -342,6 +396,17 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	if (Interactable->GetSecondaryInteraction(Character, SecondaryText))
 	{
 		OutPrompts.Add({ GetKeyText(Config->SecondaryAction), SecondaryText });
+	}
+
+	FText AlternativeText;
+	FText AlternativeReason;
+	if (Interactable->GetAlternativeInteraction(Character, AlternativeText, AlternativeReason))
+	{
+		OutPrompts.Add({ GetKeyText(Config->AlternativeAction), AlternativeText });
+	}
+	else if (!AlternativeReason.IsEmpty())
+	{
+		OutPrompts.Add({ FText::GetEmpty(), AlternativeReason });
 	}
 
 	FWEExamineInfo Info;

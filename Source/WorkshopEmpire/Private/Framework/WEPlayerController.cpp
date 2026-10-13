@@ -1,5 +1,7 @@
 #include "Framework/WEPlayerController.h"
 
+#include "Economy/WEContractComponent.h"
+
 #include "Blueprint/UserWidget.h"
 #include "Dev/WEDevAutomationComponent.h"
 #include "Framework/WEGameMode.h"
@@ -308,6 +310,17 @@ void AWEPlayerController::ServerDevTeleport_Implementation(FVector Location, FRo
 		MyPawn->TeleportTo(Location, Rotation, false, true);
 		ClientSetRotation(Rotation);
 		UE_LOG(LogWENet, Log, TEXT("%s dev-teleported to %s"), *GetName(), *Location.ToCompactString());
+	}
+#endif
+}
+
+void AWEPlayerController::ServerDevAddContractOffer_Implementation(int32 TemplateIndex)
+{
+#if !UE_BUILD_SHIPPING
+	if (UWEContractComponent* Contracts = UWEContractComponent::Get(this))
+	{
+		const bool bAdded = Contracts->AddOffer(TemplateIndex);
+		UE_LOG(LogWENet, Log, TEXT("%s dev-added contract offer from template %d: %s"), *GetName(), TemplateIndex, bAdded ? TEXT("ok") : TEXT("failed"));
 	}
 #endif
 }

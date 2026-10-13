@@ -66,9 +66,9 @@ void UWETradeRowWidget::NativeOnInitialized()
 
 	UVerticalBox* Texts = WidgetTree->ConstructWidget<UVerticalBox>();
 	TitleText = WETradeStyle::Text(WidgetTree, 12, FLinearColor::White);
-	TitleText->SetAutoWrapText(true);
+	TitleText->SetAutoWrapText(false);
 	DetailText = WETradeStyle::Text(WidgetTree, 9, WETradeStyle::Soft);
-	DetailText->SetAutoWrapText(true);
+	DetailText->SetAutoWrapText(false);
 	Texts->AddChildToVerticalBox(TitleText);
 	Texts->AddChildToVerticalBox(DetailText);
 	if (UHorizontalBoxSlot* S = Row->AddChildToHorizontalBox(Texts))
@@ -106,6 +106,11 @@ void UWETradeRowWidget::Configure(UWETradeWidget* InOwner, EWETradeRowKind InKin
 {
 	Owner = InOwner;
 	Kind = InKind;
+	// Fixed wrap widths (columns are 300 px): auto-wrap needs last frame's geometry, so new rows
+	// were laid out with zero width for one frame and flashed on top of each other.
+	const float Wrap = InKind == EWETradeRowKind::Info ? 270.f : (InButton2.IsEmpty() ? 125.f : 85.f);
+	TitleText->SetWrapTextAt(Wrap);
+	DetailText->SetWrapTextAt(Wrap);
 	TitleText->SetText(Title);
 	DetailText->SetText(Detail);
 	PriceText->SetText(Price);
@@ -247,6 +252,10 @@ FString UWETradeWidget::BuildSignature() const
 		}
 	}
 	Sig << TEXT("|held:") << (Character && Character->GetHeldItem() ? *Character->GetHeldItem()->GetName() : TEXT("-"));
+	if (const AWEPickupItem* HeldItem = Character ? Character->GetHeldItem() : nullptr)
+	{
+		Sig << TEXT("c") << static_cast<int32>(HeldItem->GetItem().Condition) << TEXT("q") << HeldItem->GetItem().Quality;
+	}
 	if (Terminal)
 	{
 		Sig << TEXT("|stock:");
@@ -299,13 +308,15 @@ void UWETradeWidget::Rebuild()
 	{
 		const UWETraderDefinition* Trader = nullptr;
 		const FWEMoney Price = Terminal->GetBestSellPrice(Held->GetItem(), &Trader);
+		const bool bCustomer = Held->GetItem().IsCustomerItem();
 		UWETradeRowWidget* Row = AddRow(SellList);
 		Row->Configure(this, EWETradeRowKind::SellHeld,
 			FText::Format(LOCTEXT("Held", "In der Hand: {0}"), Held->GetDisplayName()),
-			Trader ? FText::Format(LOCTEXT("SellTo", "{0} · an {1}"), WEItems::GetConditionText(Held->GetItem().Condition), Trader->DisplayName)
+			bCustomer ? LOCTEXT("HeldCustomer", "Kundengerät – über den Reparaturauftrag abliefern")
+			: Trader ? FText::Format(LOCTEXT("SellTo", "{0} · an {1}"), WEItems::GetConditionText(Held->GetItem().Condition), Trader->DisplayName)
 				: LOCTEXT("NoBuyerDetail", "Kein Händler interessiert"),
-			Trader ? WETradeStyle::Money(Price) : FText::FromString(TEXT("—")),
-			LOCTEXT("SellBtn", "Verkaufen"), Trader != nullptr);
+			Trader && !bCustomer ? WETradeStyle::Money(Price) : FText::FromString(TEXT("—")),
+			LOCTEXT("SellBtn", "Verkaufen"), Trader != nullptr && !bCustomer);
 	}
 	if (const UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr)
 	{
@@ -359,11 +370,15 @@ void UWETradeWidget::Rebuild()
 			Row->ContractId = Contract.Id;
 			Row->bContractAccepted = bAccepted;
 			const FText ItemName = Contract.Item ? Contract.Item->DisplayName : FText::GetEmpty();
-			Row->Configure(this, EWETradeRowKind::Contract, Contract.Title,
-				FText::Format(LOCTEXT("ContractDetail", "{0}× {1}, mind. {2} · {3} · noch {4} min"), FText::AsNumber(Contract.Quantity), ItemName,
-					WEItems::GetConditionText(Contract.MinCondition),
-					bAccepted ? FText::Format(LOCTEXT("AcceptedBy", "angenommen von {0}"), FText::FromString(Contract.AcceptedBy)) : LOCTEXT("Open", "offen"),
-					FText::AsNumber(Minutes)),
+			const FText State = bAccepted ? FText::Format(LOCTEXT("AcceptedBy", "angenommen von {0}"), FText::FromString(Contract.AcceptedBy)) : LOCTEXT("Open", "offen");
+			const FText Detail = Contract.Kind == EWEContractKind::Repair
+				? FText::Format(bAccepted
+						? LOCTEXT("RepairContractAccepted", "Reparieren: {0} (liegt auf der Palette), in der Hand abliefern · {1} · noch {2} min")
+						: LOCTEXT("RepairContractOpen", "Reparieren: {0} · {1} · noch {2} min"),
+					FText::Format(LOCTEXT("RepairItem", "{0}, {1}"), ItemName, WEItems::GetConditionText(Contract.CustomerCondition)), State, FText::AsNumber(Minutes))
+				: FText::Format(LOCTEXT("ContractDetail", "{0}× {1}, mind. {2} · {3} · noch {4} min"), FText::AsNumber(Contract.Quantity), ItemName,
+					WEItems::GetConditionText(Contract.MinCondition), State, FText::AsNumber(Minutes));
+			Row->Configure(this, EWETradeRowKind::Contract, Contract.Title, Detail,
 				WETradeStyle::Money(Contract.Reward),
 				bAccepted ? FText::Format(LOCTEXT("Deliver", "Abliefern ({0}/{1})"), FText::AsNumber(FMath::Min(Have, Contract.Quantity)), FText::AsNumber(Contract.Quantity))
 					: LOCTEXT("Accept", "Annehmen"),
@@ -435,6 +450,8 @@ void UWETradeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	{
 		LastSignature = Signature;
 		Rebuild();
+		// New rows have no size until the next layout pass; without this they flash stacked for one frame.
+		ForceLayoutPrepass();
 	}
 }
 

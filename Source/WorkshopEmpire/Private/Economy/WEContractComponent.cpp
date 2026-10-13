@@ -2,6 +2,10 @@
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEMarketComponent.h"
+#include "Economy/WETraderTerminal.h"
+#include "EngineUtils.h"
+#include "Items/WEPickupItem.h"
+#include "Workshop/WEWorkbench.h"
 #include "Engine/World.h"
 #include "Framework/WEGameState.h"
 #include "GameFramework/GameStateBase.h"
@@ -81,8 +85,19 @@ const FWEContract* UWEContractComponent::FindContract(const FGuid& Id) const
 	return Contracts.FindByPredicate([&Id](const FWEContract& C) { return C.Id == Id; });
 }
 
+bool UWEContractComponent::IsRepairedCustomerItem(const FWEContract& Contract, const FWEItemInstance& Item)
+{
+	return Contract.CustomerItemId.IsValid() && Item.InstanceId == Contract.CustomerItemId && !Item.IsBroken()
+		&& Item.Condition <= Contract.MinCondition && Item.Repair.Faults == 0 && !Item.IsPartiallyDisassembled();
+}
+
 int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const AWECharacter* Character)
 {
+	if (Contract.Kind == EWEContractKind::Repair)
+	{
+		const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
+		return Held && IsRepairedCustomerItem(Contract, Held->GetItem()) ? 1 : 0;
+	}
 	const UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr;
 	int32 Count = 0;
 	if (Inventory)
@@ -120,7 +135,10 @@ bool UWEContractComponent::AddOffer(int32 TemplateIndex)
 	Contract.Id = FGuid::NewGuid();
 	Contract.Title = Template.Title;
 	Contract.Item = Template.Item;
-	Contract.Quantity = FMath::RandRange(FMath::Min(Template.MinQuantity, Template.MaxQuantity), FMath::Max(Template.MinQuantity, Template.MaxQuantity));
+	Contract.Kind = Template.Kind;
+	Contract.CustomerCondition = Template.CustomerCondition;
+	Contract.Quantity = Template.Kind == EWEContractKind::Repair ? 1
+		: FMath::RandRange(FMath::Min(Template.MinQuantity, Template.MaxQuantity), FMath::Max(Template.MinQuantity, Template.MaxQuantity));
 	Contract.MinCondition = Template.MinCondition;
 	Contract.DeliverySeconds = Template.DurationMinutes * 60.f;
 	Contract.ExpiresAt = GetServerTime() + OfferLifetimeSeconds;
@@ -149,6 +167,10 @@ void UWEContractComponent::UpdateContracts()
 		{
 			UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' expired (%s)"), *Contracts[i].Title.ToString(),
 				Contracts[i].State == EWEContractState::Accepted ? TEXT("accepted") : TEXT("offer"));
+			if (Contracts[i].Kind == EWEContractKind::Repair && Contracts[i].CustomerItemId.IsValid())
+			{
+				RemoveCustomerItem(Contracts[i].CustomerItemId);
+			}
 			Contracts.RemoveAt(i);
 			bChanged = true;
 		}
@@ -181,6 +203,26 @@ EWEContractResult UWEContractComponent::Accept(const FGuid& Id, const FString& P
 	{
 		return EWEContractResult::TooManyAccepted;
 	}
+	if (Contract->Kind == EWEContractKind::Repair)
+	{
+		// The customer drops the device off on the delivery pallet (or in front of the terminal).
+		FWEItemInstance Device = FWEItemInstance::Make(Contract->Item, 1, Contract->CustomerCondition, static_cast<uint8>(FMath::RandRange(30, 50)));
+		Device.Repair.SetFlag(FWERepairState::CustomerItem);
+		FTransform Drop(FVector(0.f, 0.f, 100.f));
+		if (AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld()))
+		{
+			Drop = Zone->NextDropTransform();
+		}
+		else if (TActorIterator<AWETraderTerminal> Terminal(GetWorld()); Terminal)
+		{
+			Drop = FTransform(Terminal->GetActorLocation() + Terminal->GetActorForwardVector() * 80.f + FVector(0.f, 0.f, 40.f));
+		}
+		if (!AWEPickupItem::SpawnWorldItem(GetWorld(), Device, Drop))
+		{
+			return EWEContractResult::NotFound;
+		}
+		Contract->CustomerItemId = Device.InstanceId;
+	}
 	Contract->State = EWEContractState::Accepted;
 	Contract->AcceptedBy = PlayerName;
 	Contract->ExpiresAt = GetServerTime() + Contract->DeliverySeconds;
@@ -208,8 +250,16 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 		return EWEContractResult::MissingItems;
 	}
 
+	if (Contract.Kind == EWEContractKind::Repair)
+	{
+		// The repaired device goes back to the customer.
+		if (AWEPickupItem* Held = Character->ReleaseHeldItem())
+		{
+			Held->Destroy();
+		}
+	}
 	// Take exactly the requested amount from matching stacks.
-	int32 Remaining = Contract.Quantity;
+	int32 Remaining = Contract.Kind == EWEContractKind::Repair ? 0 : Contract.Quantity;
 	for (const FWEInventorySlotData& Slot : Inventory->GetAllSlots())
 	{
 		if (Remaining <= 0)
@@ -232,6 +282,29 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 	UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' delivered, reward %s"), *Contract.Title.ToString(), *Contract.Reward.ToDisplayString());
 	OnRep_Contracts();
 	return EWEContractResult::Success;
+}
+
+void UWEContractComponent::RemoveCustomerItem(const FGuid& ItemId)
+{
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+	{
+		AWEPickupItem* Item = *It;
+		if (Item->GetItem().InstanceId != ItemId)
+		{
+			continue;
+		}
+		if (AWECharacter* Holder = Item->GetHolder())
+		{
+			Holder->ReleaseHeldItem();
+		}
+		if (AWEWorkbench* Bench = Item->GetPlacedOn())
+		{
+			Bench->ResetForLoad();
+		}
+		UE_LOG(LogWorkshopEmpire, Log, TEXT("Customer device %s taken back (order expired)"), *Item->GetDisplayName().ToString());
+		Item->Destroy();
+		return;
+	}
 }
 
 void UWEContractComponent::SetContracts(const TArray<FWEContract>& InContracts)

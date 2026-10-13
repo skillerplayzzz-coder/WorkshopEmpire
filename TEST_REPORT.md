@@ -17,6 +17,53 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 6 – Lauf vom 2026-10-13
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **53/53 bestanden, 0 mit Warnungen** (46 alte + 7 neue), Bericht `Saved/TestReports/Phase6/index.json` |
+| ↳ `Repair.FullFlowExchangeTestRefurbish`: ohne Multimeter abgelehnt → Fehler suchen (2 Fehler) → Teil A ausbauen (defektes Teil landet im Werkbanklager) → defektes Teil zählt nicht als Ersatzteil → Ersatzteil aus dem Werkbanklager einbauen → Teil B (aus dem Inventar) → Funktionstest → "Gebraucht", Qualität +15, Wert mehr als doppelt so hoch → ohne Reinigungsset abgelehnt → aufbereiten: Qualität 85 % → "Sehr gut", nur einmal möglich | ✅ |
+| ↳ `Repair.DamagedSparePartFailsTest`: beschädigtes Ersatzteil eingebaut → sieht ersetzt aus → Funktionstest fällt durch → wieder ausbauen → gutes Teil → bestanden | ✅ |
+| ↳ `Repair.BlockedStatesAndCustomerDevices` (Schrott und teilzerlegt nicht reparierbar, funktionierendes Gerät nur aufbereiten, zweiter Spieler wird abgelehnt solange gearbeitet wird, Kundengerät: reparieren ja, zerlegen nein, verkaufen nein) | ✅ |
+| ↳ `Repair.DisassemblyRespectsKnownFaults` (echte PC-Daten: bekannt defektes Netzteil kommt beim Zerlegen als "Defekt" heraus; schon für die Reparatur ausgebautes Netzteil kommt nicht doppelt heraus) | ✅ |
+| ↳ `Repair.CustomerRepairOrder` (Annehmen → Kundengerät liegt an der Lieferpalette → kaputt abliefern abgelehnt → reparieren → in der Hand abliefern → Belohnung, Gerät weg; abgelaufener Auftrag → Kunde holt Gerät ab) | ✅ |
+| ↳ `Save.RepairStateRoundTrip` (Version 5: Reparaturstand auf der Werkbank und Reparaturauftrag mit Kundengerät-Id) | ✅ |
+| ↳ `Economy.BalanceRepairBeatsPartingOut` (**echte Daten, 30 Durchläufe**: defekten PC kaufen, Fehler suchen, Ersatzteile gebraucht kaufen, reparieren, verkaufen) | ✅ PC 11,36 € + Teile 14,23 € → Verkauf 31,50 € (+ 2,29 € für die defekten Teile) = **+8,20 €**; aufbereitet Verkauf 43,99 € (Set 2,99 €) = **+17,70 €**. Zerlegen desselben PCs: **+5,81 €** (`Economy.BalanceDefectivePcIsProfitable`) |
+| Erzeugung von 22 Gegenständen (4 neue), 2 Reparaturabläufen, 4 Händlern, 10 Auftragsvorlagen und der Map per Skript | ✅ |
+| **Spiel mit Grafik, Reparatur komplett** (`-WEShots=P6`, 4 Läufe) | ✅ 11 Screenshots geprüft: Multimeter und Reinigungsset kaufen → PC auf die Werkbank → "[Q] Reparieren: Fehler suchen (Multimeter)" → "Diagnose: Grafikkarte defekt" (in anderen Läufen: Arbeitsspeicher; Arbeitsspeicher + Mainboard) → [F] zeigt "Reparatur: Grafikkarte defekt" → passendes Ersatzteil am Marktplatz kaufen → ausbauen, einbauen, Funktionstest bestanden → aufbereitet ("Sehr gut, Qualität 80 %") → für 43,99 € verkauft |
+| **Netzwerktest Reparaturauftrag** (`-WESmokeRole=K/L`, Dedicated Server + 2 Clients, neu) | ✅ K nimmt "Büro-PC zur Reparatur" an → Gerät erscheint an der Palette → K trägt es zur Werkbank → Diagnose "Arbeitsspeicher defekt" → kauft RAM → repariert → liefert in der Hand ab: **+23,63 €**. L sieht Auftrag, Gerät, Reparaturstand und Kontostand; L's Versuche, während der Arbeit zu reparieren oder das Gerät herunterzunehmen, lehnt der Server ab |
+| **Regression Netzwerktests A/B, C/D, E/F, G/H** (Dedicated Server) **und I/J** (Listen-Server) | ✅ unverändert (E/F nach Skriptkorrektur, siehe unten) |
+| **Regression Spiel P5** (kompletter Ablauf Phase 5) | ✅ unverändert |
+
+### Behobene Fehler in Phase 6
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Reparatur blieb im Netzwerktest bei "Ersatzteil fehlt: Mainboard" hängen | Kein Händler verkaufte Mainboards | Ersatzteil-Express führt ein gebrauchtes Mainboard |
+| Fortschrittsbalken zeigte während der Reparatur "Gehäuseschrauben lösen" (Screenshot) | Balken las immer den Zerlegeschritt | zeigt den laufenden Reparaturschritt |
+| Zweimal "Arbeite …" im Hinweis (Screenshot) | [E]- und [Q]-Zeile meldeten beide "beschäftigt" | nur noch eine Zeile |
+| Marktplatz zeigte direkt nach einem Kauf für ein Bild übereinanderliegende Zeilen (Screenshot) | Automatischer Zeilenumbruch kennt die Breite neuer Zeilen erst im nächsten Bild | feste Umbruchbreiten in den Zeilen |
+| Reparatur lohnte sich in der ersten Messung kaum mehr als Zerlegen, Aufbereiten brachte nur +0,16 € | Ganzer PC war weniger wert als seine Teile; +20 % Qualität reichten nie für "Sehr gut" | PC-Wert 75 € (defekt ×0,42), Reparatur +15 %, Aufbereiten +30 % Qualität |
+| Netzwerktest E/F: Computer landete neben der Werkbank | Zufälliger Startpunkt teils außer Reichweite (trat schon in Phase 5 als Zufall auf) | Testskript geht vorher zur Werkbank |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Röhrenmonitor reparieren im Spiel (Lötkolben, Kondensatoren, Netzkabel) | Nur Daten; derselbe Code wie beim PC, der im Spiel, in Tests und im Netzwerk geprüft ist |
+| Reparaturauftrag ablaufen lassen im Spiel (30 min) | Nur im Unit-Test (Frist künstlich abgelaufen) |
+| Beschädigtes Ersatzteil, das im Spiel den Test nicht besteht | Nur im Unit-Test (Zufall); im Spiel wurden immer gebrauchte Teile gekauft |
+| Bedienung mit echter Maus/Tastatur | Mikes Praxistest |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweise: Durch die Reparatur kommen beim Zerlegen eines defekten Geräts die tatsächlich kaputten Teile jetzt als "Defekt" heraus. Dadurch sank der Gewinn beim Zerlegen von 6,14 € auf 5,81 € (mit dem neuen PC-Preis). Lange Wörter wie "Werkstattbeleuchtung" ragen im Marktplatz teils unter den Preis; das gab es schon in Phase 5.
+
+---
+
 ## Phase 5 – Lauf vom 2026-10-13
 
 ### Ausgeführt

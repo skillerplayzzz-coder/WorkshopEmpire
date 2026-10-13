@@ -59,4 +59,13 @@ public:
 
 	/** Server only. Performs the secondary action after validation. */
 	virtual void InteractSecondary(AWECharacter* Interactor) {}
+
+	/**
+	 * Optional alternative action on [Q] (e.g. next repair step). Returns true if it can be done now
+	 * (OutText = verb). Returns false if not; OutReason (may be empty) then explains why.
+	 */
+	virtual bool GetAlternativeInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const { return false; }
+
+	/** Server only. Performs the alternative action after validation. */
+	virtual void InteractAlternative(AWECharacter* Interactor) {}
 };

@@ -8,6 +8,49 @@
 class UWEItemDefinition;
 
 /**
+ * Repair state of one device (§9.5). Bit i refers to fault i of the definition's UWERepairDefinition.
+ * Faults are rolled once, on the server, when a device is first diagnosed or disassembled.
+ */
+USTRUCT(BlueprintType)
+struct WORKSHOPEMPIRE_API FWERepairState
+{
+	GENERATED_BODY()
+
+	enum EFlags : uint8
+	{
+		FaultsRolled = 1 << 0,
+		Diagnosed    = 1 << 1,
+		Refurbished  = 1 << 2,
+		CustomerItem = 1 << 3
+	};
+
+	/** Components that are actually broken (a dud spare part keeps its bit until the function test). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair")
+	uint8 Faults = 0;
+
+	/** Broken part taken out, waiting for a spare part. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair")
+	uint8 Removed = 0;
+
+	/** Spare part installed since the last function test. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair")
+	uint8 Replaced = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair")
+	uint8 Flags = 0;
+
+	bool HasFlag(EFlags Flag) const { return (Flags & Flag) != 0; }
+	void SetFlag(EFlags Flag) { Flags |= Flag; }
+	static bool HasBit(uint8 Mask, int32 Index) { return Index >= 0 && Index < 8 && (Mask & (1 << Index)) != 0; }
+	bool IsInProgress() const { return Removed != 0 || Replaced != 0; }
+
+	bool operator==(const FWERepairState& Other) const
+	{
+		return Faults == Other.Faults && Removed == Other.Removed && Replaced == Other.Replaced && Flags == Other.Flags;
+	}
+};
+
+/**
  * One concrete item (or stack of identical items): definition + per-copy state.
  * Small and replication-friendly; used in inventories, world items and save games.
  */
@@ -39,6 +82,15 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 
 	bool IsPartiallyDisassembled() const { return DisassemblyStep > 0; }
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
+	FWERepairState Repair;
+
+	/** Condition "Beschädigt" or worse: needs a repair before it works. */
+	bool IsBroken() const { return Condition >= EWEItemCondition::Damaged; }
+
+	/** Belongs to a customer (repair order): cannot be sold or disassembled. */
+	bool IsCustomerItem() const { return Repair.HasFlag(FWERepairState::CustomerItem); }
+
 	static FWEItemInstance Make(UWEItemDefinition* InDefinition, int32 InQuantity = 1, EWEItemCondition InCondition = EWEItemCondition::Used, uint8 InQuality = 50);
 
 	bool IsValid() const { return Definition != nullptr && Quantity > 0; }
@@ -60,6 +112,6 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	bool operator==(const FWEItemInstance& Other) const
 	{
 		return Definition == Other.Definition && InstanceId == Other.InstanceId && Quantity == Other.Quantity
-			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep;
+			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair;
 	}
 };

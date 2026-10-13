@@ -3,12 +3,18 @@
 #include "Engine/AssetManager.h"
 #include "UObject/UObjectIterator.h"
 #include "Workshop/WEDisassemblyDefinition.h"
+#include "Workshop/WERepairDefinition.h"
 
 const FPrimaryAssetType UWEItemDefinition::PrimaryAssetType(TEXT("WEItem"));
 
 bool UWEItemDefinition::CanBeDisassembled() const
 {
 	return Disassembly && Disassembly->NumSteps() > 0;
+}
+
+bool UWEItemDefinition::CanBeRepaired() const
+{
+	return bRepairable && Repair && Repair->Faults.Num() > 0;
 }
 
 FPrimaryAssetId UWEItemDefinition::GetPrimaryAssetId() const

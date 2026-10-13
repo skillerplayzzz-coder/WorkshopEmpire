@@ -49,6 +49,11 @@ public:
 	/** Server-side validation and execution of a secondary interaction (public for tests). */
 	bool ExecuteInteractSecondary(AActor* Target);
 
+	/** [Q]: alternative action on the focused object (e.g. next repair step on the workbench). */
+	void RequestAlternativeInteraction();
+	void RequestAlternativeInteractWith(AActor* Target);
+	bool ExecuteInteractAlternative(AActor* Target);
+
 	/** [F]: open/close the examine panel for the held or focused object. Local only. */
 	void ToggleExamine();
 	void CloseExamine();
@@ -86,6 +91,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerInteractSecondary(AActor* Target);
+
+	UFUNCTION(Server, Reliable)
+	void ServerInteractAlternative(AActor* Target);
 
 	AWECharacter* GetCharacter() const;
 	FText GetKeyText(const class UInputAction* Action) const;

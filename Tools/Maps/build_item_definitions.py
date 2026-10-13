@@ -1,6 +1,7 @@
 """
-Creates/updates the item definition Data Assets (/Game/WorkshopEmpire/Data/Items) and the disassembly
-sequences (/Game/WorkshopEmpire/Data/Disassembly). Existing assets are updated in place.
+Creates/updates the item definition Data Assets (/Game/WorkshopEmpire/Data/Items), the disassembly
+sequences (/Game/WorkshopEmpire/Data/Disassembly) and the repair procedures (/Game/WorkshopEmpire/Data/Repair).
+Existing assets are updated in place.
 
 Run after build_placeholder_material.py and before build_garage_map.py:
   UnrealEditor-Cmd.exe <WorkshopEmpire.uproject> -ExecutePythonScript="<this file>" -unattended -RenderOffscreen -nosplash
@@ -11,6 +12,7 @@ import unreal
 
 ITEM_FOLDER = "/Game/WorkshopEmpire/Data/Items"
 DIS_FOLDER = "/Game/WorkshopEmpire/Data/Disassembly"
+REP_FOLDER = "/Game/WorkshopEmpire/Data/Repair"
 CUBE = unreal.load_asset("/Engine/BasicShapes/Cube.Cube")
 CYLINDER = unreal.load_asset("/Engine/BasicShapes/Cylinder.Cylinder")
 
@@ -36,11 +38,11 @@ def data_asset(folder, name, cls):
 ITEMS = [
     ("OldComputer", "OldComputer", "Alter Computer",
      "Ein ausgedienter Büro-PC. Das Gehäuse ist verbeult, aber vielleicht steckt noch etwas Brauchbares drin.",
-     C.ELECTRONICS, 9.0, 4000, False, 1, False, True, T.NONE, 1.0, CUBE, (0.45, 0.20, 0.42), (0.72, 0.69, 0.60),
+     C.ELECTRONICS, 9.0, 7500, False, 1, False, True, T.NONE, 1.0, CUBE, (0.45, 0.20, 0.42), (0.72, 0.69, 0.60),
      [(M.STEEL, 5.0), (M.PLASTIC, 1.5), (M.ELECTRONICS, 2.0), (M.COPPER, 0.3), (M.PRECIOUS_METAL, 0.01)]),
     ("CrtMonitor", "CrtMonitor", "Röhrenmonitor",
      "Schwer, staubig und längst aus der Mode. Kupfer und Glas lassen sich vielleicht verwerten.",
-     C.ELECTRONICS, 14.0, 1500, False, 1, False, True, T.NONE, 1.0, CUBE, (0.40, 0.40, 0.38), (0.15, 0.15, 0.16),
+     C.ELECTRONICS, 14.0, 3000, False, 1, False, True, T.NONE, 1.0, CUBE, (0.40, 0.40, 0.38), (0.15, 0.15, 0.16),
      [(M.GLASS, 8.0), (M.PLASTIC, 3.0), (M.COPPER, 1.0), (M.ELECTRONICS, 1.0)]),
     ("Screwdriver", "Screwdriver", "Schraubendreher",
      "Ein einfacher Kreuzschlitz-Schraubendreher. Der Griff ist abgenutzt.",
@@ -106,7 +108,27 @@ ITEMS = [
      "Platinen und Bauteile, aus denen sich später Edelmetalle gewinnen lassen.",
      C.RAW_MATERIAL, 0.25, 60, True, 50, True, False, T.NONE, 1.0, CUBE, (0.14, 0.10, 0.03), (0.15, 0.40, 0.25),
      [(M.ELECTRONICS, 0.24), (M.PRECIOUS_METAL, 0.001)]),
+    # Phase 6: repair tools, spare parts and consumables.
+    ("Multimeter", "Multimeter", "Multimeter",
+     "Misst Spannung und Durchgang. Damit findet man heraus, welches Bauteil defekt ist.",
+     C.TOOL, 0.3, 1200, False, 1, True, False, T.MULTIMETER, 1.0, CUBE, (0.10, 0.06, 0.03), (0.95, 0.75, 0.10),
+     [(M.ELECTRONICS, 0.1), (M.PLASTIC, 0.2)]),
+    ("SolderingIron", "SolderingIron", "Lötkolben",
+     "Zum Aus- und Einlöten elektronischer Bauteile.",
+     C.TOOL, 0.4, 1500, False, 1, True, False, T.SOLDERING_IRON, 1.0, CYLINDER, (0.03, 0.03, 0.25), (0.20, 0.20, 0.25),
+     [(M.STEEL, 0.2), (M.PLASTIC, 0.1), (M.COPPER, 0.05)]),
+    ("Capacitors", "Capacitors", "Kondensatoren-Set",
+     "Ein Tütchen Elektrolytkondensatoren für Netzteil- und Monitorplatinen.",
+     C.SPARE_PART, 0.05, 250, True, 10, True, False, T.NONE, 1.0, CUBE, (0.08, 0.06, 0.02), (0.15, 0.25, 0.60),
+     [(M.ELECTRONICS, 0.04)]),
+    ("CleaningKit", "CleaningKit", "Reinigungsset",
+     "Pinsel, Druckluft, Isopropanol und Tücher. Macht Altgeräte wieder ansehnlich.",
+     C.SPARE_PART, 0.4, 200, True, 10, True, False, T.NONE, 1.0, CUBE, (0.14, 0.08, 0.10), (0.30, 0.70, 0.80),
+     [(M.PLASTIC, 0.3)]),
 ]
+
+# Broken complex devices are worth much less than working ones, so that repairing pays off (Phase 6).
+BROKEN_VALUE = {"OldComputer": 0.42, "CrtMonitor": 0.5}
 
 items = {}
 for (suffix, item_id, name, desc, cat, kg, cents, stack, max_stack, fits, repair, tool, speed, mesh, scale, tint, mats) in ITEMS:
@@ -135,6 +157,7 @@ for (suffix, item_id, name, desc, cat, kg, cents, stack, max_stack, fits, repair
         a.set_editor_property("kilograms", mkg)
         amounts.append(a)
     da.set_editor_property("materials", amounts)
+    da.set_editor_property("broken_value_multiplier", BROKEN_VALUE.get(suffix, 1.0))
     items[suffix] = (da, path)
 
 
@@ -186,8 +209,50 @@ for suffix, steps in SEQUENCES.items():
     eal.save_asset(dis_path)
     items[suffix][0].set_editor_property("disassembly", dis)
 
+
+def fault(name, remove, install, part, tool, remove_s, install_s, weight, returns_part=True):
+    f = unreal.WERepairFault()
+    f.set_editor_property("display_name", unreal.Text(name))
+    f.set_editor_property("remove_text", unreal.Text(remove))
+    f.set_editor_property("install_text", unreal.Text(install))
+    f.set_editor_property("part", items[part][0])
+    f.set_editor_property("tool", tool)
+    f.set_editor_property("remove_seconds", remove_s)
+    f.set_editor_property("install_seconds", install_s)
+    f.set_editor_property("weight", weight)
+    f.set_editor_property("returns_broken_part", returns_part)
+    return f
+
+
+# Repair procedures (§9.5): diagnose (multimeter) -> exchange broken parts -> function test -> refurbish.
+REPAIRS = {
+    "OldComputer": dict(faults=[
+        fault("Netzteil defekt", "Defektes Netzteil ausbauen", "Ersatz-Netzteil einbauen", "PowerSupply", T.SCREWDRIVER, 3.0, 3.0, 3.0),
+        fault("Arbeitsspeicher defekt", "Defekten Arbeitsspeicher ziehen", "Ersatz-Arbeitsspeicher einsetzen", "RamModule", T.NONE, 1.5, 1.5, 3.0),
+        fault("Grafikkarte defekt", "Defekte Grafikkarte ausbauen", "Ersatz-Grafikkarte einbauen", "GraphicsCard", T.SCREWDRIVER, 2.5, 2.5, 1.0),
+        fault("Mainboard defekt", "Defektes Mainboard ausbauen", "Ersatz-Mainboard einbauen", "Mainboard", T.SCREWDRIVER, 4.0, 4.0, 1.0),
+    ], diagnose_s=4.0, test_s=3.0),
+    "CrtMonitor": dict(faults=[
+        fault("Kondensatoren aufgebläht", "Alte Kondensatoren auslöten", "Neue Kondensatoren einlöten", "Capacitors", T.SOLDERING_IRON, 4.0, 4.0, 3.0, False),
+        fault("Netzkabel gebrochen", "Kaputtes Netzkabel abtrennen", "Neues Kabel anschließen", "CopperCable", T.SIDE_CUTTER, 2.0, 2.0, 2.0, False),
+    ], diagnose_s=3.0, test_s=2.0),
+}
+
+for suffix, spec in REPAIRS.items():
+    rep, rep_path = data_asset(REP_FOLDER, f"REP_{suffix}", unreal.WERepairDefinition)
+    rep.set_editor_property("faults", spec["faults"])
+    rep.set_editor_property("diagnose_tool", T.MULTIMETER)
+    rep.set_editor_property("diagnose_seconds", spec["diagnose_s"])
+    rep.set_editor_property("test_tool", T.NONE)
+    rep.set_editor_property("test_seconds", spec["test_s"])
+    rep.set_editor_property("refurbish_material", items["CleaningKit"][0])
+    rep.set_editor_property("repair_quality_gain", 15)
+    rep.set_editor_property("refurbish_quality_gain", 30)
+    eal.save_asset(rep_path)
+    items[suffix][0].set_editor_property("repair", rep)
+
 for suffix, (da, path) in items.items():
     eal.save_asset(path)
 
-unreal.log(f"WE_ITEMS_BUILT {len(items)} items, {len(SEQUENCES)} disassembly sequences")
+unreal.log(f"WE_ITEMS_BUILT {len(items)} items, {len(SEQUENCES)} disassembly sequences, {len(REPAIRS)} repair procedures")
 unreal.SystemLibrary.quit_editor()

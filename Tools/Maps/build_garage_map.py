@@ -135,6 +135,7 @@ terminal.set_editor_property("traders", [
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_Scrapyard"),
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_UsedGoods"),
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_ToolShop"),
+    unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_SpareParts"),
 ])
 spawn(unreal.WEDeliveryZone, (320, -220, 6), label="DeliveryPallet", folder="World")
 # --- Player starts (in front of the workbench, all items within reach) --------------------------

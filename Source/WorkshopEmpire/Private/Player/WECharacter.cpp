@@ -159,6 +159,7 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->InteractAction, ETriggerEvent::Started, this, &AWECharacter::Input_Interact);
 	Input->BindAction(InputConfig->ExamineAction, ETriggerEvent::Started, this, &AWECharacter::Input_Examine);
 	Input->BindAction(InputConfig->SecondaryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Secondary);
+	Input->BindAction(InputConfig->AlternativeAction, ETriggerEvent::Started, this, &AWECharacter::Input_Alternative);
 	Input->BindAction(InputConfig->InventoryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Inventory);
 	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
 	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
@@ -235,6 +236,11 @@ void AWECharacter::Input_Examine()
 void AWECharacter::Input_Secondary()
 {
 	InteractionComponent->RequestSecondaryInteraction();
+}
+
+void AWECharacter::Input_Alternative()
+{
+	InteractionComponent->RequestAlternativeInteraction();
 }
 
 void AWECharacter::Input_Inventory()
