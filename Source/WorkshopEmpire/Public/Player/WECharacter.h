@@ -37,7 +37,10 @@ public:
 	// --- Carrying ---------------------------------------------------------------------------
 
 	AWEPickupItem* GetHeldItem() const { return HeldItem; }
-	float GetMaxCarryWeightKg() const { return MaxCarryWeightKg; }
+	/** Carry limit in the hands; a hand truck in the inventory adds to it (Phase 8). */
+	float GetMaxCarryWeightKg() const;
+
+	class UWEBuildComponent* GetBuildComponent() const { return BuildComponent; }
 
 	/** Server only. Validates and takes Item into the hands. Returns false if rejected (already held, too heavy, hands full). */
 	bool TryPickUpItem(AWEPickupItem* Item);
@@ -86,6 +89,9 @@ protected:
 	void Input_Examine();
 	void Input_Secondary();
 	void Input_Alternative();
+	void Input_Build();
+	void Input_Remove();
+	void Input_Cycle(const struct FInputActionValue& Value);
 	void Input_Inventory();
 	void Input_QuickSave();
 	void Input_QuickLoad();
@@ -115,6 +121,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UWEInteractionComponent> InteractionComponent;
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<class UWEBuildComponent> BuildComponent;
 
 	/** Optional authored input setup. If empty, UWEInputConfig::CreateDefault is used. */
 	UPROPERTY(EditDefaultsOnly, Category = "Input")

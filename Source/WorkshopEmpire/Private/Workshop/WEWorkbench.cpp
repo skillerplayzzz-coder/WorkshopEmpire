@@ -18,6 +18,7 @@
 #include "WELog.h"
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WERepairDefinition.h"
+#include "Workshop/WEFurnitureDefinition.h"
 #include "Progression/WEProgressionComponent.h"
 #include "World/WEPlaceholderVisuals.h"
 
@@ -77,9 +78,14 @@ void AWEWorkbench::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AWEWorkbench, Work);
 }
 
-void AWEWorkbench::OnConstruction(const FTransform& Transform)
+void AWEWorkbench::ApplyFurnitureExtras(const FWEFurnitureDefinition& Definition)
 {
-	Super::OnConstruction(Transform);
+	BenchSpeedMultiplier = Definition.WorkSpeedMultiplier;
+}
+
+void AWEWorkbench::RebuildVisuals()
+{
+	Super::RebuildVisuals();
 	// Work spot: left half of the top (right half stays free for small parts and tools).
 	WorkPoint->SetRelativeLocation(FVector(0.f, -Size.Y * 0.22f, Size.Z));
 	WorkIndicator->SetRelativeLocation(FVector(Size.X * 0.5f + 0.6f, 0.f, Size.Z - 2.5f));
@@ -95,6 +101,11 @@ void AWEWorkbench::BeginPlay()
 		Random.Initialize(FMath::Rand());
 	}
 	WEPlaceholder::ApplyTint(WorkIndicator, PlaceholderMaterial, WEWorkbenchConst::Idle);
+	// Benches placed later also get the bench-cabinet upgrade.
+	if (const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this))
+	{
+		SetStorageBonusSlots(Progression->GetBenchExtraSlots());
+	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		GetWorldTimerManager().SetTimer(IndicatorTimer, this, &AWEWorkbench::UpdateIndicator, WEWorkbenchConst::IndicatorInterval, true);
@@ -281,7 +292,7 @@ bool AWEWorkbench::TryStartStep(AWECharacter* Character)
 	}
 	const FWEDisassemblyStep* Step = GetNextStep();
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
-	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f);
+	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier;
 
 	// A broken device has broken parts: decide which ones now, so they come out "Defekt".
 	FWEItemInstance Item = PlacedItem->GetItem();
@@ -849,7 +860,7 @@ bool AWEWorkbench::TryStartRepairStep(AWECharacter* Character)
 	}
 	const FWERepairStepInfo Info = GetNextRepairStep(Reason);
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
-	const float Speed = FindToolSpeed(Character, Info.Tool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f);
+	const float Speed = FindToolSpeed(Character, Info.Tool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier;
 
 	Work.StepIndex = 0; // marks the bench busy; the repair kind says what is done
 	Work.RepairKind = Info.Kind;

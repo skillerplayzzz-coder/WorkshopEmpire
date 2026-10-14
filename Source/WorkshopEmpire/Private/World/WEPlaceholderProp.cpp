@@ -10,13 +10,17 @@
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "Net/UnrealNetwork.h"
+#include "Workshop/WEFurnitureDefinition.h"
+#include "Workshop/WEWorkshopLayoutComponent.h"
 
 AWEPlaceholderProp::AWEPlaceholderProp()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
 	Boxes = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Boxes"));
-	Boxes->SetMobility(EComponentMobility::Static);
+	// Movable: furniture can be moved in build mode (Phase 8).
+	Boxes->SetMobility(EComponentMobility::Movable);
 	Boxes->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	RootComponent = Boxes;
 
@@ -30,6 +34,7 @@ AWEPlaceholderProp::AWEPlaceholderProp()
 
 	// Replicated so the storage contents reach clients and can be addressed by RPCs.
 	bReplicates = true;
+	SetReplicateMovement(true);
 	SetNetUpdateFrequency(5.f);
 	Storage = CreateDefaultSubobject<UWEInventoryComponent>(TEXT("Storage"));
 }
@@ -44,31 +49,33 @@ float AWEPlaceholderProp::GetSurfaceHeight() const
 	return PropType == EWEPlaceholderPropType::Workbench ? Size.Z : Size.Z * 0.2f;
 }
 
-void AWEPlaceholderProp::OnConstruction(const FTransform& Transform)
+void AWEPlaceholderProp::BuildBoxes(UInstancedStaticMeshComponent* ISM, EWEPlaceholderPropType Type, const FVector& InSize)
 {
-	Super::OnConstruction(Transform);
-	Boxes->ClearInstances();
+	ISM->ClearInstances();
+	auto Box = [ISM](const FVector& Center, const FVector& BoxSize)
+	{
+		ISM->AddInstance(FTransform(FRotator::ZeroRotator, Center, BoxSize / 100.f));
+	};
+	const float D = InSize.X;
+	const float W = InSize.Y;
+	const float H = InSize.Z;
 
-	const float D = Size.X;
-	const float W = Size.Y;
-	const float H = Size.Z;
-
-	switch (PropType)
+	switch (Type)
 	{
 	case EWEPlaceholderPropType::Workbench:
 	{
 		const float Top = 5.f;
 		const float Leg = 7.f;
-		AddBox(FVector(0.f, 0.f, H - Top * 0.5f), FVector(D, W, Top));
+		Box(FVector(0.f, 0.f, H - Top * 0.5f), FVector(D, W, Top));
 		for (const float SX : { -1.f, 1.f })
 		{
 			for (const float SY : { -1.f, 1.f })
 			{
-				AddBox(FVector(SX * (D * 0.5f - Leg), SY * (W * 0.5f - Leg), (H - Top) * 0.5f), FVector(Leg, Leg, H - Top));
+				Box(FVector(SX * (D * 0.5f - Leg), SY * (W * 0.5f - Leg), (H - Top) * 0.5f), FVector(Leg, Leg, H - Top));
 			}
 		}
 		// Lower storage board.
-		AddBox(FVector(0.f, 0.f, 18.f), FVector(D - 2.f * Leg, W - 2.f * Leg, 3.f));
+		Box(FVector(0.f, 0.f, 18.f), FVector(D - 2.f * Leg, W - 2.f * Leg, 3.f));
 		break;
 	}
 	case EWEPlaceholderPropType::Shelf:
@@ -78,24 +85,94 @@ void AWEPlaceholderProp::OnConstruction(const FTransform& Transform)
 		{
 			for (const float SY : { -1.f, 1.f })
 			{
-				AddBox(FVector(SX * (D * 0.5f - Post * 0.5f), SY * (W * 0.5f - Post * 0.5f), H * 0.5f), FVector(Post, Post, H));
+				Box(FVector(SX * (D * 0.5f - Post * 0.5f), SY * (W * 0.5f - Post * 0.5f), H * 0.5f), FVector(Post, Post, H));
 			}
 		}
 		for (const float Level : { 0.2f, 0.55f, 0.9f })
 		{
-			AddBox(FVector(0.f, 0.f, H * Level), FVector(D, W, 3.f));
+			Box(FVector(0.f, 0.f, H * Level), FVector(D, W, 3.f));
+		}
+		break;
+	}
+	case EWEPlaceholderPropType::Crate:
+	{
+		const float Wall = 3.f;
+		Box(FVector(0.f, 0.f, Wall * 0.5f), FVector(D, W, Wall));
+		for (const float S : { -1.f, 1.f })
+		{
+			Box(FVector(S * (D * 0.5f - Wall * 0.5f), 0.f, H * 0.5f), FVector(Wall, W, H));
+			Box(FVector(0.f, S * (W * 0.5f - Wall * 0.5f), H * 0.5f), FVector(D, Wall, H));
 		}
 		break;
 	}
 	}
+}
 
+void AWEPlaceholderProp::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	RebuildVisuals();
+}
+
+void AWEPlaceholderProp::RebuildVisuals()
+{
+	BuildBoxes(Boxes, PropType, Size);
 	ApplyTint();
 	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
 }
 
+void AWEPlaceholderProp::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AWEPlaceholderProp, FurnitureId);
+}
+
+void AWEPlaceholderProp::ApplyFurniture(const FWEFurnitureDefinition& Definition)
+{
+	FurnitureId = Definition.Id;
+	PropType = Definition.PropType;
+	Size = Definition.Size;
+	Tint = Definition.Tint;
+	bHasStorage = Definition.bHasStorage;
+	StorageName = Definition.StorageName.IsEmpty() ? Definition.DisplayName : Definition.StorageName;
+	StorageSlots = Definition.StorageSlots;
+	StorageMaxWeightKg = Definition.StorageMaxWeightKg;
+	ApplyFurnitureExtras(Definition);
+	RebuildVisuals();
+}
+
+void AWEPlaceholderProp::OnRep_FurnitureId()
+{
+	const UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this);
+	if (const FWEFurnitureDefinition* Definition = Layout ? Layout->FindDefinition(FurnitureId) : nullptr)
+	{
+		ApplyFurniture(*Definition);
+	}
+}
+
+FText AWEPlaceholderProp::GetFurnitureName() const
+{
+	if (const UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this))
+	{
+		if (const FWEFurnitureDefinition* Definition = Layout->FindDefinition(FurnitureId))
+		{
+			return Definition->DisplayName;
+		}
+	}
+	if (!StorageName.IsEmpty())
+	{
+		return StorageName;
+	}
+	return PropType == EWEPlaceholderPropType::Workbench ? NSLOCTEXT("WEPlaceholderProp", "Table", "Tisch") : NSLOCTEXT("WEPlaceholderProp", "Furniture", "Möbel");
+}
+
 void AWEPlaceholderProp::BeginPlay()
 {
-	// Same values on server and clients (they come from the map), so slot counts match without replication.
+	// Same values on server and clients (map data, or the replicated furniture id), so slot counts match.
+	if (!FurnitureId.IsNone())
+	{
+		OnRep_FurnitureId();
+	}
 	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
 	Super::BeginPlay();
 	ApplyTint();

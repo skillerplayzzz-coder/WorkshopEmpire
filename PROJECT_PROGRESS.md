@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 7 – Erweiterte Beschaffung: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 8 wurde nicht begonnen.
+**Phase 8 – Werkstatt-Upgrades: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 9 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -57,12 +57,19 @@ Phase 8 wurde nicht begonnen.
 - Erweiterte Kundenaufträge: Mindestqualität, große Geräte in der Hand abliefern, Eilaufträge, Sammleraufträge
 - Speicherversion 6 (gewürfelter Händlervorrat, laufende Auktionen, Auftragsqualität)
 
+### Phase 8 – Werkstatt-Upgrades (2026-10-14)
+- Baumodus [B]: Vorschau (grün/rot), Kollisionsprüfung, Drehen ([R] 90°, [Q] 15°), Einrasten im 10-cm-Raster, Bestätigen [E], Verschieben, Abbauen [X] (halber Preis zurück), Speichern
+- Einrichtung zum Kaufen: Werkbank, Große Werkbank (20 Plätze, 20 % schneller), Schwerlastregal, Großes Lagerregal (25 Plätze, 300 kg), Werkzeugwand, Lagerkiste, Ablagetisch
+- Mehrere Werkbänke gleichzeitig nutzbar; neue Werkbänke bekommen auch den Werkbank-Unterschrank
+- Neue Werkzeuge: Bit-Ratsche, Profi-Seitenschneider, Digitalmultimeter, Lötstation; Sackkarre (+30 kg Tragkraft, damit lässt sich der Elektromotor bewegen)
+- Speicherversion 7 (Einrichtung und Positionen)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 7 (Anleitung im Development Report)
+- Mike: Praxistest Phase 8 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren), sobald es Hubwagen gibt
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus
 
 ## Bekannte Fehler
 
@@ -70,8 +77,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 8 – Werkstatt-Upgrades (neue Werkzeuge, größere Werkbänke, Regale, Einrichtung mit Platzierungssystem, mehr Lagerkapazität), erst nach Mikes Freigabe.
+Phase 9 – Erste Industriemaschinen (Schredder, Sortiermaschine, Metallpresse, Maschinenbedienung, Materialverarbeitung, Stromverbrauch, Maschinenzustände), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-14: 61/61 Automation-Tests (inkl. Balance von Paletten und Schrott mit echten Daten), Netzwerktests A–N (inkl. Auktion und Palette mit 2 Spielern) bestanden, Beschaffung, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-14: 67/67 Automation-Tests, Netzwerktests A–P (inkl. Einrichtung mit 2 Spielern) bestanden, Baumodus, Beschaffung, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.

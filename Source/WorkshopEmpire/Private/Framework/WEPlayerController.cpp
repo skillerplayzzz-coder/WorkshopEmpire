@@ -1,6 +1,8 @@
 #include "Framework/WEPlayerController.h"
 
 #include "Economy/WEAuctionComponent.h"
+#include "Workshop/WEWorkshopLayoutComponent.h"
+#include "World/WEPlaceholderProp.h"
 #include "Economy/WEContractComponent.h"
 
 #include "Blueprint/UserWidget.h"
@@ -218,6 +220,30 @@ void AWEPlayerController::RequestBuyUpgrade(AWETraderTerminal* Terminal, FName U
 void AWEPlayerController::RequestBid(AWETraderTerminal* Terminal, const FGuid& LotId)
 {
 	ServerBid(Terminal, LotId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::ServerPlaceFurniture_Implementation(FName FurnitureId, FTransform Transform, FGuid RequestId)
+{
+	if (UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this))
+	{
+		Layout->PlaceFurniture(GetPawn<AWECharacter>(), FurnitureId, Transform, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerMoveFurniture_Implementation(AWEPlaceholderProp* Prop, FTransform Transform)
+{
+	if (UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this))
+	{
+		Layout->MoveFurniture(GetPawn<AWECharacter>(), Prop, Transform);
+	}
+}
+
+void AWEPlayerController::ServerRemoveFurniture_Implementation(AWEPlaceholderProp* Prop, FGuid RequestId)
+{
+	if (UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this))
+	{
+		Layout->RemoveFurniture(GetPawn<AWECharacter>(), Prop, RequestId);
+	}
 }
 
 void AWEPlayerController::ServerBid_Implementation(AWETraderTerminal* Terminal, FGuid LotId, FGuid RequestId)

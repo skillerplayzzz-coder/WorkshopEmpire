@@ -17,6 +17,47 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 8 – Lauf vom 2026-10-14
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **67/67 bestanden, 0 mit Warnungen** (61 alte + 6 neue), Bericht `Saved/TestReports/Phase8/index.json` |
+| ↳ `Build.PlaceRulesAndCosts` (echter Möbelkatalog: freier Platz ok; außerhalb der Garage / halb über der Wand abgelehnt; Aufstellen kostet 60 €, rastet auf 10 cm und 15° ein (203,7/148,2/97° → 200/150/90°); Regal hat 15 Plätze/150 kg; gleicher Platz, Gegenstand oder Spieler im Weg → abgelehnt; zu teuer → nichts gebucht; gleiche Anfrage-ID zweimal → einmal; unbekanntes Möbel) | ✅ |
+| ↳ `Build.MoveAndRemove` (große Werkbank verschieben und drehen; auf ein Regal schieben → abgelehnt, bleibt stehen; mit Gerät darauf nicht verschiebbar; große Werkbank arbeitet 2,4 s → 2,0 s und hat 20 Plätze; volles Regal nicht abbaubar, leer → 30 € zurück; Grundausstattung verschiebbar, nicht verkaufbar) | ✅ |
+| ↳ `Build.PreviewAndSelection` (Baumodus, Mausrad-Auswahl inkl. Umlauf, Vorschau rastet ein, grün auf freiem Platz, rot auf belegtem/außerhalb mit Grund, Drehen 90°+15°, mit Gegenstand in der Hand kein Baumodus) | ✅ |
+| ↳ `Build.NewBenchGetsUpgrades` (neue Werkbank bekommt den Werkbank-Unterschrank: 12 + 6 Plätze) | ✅ |
+| ↳ `Build.NewToolsAndHandTruck` (45-kg-Motor ohne Sackkarre zu schwer, mit Sackkarre 60 kg Tragkraft → tragbar; bestes Werkzeug zählt: Bit-Ratsche ×1,6; Digitalmultimeter und Lötstation ×2) | ✅ |
+| ↳ `Save.FurnitureRoundTrip` (Version 7: gekauftes Regal mit Inhalt, abgebaute Werkbank kommt mit Namen, Art und Position zurück, verschobene Grundausstattung wieder an ihrer Stelle) | ✅ (erst rot, siehe Behobene Fehler) |
+| Erzeugung von 33 Gegenständen (5 neue), Möbelkatalog (7), Händlerdaten und Map (Baubereich) per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P8`, 2 Läufe) | ✅ 7 Screenshots geprüft: Baumodus-Panel mit Katalog und Preisen, grüne Vorschau, rote Vorschau am Marktplatz-Tisch ("Kein Platz – hier steht schon etwas"), Werkbank aufgestellt (−90 €), Lagerkiste aufgestellt (−15 €), "Bearbeiten" → Kiste angefasst und verschoben, abgebaut (+7,50 €), gespeichert, Werkbank verschoben, geladen → Werkbank wieder an ihrem Platz |
+| **Netzwerktest Einrichtung** (`-WESmokeRole=O/P`, Dedicated Server + 2 Clients, neu) | ✅ O stellt Werkbank und Kiste auf; P sieht beide mit richtiger Größe und Lagerplätzen (12 / 8); P's Vorschau auf O's Werkbank ist rot; P schickt die Platzierung trotzdem → Server lehnt ab ("Kein Platz"), kein Geld weg; P verschiebt O's Kiste, O sieht die neue Position; P baut sie ab (+7,50 €), beide sehen 152,50 € |
+| **Regression** Netzwerktests A/B, C/D, E/F, G/H, K/L, M/N (Dedicated) und I/J (Listen-Server), Spielläufe P5, P6, P7 | ✅ unverändert |
+
+### Behobene Fehler in Phase 8
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Spielstand laden direkt nach dem Abbauen eines Möbels: das Möbel kam nicht unter seinem Namen zurück, sein Lagerinhalt wäre verloren gegangen (Test rot) | Ein zerstörter Actor belegt seinen Namen bis zur nächsten Speicherbereinigung | Name eines gerade abgebauten Möbels wird vor dem Wiederherstellen freigegeben |
+| Statuszeile im Baumodus-Panel lag für ein Bild über dem Hilfetext (Screenshot) | Panelbreite hing von wechselnden Texten ab | feste Panelbreite |
+| Test-Platzierung des großen Regals ragte aus der Garage | Testdaten | Test korrigiert (gedreht) |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Baumodus mit echter Maus (Mausrad, Zielen) | Mikes Praxistest; im Spiel per Skript gesteuert, Zielen über echten Blickstrahl |
+| Elektromotor mit Sackkarre im Spiel tragen | Nur im Unit-Test |
+| Mehrere Werkbänke gleichzeitig von zwei Spielern benutzt | Werkbänke sind unabhängige Actors (Netzwerktest E/F gilt je Bank); nicht gezielt mit zwei Bänken getestet |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweis: Beim Verschieben im Spiel entsteht für einen Moment Bewegungsunschärfe am Möbel (Kamera-Effekt der Engine).
+
+---
+
 ## Phase 7 – Lauf vom 2026-10-14
 
 ### Ausgeführt

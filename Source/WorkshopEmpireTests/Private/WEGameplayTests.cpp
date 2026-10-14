@@ -195,7 +195,9 @@ bool FWEInputConfigTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Quickload on F9"), Config->GetKeyForAction(Config->QuickLoadAction), EKeys::F9);
 	TestEqual(TEXT("Secondary on R"), Config->GetKeyForAction(Config->SecondaryAction), EKeys::R);
 	TestEqual(TEXT("Repair on Q"), Config->GetKeyForAction(Config->AlternativeAction), EKeys::Q);
-	TestEqual(TEXT("Mapping count"), Config->MappingContext->GetMappings().Num(), 17);
+	TestEqual(TEXT("Build mode on B"), Config->GetKeyForAction(Config->BuildAction), EKeys::B);
+	TestEqual(TEXT("Remove on X"), Config->GetKeyForAction(Config->RemoveAction), EKeys::X);
+	TestEqual(TEXT("Mapping count"), Config->MappingContext->GetMappings().Num(), 20);
 	return true;
 }
 

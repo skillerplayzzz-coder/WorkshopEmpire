@@ -37,7 +37,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
-### 3.1 Steuerung (Stand Phase 6, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 8, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -48,7 +48,9 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | E | Kleinteile aufheben (ins Inventar), sperrige Gegenstände tragen, Tor/Werkbank/Regal öffnen; mit Gegenstand in der Hand: Ablegen (dort, wo man hinschaut) |
 | F | Untersuchen (Kategorie, Zustand, Qualität, Gewicht, Schätzwert, Zerlegefortschritt) / Schließen |
 | R | Zweite Aktion, z. B. Gegenstand von der Werkbank nehmen |
-| Q | Reparieren: nächster Reparaturschritt am Gerät auf der Werkbank |
+| Q | Reparieren: nächster Reparaturschritt am Gerät auf der Werkbank; Retourenpalette öffnen |
+| B | Baumodus an/aus |
+| Im Baumodus | Mausrad: Möbel wählen oder "Bearbeiten" · [E] aufstellen bzw. anfassen und neu abstellen · [R] 90° · [Q] 15° drehen · [X] abbauen bzw. Verschieben abbrechen |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
 
@@ -97,7 +99,23 @@ Wer ein defektes Gerät zerlegt, nachdem die Fehler feststehen, bekommt die kapu
 
 **Reparaturaufträge:** Ein Kunde bringt sein Gerät (es erscheint beim Annehmen an der Lieferpalette). Man repariert es und liefert es in der Hand am Marktplatz ab. Kundengeräte kann man nicht verkaufen oder zerlegen. Läuft die Frist ab, holt der Kunde sein Gerät wieder ab.
 
-Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromotor, 45 kg) brauchen später Hilfsmittel (Hubwagen, Gabelstapler) oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
+### 3.5 Werkstatt einrichten (Stand Phase 8)
+
+**Baumodus [B]:** Eine Vorschau des gewählten Möbels folgt dem Fadenkreuz auf dem Boden, rastet im 10-cm-Raster und in 15°-Schritten ein und ist grün, wenn es passt, sonst rot mit Grund ("Kein Platz", "Nur innerhalb der Werkstatt", "Ein Gegenstand liegt im Weg", "Nicht genug Geld"). Der Server prüft beim Bestätigen alles noch einmal. Im Modus "Bearbeiten" fasst [E] ein Möbelstück an (auch die Grundausstattung) und stellt es woanders ab; [X] baut gekaufte Möbel ab (halber Preis zurück). Verschieben und Abbauen gehen nicht, solange auf der Werkbank gearbeitet wird oder Gegenstände darauf liegen; Abbauen nur leer. Der Lagerinhalt zieht beim Verschieben mit um.
+
+| Möbel | Preis | Lager | Besonderheit |
+|---|---|---|---|
+| Werkbank | 90 € | 12 Plätze, 60 kg | zweiter Arbeitsplatz |
+| Große Werkbank | 240 € | 20 Plätze, 100 kg | Arbeiten 20 % schneller |
+| Schwerlastregal | 60 € | 15 Plätze, 150 kg | |
+| Großes Lagerregal | 140 € | 25 Plätze, 300 kg | |
+| Werkzeugwand | 40 € | 10 Plätze, 30 kg | flach, an die Wand |
+| Lagerkiste | 15 € | 8 Plätze, 60 kg | |
+| Ablagetisch | 30 € | – | Fläche für große Geräte |
+
+**Neue Werkzeuge** (Werkzeug-Versand): Bit-Ratsche (Schraubendreher ×1,6), Profi-Seitenschneider (×1,8), Digitalmultimeter (Fehlersuche ×2), Lötstation (×2). **Sackkarre** (klappbar, 4 kg im Inventar, ca. 82 €): +30 kg Tragkraft.
+
+Tragen: ein Gegenstand gleichzeitig, bis 30 kg; mit Sackkarre im Inventar bis 60 kg (z. B. der 45-kg-Elektromotor). Noch schwerere Dinge brauchen später Gabelstapler oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
 
 ## 4. Wirtschaft
 

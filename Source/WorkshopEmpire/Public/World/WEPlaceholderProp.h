@@ -7,12 +7,15 @@
 
 class UInstancedStaticMeshComponent;
 class UWEInventoryComponent;
+struct FWEFurnitureDefinition;
 
 UENUM(BlueprintType)
 enum class EWEPlaceholderPropType : uint8
 {
 	Workbench,
-	Shelf
+	Shelf,
+	/** Open crate (Phase 8). */
+	Crate
 };
 
 /**
@@ -30,6 +33,23 @@ public:
 	AWEPlaceholderProp();
 
 	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	/** Builds the block-out geometry for a furniture type (also used by the build-mode preview). */
+	static void BuildBoxes(UInstancedStaticMeshComponent* ISM, EWEPlaceholderPropType Type, const FVector& InSize);
+
+	// --- Furniture (Phase 8) ------------------------------------------------------------------------
+
+	/** Server: turns this actor into the given catalog furniture (spawned by the build system). */
+	void ApplyFurniture(const FWEFurnitureDefinition& Definition);
+
+	/** Catalog id of bought furniture; None = part of the map (can be moved, not sold). */
+	FName GetFurnitureId() const { return FurnitureId; }
+	bool IsPlayerPlaced() const { return !FurnitureId.IsNone(); }
+
+	FVector GetSize() const { return Size; }
+	EWEPlaceholderPropType GetPropType() const { return PropType; }
+	FText GetFurnitureName() const;
 
 	/** Height of the main surface (bench top / lowest shelf board) in cm. */
 	float GetSurfaceHeight() const;
@@ -57,6 +77,19 @@ protected:
 	virtual void BeginPlay() override;
 	void ApplyTint();
 	void AddBox(const FVector& Center, const FVector& Size);
+
+	/** Rebuilds geometry and storage configuration from the current properties. */
+	virtual void RebuildVisuals();
+
+	/** Subclasses copy extra furniture settings (e.g. bench speed). */
+	virtual void ApplyFurnitureExtras(const FWEFurnitureDefinition& Definition) {}
+
+	UFUNCTION()
+	void OnRep_FurnitureId();
+
+	/** Bought furniture: catalog id (replicated so clients build the same geometry and storage). */
+	UPROPERTY(ReplicatedUsing = OnRep_FurnitureId, VisibleInstanceOnly, Category = "Prop")
+	FName FurnitureId;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UInstancedStaticMeshComponent> Boxes;

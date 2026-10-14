@@ -132,6 +132,18 @@ struct WORKSHOPEMPIRE_API FWESavedAuctionLot
 	UPROPERTY() int64 BidderMaxCents = 0;
 };
 
+/** Since save version 7: one piece of furniture (map furniture: moved position; bought: id + position). */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedFurniture
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	/** None = part of the map. */
+	UPROPERTY() FName FurnitureId;
+	UPROPERTY() FTransform Transform;
+};
+
 USTRUCT()
 struct WORKSHOPEMPIRE_API FWESavedPlayer
 {
@@ -154,8 +166,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). */
-	static constexpr int32 CurrentVersion = 6;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). */
+	static constexpr int32 CurrentVersion = 7;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -179,4 +191,8 @@ public:
 	// Since version 6.
 	UPROPERTY() bool bHasAuctions = false;
 	UPROPERTY() TArray<FWESavedAuctionLot> Auctions;
+
+	// Since version 7. Older saves keep the map layout.
+	UPROPERTY() bool bHasFurniture = false;
+	UPROPERTY() TArray<FWESavedFurniture> Furniture;
 };

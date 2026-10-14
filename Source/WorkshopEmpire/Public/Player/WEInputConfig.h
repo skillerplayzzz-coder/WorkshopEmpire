@@ -57,6 +57,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> AlternativeAction;
 
+	/** [B]: build mode on/off (Phase 8). */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> BuildAction;
+
+	/** [X]: in build mode remove furniture / cancel moving. */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> RemoveAction;
+
+	/** Mouse wheel: in build mode choose the furniture. */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> CycleAction;
+
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> InventoryAction;
 

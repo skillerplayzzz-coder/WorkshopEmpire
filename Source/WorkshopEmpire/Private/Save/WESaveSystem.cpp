@@ -1,6 +1,8 @@
 #include "Save/WESaveSystem.h"
 
 #include "Economy/WEAuctionComponent.h"
+#include "Workshop/WEWorkshopLayoutComponent.h"
+#include "World/WEPlaceholderProp.h"
 
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
@@ -247,6 +249,13 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		}
 	}
 
+	// Furniture (version 7): every placed piece, so containers can be matched by name after loading.
+	Save->bHasFurniture = true;
+	for (TActorIterator<AWEPlaceholderProp> It(World); It; ++It)
+	{
+		Save->Furniture.Add({ It->GetFName(), It->GetFurnitureId(), It->GetActorTransform() });
+	}
+
 	// Auctions (version 6).
 	if (const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(World))
 	{
@@ -286,6 +295,49 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 	if (!World || !Save)
 	{
 		return;
+	}
+
+	// 0) Furniture first: items lying on benches and container contents refer to furniture by name.
+	if (Save->bHasFurniture)
+	{
+		TSet<FName> SavedNames;
+		for (const FWESavedFurniture& Saved : Save->Furniture)
+		{
+			SavedNames.Add(Saved.ActorName);
+		}
+		TArray<AWEPlaceholderProp*> ToRemove;
+		for (TActorIterator<AWEPlaceholderProp> It(World); It; ++It)
+		{
+			if (It->IsPlayerPlaced() && !SavedNames.Contains(It->GetFName()))
+			{
+				ToRemove.Add(*It);
+			}
+		}
+		for (AWEPlaceholderProp* Prop : ToRemove)
+		{
+			if (AWEWorkbench* Bench = Cast<AWEWorkbench>(Prop))
+			{
+				Bench->ResetForLoad();
+			}
+			Prop->Destroy();
+		}
+		UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(World);
+		for (const FWESavedFurniture& Saved : Save->Furniture)
+		{
+			AWEPlaceholderProp* Existing = nullptr;
+			for (TActorIterator<AWEPlaceholderProp> It(World); It && !Existing; ++It)
+			{
+				Existing = It->GetFName() == Saved.ActorName ? *It : nullptr;
+			}
+			if (Existing)
+			{
+				Existing->SetActorTransform(Saved.Transform, false, nullptr, ETeleportType::TeleportPhysics);
+			}
+			else if (!Saved.FurnitureId.IsNone() && Layout)
+			{
+				Layout->SpawnFurniture(Saved.FurnitureId, Saved.Transform, Saved.ActorName);
+			}
+		}
 	}
 
 	// 1) Free all hands and workbenches, then replace every world item with the saved ones.

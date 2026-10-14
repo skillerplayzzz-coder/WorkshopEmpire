@@ -148,7 +148,30 @@ ITEMS = [
     ("ReturnPalletTools", "ReturnPalletTools", "Retourenpalette Werkzeug",
      "Zurückgeschickte Werkzeuge, gemischt verpackt. Manches neu, manches kaputt.",
      C.PRODUCT, 18.0, 2300, False, 1, False, False, T.NONE, 1.0, CUBE, (0.70, 0.55, 0.45), (0.55, 0.50, 0.35), []),
+    # Phase 8: better tools and a carrying aid.
+    ("BitRatchet", "BitRatchet", "Bit-Ratsche mit Bitsatz",
+     "Ratsche mit Bits für jede Schraube – deutlich schneller als ein einfacher Schraubendreher.",
+     C.TOOL, 0.5, 2800, False, 1, True, False, T.SCREWDRIVER, 1.6, CUBE, (0.18, 0.05, 0.04), (0.15, 0.15, 0.20),
+     [(M.STEEL, 0.4), (M.PLASTIC, 0.1)]),
+    ("ProSideCutter", "ProSideCutter", "Profi-Seitenschneider",
+     "Gehärtete Schneiden, lange Griffe: Kabel sind im Nu ab.",
+     C.TOOL, 0.25, 2200, False, 1, True, False, T.SIDE_CUTTER, 1.8, CUBE, (0.16, 0.06, 0.02), (0.80, 0.15, 0.15),
+     [(M.STEEL, 0.2), (M.PLASTIC, 0.05)]),
+    ("DigitalMultimeter", "DigitalMultimeter", "Digitalmultimeter",
+     "Misst schnell und genau – Fehlersuche in der halben Zeit.",
+     C.TOOL, 0.35, 3500, False, 1, True, False, T.MULTIMETER, 2.0, CUBE, (0.10, 0.06, 0.04), (0.95, 0.45, 0.05),
+     [(M.ELECTRONICS, 0.15), (M.PLASTIC, 0.2)]),
+    ("SolderingStation", "SolderingStation", "Lötstation",
+     "Temperaturgeregelte Lötstation – Kondensatoren tauschen geht doppelt so schnell.",
+     C.POWER_TOOL, 1.8, 6000, False, 1, True, False, T.SOLDERING_IRON, 2.0, CUBE, (0.20, 0.15, 0.10), (0.25, 0.25, 0.30),
+     [(M.STEEL, 0.6), (M.ELECTRONICS, 0.5), (M.PLASTIC, 0.7)]),
+    ("HandTruck", "HandTruck", "Sackkarre (klappbar)",
+     "Zusammengeklappt im Inventar, ausgeklappt trägt man damit 30 kg mehr – auch den schweren Elektromotor.",
+     C.TOOL, 4.0, 5500, False, 1, True, False, T.NONE, 1.0, CUBE, (0.12, 0.40, 0.08), (0.20, 0.25, 0.65),
+     [(M.STEEL, 3.5), (M.PLASTIC, 0.5)]),
 ]
+
+CARRY_BONUS = {"HandTruck": 30.0}
 
 RARITY = {"RareGpu": unreal.WEItemRarity.RARE, "VintageRadio": unreal.WEItemRarity.RARE,
           "GoldCpu": unreal.WEItemRarity.VERY_RARE, "ServoMotor": unreal.WEItemRarity.RARE}
@@ -185,6 +208,7 @@ for (suffix, item_id, name, desc, cat, kg, cents, stack, max_stack, fits, repair
     da.set_editor_property("materials", amounts)
     da.set_editor_property("broken_value_multiplier", BROKEN_VALUE.get(suffix, 1.0))
     da.set_editor_property("rarity", RARITY.get(suffix, unreal.WEItemRarity.COMMON))
+    da.set_editor_property("carry_bonus_kg", CARRY_BONUS.get(suffix, 0.0))
     items[suffix] = (da, path)
 
 

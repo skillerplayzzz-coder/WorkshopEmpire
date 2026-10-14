@@ -89,8 +89,10 @@ public:
 	AWEWorkbench();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const override;
+
+	/** Work speed of this bench (big benches are faster). */
+	float GetBenchSpeedMultiplier() const { return BenchSpeedMultiplier; }
 
 	// --- Placement --------------------------------------------------------------------------------
 
@@ -175,8 +177,15 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	virtual void RebuildVisuals() override;
+	virtual void ApplyFurnitureExtras(const FWEFurnitureDefinition& Definition) override;
+
 	UFUNCTION()
 	void OnRep_PlacedItem();
+
+	/** Work speed of this bench (Phase 8: bigger benches work faster). */
+	UPROPERTY(EditAnywhere, Category = "Workbench", meta = (ClampMin = "0.1"))
+	float BenchSpeedMultiplier = 1.f;
 
 	UFUNCTION()
 	void OnRep_Work();

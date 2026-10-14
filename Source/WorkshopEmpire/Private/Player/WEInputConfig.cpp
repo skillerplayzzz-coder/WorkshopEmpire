@@ -41,6 +41,9 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Config->ExamineAction = WEInput::MakeAction(Config, TEXT("IA_Examine"), EInputActionValueType::Boolean);
 	Config->SecondaryAction = WEInput::MakeAction(Config, TEXT("IA_Secondary"), EInputActionValueType::Boolean);
 	Config->AlternativeAction = WEInput::MakeAction(Config, TEXT("IA_Alternative"), EInputActionValueType::Boolean);
+	Config->BuildAction = WEInput::MakeAction(Config, TEXT("IA_Build"), EInputActionValueType::Boolean);
+	Config->RemoveAction = WEInput::MakeAction(Config, TEXT("IA_Remove"), EInputActionValueType::Boolean);
+	Config->CycleAction = WEInput::MakeAction(Config, TEXT("IA_Cycle"), EInputActionValueType::Axis1D);
 	Config->InventoryAction = WEInput::MakeAction(Config, TEXT("IA_Inventory"), EInputActionValueType::Boolean);
 	Config->QuickSaveAction = WEInput::MakeAction(Config, TEXT("IA_QuickSave"), EInputActionValueType::Boolean);
 	Config->QuickLoadAction = WEInput::MakeAction(Config, TEXT("IA_QuickLoad"), EInputActionValueType::Boolean);
@@ -63,6 +66,9 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Context->MapKey(Config->ExamineAction, EKeys::F);
 	Context->MapKey(Config->SecondaryAction, EKeys::R);
 	Context->MapKey(Config->AlternativeAction, EKeys::Q);
+	Context->MapKey(Config->BuildAction, EKeys::B);
+	Context->MapKey(Config->RemoveAction, EKeys::X);
+	Context->MapKey(Config->CycleAction, EKeys::MouseWheelAxis);
 	Context->MapKey(Config->InventoryAction, EKeys::Tab);
 	Context->MapKey(Config->InventoryAction, EKeys::I);
 	Context->MapKey(Config->QuickSaveAction, EKeys::F5);

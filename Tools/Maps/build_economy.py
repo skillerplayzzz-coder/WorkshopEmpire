@@ -76,7 +76,10 @@ TRADERS = [
     ("DA_Trader_ToolShop", "Werkzeug-Versand Hammerl", 30.0,
      [rate(C.TOOL, 0.7), rate(C.POWER_TOOL, 0.7)],
      [stock("Screwdriver", 5, Q.NEW, 80), stock("SideCutter", 3, Q.NEW, 80), stock("CordlessDrill", 2, Q.NEW, 85),
-      stock("Multimeter", 3, Q.NEW, 80), stock("SolderingIron", 2, Q.NEW, 80)]),
+      stock("Multimeter", 3, Q.NEW, 80), stock("SolderingIron", 2, Q.NEW, 80),
+      # Phase 8: better tools and the hand truck.
+      stock("BitRatchet", 2, Q.NEW, 80), stock("ProSideCutter", 2, Q.NEW, 80), stock("DigitalMultimeter", 2, Q.NEW, 80),
+      stock("SolderingStation", 1, Q.NEW, 80), stock("HandTruck", 1, Q.NEW, 80)]),
     # Phase 6: spare parts for repairs (buying is convenient; parts from another device are cheaper).
     ("DA_Trader_SpareParts", "Ersatzteil-Express", 20.0,
      [rate(C.SPARE_PART, 0.9), rate(C.ELECTRONICS, 0.9)],

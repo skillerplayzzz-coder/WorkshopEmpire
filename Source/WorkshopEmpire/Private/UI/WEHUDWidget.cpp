@@ -1,4 +1,6 @@
 #include "UI/WEHUDWidget.h"
+#include "Components/SizeBox.h"
+#include "Workshop/WEBuildComponent.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -181,7 +183,55 @@ void UWEHUDWidget::NativeOnInitialized()
 		CSlot->SetAutoSize(true);
 	}
 
+	// Build mode panel, left (Phase 8).
+	BuildPanel = WidgetTree->ConstructWidget<UBorder>();
+	BuildPanel->SetBrushColor(FLinearColor(0.02f, 0.02f, 0.025f, 0.75f));
+	BuildPanel->SetPadding(FMargin(14.f, 10.f));
+	UVerticalBox* BuildBox = WidgetTree->ConstructWidget<UVerticalBox>();
+	UTextBlock* BuildTitle = MakeText(16, FLinearColor(1.f, 0.78f, 0.35f), false);
+	BuildTitle->SetText(LOCTEXT("BuildTitle", "Baumodus"));
+	BuildBox->AddChildToVerticalBox(BuildTitle);
+	BuildMenuText = MakeText(13, FLinearColor(0.9f, 0.92f, 0.95f), false);
+	BuildBox->AddChildToVerticalBox(BuildMenuText);
+	BuildStatusText = MakeText(13, FLinearColor(1.f, 0.88f, 0.6f), false);
+	BuildStatusText->SetWrapTextAt(372.f);
+	if (UVerticalBoxSlot* S = BuildBox->AddChildToVerticalBox(BuildStatusText))
+	{
+		S->SetPadding(FMargin(0.f, 8.f, 0.f, 4.f));
+	}
+	UTextBlock* BuildHelp = MakeText(11, FLinearColor(0.65f, 0.68f, 0.72f), false);
+	BuildHelp->SetWrapTextAt(372.f);
+	BuildHelp->SetText(LOCTEXT("BuildHelp", "Mausrad: Auswahl · [E] bestätigen · [R] 90° · [Q] 15° drehen · [X] abbauen/abbrechen · [B] Baumodus beenden"));
+	BuildBox->AddChildToVerticalBox(BuildHelp);
+	// Fixed width: the status line changes length all the time; a fixed width keeps the layout stable.
+	USizeBox* BuildWidth = WidgetTree->ConstructWidget<USizeBox>();
+	BuildWidth->SetWidthOverride(372.f);
+	BuildWidth->SetContent(BuildBox);
+	BuildPanel->SetContent(BuildWidth);
+	BuildPanel->SetVisibility(ESlateVisibility::Collapsed);
+	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(BuildPanel))
+	{
+		CSlot->SetAnchors(FAnchors(0.f, 0.5f));
+		CSlot->SetAlignment(FVector2D(0.f, 0.5f));
+		CSlot->SetPosition(FVector2D(24.f, 40.f));
+		CSlot->SetAutoSize(true);
+	}
+
 	SetVisibility(ESlateVisibility::HitTestInvisible);
+}
+
+void UWEHUDWidget::UpdateBuildPanel()
+{
+	const AWECharacter* Character = Cast<AWECharacter>(GetOwningPlayerPawn());
+	const UWEBuildComponent* Build = Character ? Character->GetBuildComponent() : nullptr;
+	if (!Build || !Build->IsActive())
+	{
+		BuildPanel->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+	BuildPanel->SetVisibility(ESlateVisibility::HitTestInvisible);
+	BuildMenuText->SetText(FText::FromString(FString::Join(Build->GetMenuLines(), TEXT("\n"))));
+	BuildStatusText->SetText(Build->GetStatusText());
 }
 
 void UWEHUDWidget::UpdateWorkProgress()
@@ -259,10 +309,12 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	TArray<FWEInteractionPrompt> Prompts;
 	const AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
 	const bool bMenuOpen = PC && PC->IsMenuOpen();
-	if (Interaction && !bMenuOpen)
+	const bool bBuildMode = Character && Character->GetBuildComponent() && Character->GetBuildComponent()->IsActive();
+	if (Interaction && !bMenuOpen && !bBuildMode)
 	{
 		Interaction->BuildPrompts(Prompts);
 	}
+	UpdateBuildPanel();
 	for (int32 i = 0; i < PromptLines.Num(); ++i)
 	{
 		if (Prompts.IsValidIndex(i))

@@ -65,6 +65,15 @@ protected:
 	void SellAllParts();
 	void LogProgressState(const TCHAR* Step) const;
 
+	// Phase 8: build scenarios (-WESmokeRole=O|P on a dedicated server, -WEShots=P8...)
+	void RunSmokeRoleO();
+	void RunSmokeRoleP();
+	void RunBuildShots();
+	void LogFurniture(const TCHAR* Step) const;
+	class AWEPlaceholderProp* FindFurniture(const TCHAR* FurnitureId) const;
+	int32 FurnitureIndex(const TCHAR* FurnitureId) const;
+	class UWEBuildComponent* GetBuild() const;
+
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)
 	void RunSmokeRoleM();
 	void RunSmokeRoleN();

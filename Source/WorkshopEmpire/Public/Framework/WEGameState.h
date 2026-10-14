@@ -5,6 +5,7 @@
 #include "WEGameState.generated.h"
 
 class UWEAuctionComponent;
+class UWEWorkshopLayoutComponent;
 class UWECompanyComponent;
 class UWEContractComponent;
 class UWEMarketComponent;
@@ -28,6 +29,7 @@ public:
 	UWEContractComponent* GetContracts() const { return Contracts; }
 	UWEProgressionComponent* GetProgression() const { return Progression; }
 	UWEAuctionComponent* GetAuctions() const { return Auctions; }
+	UWEWorkshopLayoutComponent* GetLayout() const { return Layout; }
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Company")
@@ -44,4 +46,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWEAuctionComponent> Auctions;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<UWEWorkshopLayoutComponent> Layout;
 };

@@ -104,6 +104,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Tool", meta = (ClampMin = "0.1", EditCondition = "ToolType != EWEToolType::None"))
 	float ToolSpeedMultiplier = 1.f;
 
+	/** Carrying aid (e.g. folding hand truck): while in the inventory, the hands carry this much more (kg). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Tool", meta = (ClampMin = "0", Units = "kg"))
+	float CarryBonusKg = 0.f;
+
 	/** Raw material content (for recycling machines later and as information). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
 	TArray<FWEMaterialAmount> Materials;

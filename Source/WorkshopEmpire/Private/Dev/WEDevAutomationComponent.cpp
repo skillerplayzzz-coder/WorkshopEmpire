@@ -29,6 +29,9 @@
 #include "Economy/WEAuctionComponent.h"
 #include "UI/WETradeWidget.h"
 #include "World/WEScrapPile.h"
+#include "Workshop/WEBuildComponent.h"
+#include "Workshop/WEFurnitureDefinition.h"
+#include "Workshop/WEWorkshopLayoutComponent.h"
 #include "Progression/WEProgressionComponent.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -115,6 +118,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("N"))
 	{
 		RunSmokeRoleN();
+	}
+	else if (Role == TEXT("O"))
+	{
+		RunSmokeRoleO();
+	}
+	else if (Role == TEXT("P"))
+	{
+		RunSmokeRoleP();
+	}
+	else if (ShotName.StartsWith(TEXT("P8")))
+	{
+		RunBuildShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P7")))
 	{
@@ -1364,4 +1379,146 @@ void UWEDevAutomationComponent::RunSmokeRoleN()
 	Schedule(30.f, [this]() { LogAuctionState(TEXT("N2 after opening the pallet")); });
 	Schedule(35.f, [this]() { LogAuctionState(TEXT("N3 final")); });
 	Schedule(37.f, [this]() { Quit(); });
+}
+
+// --- Phase 8: build mode -------------------------------------------------------------------------
+
+UWEBuildComponent* UWEDevAutomationComponent::GetBuild() const
+{
+	const AWECharacter* C = GetCharacter();
+	return C ? C->GetBuildComponent() : nullptr;
+}
+
+AWEPlaceholderProp* UWEDevAutomationComponent::FindFurniture(const TCHAR* FurnitureId) const
+{
+	for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && !It->IsActorBeingDestroyed() && It->GetFurnitureId() == FName(FurnitureId))
+		{
+			return *It;
+		}
+	}
+	return nullptr;
+}
+
+int32 UWEDevAutomationComponent::FurnitureIndex(const TCHAR* FurnitureId) const
+{
+	const UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this);
+	const UWEFurnitureCatalog* Catalog = Layout ? Layout->GetCatalog() : nullptr;
+	return Catalog ? Catalog->Items.IndexOfByPredicate([FurnitureId](const FWEFurnitureDefinition& D) { return D.Id == FName(FurnitureId); }) : INDEX_NONE;
+}
+
+void UWEDevAutomationComponent::LogFurniture(const TCHAR* Step) const
+{
+	TArray<FString> Parts;
+	for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && !It->IsActorBeingDestroyed() && !It->IsHidden())
+		{
+			const FVector L = It->GetActorLocation();
+			Parts.Add(FString::Printf(TEXT("%s@(%.0f,%.0f,%.0f°)%s"), *It->GetFurnitureName().ToString(), L.X, L.Y, It->GetActorRotation().Yaw,
+				It->GetStorage() && It->HasStorage() ? *FString::Printf(TEXT("[%d Pl.]"), It->GetStorage()->GetNumSlots()) : TEXT("")));
+		}
+	}
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const UWEBuildComponent* Build = GetBuild();
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Balance=%s Furniture={%s} Build=%s Preview=%s Status='%s'"), *Role, Step,
+		Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"), *FString::Join(Parts, TEXT(" ")),
+		Build && Build->IsActive() ? TEXT("on") : TEXT("off"), Build && Build->HasPreview() ? (Build->IsPreviewValid() ? TEXT("green") : TEXT("red")) : TEXT("-"),
+		Build ? *Build->GetStatusText().ToString() : TEXT("-"));
+}
+
+void UWEDevAutomationComponent::RunBuildShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(3.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-60.f, -20.f, 100.f), FRotator(0.f, 30.f, 0.f)); } });
+	Schedule(4.0f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->SetBuildMode(true); B->SelectIndex(FurnitureIndex(TEXT("Workbench"))); B->Rotate(90.f); } LookAtPoint(FVector(150.f, 150.f, 0.f)); });
+	Schedule(5.0f, [this]() { Shot(TEXT("01_Baumodus_Vorschau")); LogFurniture(TEXT("S0 preview")); });
+	Schedule(5.5f, [this]() { LookAtPoint(FVector(-90.f, 230.f, 0.f)); }); // at the market terminal: blocked
+	Schedule(6.5f, [this]() { Shot(TEXT("02_Vorschau_blockiert")); LogFurniture(TEXT("S1 blocked preview")); });
+	Schedule(7.0f, [this]() { LookAtPoint(FVector(150.f, 150.f, 0.f)); });
+	Schedule(7.5f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->Confirm(); } });
+	Schedule(9.0f, [this]() { Shot(TEXT("03_Werkbank_aufgestellt")); LogFurniture(TEXT("S2 placed second bench")); });
+	Schedule(9.5f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->SelectIndex(FurnitureIndex(TEXT("Crate"))); } LookAtPoint(FVector(0.f, 150.f, 0.f)); });
+	Schedule(10.5f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->Confirm(); } });
+	Schedule(11.5f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->SelectIndex(INDEX_NONE); } if (AWEPlaceholderProp* Crate = FindFurniture(TEXT("Crate"))) { LookAt(Crate); } });
+	Schedule(12.5f, [this]() { Shot(TEXT("04_Bearbeiten")); LogFurniture(TEXT("S3 edit mode on crate")); if (UWEBuildComponent* B = GetBuild()) { B->Confirm(); } });
+	Schedule(13.5f, [this]() { LookAtPoint(FVector(60.f, 60.f, 0.f)); });
+	Schedule(14.5f, [this]() { Shot(TEXT("05_Verschieben")); LogFurniture(TEXT("S4 moving crate")); if (UWEBuildComponent* B = GetBuild()) { B->Confirm(); } });
+	Schedule(16.0f, [this]() { LogFurniture(TEXT("S5 crate moved")); if (AWEPlaceholderProp* Crate = FindFurniture(TEXT("Crate"))) { LookAt(Crate); } });
+	Schedule(17.0f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->Remove(); } });
+	Schedule(18.0f, [this]() { Shot(TEXT("06_Abgebaut")); LogFurniture(TEXT("S6 crate removed")); });
+	Schedule(18.5f, [this, PC]() { if (UWEBuildComponent* B = GetBuild()) { B->SetBuildMode(false); } if (PC) { PC->RequestSave(TEXT("DevP8")); } });
+	Schedule(19.5f, [this]() { if (AWEPlaceholderProp* Bench = FindFurniture(TEXT("Workbench"))) { Bench->SetActorLocation(FVector(150.f, 0.f, 0.f)); } }); // change, then load
+	Schedule(20.0f, [PC]() { if (PC) { PC->RequestLoad(TEXT("DevP8")); } });
+	Schedule(21.5f, [this]() { LookAtPoint(FVector(150.f, 150.f, 40.f)); LogFurniture(TEXT("S7 after load")); });
+	Schedule(22.5f, [this]() { Shot(TEXT("07_Nach_dem_Laden")); });
+	Schedule(23.5f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleO()
+{
+	// Places a bench and a crate; later sees what the other player changed.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-60.f, -20.f, 100.f), FRotator(0.f, 30.f, 0.f)); } });
+	Schedule(12.f, [this]()
+	{
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			B->SelectIndex(FurnitureIndex(TEXT("Workbench")));
+			B->Rotate(90.f);
+			B->SetAimOverride(FVector(150.f, 150.f, 0.f));
+			B->Confirm();
+		}
+	});
+	Schedule(13.f, [this]()
+	{
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SelectIndex(FurnitureIndex(TEXT("Crate")));
+			B->SetAimOverride(FVector(0.f, 150.f, 0.f));
+			B->Confirm();
+			B->SetBuildMode(false);
+		}
+	});
+	Schedule(15.f, [this]() { LogFurniture(TEXT("O1 placed bench and crate")); });
+	Schedule(27.f, [this]() { LogFurniture(TEXT("O2 sees P's changes")); });
+	Schedule(30.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleP()
+{
+	// Sees O's furniture, cannot place on top of it, moves O's crate and sells it.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-60.f, -80.f, 100.f), FRotator(0.f, 30.f, 0.f)); } });
+	Schedule(16.f, [this]()
+	{
+		LogFurniture(TEXT("P0 sees O's furniture"));
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			B->SelectIndex(FurnitureIndex(TEXT("Crate")));
+			B->SetAimOverride(FVector(150.f, 150.f, 0.f));
+			B->UpdatePreview();
+		}
+		LogFurniture(TEXT("P1 preview on O's bench"));
+	});
+	Schedule(17.f, [PC]()
+	{
+		// Bypass the (red) preview: the server must refuse on its own.
+		if (PC) { PC->ServerPlaceFurniture(TEXT("Crate"), FTransform(FVector(150.f, 150.f, 0.f)), FGuid::NewGuid()); }
+	});
+	Schedule(19.f, [this, PC]()
+	{
+		LogFurniture(TEXT("P2 after forced place on the bench"));
+		if (AWEPlaceholderProp* Crate = FindFurniture(TEXT("Crate")); Crate && PC) { PC->ServerMoveFurniture(Crate, FTransform(FVector(0.f, 60.f, 0.f))); }
+	});
+	Schedule(21.f, [this, PC]()
+	{
+		LogFurniture(TEXT("P3 moved O's crate"));
+		if (AWEPlaceholderProp* Crate = FindFurniture(TEXT("Crate")); Crate && PC) { PC->ServerRemoveFurniture(Crate, FGuid::NewGuid()); }
+	});
+	Schedule(23.f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->SetBuildMode(false); } LogFurniture(TEXT("P4 sold the crate")); });
+	Schedule(31.f, [this]() { Quit(); });
 }

@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.8.0] – 2026-10-14 – Phase 8: Werkstatt-Upgrades
+
+### Neu
+- Baumodus [B] (`UWEBuildComponent`): Vorschau am Fadenkreuz (grün/rot mit Grund), Kollisionsprüfung, Drehen ([R] 90°, [Q] 15°), Einrasten im 10-cm-Raster, Bestätigen mit [E], Auswahl per Mausrad.
+- "Bearbeiten": Möbel anfassen und neu abstellen (auch die Grundausstattung), gekaufte Möbel mit [X] abbauen (halber Preis zurück); nicht während der Arbeit oder mit Gegenständen darauf.
+- Möbelkatalog (`DA_FurnitureCatalog`): Werkbank, Große Werkbank (20 Plätze, 20 % schneller), Schwerlastregal, Großes Lagerregal (25 Plätze, 300 kg), Werkzeugwand, Lagerkiste, Ablagetisch.
+- Mehrere Werkbänke; neue Werkbänke bekommen vorhandene Upgrades.
+- Neue Werkzeuge: Bit-Ratsche, Profi-Seitenschneider, Digitalmultimeter, Lötstation; Sackkarre (+30 kg Tragkraft).
+- Baumodus-Panel im HUD mit Katalog, Preisen und Hinweisen.
+
+### Multiplayer und Sicherheit
+- Aufstellen, Verschieben und Abbauen laufen über Server-RPCs; der Server prüft Baubereich, Platz, Geld und Anfrage-ID erneut. Gekaufte Möbel replizieren ihre Katalog-Id, Clients bauen Geometrie und Lager daraus. Im Netzwerk mit 2 Spielern getestet.
+
+### Behoben
+- Laden direkt nach dem Abbauen eines Möbels konnte dessen Namen (und damit den Lagerinhalt) nicht wiederherstellen.
+
+### Technisch
+- Speicherformat Version 7 (alle Möbel mit Name, Katalog-Id und Position; beim Laden zuerst).
+- Neues Skript `Tools/Maps/build_workshop.py`; Map mit Baubereich (`AWEBuildArea`); Möbel sind beweglich (Movable) und replizieren ihre Bewegung.
+- 3 neue Tastenbelegungen (B, X, Mausrad; insgesamt 20).
+- 6 neue Automation-Tests (insgesamt 67); Netzwerktest-Rollen O/P; Screenshot-Lauf P8.
+
 ## [0.7.0] – 2026-10-14 – Phase 7: Erweiterte Beschaffung
 
 ### Neu

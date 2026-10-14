@@ -146,6 +146,19 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerBid(class AWETraderTerminal* Terminal, FGuid LotId, FGuid RequestId);
 
+public:
+	// --- Build mode (Phase 8): the client sends the snapped transform, the server checks everything again.
+	UFUNCTION(Server, Reliable)
+	void ServerPlaceFurniture(FName FurnitureId, FTransform Transform, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerMoveFurniture(class AWEPlaceholderProp* Prop, FTransform Transform);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRemoveFurniture(class AWEPlaceholderProp* Prop, FGuid RequestId);
+
+protected:
+
 	UFUNCTION(Server, Reliable)
 	void ServerTakeAll(UWEInventoryComponent* From);
 

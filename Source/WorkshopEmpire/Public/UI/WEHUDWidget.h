@@ -91,4 +91,16 @@ protected:
 	TObjectPtr<UTextBlock> MessageText;
 
 	float MessageTimeLeft = 0.f;
+
+	/** Build mode panel (Phase 8), left side. */
+	UPROPERTY(Transient)
+	TObjectPtr<UBorder> BuildPanel;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> BuildMenuText;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> BuildStatusText;
+
+	void UpdateBuildPanel();
 };

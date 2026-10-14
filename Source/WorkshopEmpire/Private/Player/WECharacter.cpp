@@ -16,6 +16,7 @@
 #include "InputActionValue.h"
 #include "Inventory/WEInventoryComponent.h"
 #include "Workshop/WEWorkbench.h"
+#include "Workshop/WEBuildComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
@@ -64,6 +65,7 @@ AWECharacter::AWECharacter()
 	}
 
 	InteractionComponent = CreateDefaultSubobject<UWEInteractionComponent>(TEXT("InteractionComponent"));
+	BuildComponent = CreateDefaultSubobject<UWEBuildComponent>(TEXT("BuildComponent"));
 
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationPitch = false;
@@ -160,6 +162,9 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->ExamineAction, ETriggerEvent::Started, this, &AWECharacter::Input_Examine);
 	Input->BindAction(InputConfig->SecondaryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Secondary);
 	Input->BindAction(InputConfig->AlternativeAction, ETriggerEvent::Started, this, &AWECharacter::Input_Alternative);
+	Input->BindAction(InputConfig->BuildAction, ETriggerEvent::Started, this, &AWECharacter::Input_Build);
+	Input->BindAction(InputConfig->RemoveAction, ETriggerEvent::Started, this, &AWECharacter::Input_Remove);
+	Input->BindAction(InputConfig->CycleAction, ETriggerEvent::Triggered, this, &AWECharacter::Input_Cycle);
 	Input->BindAction(InputConfig->InventoryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Inventory);
 	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
 	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
@@ -225,7 +230,48 @@ void AWECharacter::Input_CrouchCompleted()
 
 void AWECharacter::Input_Interact()
 {
+	if (BuildComponent->IsActive())
+	{
+		BuildComponent->Confirm();
+		return;
+	}
 	InteractionComponent->RequestPrimaryInteraction();
+}
+
+void AWECharacter::Input_Build()
+{
+	BuildComponent->Toggle();
+}
+
+void AWECharacter::Input_Remove()
+{
+	if (BuildComponent->IsActive())
+	{
+		BuildComponent->Remove();
+	}
+}
+
+void AWECharacter::Input_Cycle(const FInputActionValue& Value)
+{
+	const float Axis = Value.Get<float>();
+	if (BuildComponent->IsActive() && !FMath::IsNearlyZero(Axis))
+	{
+		BuildComponent->CycleSelection(Axis > 0.f ? -1 : 1);
+	}
+}
+
+float AWECharacter::GetMaxCarryWeightKg() const
+{
+	// The best carrying aid in the inventory counts (e.g. a folding hand truck).
+	float Bonus = 0.f;
+	if (const UWEInventoryComponent* Inventory = GetPlayerInventory())
+	{
+		for (const FWEInventorySlotData& Slot : Inventory->GetAllSlots())
+		{
+			Bonus = FMath::Max(Bonus, Slot.Item.Definition ? Slot.Item.Definition->CarryBonusKg : 0.f);
+		}
+	}
+	return MaxCarryWeightKg + Bonus;
 }
 
 void AWECharacter::Input_Examine()
@@ -235,11 +281,21 @@ void AWECharacter::Input_Examine()
 
 void AWECharacter::Input_Secondary()
 {
+	if (BuildComponent->IsActive())
+	{
+		BuildComponent->Rotate(90.f);
+		return;
+	}
 	InteractionComponent->RequestSecondaryInteraction();
 }
 
 void AWECharacter::Input_Alternative()
 {
+	if (BuildComponent->IsActive())
+	{
+		BuildComponent->Rotate(15.f);
+		return;
+	}
 	InteractionComponent->RequestAlternativeInteraction();
 }
 
