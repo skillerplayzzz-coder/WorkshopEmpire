@@ -125,7 +125,33 @@ ITEMS = [
      "Pinsel, Druckluft, Isopropanol und Tücher. Macht Altgeräte wieder ansehnlich.",
      C.SPARE_PART, 0.4, 200, True, 10, True, False, T.NONE, 1.0, CUBE, (0.14, 0.08, 0.10), (0.30, 0.70, 0.80),
      [(M.PLASTIC, 0.3)]),
+    # Phase 7: rare finds (collectors pay well) and sealed return pallets (contents: build_procurement.py).
+    ("RareGpu", "RareGpu", "Grafikkarte (Sammlerstück)",
+     "Eine legendäre Grafikkarte aus den frühen 2000ern. Kaum noch zu finden – Sammler zahlen viel.",
+     C.COLLECTIBLE, 0.7, 18000, False, 1, True, False, T.NONE, 1.0, CUBE, (0.26, 0.12, 0.05), (0.75, 0.15, 0.15),
+     [(M.ELECTRONICS, 0.4), (M.ALUMINIUM, 0.2), (M.PRECIOUS_METAL, 0.004)]),
+    ("VintageRadio", "VintageRadio", "Röhrenradio (1958)",
+     "Holzgehäuse, Stoffbespannung, magisches Auge. Bei Sammlern sehr gefragt.",
+     C.COLLECTIBLE, 7.0, 12000, False, 1, False, False, T.NONE, 1.0, CUBE, (0.45, 0.22, 0.30), (0.45, 0.28, 0.15),
+     [(M.GLASS, 1.0), (M.COPPER, 0.5), (M.ELECTRONICS, 0.8)]),
+    ("GoldCpu", "GoldCpu", "Keramik-Prozessor mit Goldkontakten",
+     "Ein uralter Prozessor mit vergoldeter Keramik. Für Sammler und das Edelmetall-Recycling interessant.",
+     C.RARE_FIND, 0.05, 9000, False, 1, True, False, T.NONE, 1.0, CUBE, (0.06, 0.06, 0.01), (0.85, 0.70, 0.25),
+     [(M.PRECIOUS_METAL, 0.01), (M.ELECTRONICS, 0.03)]),
+    ("ServoMotor", "ServoMotor", "Industrie-Servomotor",
+     "Präziser Servomotor aus einer Fertigungsanlage. Neu kostet so etwas ein kleines Vermögen.",
+     C.MOTOR, 12.0, 22000, False, 1, False, False, T.NONE, 1.0, CYLINDER, (0.25, 0.25, 0.35), (0.15, 0.30, 0.55),
+     [(M.COPPER, 3.0), (M.ALUMINIUM, 4.0), (M.ELECTRONICS, 1.0)]),
+    ("ReturnPalletElectronics", "ReturnPalletElectronics", "Retourenpalette Elektronik",
+     "Eingeschweißte Rückläufer aus dem Versandhandel. Was drin ist, weiß man erst nach dem Öffnen.",
+     C.PRODUCT, 22.0, 2700, False, 1, False, False, T.NONE, 1.0, CUBE, (0.80, 0.60, 0.50), (0.70, 0.60, 0.40), []),
+    ("ReturnPalletTools", "ReturnPalletTools", "Retourenpalette Werkzeug",
+     "Zurückgeschickte Werkzeuge, gemischt verpackt. Manches neu, manches kaputt.",
+     C.PRODUCT, 18.0, 2300, False, 1, False, False, T.NONE, 1.0, CUBE, (0.70, 0.55, 0.45), (0.55, 0.50, 0.35), []),
 ]
+
+RARITY = {"RareGpu": unreal.WEItemRarity.RARE, "VintageRadio": unreal.WEItemRarity.RARE,
+          "GoldCpu": unreal.WEItemRarity.VERY_RARE, "ServoMotor": unreal.WEItemRarity.RARE}
 
 # Broken complex devices are worth much less than working ones, so that repairing pays off (Phase 6).
 BROKEN_VALUE = {"OldComputer": 0.42, "CrtMonitor": 0.5}
@@ -158,6 +184,7 @@ for (suffix, item_id, name, desc, cat, kg, cents, stack, max_stack, fits, repair
         amounts.append(a)
     da.set_editor_property("materials", amounts)
     da.set_editor_property("broken_value_multiplier", BROKEN_VALUE.get(suffix, 1.0))
+    da.set_editor_property("rarity", RARITY.get(suffix, unreal.WEItemRarity.COMMON))
     items[suffix] = (da, path)
 
 

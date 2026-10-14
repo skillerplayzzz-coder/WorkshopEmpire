@@ -119,6 +119,7 @@ Tragen: ein Gegenstand gleichzeitig, bis 30 kg. Schwerere Dinge (z. B. Elektromo
 | Gebrauchtbörse 24 | Elektronik, Ersatzteile, Haushaltsgeräte, Werkzeug, Sammlerstücke | defekte Computer, Röhrenmonitore, RAM |
 | Werkzeug-Versand Hammerl | Werkzeug (schlecht) | Schraubendreher, Seitenschneider, Akkuschrauber, Multimeter, Lötkolben |
 | Ersatzteil-Express (Phase 6) | Ersatzteile, Elektronik | gebrauchte Netzteile, RAM, Grafikkarte, Mainboard; Kondensatoren-Sets, Reinigungssets |
+| Retouren-Großhandel Paletti (Phase 7) | – | Retourenpaletten Elektronik und Werkzeug |
 
 - **Lieferung:** Kleinteile ins Inventar, Großes auf die Lieferpalette am Tor. Händler füllen ihren Vorrat alle 10–30 Minuten auf.
 - **Kundenaufträge:** immer 3 Angebote (verschwinden nach 10 Minuten), höchstens 3 angenommene gleichzeitig, Frist 15–30 Minuten, Belohnung ca. 1,3–1,7 × Marktwert. Beispiele: "Bastler sucht Arbeitsspeicher", "Elektriker sucht Kupferkabel", "Recyclinghof nimmt Stahlschrott".
@@ -149,6 +150,18 @@ Ziel: Das erste Upgrade nach etwa 2–5 PCs, alle nach etwa einer Stunde. Erste 
 - **Gemessen** (Test mit echten Daten, 30 PCs, Ersatzteile gebraucht gekauft): Zerlegen +5,81 €, Reparieren +8,20 €, Reparieren und Aufbereiten +17,70 € pro PC. Mit Teilen aus einem zweiten PC statt gekauften lohnt sich die Reparatur noch mehr.
 - **Einstiegskosten:** Multimeter ca. 18 €, Reinigungsset ca. 3 €, Lötkolben ca. 22 € (nur für Monitore).
 - **Reparaturaufträge:** Belohnung = Wert des reparierten Geräts × 0,45 (PC, ca. 24 €) bzw. × 0,6 (Monitor); das Ersatzteil zahlt die Werkstatt.
+
+### 4.4 Beschaffung (Stand Phase 7)
+
+| Quelle | Wie | Gedanke |
+|---|---|---|
+| **Schrotthaufen** hinter dem Tor | bis zu 4 Teile liegen herum, gratis; alle 8 Minuten Nachschub | langsam, aber kostenlos; ein Teil bringt direkt verkauft im Schnitt ~1 €, Wert entsteht erst durch Zerlegen/Reparieren; selten (~1 %) ein Sammlerstück |
+| **Gebrauchtwaren** (Händler am Marktplatz) | feste Grundangebote plus wechselnde Angebote: bei jedem Nachschub wird gewürfelt, was da ist und in welchem Zustand/Qualität | Nachschauen lohnt sich; gelegentlich Röhrenradio (10 %) oder Sammler-Grafikkarte (5 %) |
+| **Retourenpaletten** (Retouren-Großhandel Paletti) | Elektronik 35,10 €, Werkzeug 29,90 €; an der Lieferpalette mit [Q] öffnen | Inhalt direkt verkauft weniger wert als der Preis (Elektronik 27,90 €), Marktwert aber höher (45 €): Gewinn durch Arbeit, Spannung durch seltene Funde (4–6 % der Paletten). Inhalt steht beim Kauf fest (kein Neuwürfeln durch Laden) |
+| **Auktionen** (Reiter "Auktionen & Beschaffung") | 3 Lose gleichzeitig, 5–6 Minuten, Start bei 30–35 % des Schätzwerts; ein Mitbieter mit geheimem Limit (60–120 % des Werts) bietet sofort dagegen; Gebote kurz vor Schluss verlängern um 20 s; bezahlt wird erst beim Zuschlag, Ware auf die Palette | Posten günstiger als beim Händler, wenn man den Wert kennt; reicht das Geld beim Zuschlag nicht, verfällt er |
+| **Kundenaufträge** (erweitert) | Mindestqualität, große Geräte in der Hand abliefern ("Schule sucht einen funktionierenden PC"), Eilaufträge (10 min, doppelte Belohnung), Sammleraufträge | verbindet Reparatur und Beschaffung |
+
+**Seltene Gegenstände:** Grafikkarte (Sammlerstück, 180 €), Röhrenradio (1958, 120 €), Keramik-Prozessor mit Goldkontakten (90 €, sehr selten), Industrie-Servomotor (220 €). Sie tauchen auf dem Schrotthaufen, in Paletten, bei Händlern und in Auktionen auf. Gemessen: Der Gewinn mit Paletten hängt nicht an ihnen (ohne seltene Funde noch 86 % des Erlöses).
 
 ## 5. Progression (Designziele, durch Playtests zu prüfen)
 

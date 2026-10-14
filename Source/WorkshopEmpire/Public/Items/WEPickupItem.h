@@ -49,6 +49,9 @@ public:
 
 	class AWEWorkbench* GetPlacedOn() const { return PlacedOn; }
 
+	/** Server only. Opens a sealed container (return pallet): spawns its contents around it and removes it. Returns the finds. */
+	TArray<FWEItemInstance> OpenContainer(AWECharacter* By);
+
 	/** True if [E] puts this into the inventory (instead of carrying it). */
 	bool GoesIntoInventory() const;
 

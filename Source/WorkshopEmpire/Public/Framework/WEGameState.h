@@ -4,6 +4,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "WEGameState.generated.h"
 
+class UWEAuctionComponent;
 class UWECompanyComponent;
 class UWEContractComponent;
 class UWEMarketComponent;
@@ -26,6 +27,7 @@ public:
 	UWEMarketComponent* GetMarket() const { return Market; }
 	UWEContractComponent* GetContracts() const { return Contracts; }
 	UWEProgressionComponent* GetProgression() const { return Progression; }
+	UWEAuctionComponent* GetAuctions() const { return Auctions; }
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Company")
@@ -39,4 +41,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWEProgressionComponent> Progression;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<UWEAuctionComponent> Auctions;
 };

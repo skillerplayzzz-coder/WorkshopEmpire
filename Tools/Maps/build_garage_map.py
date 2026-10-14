@@ -1,7 +1,7 @@
 """
 Builds the Phase 1 placeholder level /Game/WorkshopEmpire/Maps/L_Garage from scratch.
 
-Run after build_placeholder_material.py, build_audio.py, build_item_definitions.py, build_economy.py and build_progression.py (overwrites the map):
+Run after build_placeholder_material.py, build_audio.py, build_item_definitions.py, build_procurement.py, build_economy.py and build_progression.py (overwrites the map):
   UnrealEditor-Cmd.exe <WorkshopEmpire.uproject> -ExecutePythonScript="<this file>" -unattended -nullrhi -nosplash
 
 Everything is a placeholder made from engine basic shapes; real assets come in Phase 15.
@@ -136,8 +136,11 @@ terminal.set_editor_property("traders", [
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_UsedGoods"),
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_ToolShop"),
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_SpareParts"),
+    unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_Returns"),
 ])
 spawn(unreal.WEDeliveryZone, (320, -220, 6), label="DeliveryPallet", folder="World")
+# --- Scrap heap outside, to the side of the door (Phase 7) ---------------------------------------------
+spawn(unreal.WEScrapPile, (760, 260, 0), label="ScrapPile", folder="World")
 # --- Player starts (in front of the workbench, all items within reach) --------------------------
 for i, y in enumerate((-120.0, -40.0, 40.0, 120.0)):
     spawn(unreal.PlayerStart, (-170, y, 100), (0.0, 180.0, 0.0), f"PlayerStart{i + 1}", "Players")

@@ -1,6 +1,7 @@
 #include "Economy/WETraderTerminal.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Economy/WEAuctionComponent.h"
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
 #include "Economy/WEMarketComponent.h"
@@ -62,12 +63,13 @@ AWETraderTerminal::AWETraderTerminal()
 		Body->SetStaticMesh(CubeMesh.Object);
 		Screen->SetStaticMesh(CubeMesh.Object);
 	}
+	StockRandom.Initialize(1234);
 }
 
 void AWETraderTerminal::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AWETraderTerminal, StockRemaining);
+	DOREPLIFETIME(AWETraderTerminal, Lines);
 }
 
 void AWETraderTerminal::OnConstruction(const FTransform& Transform)
@@ -95,8 +97,9 @@ void AWETraderTerminal::BeginPlay()
 
 	if (HasAuthority())
 	{
-		if (StockRemaining.Num() != NumOffers())
+		if (Lines.Num() == 0)
 		{
+			StockRandom.Initialize(FMath::Rand());
 			Restock();
 		}
 		float Minutes = 0.f;
@@ -163,32 +166,29 @@ bool AWETraderTerminal::IsWithinUseRange(const AWECharacter* Character) const
 
 int32 AWETraderTerminal::NumOffers() const
 {
-	int32 Count = 0;
-	for (const UWETraderDefinition* Trader : Traders)
-	{
-		Count += Trader ? Trader->Stock.Num() : 0;
-	}
-	return Count;
+	return Lines.Num();
 }
 
 bool AWETraderTerminal::ResolveOffer(int32 OfferIndex, const UWETraderDefinition*& OutTrader, const FWETraderStockEntry*& OutEntry) const
 {
-	int32 Index = OfferIndex;
-	for (const UWETraderDefinition* Trader : Traders)
+	if (!Lines.IsValidIndex(OfferIndex))
 	{
-		if (!Trader)
-		{
-			continue;
-		}
-		if (Index < Trader->Stock.Num())
-		{
-			OutTrader = Trader;
-			OutEntry = &Trader->Stock[Index];
-			return Index >= 0 && OutEntry->Item != nullptr;
-		}
-		Index -= Trader->Stock.Num();
+		return false;
 	}
-	return false;
+	const FWEStockLine& Line = Lines[OfferIndex];
+	OutTrader = Traders.IsValidIndex(Line.TraderIndex) ? Traders[Line.TraderIndex].Get() : nullptr;
+	OutEntry = OutTrader && OutTrader->Stock.IsValidIndex(Line.EntryIndex) ? &OutTrader->Stock[Line.EntryIndex] : nullptr;
+	return OutEntry && OutEntry->Item && Line.Item.Definition == OutEntry->Item;
+}
+
+TArray<int32> AWETraderTerminal::GetStockRemaining() const
+{
+	TArray<int32> Result;
+	for (const FWEStockLine& Line : Lines)
+	{
+		Result.Add(Line.Remaining);
+	}
+	return Result;
 }
 
 TArray<FWEMarketOffer> AWETraderTerminal::GetOffers() const
@@ -206,8 +206,9 @@ TArray<FWEMarketOffer> AWETraderTerminal::GetOffers() const
 		FWEMarketOffer& Offer = Offers.AddDefaulted_GetRef();
 		Offer.OfferIndex = i;
 		Offer.TraderName = Trader->DisplayName;
-		Offer.Item = FWEItemInstance::Make(Entry->Item, 1, Entry->Condition, Entry->Quality);
-		Offer.Remaining = StockRemaining.IsValidIndex(i) ? StockRemaining[i] : 0;
+		Offer.Item = Lines[i].Item;
+		Offer.Item.Quantity = 1;
+		Offer.Remaining = Lines[i].Remaining;
 		Offer.UnitPrice = UWEMarketComponent::GetBuyPrice(Offer.Item, Entry->PriceMultiplier, Market);
 	}
 	return Offers;
@@ -240,23 +241,47 @@ void AWETraderTerminal::Restock()
 	{
 		return;
 	}
-	StockRemaining.SetNum(NumOffers());
-	for (int32 i = 0; i < StockRemaining.Num(); ++i)
+	// Every restock rolls which offers are there and in which state (rotating used goods, Phase 7).
+	Lines.Reset();
+	for (int32 TraderIndex = 0; TraderIndex < Traders.Num(); ++TraderIndex)
 	{
-		const UWETraderDefinition* Trader = nullptr;
-		const FWETraderStockEntry* Entry = nullptr;
-		StockRemaining[i] = ResolveOffer(i, Trader, Entry) ? Entry->Quantity : 0;
+		const UWETraderDefinition* Trader = Traders[TraderIndex];
+		for (int32 EntryIndex = 0; Trader && EntryIndex < Trader->Stock.Num(); ++EntryIndex)
+		{
+			const FWETraderStockEntry& Entry = Trader->Stock[EntryIndex];
+			if (!Entry.Item || (Entry.Chance < 1.f && StockRandom.FRand() >= Entry.Chance))
+			{
+				continue;
+			}
+			const int32 Condition = FMath::Min(static_cast<int32>(Entry.Condition) + StockRandom.RandRange(0, Entry.ConditionSpread), static_cast<int32>(EWEItemCondition::Scrap));
+			const int32 Quality = FMath::Clamp(static_cast<int32>(Entry.Quality) + StockRandom.RandRange(-Entry.QualitySpread, Entry.QualitySpread), 0, 100);
+			FWEStockLine& Line = Lines.AddDefaulted_GetRef();
+			Line.TraderIndex = TraderIndex;
+			Line.EntryIndex = EntryIndex;
+			Line.Item = FWEItemInstance::Make(Entry.Item, 1, static_cast<EWEItemCondition>(Condition), static_cast<uint8>(Quality));
+			Line.Remaining = Entry.Quantity;
+		}
 	}
 	ForceNetUpdate();
 }
 
-void AWETraderTerminal::SetStockRemaining(const TArray<int32>& Values)
+void AWETraderTerminal::SetStockLines(const TArray<FWEStockLine>& InLines)
 {
-	if (HasAuthority() && Values.Num() == NumOffers())
+	if (!HasAuthority())
 	{
-		StockRemaining = Values;
-		ForceNetUpdate();
+		return;
 	}
+	Lines.Reset();
+	for (const FWEStockLine& Line : InLines)
+	{
+		// Only keep lines that still match the trader data (data may have changed since saving).
+		const UWETraderDefinition* Trader = Traders.IsValidIndex(Line.TraderIndex) ? Traders[Line.TraderIndex].Get() : nullptr;
+		if (Trader && Trader->Stock.IsValidIndex(Line.EntryIndex) && Trader->Stock[Line.EntryIndex].Item == Line.Item.Definition)
+		{
+			Lines.Add(Line);
+		}
+	}
+	ForceNetUpdate();
 }
 
 // --- Trades (server) -----------------------------------------------------------------------------
@@ -425,12 +450,13 @@ EWETradeResult AWETraderTerminal::Buy(AWECharacter* Character, int32 OfferIndex,
 		return EWETradeResult::InvalidItem;
 	}
 	Quantity = FMath::Max(1, Quantity);
-	if (!StockRemaining.IsValidIndex(OfferIndex) || StockRemaining[OfferIndex] < Quantity)
+	if (Lines[OfferIndex].Remaining < Quantity)
 	{
 		Notify(Character, ResultText(EWETradeResult::OutOfStock));
 		return EWETradeResult::OutOfStock;
 	}
-	const FWEItemInstance Bought = FWEItemInstance::Make(Entry->Item, Quantity, Entry->Condition, Entry->Quality);
+	const FWEItemInstance Unit = Lines[OfferIndex].Item;
+	const FWEItemInstance Bought = FWEItemInstance::Make(Entry->Item, Quantity, Unit.Condition, Unit.Quality);
 	const FWEMoney Price = UWEMarketComponent::GetBuyPrice(Bought, Entry->PriceMultiplier, UWEMarketComponent::Get(this));
 	if (!Company->CanAfford(Price))
 	{
@@ -448,7 +474,7 @@ EWETradeResult AWETraderTerminal::Buy(AWECharacter* Character, int32 OfferIndex,
 	{
 		return EWETradeResult::NotEnoughMoney;
 	}
-	StockRemaining[OfferIndex] -= Quantity;
+	Lines[OfferIndex].Remaining -= Quantity;
 	ForceNetUpdate();
 
 	// Non-stackable items become separate instances.
@@ -460,7 +486,7 @@ EWETradeResult AWETraderTerminal::Buy(AWECharacter* Character, int32 OfferIndex,
 	{
 		for (int32 i = 0; i < Quantity; ++i)
 		{
-			DeliverPurchase(Character, FWEItemInstance::Make(Entry->Item, 1, Entry->Condition, Entry->Quality));
+			DeliverPurchase(Character, FWEItemInstance::Make(Entry->Item, 1, Unit.Condition, Unit.Quality));
 		}
 	}
 	const bool bToPallet = !Entry->Item->bFitsInInventory;
@@ -541,6 +567,47 @@ EWETradeResult AWETraderTerminal::AcceptContract(AWECharacter* Character, const 
 	}
 	Notify(Character, LOCTEXT("Accepted", "Auftrag angenommen"));
 	return EWETradeResult::Success;
+}
+
+EWETradeResult AWETraderTerminal::BidOnAuction(AWECharacter* Character, const FGuid& LotId, const FGuid& RequestId)
+{
+	UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this);
+	UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	if (!HasAuthority() || !Auctions || !Company || !Character)
+	{
+		return EWETradeResult::InvalidItem;
+	}
+	if (!IsWithinUseRange(Character))
+	{
+		return EWETradeResult::OutOfReach;
+	}
+	if (!Company->RegisterRequest(RequestId))
+	{
+		return EWETradeResult::Duplicate;
+	}
+	FWEMoney Bid;
+	switch (Auctions->PlaceBid(LotId, PlayerNameOf(Character), Bid))
+	{
+	case EWEAuctionResult::Leading:
+		Notify(Character, FText::Format(LOCTEXT("BidLeading", "Gebot {0} – du bist Höchstbietender"), FText::FromString(Bid.ToDisplayString())));
+		return EWETradeResult::Success;
+	case EWEAuctionResult::Outbid:
+	{
+		const FWEAuctionLot* Lot = Auctions->FindLot(LotId);
+		Notify(Character, FText::Format(LOCTEXT("BidOutbid", "Gebot {0} – sofort überboten von {1} ({2})"), FText::FromString(Bid.ToDisplayString()),
+			FText::FromString(Lot ? Lot->LeaderName : FString()), FText::FromString(Lot ? Lot->CurrentBid.ToDisplayString() : FString())));
+		return EWETradeResult::Success;
+	}
+	case EWEAuctionResult::AlreadyLeading:
+		Notify(Character, LOCTEXT("BidAlreadyLeading", "Eure Firma bietet hier schon am höchsten"));
+		return EWETradeResult::ContractFailed;
+	case EWEAuctionResult::NotEnoughMoney:
+		Notify(Character, ResultText(EWETradeResult::NotEnoughMoney));
+		return EWETradeResult::NotEnoughMoney;
+	default:
+		Notify(Character, LOCTEXT("BidEnded", "Auktion ist vorbei"));
+		return EWETradeResult::InvalidItem;
+	}
 }
 
 EWETradeResult AWETraderTerminal::DeliverContract(AWECharacter* Character, const FGuid& ContractId, const FGuid& RequestId)

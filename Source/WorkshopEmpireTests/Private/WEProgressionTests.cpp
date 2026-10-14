@@ -219,7 +219,9 @@ bool FWEVerticalSliceTest::RunTest(const FString& Parameters)
 	{
 		for (const FWEMarketOffer& Offer : Terminal->GetOffers())
 		{
-			if (Offer.Item.Definition && Offer.Item.Definition->ItemId == FName(ItemId))
+			// Regular offers only (tools new, PC defective); rotating extras may list other conditions.
+			if (Offer.Item.Definition && Offer.Item.Definition->ItemId == FName(ItemId)
+				&& (Offer.Item.Condition == EWEItemCondition::Defective || Offer.Item.Condition == EWEItemCondition::New))
 			{
 				return Offer.OfferIndex;
 			}

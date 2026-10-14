@@ -91,6 +91,13 @@ bool UWEContractComponent::IsRepairedCustomerItem(const FWEContract& Contract, c
 		&& Item.Condition <= Contract.MinCondition && Item.Repair.Faults == 0 && !Item.IsPartiallyDisassembled();
 }
 
+bool UWEContractComponent::Matches(const FWEContract& Contract, const FWEItemInstance& Item)
+{
+	// Lower enum value = better condition. A device with an open repair (faults) does not count.
+	return Item.Definition == Contract.Item && Item.Condition <= Contract.MinCondition && Item.Quality >= Contract.MinQuality
+		&& !Item.IsPartiallyDisassembled() && !Item.IsCustomerItem() && (!Item.Repair.IsInProgress() || !Item.IsBroken());
+}
+
 int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const AWECharacter* Character)
 {
 	if (Contract.Kind == EWEContractKind::Repair)
@@ -104,13 +111,16 @@ int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const 
 	{
 		for (const FWEInventorySlotData& Slot : Inventory->GetAllSlots())
 		{
-			const FWEItemInstance& Item = Slot.Item;
-			// Lower enum value = better condition.
-			if (Item.Definition == Contract.Item && Item.Condition <= Contract.MinCondition && !Item.IsPartiallyDisassembled())
+			if (Matches(Contract, Slot.Item))
 			{
-				Count += Item.Quantity;
+				Count += Slot.Item.Quantity;
 			}
 		}
+	}
+	// Bulky items (e.g. a working PC) are delivered in the hands (Phase 7).
+	if (const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr; Held && Matches(Contract, Held->GetItem()))
+	{
+		Count += Held->GetItem().Quantity;
 	}
 	return Count;
 }
@@ -140,11 +150,12 @@ bool UWEContractComponent::AddOffer(int32 TemplateIndex)
 	Contract.Quantity = Template.Kind == EWEContractKind::Repair ? 1
 		: FMath::RandRange(FMath::Min(Template.MinQuantity, Template.MaxQuantity), FMath::Max(Template.MinQuantity, Template.MaxQuantity));
 	Contract.MinCondition = Template.MinCondition;
+	Contract.MinQuality = Template.MinQuality;
 	Contract.DeliverySeconds = Template.DurationMinutes * 60.f;
 	Contract.ExpiresAt = GetServerTime() + OfferLifetimeSeconds;
 
 	// Reward: market value of exactly the minimum acceptable items, times the template factor.
-	const FWEItemInstance Reference = FWEItemInstance::Make(Template.Item, Contract.Quantity, Template.MinCondition, 50);
+	const FWEItemInstance Reference = FWEItemInstance::Make(Template.Item, Contract.Quantity, Template.MinCondition, FMath::Max<uint8>(50, Template.MinQuality));
 	const FWEMoney Value = UWEMarketComponent::GetMarketValue(Reference, UWEMarketComponent::Get(this));
 	Contract.Reward = FWEMoney::FromCents(FMath::Max<int64>(100, FMath::RoundToInt64(Value.GetCents() * Template.RewardFactor)));
 
@@ -267,7 +278,7 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 			break;
 		}
 		const FWEItemInstance& Item = Slot.Item;
-		if (Item.Definition == Contract.Item && Item.Condition <= Contract.MinCondition && !Item.IsPartiallyDisassembled())
+		if (Matches(Contract, Item))
 		{
 			FWEItemInstance Removed;
 			const int32 Take = FMath::Min(Remaining, Item.Quantity);
@@ -276,6 +287,16 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 		}
 	}
 
+	if (Remaining > 0)
+	{
+		// The rest is in the hands (bulky item).
+		AWEPickupItem* Held = Character->GetHeldItem();
+		if (Held && Matches(Contract, Held->GetItem()) && Character->ReleaseHeldItem())
+		{
+			Remaining -= Held->GetItem().Quantity;
+			Held->Destroy();
+		}
+	}
 	Contracts.RemoveAt(Index);
 	const APlayerState* PS = Character->GetPlayerState();
 	Company->Deposit(Contract.Reward, FString::Printf(TEXT("Auftrag: %s"), *Contract.Title.ToString()), PS ? PS->GetPlayerName() : FString());

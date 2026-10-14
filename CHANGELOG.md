@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.0] – 2026-10-14 – Phase 7: Erweiterte Beschaffung
+
+### Neu
+- Schrotthaufen hinter dem Tor (`AWEScrapPile`): bis zu 4 Gratis-Teile, Nachschub alle 8 Minuten, Hinweis beim Hinschauen.
+- Wechselndes Händlerangebot: Jeder Nachschub würfelt, welche Angebote da sind und in welchem Zustand bzw. welcher Qualität (Chance und Streuung je Angebot im Datensatz).
+- Retourenpaletten (Elektronik, Werkzeug) beim neuen Händler "Retouren-Großhandel Paletti"; an der Lieferpalette mit [Q] öffnen, Inhalt aus Beutetabellen (`UWELootTable`), pro Palette festgelegt.
+- Auktionen (`UWEAuctionComponent`, `DA_AuctionCatalog` mit 7 Posten wie Büroauflösung, Werkstattauflösung, Sammlernachlass, Industrie-Servomotor): Mitbieter mit geheimem Limit, Verlängerung bei späten Geboten, Bezahlung erst beim Zuschlag, Lieferung auf die Palette.
+- Neuer Reiter "Auktionen & Beschaffung" im Marktplatz mit laufenden Losen, Ergebnissen und Erklärungen zu allen Quellen.
+- Seltene Gegenstände: Grafikkarte (Sammlerstück), Röhrenradio (1958), Keramik-Prozessor mit Goldkontakten, Industrie-Servomotor; Seltenheit wird beim Untersuchen und im Marktplatz angezeigt.
+- Erweiterte Kundenaufträge: Mindestqualität, große Geräte in der Hand abliefern, Eilauftrag, Sammlerauftrag (4 neue Vorlagen).
+
+### Multiplayer und Sicherheit
+- Gebote laufen über den Server mit Reichweite und Anfrage-ID; die Firma kann nicht gegen sich selbst bieten; das geheime Limit bleibt auf dem Server. Im Netzwerk mit 2 Spielern getestet.
+
+### Balancing
+- Retourenpaletten 35,10 € / 29,90 €: direkt weiterverkauft weniger wert, mit Arbeit mehr; seltener Fund in 4–6 % der Paletten. Ein Schrotthaufen-Teil bringt direkt verkauft ~1 €.
+
+### Technisch
+- Speicherformat Version 6 (gewürfelter Händlervorrat, laufende Auktionen, Auftragsqualität).
+- Neues Skript `Tools/Maps/build_procurement.py` (Beutetabellen); Map um den Schrotthaufen ergänzt.
+- 8 neue Automation-Tests (insgesamt 61), darunter ein Balance-Test für Paletten und Schrott mit echten Daten; Netzwerktest-Rollen M/N; Screenshot-Lauf P7.
+- Nur in Entwicklungs-Builds: `ServerDevEndAuctions` für die Testautomatisierung.
+
 ## [0.6.0] – 2026-10-13 – Phase 6: Reparatursystem
 
 ### Neu

@@ -10,6 +10,8 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Components/WidgetSwitcher.h"
+#include "Economy/WEAuctionComponent.h"
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
 #include "Economy/WEMarketComponent.h"
@@ -108,7 +110,7 @@ void UWETradeRowWidget::Configure(UWETradeWidget* InOwner, EWETradeRowKind InKin
 	Kind = InKind;
 	// Fixed wrap widths (columns are 300 px): auto-wrap needs last frame's geometry, so new rows
 	// were laid out with zero width for one frame and flashed on top of each other.
-	const float Wrap = InKind == EWETradeRowKind::Info ? 270.f : (InButton2.IsEmpty() ? 125.f : 85.f);
+	const float Wrap = WrapOverride > 0.f ? WrapOverride : InKind == EWETradeRowKind::Auction ? 400.f : InKind == EWETradeRowKind::Info ? 270.f : (InButton2.IsEmpty() ? 125.f : 85.f);
 	TitleText->SetWrapTextAt(Wrap);
 	DetailText->SetWrapTextAt(Wrap);
 	TitleText->SetText(Title);
@@ -140,7 +142,41 @@ void UWETradeRowWidget::HandleButton2()
 
 // --- Screen -----------------------------------------------------------------------------------------
 
-UVerticalBox* UWETradeWidget::MakeColumn(const FText& Title, TObjectPtr<UScrollBox>& OutList)
+UButton* UWETradeWidget::MakeTabButton(const FText& Label, TObjectPtr<UTextBlock>& OutText)
+{
+	UButton* Button = WidgetTree->ConstructWidget<UButton>();
+	OutText = WETradeStyle::Text(WidgetTree, 12, FLinearColor(0.05f, 0.05f, 0.05f), "Bold");
+	OutText->SetText(Label);
+	Button->SetContent(OutText);
+	return Button;
+}
+
+void UWETradeWidget::ShowPage(int32 Page)
+{
+	CurrentPage = Page;
+	if (Pages)
+	{
+		Pages->SetActiveWidgetIndex(Page);
+	}
+	if (TabMarketText && TabAuctionsText)
+	{
+		TabMarketText->SetText(Page == 0 ? LOCTEXT("TabMarketOn", "▶ Marktplatz") : LOCTEXT("TabMarket", "Marktplatz"));
+		TabAuctionsText->SetText(Page == 1 ? LOCTEXT("TabAuctionsOn", "▶ Auktionen & Beschaffung") : LOCTEXT("TabAuctions", "Auktionen & Beschaffung"));
+	}
+	LastSignature.Reset();
+}
+
+void UWETradeWidget::HandleTabMarket()
+{
+	ShowPage(0);
+}
+
+void UWETradeWidget::HandleTabAuctions()
+{
+	ShowPage(1);
+}
+
+UVerticalBox* UWETradeWidget::MakeColumn(const FText& Title, TObjectPtr<UScrollBox>& OutList, float Width)
 {
 	UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>();
 	UTextBlock* Header = WETradeStyle::Text(WidgetTree, 15, WETradeStyle::Gold, "Bold");
@@ -150,7 +186,7 @@ UVerticalBox* UWETradeWidget::MakeColumn(const FText& Title, TObjectPtr<UScrollB
 		S->SetPadding(FMargin(0.f, 0.f, 0.f, 6.f));
 	}
 	USizeBox* Box = WidgetTree->ConstructWidget<USizeBox>();
-	Box->SetWidthOverride(300.f);
+	Box->SetWidthOverride(Width);
 	Box->SetHeightOverride(430.f);
 	OutList = WidgetTree->ConstructWidget<UScrollBox>();
 	Box->SetContent(OutList);
@@ -188,8 +224,23 @@ void UWETradeWidget::NativeOnInitialized()
 	{
 		S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	}
+	UButton* TabMarket = MakeTabButton(LOCTEXT("TabMarket", "Marktplatz"), TabMarketText);
+	UButton* TabAuctions = MakeTabButton(LOCTEXT("TabAuctions", "Auktionen & Beschaffung"), TabAuctionsText);
+	TabMarket->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabMarket);
+	TabAuctions->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabAuctions);
+	for (UButton* Tab : { TabMarket, TabAuctions })
+	{
+		if (UHorizontalBoxSlot* S = Header->AddChildToHorizontalBox(Tab))
+		{
+			S->SetPadding(FMargin(0.f, 0.f, 10.f, 0.f));
+			S->SetVerticalAlignment(VAlign_Center);
+		}
+	}
 	BalanceText = WETradeStyle::Text(WidgetTree, 18, WETradeStyle::Green, "Bold");
-	Header->AddChildToHorizontalBox(BalanceText);
+	if (UHorizontalBoxSlot* S = Header->AddChildToHorizontalBox(BalanceText))
+	{
+		S->SetPadding(FMargin(20.f, 0.f, 0.f, 0.f));
+	}
 	if (UVerticalBoxSlot* S = Outer->AddChildToVerticalBox(Header))
 	{
 		S->SetPadding(FMargin(0.f, 0.f, 0.f, 12.f));
@@ -207,7 +258,22 @@ void UWETradeWidget::NativeOnInitialized()
 			S->SetPadding(FMargin(6.f, 0.f));
 		}
 	}
-	Outer->AddChildToVerticalBox(Columns);
+	// Page 2: auctions and the other sources (Phase 7).
+	UHorizontalBox* AuctionColumns = WidgetTree->ConstructWidget<UHorizontalBox>();
+	UVerticalBox* AuctionColumn = MakeColumn(LOCTEXT("Auctions", "Auktionen (Geschäftsauflösungen, Industrie, Nachlässe)"), AuctionList, 640.f);
+	UVerticalBox* SourcesColumn = MakeColumn(LOCTEXT("Sources", "Weitere Quellen"), SourcesList, 560.f);
+	for (UVerticalBox* Column : { AuctionColumn, SourcesColumn })
+	{
+		if (UHorizontalBoxSlot* S = AuctionColumns->AddChildToHorizontalBox(Column))
+		{
+			S->SetPadding(FMargin(6.f, 0.f));
+		}
+	}
+	Pages = WidgetTree->ConstructWidget<UWidgetSwitcher>();
+	Pages->AddChild(Columns);
+	Pages->AddChild(AuctionColumns);
+	Outer->AddChildToVerticalBox(Pages);
+	ShowPage(0);
 
 	HistoryText = WETradeStyle::Text(WidgetTree, 10, WETradeStyle::Soft);
 	if (UVerticalBoxSlot* S = Outer->AddChildToVerticalBox(HistoryText))
@@ -276,6 +342,23 @@ FString UWETradeWidget::BuildSignature() const
 		for (const FName& Id : Progression->GetOwnedUpgrades())
 		{
 			Sig << TEXT("|u:") << *Id.ToString();
+		}
+	}
+	Sig << TEXT("|page:") << CurrentPage;
+	if (const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this))
+	{
+		const float AuctionNow = Auctions->GetServerTime();
+		for (const FWEAuctionLot& Lot : Auctions->GetLots())
+		{
+			Sig << TEXT("|a:") << Lot.Id.ToString() << Lot.CurrentBid.GetCents() << (Lot.bCompanyLeads ? TEXT("L") : TEXT("-"));
+			if (CurrentPage == 1)
+			{
+				Sig << TEXT("s") << FMath::CeilToInt(Lot.EndsAt - AuctionNow); // countdown only while visible
+			}
+		}
+		for (const FString& Result : Auctions->GetRecentResults())
+		{
+			Sig << TEXT("|r:") << Result;
 		}
 	}
 	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(this))
@@ -352,7 +435,9 @@ void UWETradeWidget::Rebuild()
 		UWETradeRowWidget* Row = AddRow(BuyList);
 		Row->OfferIndex = Offer.OfferIndex;
 		Row->Configure(this, EWETradeRowKind::Buy, Offer.Item.GetDisplayName(),
-			FText::Format(LOCTEXT("OfferDetail", "{0} · {1} · noch {2}"), WEItems::GetConditionText(Offer.Item.Condition), Offer.TraderName, FText::AsNumber(Offer.Remaining)),
+			FText::Format(LOCTEXT("OfferDetail", "{0}{1} · {2} · noch {3}"),
+				Offer.Item.Definition->Rarity >= EWEItemRarity::Rare ? LOCTEXT("RareTag", "★ Selten · ") : FText::GetEmpty(),
+				WEItems::GetConditionText(Offer.Item.Condition), Offer.TraderName, FText::AsNumber(Offer.Remaining)),
 			WETradeStyle::Money(Offer.UnitPrice), LOCTEXT("BuyBtn", "Kaufen"), Offer.Remaining > 0 && Balance >= Offer.UnitPrice);
 	}
 
@@ -409,6 +494,8 @@ void UWETradeWidget::Rebuild()
 		}
 	}
 
+	RebuildAuctions(Balance);
+
 	// Recent bookings.
 	FString History = LOCTEXT("History", "Letzte Buchungen:").ToString();
 	if (Company)
@@ -428,6 +515,67 @@ void UWETradeWidget::Rebuild()
 		}
 	}
 	HistoryText->SetText(FText::FromString(History));
+}
+
+void UWETradeWidget::RebuildAuctions(const FWEMoney& Balance)
+{
+	AuctionList->ClearChildren();
+	SourcesList->ClearChildren();
+	const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this);
+	if (Auctions)
+	{
+		const float Now = Auctions->GetServerTime();
+		for (const FWEAuctionLot& Lot : Auctions->GetLots())
+		{
+			TArray<FString> Parts;
+			for (const FWEItemInstance& Item : Lot.Items)
+			{
+				Parts.Add(FString::Printf(TEXT("%s%s (%s)"), Item.Quantity > 1 ? *FString::Printf(TEXT("%d× "), Item.Quantity) : TEXT(""),
+					*Item.GetDisplayName().ToString(), *WEItems::GetConditionText(Item.Condition).ToString()));
+			}
+			const int32 Seconds = FMath::Max(0, FMath::CeilToInt(Lot.EndsAt - Now));
+			const FText Leader = Lot.NumBids == 0 ? LOCTEXT("NoBids", "noch kein Gebot")
+				: Lot.bCompanyLeads ? FText::Format(LOCTEXT("YouLead", "ihr führt ({0})"), FText::FromString(Lot.LeaderName))
+				: FText::Format(LOCTEXT("OtherLeads", "Höchstbietender: {0}"), FText::FromString(Lot.LeaderName));
+			const FWEMoney Next = UWEAuctionComponent::GetNextBid(Lot);
+			UWETradeRowWidget* Row = AddRow(AuctionList);
+			Row->LotId = Lot.Id;
+			Row->Configure(this, EWETradeRowKind::Auction, Lot.Title,
+				FText::Format(LOCTEXT("LotDetail", "{0}\nSchätzwert {1} · {2} · noch {3}:{4}"), FText::FromString(FString::Join(Parts, TEXT(", "))),
+					WETradeStyle::Money(Lot.EstimatedValue), Leader, FText::AsNumber(Seconds / 60), FText::FromString(FString::Printf(TEXT("%02d"), Seconds % 60))),
+				Lot.NumBids == 0 ? FText::Format(LOCTEXT("StartPrice", "ab {0}"), WETradeStyle::Money(Lot.CurrentBid)) : WETradeStyle::Money(Lot.CurrentBid),
+				Lot.bCompanyLeads ? LOCTEXT("Leading", "Führend") : FText::Format(LOCTEXT("BidBtn", "Bieten ({0})"), WETradeStyle::Money(Next)),
+				!Lot.bCompanyLeads && Balance >= Next);
+		}
+	}
+	if (AuctionList->GetChildrenCount() == 0)
+	{
+		AddRow(AuctionList)->Configure(this, EWETradeRowKind::Info, LOCTEXT("NoAuctions", "Gerade keine Auktionen"),
+			LOCTEXT("NoAuctionsDetail", "Neue Posten kommen laufend herein."), FText::GetEmpty(), FText::GetEmpty(), false);
+	}
+
+	// Other sources and recent auction results.
+	auto Info = [this](const FText& Title, const FText& Detail)
+	{
+		UWETradeRowWidget* Row = AddRow(SourcesList);
+		Row->WrapOverride = 520.f;
+		Row->Configure(this, EWETradeRowKind::Info, Title, Detail, FText::GetEmpty(), FText::GetEmpty(), false);
+	};
+	Info(LOCTEXT("SrcRules", "So funktionieren Auktionen"),
+		LOCTEXT("SrcRulesDetail", "Ein Mitbieter hat ein geheimes Limit. Bezahlt wird erst beim Zuschlag; reicht das Geld dann nicht, verfällt er. Gebote kurz vor Schluss verlängern um 20 s. Gewonnenes steht auf der Lieferpalette."));
+	Info(LOCTEXT("SrcScrap", "Schrotthaufen hinter dem Tor"),
+		LOCTEXT("SrcScrapDetail", "Was dort liegt, ist gratis. Alle paar Minuten kommt neuer Schrott – manchmal ist etwas Wertvolles dabei."));
+	Info(LOCTEXT("SrcPallets", "Retourenpaletten (Reiter Marktplatz → Kaufen)"),
+		LOCTEXT("SrcPalletsDetail", "Unbekannter Inhalt. Auf der Lieferpalette mit [Q] öffnen."));
+	Info(LOCTEXT("SrcRotating", "Gebrauchtwaren"),
+		LOCTEXT("SrcRotatingDetail", "Das Angebot der Händler wechselt bei jedem Nachschub: Zustand, Qualität und seltene Stücke."));
+	if (Auctions)
+	{
+		for (const FString& Result : Auctions->GetRecentResults())
+		{
+			Info(LOCTEXT("SrcResult", "Auktionsergebnis"), FText::FromString(Result));
+		}
+	}
 }
 
 void UWETradeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -490,6 +638,9 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 		break;
 	case EWETradeRowKind::Upgrade:
 		PC->RequestBuyUpgrade(Terminal, Row->UpgradeId);
+		break;
+	case EWETradeRowKind::Auction:
+		PC->RequestBid(Terminal, Row->LotId);
 		break;
 	case EWETradeRowKind::Contract:
 		if (Row->bContractAccepted)

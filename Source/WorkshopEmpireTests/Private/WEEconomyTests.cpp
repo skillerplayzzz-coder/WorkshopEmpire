@@ -305,7 +305,8 @@ bool FWEEconomyBalanceTest::RunTest(const FString& Parameters)
 	int32 PcOffer = INDEX_NONE;
 	for (const FWEMarketOffer& Offer : Terminal->GetOffers())
 	{
-		PcOffer = Offer.Item.Definition == Pc ? Offer.OfferIndex : PcOffer;
+		// The regular defective-PC offer (rotating extra offers may list PCs in other conditions).
+		PcOffer = Offer.Item.Definition == Pc && Offer.Item.Condition == EWEItemCondition::Defective ? Offer.OfferIndex : PcOffer;
 	}
 	if (!TestTrue(TEXT("PC is on offer"), PcOffer != INDEX_NONE))
 	{

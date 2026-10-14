@@ -46,6 +46,10 @@ struct WORKSHOPEMPIRE_API FWEContractTemplate
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1"))
 	int32 MaxQuantity = 1;
 
+	/** Lowest quality (0-100) the customer accepts (Phase 7). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "0", ClampMax = "100"))
+	uint8 MinQuality = 0;
+
 	/** Worst condition the customer still accepts (repair orders: condition after the repair). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
 	EWEItemCondition MinCondition = EWEItemCondition::Damaged;
@@ -87,6 +91,7 @@ struct WORKSHOPEMPIRE_API FWEContract
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") TObjectPtr<UWEItemDefinition> Item;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") int32 Quantity = 1;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") EWEItemCondition MinCondition = EWEItemCondition::Damaged;
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") uint8 MinQuality = 0;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") FWEMoney Reward;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") EWEContractState State = EWEContractState::Offered;
 	/** Offered: offer disappears then. Accepted: delivery deadline. Server world time. */
@@ -142,6 +147,9 @@ public:
 
 	/** Repair orders: the customer's device is repaired (working, not taken apart). */
 	static bool IsRepairedCustomerItem(const FWEContract& Contract, const FWEItemInstance& Item);
+
+	/** Supply orders: Item counts (right item, condition, quality, intact, not a customer's). */
+	static bool Matches(const FWEContract& Contract, const FWEItemInstance& Item);
 
 	// --- Server only ------------------------------------------------------------------------------
 

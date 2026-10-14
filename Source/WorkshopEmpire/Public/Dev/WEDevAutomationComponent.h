@@ -65,6 +65,14 @@ protected:
 	void SellAllParts();
 	void LogProgressState(const TCHAR* Step) const;
 
+	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)
+	void RunSmokeRoleM();
+	void RunSmokeRoleN();
+	void RunProcurementShots();
+	void LogAuctionState(const TCHAR* Step) const;
+	void BidUntilLeading(int32 Tries);
+	class AWEPickupItem* FindItemById(const TCHAR* ItemId) const;
+
 	// Phase 6: repair scenarios (-WESmokeRole=K|L on a dedicated server, -WEShots=P6...)
 	void RunSmokeRoleK();
 	void RunSmokeRoleL();

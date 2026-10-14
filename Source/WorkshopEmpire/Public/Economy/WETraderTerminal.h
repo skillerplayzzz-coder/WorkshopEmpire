@@ -26,6 +26,19 @@ enum class EWETradeResult : uint8
 	ContractFailed
 };
 
+/** One offer currently in stock (rolled at each restock from the traders' stock entries). */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWEStockLine
+{
+	GENERATED_BODY()
+
+	UPROPERTY() int32 TraderIndex = INDEX_NONE;
+	UPROPERTY() int32 EntryIndex = INDEX_NONE;
+	/** What one unit looks like (condition and quality rolled at restock). */
+	UPROPERTY() FWEItemInstance Item;
+	UPROPERTY() int32 Remaining = 0;
+};
+
 /** One buyable line in the terminal UI (flattened over all traders). */
 USTRUCT(BlueprintType)
 struct WORKSHOPEMPIRE_API FWEMarketOffer
@@ -93,14 +106,22 @@ public:
 	EWETradeResult BuyUpgrade(AWECharacter* Character, FName UpgradeId, const FGuid& RequestId);
 
 	EWETradeResult AcceptContract(AWECharacter* Character, const FGuid& ContractId, const FGuid& RequestId);
+
+	/** Places the company's next bid on an auction lot (Phase 7). */
+	EWETradeResult BidOnAuction(AWECharacter* Character, const FGuid& LotId, const FGuid& RequestId);
 	EWETradeResult DeliverContract(AWECharacter* Character, const FGuid& ContractId, const FGuid& RequestId);
 
 	/** Refills all stock to the trader definitions (timer; public for tests and new games). */
 	void Restock();
 
+	/** Remaining units per offer (logging, change detection). */
+	TArray<int32> GetStockRemaining() const;
+
 	/** Saving/loading. */
-	TArray<int32> GetStockRemaining() const { return StockRemaining; }
-	void SetStockRemaining(const TArray<int32>& Values);
+	const TArray<FWEStockLine>& GetStockLines() const { return Lines; }
+	void SetStockLines(const TArray<FWEStockLine>& InLines);
+
+	void SetRandomSeed(int32 Seed) { StockRandom.Initialize(Seed); }
 
 	static FText ResultText(EWETradeResult Result);
 
@@ -132,12 +153,13 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Trade")
 	TObjectPtr<UMaterialInterface> PlaceholderMaterial;
 
-	/** Remaining units per flattened offer. */
+	/** Offers in stock right now (changes at every restock). */
 	UPROPERTY(Replicated)
-	TArray<int32> StockRemaining;
+	TArray<FWEStockLine> Lines;
 
 private:
 	FTimerHandle RestockTimer;
+	FRandomStream StockRandom;
 };
 
 /** Pallet near the door where bulky purchases are delivered. */

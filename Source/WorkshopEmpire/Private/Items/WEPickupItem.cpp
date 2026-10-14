@@ -1,4 +1,7 @@
 #include "Items/WEPickupItem.h"
+#include "WELog.h"
+#include "Framework/WEPlayerController.h"
+#include "Items/WELootTable.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -219,6 +222,15 @@ bool AWEPickupItem::GetExamineInfo(FWEExamineInfo& OutInfo) const
 		OutInfo.Details.Add(FText::Format(LOCTEXT("DisassemblyLine", "Zerlegbar: Schritt {0} von {1} erledigt"),
 			FText::AsNumber(Item.DisassemblyStep), FText::AsNumber(Def->Disassembly->NumSteps())));
 	}
+	if (Def->Rarity >= EWEItemRarity::Uncommon)
+	{
+		const TCHAR* Names[] = { TEXT("Gewöhnlich"), TEXT("Ungewöhnlich"), TEXT("Selten"), TEXT("Sehr selten") };
+		OutInfo.Details.Add(FText::Format(LOCTEXT("RarityLine", "Seltenheit: {0}"), FText::FromString(Names[FMath::Clamp(static_cast<int32>(Def->Rarity), 0, 3)])));
+	}
+	if (Def->IsOpenable())
+	{
+		OutInfo.Details.Add(LOCTEXT("OpenableLine", "Inhalt unbekannt – mit [Q] öffnen"));
+	}
 	const FText RepairStatus = AWEWorkbench::GetRepairStatusText(Item);
 	if (!RepairStatus.IsEmpty())
 	{
@@ -324,7 +336,16 @@ void AWEPickupItem::InteractSecondary(AWECharacter* Interactor)
 
 bool AWEPickupItem::GetAlternativeInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const
 {
-	if (!PlacedOn || PlacedOn->IsBusy())
+	if (!PlacedOn)
+	{
+		if (Item.Definition && Item.Definition->IsOpenable() && !Holder && Interactor && !Interactor->GetHeldItem())
+		{
+			OutText = LOCTEXT("OpenContainer", "Öffnen");
+			return true;
+		}
+		return false;
+	}
+	if (PlacedOn->IsBusy())
 	{
 		return false; // the [E] line already says "Arbeite …" / "Wird gerade bearbeitet"
 	}
@@ -347,6 +368,49 @@ void AWEPickupItem::InteractAlternative(AWECharacter* Interactor)
 	{
 		PlacedOn->TryStartRepairStep(Interactor);
 	}
+	else if (Item.Definition && Item.Definition->IsOpenable())
+	{
+		OpenContainer(Interactor);
+	}
+}
+
+TArray<FWEItemInstance> AWEPickupItem::OpenContainer(AWECharacter* By)
+{
+	TArray<FWEItemInstance> Found;
+	const UWEItemDefinition* Def = Item.Definition;
+	if (!HasAuthority() || !Def || !Def->IsOpenable() || Holder || PlacedOn || IsActorBeingDestroyed())
+	{
+		return Found;
+	}
+	// Seeded by the pallet's id: the contents are fixed when it is bought (no re-rolling by loading).
+	FRandomStream Random(static_cast<int32>(GetTypeHash(Item.InstanceId)));
+	Found = Def->Contents->Roll(Random);
+
+	TArray<FString> Names;
+	TArray<FString> Rare;
+	const FVector Base = GetActorLocation();
+	for (int32 i = 0; i < Found.Num(); ++i)
+	{
+		const FVector Offset((i % 3 - 1) * 45.f, (i / 3 % 3 - 1) * 45.f, 25.f + (i / 9) * 35.f);
+		SpawnWorldItem(GetWorld(), Found[i], FTransform(GetActorRotation(), Base + Offset));
+		const FString Name = Found[i].Quantity > 1 ? FString::Printf(TEXT("%d× %s"), Found[i].Quantity, *Found[i].GetDisplayName().ToString())
+			: Found[i].GetDisplayName().ToString();
+		Names.Add(Name);
+		if (Found[i].Definition->Rarity >= EWEItemRarity::Rare)
+		{
+			Rare.Add(Found[i].GetDisplayName().ToString());
+		}
+	}
+	UE_LOG(LogWENet, Log, TEXT("%s opened %s: %s"), *GetNameSafe(By), *GetDisplayName().ToString(), *FString::Join(Names, TEXT(", ")));
+	if (AWEPlayerController* PC = By ? Cast<AWEPlayerController>(By->GetController()) : nullptr)
+	{
+		PC->ClientShowMessage(Rare.Num() > 0
+			? FText::Format(LOCTEXT("OpenedRare", "Seltener Fund: {0}!  ({1})"), FText::FromString(FString::Join(Rare, TEXT(", "))), FText::FromString(FString::Join(Names, TEXT(", "))))
+			: Names.Num() > 0 ? FText::Format(LOCTEXT("Opened", "Geöffnet: {0}"), FText::FromString(FString::Join(Names, TEXT(", "))))
+			: LOCTEXT("OpenedEmpty", "Leer – Pech gehabt"));
+	}
+	Destroy();
+	return Found;
 }
 
 void AWEPickupItem::HandlePlacedOnWorkbench(AWEWorkbench* Bench, USceneComponent* AttachTo)

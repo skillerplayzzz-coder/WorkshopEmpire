@@ -1,5 +1,6 @@
 #include "Framework/WEPlayerController.h"
 
+#include "Economy/WEAuctionComponent.h"
 #include "Economy/WEContractComponent.h"
 
 #include "Blueprint/UserWidget.h"
@@ -214,6 +215,19 @@ void AWEPlayerController::RequestBuyUpgrade(AWETraderTerminal* Terminal, FName U
 	ServerBuyUpgrade(Terminal, UpgradeId, FGuid::NewGuid());
 }
 
+void AWEPlayerController::RequestBid(AWETraderTerminal* Terminal, const FGuid& LotId)
+{
+	ServerBid(Terminal, LotId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::ServerBid_Implementation(AWETraderTerminal* Terminal, FGuid LotId, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->BidOnAuction(GetPawn<AWECharacter>(), LotId, RequestId);
+	}
+}
+
 void AWEPlayerController::ServerBuyUpgrade_Implementation(AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId)
 {
 	if (Terminal)
@@ -310,6 +324,28 @@ void AWEPlayerController::ServerDevTeleport_Implementation(FVector Location, FRo
 		MyPawn->TeleportTo(Location, Rotation, false, true);
 		ClientSetRotation(Rotation);
 		UE_LOG(LogWENet, Log, TEXT("%s dev-teleported to %s"), *GetName(), *Location.ToCompactString());
+	}
+#endif
+}
+
+void AWEPlayerController::ServerDevEndAuctions_Implementation()
+{
+#if !UE_BUILD_SHIPPING
+	if (UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this))
+	{
+		TArray<FGuid> Leading;
+		for (const FWEAuctionLot& Lot : Auctions->GetLots())
+		{
+			if (Lot.bCompanyLeads)
+			{
+				Leading.Add(Lot.Id);
+			}
+		}
+		for (const FGuid& Id : Leading)
+		{
+			Auctions->FinishLot(Id);
+		}
+		UE_LOG(LogWENet, Log, TEXT("%s dev-ended %d auctions"), *GetName(), Leading.Num());
 	}
 #endif
 }

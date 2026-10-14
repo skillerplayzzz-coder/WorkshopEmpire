@@ -41,6 +41,18 @@ struct WORKSHOPEMPIRE_API FWETraderStockEntry
 	/** Extra price factor for this offer (bargain < 1 < expensive). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = "0.01"))
 	float PriceMultiplier = 1.f;
+
+	/** Chance (0-1) that this offer is in stock after a restock: rotating offers (Phase 7). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = "0", ClampMax = "1"))
+	float Chance = 1.f;
+
+	/** The condition may be up to this many levels worse than Condition (rolled per restock). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = "0", ClampMax = "5"))
+	uint8 ConditionSpread = 0;
+
+	/** Quality varies by up to +/- this much (rolled per restock). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = "0", ClampMax = "50"))
+	uint8 QualitySpread = 0;
 };
 
 /**

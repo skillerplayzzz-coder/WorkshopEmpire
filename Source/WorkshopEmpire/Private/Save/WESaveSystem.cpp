@@ -1,5 +1,7 @@
 #include "Save/WESaveSystem.h"
 
+#include "Economy/WEAuctionComponent.h"
+
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
@@ -228,11 +230,45 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 			Saved.Kind = static_cast<uint8>(Contract.Kind);
 			Saved.CustomerCondition = Contract.CustomerCondition;
 			Saved.CustomerItemId = Contract.CustomerItemId;
+			Saved.MinQuality = Contract.MinQuality;
 		}
 	}
 	for (TActorIterator<AWETraderTerminal> It(World); It; ++It)
 	{
-		Save->Stocks.Add({ It->GetFName(), It->GetStockRemaining() });
+		FWESavedStock& Stock = Save->Stocks.AddDefaulted_GetRef();
+		Stock.ActorName = It->GetFName();
+		for (const FWEStockLine& Line : It->GetStockLines())
+		{
+			FWESavedStockLine& Saved = Stock.Lines.AddDefaulted_GetRef();
+			Saved.TraderIndex = Line.TraderIndex;
+			Saved.EntryIndex = Line.EntryIndex;
+			Saved.Item = ToSaved(Line.Item);
+			Saved.Remaining = Line.Remaining;
+		}
+	}
+
+	// Auctions (version 6).
+	if (const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(World))
+	{
+		Save->bHasAuctions = true;
+		const float Now = Auctions->GetServerTime();
+		for (const FWEAuctionLot& Lot : Auctions->GetLots())
+		{
+			FWESavedAuctionLot& Saved = Save->Auctions.AddDefaulted_GetRef();
+			Saved.Id = Lot.Id;
+			Saved.Title = Lot.Title.ToString();
+			for (const FWEItemInstance& Item : Lot.Items)
+			{
+				Saved.Items.Add(ToSaved(Item));
+			}
+			Saved.EstimatedCents = Lot.EstimatedValue.GetCents();
+			Saved.CurrentBidCents = Lot.CurrentBid.GetCents();
+			Saved.NumBids = Lot.NumBids;
+			Saved.bCompanyLeads = Lot.bCompanyLeads;
+			Saved.LeaderName = Lot.LeaderName;
+			Saved.RemainingSeconds = FMath::Max(0.f, Lot.EndsAt - Now);
+			Saved.BidderMaxCents = Auctions->GetBidderMaxCents(Lot.Id);
+		}
 	}
 
 	// Progression (version 4).
@@ -317,8 +353,62 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 		{
 			if (const FWESavedStock* Saved = Save->Stocks.FindByPredicate([Terminal](const FWESavedStock& S) { return S.ActorName == Terminal->GetFName(); }))
 			{
-				Terminal->SetStockRemaining(Saved->Remaining);
+				// Older saves only have counts for fixed offers: keep the current (rolled) stock then.
+				TArray<FWEStockLine> Lines;
+				for (const FWESavedStockLine& SavedLine : Saved->Lines)
+				{
+					FWEStockLine& Line = Lines.AddDefaulted_GetRef();
+					Line.TraderIndex = SavedLine.TraderIndex;
+					Line.EntryIndex = SavedLine.EntryIndex;
+					Line.Remaining = SavedLine.Remaining;
+					if (!FromSaved(SavedLine.Item, Line.Item))
+					{
+						Lines.Pop();
+					}
+				}
+				if (Lines.Num() > 0)
+				{
+					Terminal->SetStockLines(Lines);
+				}
 			}
+		}
+	}
+
+	// Auctions (version 6; older saves keep the current lots).
+	if (Save->bHasAuctions)
+	{
+		if (UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(World))
+		{
+			const float Now = Auctions->GetServerTime();
+			TArray<FWEAuctionLot> Lots;
+			TArray<int64> Limits;
+			for (const FWESavedAuctionLot& Saved : Save->Auctions)
+			{
+				FWEAuctionLot Lot;
+				Lot.Id = Saved.Id;
+				Lot.Title = FText::FromString(Saved.Title);
+				for (const FWESavedItem& SavedItem : Saved.Items)
+				{
+					FWEItemInstance Item;
+					if (FromSaved(SavedItem, Item))
+					{
+						Lot.Items.Add(Item);
+					}
+				}
+				if (Lot.Items.Num() == 0)
+				{
+					continue;
+				}
+				Lot.EstimatedValue = FWEMoney::FromCents(Saved.EstimatedCents);
+				Lot.CurrentBid = FWEMoney::FromCents(Saved.CurrentBidCents);
+				Lot.NumBids = Saved.NumBids;
+				Lot.bCompanyLeads = Saved.bCompanyLeads;
+				Lot.LeaderName = Saved.LeaderName;
+				Lot.EndsAt = Now + Saved.RemainingSeconds;
+				Lots.Add(Lot);
+				Limits.Add(Saved.BidderMaxCents);
+			}
+			Auctions->SetLots(Lots, Limits);
 		}
 	}
 
@@ -353,6 +443,7 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 				Contract.Kind = Saved.Kind == 1 ? EWEContractKind::Repair : EWEContractKind::Supply;
 				Contract.CustomerCondition = Saved.CustomerCondition;
 				Contract.CustomerItemId = Saved.CustomerItemId;
+				Contract.MinQuality = Saved.MinQuality;
 				if (Contract.Item)
 				{
 					Restored.Add(Contract);

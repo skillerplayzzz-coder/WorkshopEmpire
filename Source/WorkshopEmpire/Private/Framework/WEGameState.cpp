@@ -4,6 +4,7 @@
 #include "Economy/WEContractComponent.h"
 #include "Economy/WEMarketComponent.h"
 #include "Progression/WEProgressionComponent.h"
+#include "Economy/WEAuctionComponent.h"
 
 AWEGameState::AWEGameState()
 {
@@ -11,4 +12,5 @@ AWEGameState::AWEGameState()
 	Market = CreateDefaultSubobject<UWEMarketComponent>(TEXT("Market"));
 	Contracts = CreateDefaultSubobject<UWEContractComponent>(TEXT("Contracts"));
 	Progression = CreateDefaultSubobject<UWEProgressionComponent>(TEXT("Progression"));
+	Auctions = CreateDefaultSubobject<UWEAuctionComponent>(TEXT("Auctions"));
 }

@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 6 – Reparatursystem: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 7 wurde nicht begonnen.
+**Phase 7 – Erweiterte Beschaffung: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 8 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -48,12 +48,21 @@ Phase 7 wurde nicht begonnen.
 - Kaputte Geräte sind deutlich weniger wert als funktionierende; gemessen pro PC: Reparieren +8 €, mit Aufbereiten +18 €, Zerlegen +6 €
 - Speicherversion 5 (Reparaturstand, Reparaturaufträge)
 
+### Phase 7 – Erweiterte Beschaffung (2026-10-14)
+- Schrotthaufen hinter dem Tor: bis zu 4 Gratis-Teile (Schrott, kaputte Geräte, selten etwas Wertvolles), Nachschub alle 8 Minuten
+- Gebrauchtwaren mit wechselndem Angebot: bei jedem Nachschub wird gewürfelt, was da ist und in welchem Zustand
+- Retourenpaletten (Elektronik, Werkzeug) mit unbekanntem Inhalt, an der Lieferpalette mit [Q] öffnen
+- Auktionen (Geschäftsauflösungen, Industrie, Nachlässe) im neuen Reiter "Auktionen & Beschaffung": ein Mitbieter mit geheimem Limit, bezahlt wird erst beim Zuschlag, Ware kommt auf die Palette
+- Seltene Gegenstände: Grafikkarte (Sammlerstück), Röhrenradio (1958), Keramik-Prozessor mit Goldkontakten, Industrie-Servomotor
+- Erweiterte Kundenaufträge: Mindestqualität, große Geräte in der Hand abliefern, Eilaufträge, Sammleraufträge
+- Speicherversion 6 (gewürfelter Händlervorrat, laufende Auktionen, Auftragsqualität)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 6 (Anleitung im Development Report)
+- Mike: Praxistest Phase 7 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren), sobald es Hubwagen gibt
 
 ## Bekannte Fehler
 
@@ -61,8 +70,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 7 – Erweiterte Beschaffung (Schrottplatz, Gebrauchtwarenhandel, Retourenpaletten, Auktionen, seltene Funde), erst nach Mikes Freigabe.
+Phase 8 – Werkstatt-Upgrades (neue Werkzeuge, größere Werkbänke, Regale, Einrichtung mit Platzierungssystem, mehr Lagerkapazität), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-13: 53/53 Automation-Tests (inkl. Reparatur-Balance mit echten Daten), Netzwerktests A–L (inkl. Reparaturauftrag mit 2 Spielern) bestanden, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-14: 61/61 Automation-Tests (inkl. Balance von Paletten und Schrott mit echten Daten), Netzwerktests A–N (inkl. Auktion und Palette mit 2 Spielern) bestanden, Beschaffung, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.

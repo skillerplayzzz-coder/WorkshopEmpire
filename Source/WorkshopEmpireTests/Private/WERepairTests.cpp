@@ -373,7 +373,7 @@ bool FWERepairBalanceTest::RunTest(const FString& Parameters)
 	{
 		for (const FWEMarketOffer& Offer : Terminal->GetOffers())
 		{
-			if (Offer.Item.Definition == Def)
+			if (Offer.Item.Definition == Def && Offer.Item.Condition == Condition)
 			{
 				return Offer.UnitPrice.GetCents();
 			}
@@ -557,7 +557,7 @@ bool FWERepairSaveTest::RunTest(const FString& Parameters)
 	Contracts->SetContracts({ Order });
 
 	UWESaveGame* Save = FWESaveSystem::Capture(F.TW.World);
-	TestEqual(TEXT("Version 5"), Save->SaveVersion, 5);
+	TestEqual(TEXT("Current version"), Save->SaveVersion, UWESaveGame::CurrentVersion);
 	Contracts->SetContracts({});
 	F.Bench->ResetForLoad();
 	Device->Destroy();

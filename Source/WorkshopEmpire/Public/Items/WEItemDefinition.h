@@ -10,6 +10,7 @@ class UStaticMesh;
 class UTexture2D;
 class UWEDisassemblyDefinition;
 class UWERepairDefinition;
+class UWELootTable;
 
 /**
  * Static, data-driven description of an item type (spec §7). One Data Asset per item type in
@@ -81,6 +82,12 @@ public:
 	TObjectPtr<UWERepairDefinition> Repair;
 
 	bool CanBeRepaired() const;
+
+	/** Sealed container with unknown contents (e.g. return pallet): [Q] opens it and spawns the finds. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
+	TObjectPtr<UWELootTable> Contents;
+
+	bool IsOpenable() const { return Contents != nullptr; }
 
 	/**
 	 * Extra value factor while the item is broken (condition "Beschädigt" or worse). Complex devices

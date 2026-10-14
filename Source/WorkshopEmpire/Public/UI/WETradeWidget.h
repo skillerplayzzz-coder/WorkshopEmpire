@@ -19,6 +19,7 @@ enum class EWETradeRowKind : uint8
 	Buy,
 	Contract,
 	Upgrade,
+	Auction,
 	Info
 };
 
@@ -39,6 +40,9 @@ public:
 	FGuid ContractId;
 	bool bContractAccepted = false;
 	FName UpgradeId;
+	FGuid LotId;
+	/** Wrap width for the texts (0 = by row kind). Set before Configure. */
+	float WrapOverride = 0.f;
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -73,6 +77,9 @@ public:
 	void Setup(AWETraderTerminal* InTerminal);
 	void HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonIndex);
 
+	/** 0 = market (sell/buy/orders/upgrades), 1 = auctions and other sources. */
+	void ShowPage(int32 Page);
+
 	/** Text summary of what the lists show (tests, change detection). */
 	FString BuildSignature() const;
 
@@ -82,7 +89,15 @@ protected:
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 	void Rebuild();
-	UVerticalBox* MakeColumn(const FText& Title, TObjectPtr<UScrollBox>& OutList);
+	void RebuildAuctions(const struct FWEMoney& Balance);
+	UVerticalBox* MakeColumn(const FText& Title, TObjectPtr<UScrollBox>& OutList, float Width = 300.f);
+	class UButton* MakeTabButton(const FText& Label, TObjectPtr<UTextBlock>& OutText);
+
+	UFUNCTION()
+	void HandleTabMarket();
+
+	UFUNCTION()
+	void HandleTabAuctions();
 	UWETradeRowWidget* AddRow(UScrollBox* List);
 
 	UPROPERTY(Transient) TObjectPtr<AWETraderTerminal> Terminal;
@@ -91,6 +106,12 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> BuyList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> ContractList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> UpgradeList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> AuctionList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> SourcesList;
+	UPROPERTY(Transient) TObjectPtr<class UWidgetSwitcher> Pages;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabMarketText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabAuctionsText;
+	int32 CurrentPage = 0;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HistoryText;
 
 	FString LastSignature;

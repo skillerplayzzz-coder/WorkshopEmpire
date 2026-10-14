@@ -17,6 +17,51 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 7 – Lauf vom 2026-10-14
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **61/61 bestanden, 0 mit Warnungen** (53 alte + 8 neue), Bericht `Saved/TestReports/Phase7/index.json` |
+| ↳ `Procurement.ReturnPalletBuyAndOpen` (echte Daten: Palette kaufen → steht an der Lieferpalette → "[Q] Öffnen" → 3–5 Funde liegen in der Welt, Palette weg; gleiche Palette = gleicher Inhalt, also kein Neuwürfeln durch Laden; getragen nicht zu öffnen; versiegelte Palette kauft niemand) | ✅ |
+| ↳ `Procurement.ScrapPileRefills` (füllt bis 4 auf, voll = nichts Neues, weggetragene/zerstörte Teile werden ersetzt, Hinweis "gratis") | ✅ |
+| ↳ `Procurement.RotatingTraderStock` (60 Nachschübe: feste Angebote immer gleich; Angebot mit 50 % Chance 15–45-mal da, Zustand und Qualität schwanken im Rahmen; Kauf nimmt den gewürfelten Zustand) | ✅ |
+| ↳ `Procurement.AuctionBiddingAndDelivery` (Startpreis 30 % des Schätzwerts; Mitbieter kontert bis zu seinem Limit; darüber führt die Firma; nicht gegen sich selbst bieten; Verlängerung bei späten Geboten; Geld erst beim Zuschlag; Ware auf die Palette; Zuschlag verfällt, wenn das Geld am Ende fehlt; zu wenig Geld für ein Gebot) | ✅ |
+| ↳ `Procurement.AuctionThroughTerminal` (Reichweite, gleiche Anfrage-ID zweimal = ein Gebot) | ✅ |
+| ↳ `Procurement.ExtendedOrders` (Mindestqualität, kaputtes Gerät zählt nicht, funktionierendes Gerät wird aus den Händen abgeliefert) | ✅ |
+| ↳ `Save.ProcurementRoundTrip` (Version 6: gewürfelter Händlervorrat inkl. Zustand, laufende Auktion inkl. Gebot, Höchstbietendem und geheimem Limit) | ✅ |
+| ↳ `Economy.BalanceReturnPalletsAndScrap` (**echte Daten, je 400 Paletten**) | ✅ Elektronik-Palette **35,10 €**: Inhalt direkt verkauft 27,90 € (ohne seltene Funde 24,10 €), Marktwert 45,26 €, seltener Fund in 6,0 % der Paletten. Werkzeug-Palette **29,90 €**: direkt 19,62 € (16,48 €), Marktwert 40,34 €, selten 4,5 %. Schrotthaufen: ein Gratis-Teil bringt im Schnitt 0,96 €, selten in 1,0 % |
+| Erzeugung von 28 Gegenständen (6 neue), 3 Beutetabellen, 5 Händlern, 14 Auftragsvorlagen, 7 Auktionsvorlagen und der Map (Schrotthaufen) per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P7`, 3 Läufe) | ✅ 8 Screenshots geprüft: Retourenpalette kaufen → Reiter "Auktionen & Beschaffung" → Bietgefecht (z. B. 5,50 → 13,50 € gegen "Elektro Kaya") → Zuschlag, 3 PCs bzw. Monitore stehen an der Palette, Buchung "Auktion gewonnen" → Palette mit [Q] öffnen ("Geöffnet: PC-Netzteil, Arbeitsspeicher, PC-Netzteil") → Schrotthaufen draußen mit Hinweis "Was herumliegt, ist gratis · neuer Schrott in ca. 8 min" |
+| **Netzwerktest Auktion + Palette** (`-WESmokeRole=M/N`, Dedicated Server + 2 Clients, neu, 2 Läufe) | ✅ M bietet, bis die Firma führt; N sieht "WE <M>" als Höchstbietenden, sein Gebot auf dasselbe Los lehnt der Server ab ("Eure Firma bietet hier schon am höchsten"); N kauft eine Werkzeug-Palette und öffnet sie an der Lieferpalette; nach dem Zuschlag sehen beide denselben Kontostand (250 − 25,50 − 29,90 = 194,60 €) und dieselben Teile |
+| **Regression** Netzwerktests A/B, C/D, E/F, G/H, K/L (Dedicated) und I/J (Listen-Server), Spielläufe P5 und P6 | ✅ unverändert |
+
+### Behobene Fehler in Phase 7
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Retourenpaletten lohnten sich nicht (Balance-Test rot: Inhalt 45 € Marktwert für 58,50 €) | Preis zu hoch angesetzt | Elektronik 35,10 €, Werkzeug 29,90 € |
+| Mitbieter hieß bei jedem Gegengebot anders (Spiellauf) | Name wurde bei jedem Gebot neu gewählt | ein fester Mitbieter je Los |
+| Zwei gleiche Lose liefen gleichzeitig (Netzwerktest) | Zufallsauswahl ohne Ausschluss | dieselbe Art Los nie doppelt gleichzeitig |
+| Bestehende Tests fanden "das" PC-Angebot nicht mehr eindeutig | Händler haben jetzt wechselnde Zusatzangebote (z. B. PC in anderem Zustand) | Tests suchen nach Gegenstand **und** Zustand |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Auktion bis zum echten Ende (5–6 Minuten) im Spiel | Im Spiel per Entwickler-Befehl sofort beendet; Fristablauf und Verlängerung im Unit-Test |
+| Schrotthaufen-Nachschub nach 8 Minuten im Spiel | Nicht abgewartet; dieselbe Funktion ist im Unit-Test direkt aufgerufen |
+| Seltener Fund im Spiel | Zufall (ca. 1–6 %); Häufigkeit über 400 Würfe im Balance-Test gemessen |
+| Bedienung mit echter Maus (Reiter, Bieten) | Mikes Praxistest |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweis: Der Elektromotor-Posten wurde bewusst nicht in die Auktionen aufgenommen, weil 45-kg-Motoren noch nicht getragen werden können (Hilfsmittel folgen später).
+
+---
+
 ## Phase 6 – Lauf vom 2026-10-13
 
 ### Ausgeführt

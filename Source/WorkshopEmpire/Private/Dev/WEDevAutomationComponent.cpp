@@ -26,6 +26,9 @@
 #include "Engine/Light.h"
 #include "Items/WEItemDefinition.h"
 #include "Workshop/WERepairDefinition.h"
+#include "Economy/WEAuctionComponent.h"
+#include "UI/WETradeWidget.h"
+#include "World/WEScrapPile.h"
 #include "Progression/WEProgressionComponent.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -104,6 +107,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("L"))
 	{
 		RunSmokeRoleL();
+	}
+	else if (Role == TEXT("M"))
+	{
+		RunSmokeRoleM();
+	}
+	else if (Role == TEXT("N"))
+	{
+		RunSmokeRoleN();
+	}
+	else if (ShotName.StartsWith(TEXT("P7")))
+	{
+		RunProcurementShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P6")))
 	{
@@ -1194,4 +1209,159 @@ void UWEDevAutomationComponent::RunSmokeRoleL()
 	Schedule(40.f, [this]() { LogRepairState(TEXT("L3 sees repair")); });
 	Schedule(70.f, [this]() { LogRepairState(TEXT("L4 final")); });
 	Schedule(73.f, [this]() { Quit(); });
+}
+
+// --- Phase 7: procurement ------------------------------------------------------------------------
+
+AWEPickupItem* UWEDevAutomationComponent::FindItemById(const TCHAR* ItemId) const
+{
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && !It->IsActorBeingDestroyed() && It->GetItem().Definition && It->GetItem().Definition->ItemId == FName(ItemId))
+		{
+			return *It;
+		}
+	}
+	return nullptr;
+}
+
+void UWEDevAutomationComponent::LogAuctionState(const TCHAR* Step) const
+{
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this);
+	TArray<FString> Lots;
+	TArray<FString> Results;
+	if (Auctions)
+	{
+		for (const FWEAuctionLot& Lot : Auctions->GetLots())
+		{
+			Lots.Add(FString::Printf(TEXT("%s:%s:%s%s"), *Lot.Title.ToString(), *Lot.CurrentBid.ToDisplayString(), Lot.bCompanyLeads ? TEXT("WE ") : TEXT(""), *Lot.LeaderName));
+		}
+		Results = Auctions->GetRecentResults();
+	}
+	int32 OnPallet = 0;
+	if (const AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld()))
+	{
+		for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+		{
+			OnPallet += IsValid(*It) && FVector::Dist2D(It->GetActorLocation(), Zone->GetActorLocation()) < 250.f ? 1 : 0;
+		}
+	}
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Balance=%s ItemsAtPallet=%d Lots={%s} LastResult='%s' Mine=%s"),
+		*Role, Step, Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"), OnPallet, *FString::Join(Lots, TEXT(" | ")),
+		Results.Num() > 0 ? *Results[0] : TEXT("-"), *DescribeInventory(GetMyInventory()));
+}
+
+void UWEDevAutomationComponent::BidUntilLeading(int32 Tries)
+{
+	// One bid per half second on the first lot until the company leads (the rival answers at once).
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this);
+	if (!PC || !Auctions || Auctions->GetLots().Num() == 0 || Tries <= 0)
+	{
+		return;
+	}
+	// The cheapest lot (a short bidding war is enough for the test).
+	const FWEAuctionLot* Cheapest = &Auctions->GetLots()[0];
+	for (const FWEAuctionLot& Candidate : Auctions->GetLots())
+	{
+		Cheapest = Candidate.EstimatedValue < Cheapest->EstimatedValue ? &Candidate : Cheapest;
+	}
+	const FWEAuctionLot& Lot = *Cheapest;
+	if (Lot.bCompanyLeads)
+	{
+		LogAuctionState(TEXT("leading"));
+		return;
+	}
+	PC->RequestBid(FindTerminal(), Lot.Id);
+	Schedule(0.5f, [this, Tries]() { BidUntilLeading(Tries - 1); });
+}
+
+void UWEDevAutomationComponent::RunProcurementShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Trade = [PC]() { return PC ? PC->GetTradeWidget() : nullptr; };
+	Schedule(3.0f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(4.5f, [this, PC]() { LookAt(FindTerminal()); if (PC) { PC->OpenTrade(FindTerminal()); } });
+	Schedule(5.5f, [this, PC]()
+	{
+		Shot(TEXT("01_Marktplatz_Paletten"));
+		LogAuctionState(TEXT("S0 at terminal"));
+		if (PC) { PC->RequestBuy(FindTerminal(), FindOfferFor(UWEItemDefinition::FindById(TEXT("ReturnPalletElectronics"))), 1); }
+	});
+	Schedule(6.5f, [Trade]() { if (UWETradeWidget* W = Trade()) { W->ShowPage(1); } });
+	Schedule(7.5f, [this]() { Shot(TEXT("02_Auktionen")); BidUntilLeading(12); });
+	Schedule(8.3f, [this]() { Shot(TEXT("03_Ueberboten")); });
+	Schedule(15.0f, [this]() { Shot(TEXT("04_Auktion_fuehrend")); LogAuctionState(TEXT("S1 leading")); });
+	Schedule(15.5f, [PC]() { if (PC) { PC->ServerDevEndAuctions(); } });
+	Schedule(17.0f, [this]() { Shot(TEXT("05_Auktion_gewonnen")); LogAuctionState(TEXT("S2 auction won")); });
+	Schedule(17.5f, [this, PC]()
+	{
+		if (PC) { PC->CloseTrade(); }
+		if (const AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld()); Zone && PC)
+		{
+			PC->ServerDevTeleport(Zone->GetActorLocation() + FVector(-170.f, 60.f, 95.f), FRotator(0.f, -20.f, 0.f));
+		}
+	});
+	Schedule(19.0f, [this]() { LookAt(FindItemById(TEXT("ReturnPalletElectronics"))); });
+	Schedule(20.0f, [this]() { Shot(TEXT("06_Retourenpalette")); });
+	Schedule(20.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestAlternativeInteractWith(FindItemById(TEXT("ReturnPalletElectronics"))); } });
+	Schedule(21.5f, [this]() { Shot(TEXT("07_Palette_geoeffnet")); LogAuctionState(TEXT("S3 pallet opened")); });
+	Schedule(22.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(480.f, 60.f, 100.f), FRotator(-10.f, 35.f, 0.f)); } });
+	Schedule(23.5f, [this]()
+	{
+		TActorIterator<AWEScrapPile> It(GetWorld());
+		LookAt(It ? *It : nullptr);
+	});
+	Schedule(24.5f, [this]() { Shot(TEXT("08_Schrotthaufen")); });
+	Schedule(25.5f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleM()
+{
+	// Bids on an auction until the company leads, then ends it (dev) and sees the win delivered.
+	Schedule(10.f, [this]() { TeleportToTerminal(-40.f); });
+	Schedule(12.f, [this]() { LogAuctionState(TEXT("M0 at terminal")); BidUntilLeading(12); });
+	Schedule(20.f, [this]() { LogAuctionState(TEXT("M1 after bidding")); });
+	Schedule(24.f, [this]() { if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner())) { PC->ServerDevEndAuctions(); } });
+	Schedule(26.f, [this]() { LogAuctionState(TEXT("M2 after the auction ended")); });
+	Schedule(34.f, [this]() { LogAuctionState(TEXT("M3 final")); });
+	Schedule(36.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleN()
+{
+	// Sees the company lead, cannot bid against the own company, buys and opens a return pallet.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(10.f, [this]() { TeleportToTerminal(40.f); });
+	Schedule(20.5f, [this, PC]()
+	{
+		LogAuctionState(TEXT("N0 sees the company lead"));
+		const UWEAuctionComponent* Auctions = UWEAuctionComponent::Get(this);
+		// Bid on the lot the company already leads: must be refused.
+		for (const FWEAuctionLot& Lot : Auctions ? Auctions->GetLots() : TArray<FWEAuctionLot>())
+		{
+			if (Lot.bCompanyLeads && PC) { PC->RequestBid(FindTerminal(), Lot.Id); }
+		}
+	});
+	Schedule(21.5f, [this, PC]()
+	{
+		LogAuctionState(TEXT("N1 after trying to bid against the own company"));
+		if (PC) { PC->RequestBuy(FindTerminal(), FindOfferFor(UWEItemDefinition::FindById(TEXT("ReturnPalletTools"))), 1); }
+	});
+	Schedule(23.f, [this, PC]()
+	{
+		if (const AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld()); Zone && PC)
+		{
+			PC->ServerDevTeleport(Zone->GetActorLocation() + FVector(-170.f, 60.f, 95.f), FRotator(0.f, -20.f, 0.f));
+		}
+	});
+	Schedule(28.f, [this]()
+	{
+		LookAt(FindItemById(TEXT("ReturnPalletTools")));
+		if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestAlternativeInteractWith(FindItemById(TEXT("ReturnPalletTools"))); }
+	});
+	Schedule(30.f, [this]() { LogAuctionState(TEXT("N2 after opening the pallet")); });
+	Schedule(35.f, [this]() { LogAuctionState(TEXT("N3 final")); });
+	Schedule(37.f, [this]() { Quit(); });
 }

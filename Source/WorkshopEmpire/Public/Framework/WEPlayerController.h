@@ -57,6 +57,7 @@ public:
 	void RequestBuy(class AWETraderTerminal* Terminal, int32 OfferIndex, int32 Quantity);
 	void RequestAcceptContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
 	void RequestBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId);
+	void RequestBid(class AWETraderTerminal* Terminal, const FGuid& LotId);
 
 	/** Moves every stack from a container into the player inventory (as much as fits). */
 	void RequestTakeAll(UWEInventoryComponent* From);
@@ -71,6 +72,12 @@ public:
 	/** Development builds only: moves the pawn on the server (test automation). */
 	UFUNCTION(Server, Reliable)
 	void ServerDevTeleport(FVector Location, FRotator Rotation);
+
+	/** Development builds only: ends every auction the company currently leads (test automation). */
+	UFUNCTION(Server, Reliable)
+	void ServerDevEndAuctions();
+
+	class UWETradeWidget* GetTradeWidget() const { return TradeWidget; }
 
 	/** Development builds only: adds a customer order offer from a fixed template (test automation). */
 	UFUNCTION(Server, Reliable)
@@ -135,6 +142,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerBid(class AWETraderTerminal* Terminal, FGuid LotId, FGuid RequestId);
 
 	UFUNCTION(Server, Reliable)
 	void ServerTakeAll(UWEInventoryComponent* From);

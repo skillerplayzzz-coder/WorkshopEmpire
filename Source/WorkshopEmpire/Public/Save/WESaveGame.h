@@ -84,16 +84,52 @@ struct WORKSHOPEMPIRE_API FWESavedContract
 	UPROPERTY() uint8 Kind = 0;
 	UPROPERTY() EWEItemCondition CustomerCondition = EWEItemCondition::Defective;
 	UPROPERTY() FGuid CustomerItemId;
+	/** Since save version 6. */
+	UPROPERTY() uint8 MinQuality = 0;
 };
 
-/** Since save version 3: remaining stock of a market terminal (matched by actor name). */
+/** Since save version 6: one rolled offer of a terminal. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedStockLine
+{
+	GENERATED_BODY()
+
+	UPROPERTY() int32 TraderIndex = INDEX_NONE;
+	UPROPERTY() int32 EntryIndex = INDEX_NONE;
+	UPROPERTY() FWESavedItem Item;
+	UPROPERTY() int32 Remaining = 0;
+};
+
+/** Since save version 3: stock of a market terminal (matched by actor name). */
 USTRUCT()
 struct WORKSHOPEMPIRE_API FWESavedStock
 {
 	GENERATED_BODY()
 
 	UPROPERTY() FName ActorName;
+	/** Versions 3-5: remaining units per fixed offer (no longer applied: offers rotate since version 6). */
 	UPROPERTY() TArray<int32> Remaining;
+	/** Since version 6. */
+	UPROPERTY() TArray<FWESavedStockLine> Lines;
+};
+
+/** Since save version 6: a running auction. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedAuctionLot
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FGuid Id;
+	UPROPERTY() FString Title;
+	UPROPERTY() TArray<FWESavedItem> Items;
+	UPROPERTY() int64 EstimatedCents = 0;
+	UPROPERTY() int64 CurrentBidCents = 0;
+	UPROPERTY() int32 NumBids = 0;
+	UPROPERTY() bool bCompanyLeads = false;
+	UPROPERTY() FString LeaderName;
+	UPROPERTY() float RemainingSeconds = 0.f;
+	/** The rival's hidden limit (the save file belongs to the host). */
+	UPROPERTY() int64 BidderMaxCents = 0;
 };
 
 USTRUCT()
@@ -118,8 +154,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). */
-	static constexpr int32 CurrentVersion = 5;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). */
+	static constexpr int32 CurrentVersion = 6;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -139,4 +175,8 @@ public:
 	UPROPERTY() bool bHasProgression = false;
 	UPROPERTY() TArray<FName> OwnedUpgrades;
 	UPROPERTY() int32 GuideStep = 0;
+
+	// Since version 6.
+	UPROPERTY() bool bHasAuctions = false;
+	UPROPERTY() TArray<FWESavedAuctionLot> Auctions;
 };
