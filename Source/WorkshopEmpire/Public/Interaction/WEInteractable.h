@@ -68,4 +68,10 @@ public:
 
 	/** Server only. Performs the alternative action after validation. */
 	virtual void InteractAlternative(AWECharacter* Interactor) {}
+
+	/** Optional extra action on [X] (e.g. maintain a machine). Same contract as GetAlternativeInteraction. */
+	virtual bool GetExtraInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const { return false; }
+
+	/** Server only. Performs the extra action after validation. */
+	virtual void InteractExtra(AWECharacter* Interactor) {}
 };

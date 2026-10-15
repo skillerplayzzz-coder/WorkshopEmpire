@@ -6,6 +6,7 @@
 
 class UWEAuctionComponent;
 class UWEWorkshopLayoutComponent;
+class UWEPowerGridComponent;
 class UWECompanyComponent;
 class UWEContractComponent;
 class UWEMarketComponent;
@@ -30,6 +31,7 @@ public:
 	UWEProgressionComponent* GetProgression() const { return Progression; }
 	UWEAuctionComponent* GetAuctions() const { return Auctions; }
 	UWEWorkshopLayoutComponent* GetLayout() const { return Layout; }
+	UWEPowerGridComponent* GetPowerGrid() const { return PowerGrid; }
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Company")
@@ -49,4 +51,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWEWorkshopLayoutComponent> Layout;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<UWEPowerGridComponent> PowerGrid;
 };

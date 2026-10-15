@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 8 – Werkstatt-Upgrades: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 9 wurde nicht begonnen.
+**Phase 9 – Erste Industriemaschinen: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 10 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -64,12 +64,21 @@ Phase 9 wurde nicht begonnen.
 - Neue Werkzeuge: Bit-Ratsche, Profi-Seitenschneider, Digitalmultimeter, Lötstation; Sackkarre (+30 kg Tragkraft, damit lässt sich der Elektromotor bewegen)
 - Speicherversion 7 (Einrichtung und Positionen)
 
+### Phase 9 – Erste Industriemaschinen (2026-10-15)
+- Schredder (450 €, 7,5 kW), Sortiermaschine (380 €, 4 kW), Metallpresse (320 €, 5,5 kW), aufgestellt über den Baumodus
+- Erste Verarbeitungskette: Gerät/Schrott → Schreddergut → Kupfer, Aluminium, Stahl, Kunststoff, Elektronikschrott → Stahl-/Aluminiumballen, Kupferpaket
+- Bedienung: [E] Eingang bzw. getragenes Gerät hinein, [Q] ein/aus, [R] Produkte entnehmen, [X] warten, [F] Status; Status mit Fortschritt im HUD
+- Zustände: Aus, Bereit, Läuft, Ausgabe voll, Stromanschluss überlastet, Wartung nötig; Ausschalten pausiert
+- Strom: 11 kW Hausanschluss, Upgrade Starkstromanschluss (+11 kW, 300 €), Stromrechnung alle 5 Minuten, Anzeige "Strom x / y kW"
+- Verschleiß und Wartung (Wartungsset), 8 neue Gegenstände, Rezepte als Daten
+- Speicherversion 8 (Maschinen inkl. laufendem Vorgang, Eingang und Ausgabe getrennt, Stromzähler)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 8 (Anleitung im Development Report)
+- Mike: Praxistest Phase 9 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinen: Rezeptauswahl von Hand und Weitergabe zwischen Maschinen (Phase 10), Maschinengeräusche, Stromausfall/Sicherung statt nur Warten
 
 ## Bekannte Fehler
 
@@ -77,8 +86,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 9 – Erste Industriemaschinen (Schredder, Sortiermaschine, Metallpresse, Maschinenbedienung, Materialverarbeitung, Stromverbrauch, Maschinenzustände), erst nach Mikes Freigabe.
+Phase 10 – Produktion und Automatisierung (laut Spezifikation u. a. Produktionsrezepte mit Auswahl, Förderbänder/Verbindungen zwischen Maschinen), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-14: 67/67 Automation-Tests, Netzwerktests A–P (inkl. Einrichtung mit 2 Spielern) bestanden, Baumodus, Beschaffung, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-15: 75/75 Automation-Tests, Netzwerktests A–R (inkl. Maschinen mit 2 Spielern) bestanden, Maschinenkette, Baumodus, Beschaffung, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.

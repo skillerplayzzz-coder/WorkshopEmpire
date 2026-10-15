@@ -15,7 +15,9 @@ enum class EWEPlaceholderPropType : uint8
 	Workbench,
 	Shelf,
 	/** Open crate (Phase 8). */
-	Crate
+	Crate,
+	/** Industrial machine: body, hopper, control box (Phase 9). */
+	Machine
 };
 
 /**

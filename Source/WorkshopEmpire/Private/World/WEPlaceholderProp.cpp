@@ -94,6 +94,21 @@ void AWEPlaceholderProp::BuildBoxes(UInstancedStaticMeshComponent* ISM, EWEPlace
 		}
 		break;
 	}
+	case EWEPlaceholderPropType::Machine:
+	{
+		// Body, hopper frame on top, control box at the front right.
+		const float BodyH = H * 0.72f;
+		Box(FVector(0.f, 0.f, BodyH * 0.5f), FVector(D, W, BodyH));
+		const float Wall = 4.f;
+		const float HopperH = H - BodyH;
+		for (const float S : { -1.f, 1.f })
+		{
+			Box(FVector(S * (D * 0.35f), 0.f, BodyH + HopperH * 0.5f), FVector(Wall, W * 0.7f, HopperH));
+			Box(FVector(0.f, S * (W * 0.35f), BodyH + HopperH * 0.5f), FVector(D * 0.7f, Wall, HopperH));
+		}
+		Box(FVector(D * 0.5f + 6.f, W * 0.3f, BodyH * 0.65f), FVector(12.f, 22.f, 30.f));
+		break;
+	}
 	case EWEPlaceholderPropType::Crate:
 	{
 		const float Wall = 3.f;

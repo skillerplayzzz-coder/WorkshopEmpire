@@ -37,7 +37,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
-### 3.1 Steuerung (Stand Phase 8, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 9, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -50,6 +50,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | R | Zweite Aktion, z. B. Gegenstand von der Werkbank nehmen |
 | Q | Reparieren: nächster Reparaturschritt am Gerät auf der Werkbank; Retourenpalette öffnen |
 | B | Baumodus an/aus |
+| X | An einer Maschine: Warten (Phase 9) |
 | Im Baumodus | Mausrad: Möbel wählen oder "Bearbeiten" · [E] aufstellen bzw. anfassen und neu abstellen · [R] 90° · [Q] 15° drehen · [X] abbauen bzw. Verschieben abbrechen |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
@@ -116,6 +117,34 @@ Wer ein defektes Gerät zerlegt, nachdem die Fehler feststehen, bekommt die kapu
 **Neue Werkzeuge** (Werkzeug-Versand): Bit-Ratsche (Schraubendreher ×1,6), Profi-Seitenschneider (×1,8), Digitalmultimeter (Fehlersuche ×2), Lötstation (×2). **Sackkarre** (klappbar, 4 kg im Inventar, ca. 82 €): +30 kg Tragkraft.
 
 Tragen: ein Gegenstand gleichzeitig, bis 30 kg; mit Sackkarre im Inventar bis 60 kg (z. B. der 45-kg-Elektromotor). Noch schwerere Dinge brauchen später Gabelstapler oder einen zweiten Spieler. Ob Koop-Spieler schwere Dinge gemeinsam tragen können, ist eine offene Designfrage (§7).
+
+### 3.6 Industriemaschinen (Stand Phase 9)
+
+Maschinen werden wie Möbel im Baumodus gekauft, aufgestellt, verschoben und abgebaut (nur ausgeschaltet, leer und ohne laufenden Vorgang). Jede Maschine hat einen **Eingang** und eine **Ausgabe**.
+
+| Taste an der Maschine | Aktion |
+|---|---|
+| E | Eingang öffnen (Kleinteile per Inventar hineinlegen); mit einem getragenen Gerät in der Hand: "In die Maschine geben" |
+| Q | Einschalten / Ausschalten |
+| R | Produkte entnehmen (alles, was ins Inventar passt) |
+| X | Warten (verbraucht ein Wartungsset) |
+| F | Untersuchen: Zustand, Fortschritt, Strom, Wartung, Belegung, was sie kann |
+
+**Kette:** Gerät oder Schrott → **Schredder** → Schreddergut → **Sortiermaschine** → reine Stoffe → **Metallpresse** → Ballen.
+
+| Maschine | Preis | Strom | Rezepte (Auswahl automatisch nach Eingang) |
+|---|---|---|---|
+| Schredder | 450 € | 7,5 kW | Kabelkarton → 3–4 Kupfergranulat + Kunststoff; Elektronik/Haushaltsgeräte/Elektrowerkzeug → Schreddergut Elektronik (0,9 je kg); Metallschrott/Motoren/Werkzeug/Ersatzteile → Schreddergut Metall (0,95 je kg). Nimmt sperrige Geräte. Nie: Sammlerstücke, seltene Funde, Kundengeräte, Rohstoffe |
+| Sortiermaschine | 380 € | 4 kW | 5 Schreddergut Elektronik → Elektronikschrott, Stahl, Kunststoff, mit Chance Kupfergranulat/Aluminium; 5 Schreddergut Metall → Stahl, mit Chance Aluminium/Kupfer/Kunststoff |
+| Metallpresse | 320 € | 5,5 kW | 20 Stahlschrott → Stahlballen (20 kg); 10 Aluminiumschrott → Aluminiumballen; 20 Kupfergranulat → Kupferpaket. Ballen sind sperrig und landen vor der Presse |
+
+**Zustände:** Aus · Bereit (wartet auf Material) · Läuft · Ausgabe voll · Stromanschluss überlastet · Wartung nötig. Ein Vorgang nimmt sein Material beim Start aus dem Eingang (kann dann nicht mehr herausgenommen werden). Ausschalten pausiert den Vorgang, Einschalten setzt ihn fort. Passt ein Produkt nicht mehr in die Ausgabe, landet es vor der Maschine; eine Maschine startet nur, wenn genug Ausgabeplätze frei sind.
+
+**Strom:** Hausanschluss 11 kW. Eine Maschine startet nur, wenn ihre Leistung noch frei ist, sonst wartet sie ("Stromanschluss überlastet"). Schredder und Sortiermaschine (11,5 kW) laufen also nicht gleichzeitig, bis man das Upgrade **Starkstromanschluss** (300 €, +11 kW) kauft. Eingeschaltete, wartende Maschinen ziehen 0,3–0,4 kW. Der Verbrauch wird alle 5 Minuten als "Stromrechnung" vom Firmenkonto abgebucht (2,50 € je kWh, Spielpreis inkl. Anschlussgebühr). HUD: "Strom x / y kW" unter dem Firmenkonto, sobald Maschinen stehen.
+
+**Verschleiß:** Jeder Vorgang kostet 2–3 % Wartung. Unter 30 % arbeitet die Maschine 30 % langsamer, bei 0 % bleibt sie stehen ("Wartung nötig"). Ein **Wartungsset** (Werkzeug-Versand, ca. 10 €) bringt sie mit [X] wieder auf 100 %.
+
+**Gemessen** (Test mit echten Daten, je 8 Stück, Strom und Wartung abgezogen): defekter Elektromotor direkt verkauft 8,64 € → recycelt 11,63 €; defekter Röhrenmonitor 2,70 € → 6,76 €; Kabelkarton 4,03 € → 4,77 €. Ein defekter PC bringt geschreddert nur 1,25 € (direkt 5,67 €) – PCs zerlegt oder repariert man besser von Hand. Maschinen lohnen sich also für Schrott und Massenware, nicht für alles; die Investition (1.150 € plus Upgrade) amortisiert sich erst über Menge.
 
 ## 4. Wirtschaft
 

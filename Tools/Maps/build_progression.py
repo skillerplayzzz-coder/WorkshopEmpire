@@ -14,7 +14,7 @@ eal = unreal.EditorAssetLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 
 
-def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0.0, work_speed=1.0, light=1.0, unlocks=False):
+def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0.0, work_speed=1.0, light=1.0, unlocks=False, power_kw=0.0):
     u = unreal.WEUpgradeDefinition()
     u.set_editor_property("id", uid)
     u.set_editor_property("display_name", unreal.Text(name))
@@ -28,6 +28,7 @@ def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0
     u.set_editor_property("work_speed_multiplier", work_speed)
     u.set_editor_property("light_multiplier", light)
     u.set_editor_property("unlocks_actors", unlocks)
+    u.set_editor_property("power_capacity_kw", power_kw)
     return u
 
 
@@ -40,6 +41,9 @@ UPGRADES = [
             requires="BenchCabinet", work_speed=1.25),
     upgrade("ProBench", "Profi-Werkbankausstattung", "Druckluft, Ablagen und Licht: Zerlegen nochmals 25 % schneller, +6 Plätze.", 220,
             requires="WorkMat", bench_slots=6, work_speed=1.25),
+    # Phase 9: more power for machines (11 kW house connection -> 22 kW).
+    upgrade("HeavyCurrent", "Starkstromanschluss", "Zweiter Drehstromanschluss: +11 kW für Maschinen – Schredder und Sortiermaschine laufen gleichzeitig.", 300,
+            power_kw=11.0),
 ]
 
 path = f"{FOLDER}/{NAME}"

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0] – 2026-10-15 – Phase 9: Erste Industriemaschinen
+
+### Neu
+- Drei Maschinen, aufgestellt über den Baumodus: Schredder (450 €, 7,5 kW), Sortiermaschine (380 €, 4 kW), Metallpresse (320 €, 5,5 kW).
+- Erste Verarbeitungskette: Geräte und Schrott → Schreddergut → Kupfergranulat, Aluminiumschrott, Stahlschrott, Kunststoff, Elektronikschrott → Stahlballen, Aluminiumballen, Kupferpaket. Kabelkartons werden direkt zu Kupfergranulat.
+- Maschinenbedienung: [E] Eingang öffnen bzw. getragenes Gerät hineingeben, [Q] ein/aus, [R] Produkte entnehmen, [X] warten, [F] Status. HUD zeigt Zustand, Fortschritt und Wartung der anvisierten Maschine.
+- Maschinenzustände: Aus, Bereit, Läuft, Ausgabe voll, Stromanschluss überlastet, Wartung nötig. Ausschalten pausiert einen Vorgang.
+- Strom: 11 kW Hausanschluss, Maschinen starten nur mit freier Leistung; Upgrade "Starkstromanschluss" (+11 kW, 300 €); Stromrechnung alle 5 Minuten vom Firmenkonto; Anzeige "Strom x / y kW".
+- Verschleiß je Vorgang, langsamer unter 30 %, Stillstand bei 0 %; Wartungsset (Werkzeug-Versand) bringt die Maschine auf 100 %.
+- 8 neue Gegenstände: Schreddergut Elektronik/Metall, Kupfergranulat, Aluminiumschrott, Stahlballen, Aluminiumballen, Kupferpaket, Wartungsset.
+
+### Multiplayer und Sicherheit
+- Alle Maschinenaktionen laufen über die bekannten Server-RPCs mit Reichweitenprüfung; Kundengeräte, Sammlerstücke und seltene Funde werden nie verarbeitet. Laufende oder befüllte Maschinen lassen sich nicht verschieben oder abbauen. Im Netzwerk mit 2 Spielern getestet (Stromgrenze, Produkte entnehmen).
+
+### Technisch
+- `UWEMachineDefinition` (Rezepte als Daten), `AWEMachine` (Eingang + Ausgabe, replizierter Status, Fortschritt lokal hochgerechnet), `UWEPowerGridComponent` (zentrale Simulation auf einem Server-Timer, kein Tick pro Maschine).
+- Neue Interaktion [X] (`GetExtraInteraction`/`InteractExtra`) außerhalb des Baumodus.
+- Speicherformat Version 8: Lager je Komponente, Maschinenzustand inkl. laufendem Vorgang, Stromzähler.
+- Neues Skript `Tools/Maps/build_machines.py`; Dev-RPCs `ServerDevGiveItem`, `ServerDevAddMoney`.
+- 8 neue Automation-Tests (insgesamt 75) inkl. Balance-Messung der Recyclingkette; Netzwerktest-Rollen Q/R; Screenshot-Lauf P9.
+
 ## [0.8.0] – 2026-10-14 – Phase 8: Werkstatt-Upgrades
 
 ### Neu

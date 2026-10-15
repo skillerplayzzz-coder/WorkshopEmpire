@@ -99,6 +99,10 @@ public:
 	// --- Queries (any machine) -----------------------------------------------------------------
 
 	int32 GetNumSlots() const { return NumSlots; }
+
+	/** Machine inputs accept bulky (carried) items too (Phase 9). */
+	void SetAcceptsBulky(bool bAccept) { bAcceptsBulky = bAccept; }
+	bool AcceptsBulky() const { return bAcceptsBulky; }
 	float GetMaxWeightKg() const { return MaxWeightKg; }
 	float GetTotalWeightKg() const;
 	const FText& GetDisplayName() const { return DisplayName; }
@@ -163,6 +167,8 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Inventory", meta = (ClampMin = "0", Units = "kg"))
 	float MaxWeightKg = 25.f;
+
+	bool bAcceptsBulky = false;
 
 	UPROPERTY(EditAnywhere, Category = "Inventory")
 	FText DisplayName;

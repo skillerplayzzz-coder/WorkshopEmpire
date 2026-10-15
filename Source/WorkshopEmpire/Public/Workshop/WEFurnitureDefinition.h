@@ -51,6 +51,10 @@ struct WORKSHOPEMPIRE_API FWEFurnitureDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture", meta = (Units = "kg"))
 	float StorageMaxWeightKg = 150.f;
 
+	/** Set for machines (shredder, sorting machine, press; Phase 9). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture")
+	TObjectPtr<class UWEMachineDefinition> Machine;
+
 	/** Workbenches: work speed of this bench (1 = standard, a big bench works faster). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture", meta = (ClampMin = "0.1"))
 	float WorkSpeedMultiplier = 1.f;

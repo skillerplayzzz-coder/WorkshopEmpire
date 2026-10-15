@@ -13,6 +13,7 @@
 #include "WELog.h"
 #include "Workshop/WEFurnitureDefinition.h"
 #include "Workshop/WEWorkbench.h"
+#include "Machines/WEMachine.h"
 #include "World/WEBuildArea.h"
 
 #define LOCTEXT_NAMESPACE "WEBuild"
@@ -111,6 +112,14 @@ bool UWEWorkshopLayoutComponent::CanPickUpFurniture(const AWEPlaceholderProp* Pr
 			return false;
 		}
 	}
+	if (const AWEMachine* Machine = Cast<AWEMachine>(Prop))
+	{
+		if (Machine->IsOn() || Machine->GetProcessing().Num() > 0)
+		{
+			OutReason = LOCTEXT("MachineOn", "Erst die Maschine ausschalten und leerlaufen lassen");
+			return false;
+		}
+	}
 	// Loose items lying on boards or the top.
 	const FVector Size = Prop->GetSize();
 	const FVector Half(Size.X * 0.5f, Size.Y * 0.5f, Size.Z * 0.5f + 20.f);
@@ -179,7 +188,7 @@ AWEPlaceholderProp* UWEWorkshopLayoutComponent::SpawnFurniture(FName FurnitureId
 				REN_DontCreateRedirectors | REN_NonTransactional | REN_DoNotDirty);
 		}
 	}
-	UClass* Class = Definition->bWorkbench ? AWEWorkbench::StaticClass() : AWEPlaceholderProp::StaticClass();
+	UClass* Class = Definition->Machine ? AWEMachine::StaticClass() : Definition->bWorkbench ? AWEWorkbench::StaticClass() : AWEPlaceholderProp::StaticClass();
 	AWEPlaceholderProp* Prop = World->SpawnActor<AWEPlaceholderProp>(Class, Transform, Params);
 	if (!Prop)
 	{
@@ -281,7 +290,9 @@ EWEBuildResult UWEWorkshopLayoutComponent::RemoveFurniture(AWECharacter* By, AWE
 		return EWEBuildResult::NotMovable;
 	}
 	FText Reason;
-	if ((Prop->GetStorage() && Prop->GetStorage()->GetAllSlots().Num() > 0) || !CanPickUpFurniture(Prop, Reason))
+	const AWEMachine* Machine = Cast<AWEMachine>(Prop);
+	if ((Prop->GetStorage() && Prop->GetStorage()->GetAllSlots().Num() > 0) || (Machine && Machine->GetOutputStorage()->GetAllSlots().Num() > 0)
+		|| !CanPickUpFurniture(Prop, Reason))
 	{
 		Notify(By, Reason.IsEmpty() ? ResultText(EWEBuildResult::NotEmpty) : Reason);
 		return EWEBuildResult::NotEmpty;

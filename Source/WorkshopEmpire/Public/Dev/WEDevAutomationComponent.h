@@ -72,6 +72,16 @@ protected:
 	void LogFurniture(const TCHAR* Step) const;
 	class AWEPlaceholderProp* FindFurniture(const TCHAR* FurnitureId) const;
 	int32 FurnitureIndex(const TCHAR* FurnitureId) const;
+
+	// Phase 9: machines
+	class AWEMachine* FindMachine(const TCHAR* FurnitureId) const;
+	AActor* FindNearestItem(const FString& Substring) const;
+	void LogMachines(const TCHAR* Step) const;
+	void PlaceMachines();
+	void TransferToMachine(const TCHAR* ItemId, class AWEMachine* Machine);
+	void RunMachineShots();
+	void RunSmokeRoleQ();
+	void RunSmokeRoleR();
 	class UWEBuildComponent* GetBuild() const;
 
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)

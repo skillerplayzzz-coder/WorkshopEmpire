@@ -9,6 +9,8 @@
 #include "TimerManager.h"
 #include "WELog.h"
 #include "Workshop/WEWorkbench.h"
+#include "Machines/WEMachine.h"
+#include "Machines/WEMachineDefinition.h"
 
 #define LOCTEXT_NAMESPACE "WEInteraction"
 
@@ -301,6 +303,60 @@ bool UWEInteractionComponent::ExecuteInteractAlternative(AActor* Target)
 	return true;
 }
 
+void UWEInteractionComponent::RequestExtraInteraction()
+{
+	const AWECharacter* Character = GetCharacter();
+	if (Character && !Character->GetHeldItem())
+	{
+		RequestExtraInteractWith(FocusedActor.Get());
+	}
+}
+
+void UWEInteractionComponent::RequestExtraInteractWith(AActor* Target)
+{
+	if (!Target)
+	{
+		return;
+	}
+	if (GetOwner()->HasAuthority())
+	{
+		ExecuteInteractExtra(Target);
+	}
+	else
+	{
+		ServerInteractExtra(Target);
+	}
+}
+
+void UWEInteractionComponent::ServerInteractExtra_Implementation(AActor* Target)
+{
+	ExecuteInteractExtra(Target);
+}
+
+bool UWEInteractionComponent::ExecuteInteractExtra(AActor* Target)
+{
+	AWECharacter* Character = GetCharacter();
+	IWEInteractable* Interactable = Cast<IWEInteractable>(Target);
+	if (!Character || !Character->HasAuthority() || !IsValid(Target) || !Interactable)
+	{
+		return false;
+	}
+	if (!IsWithinReach(Character, Target, InteractionRange + ServerRangeTolerance))
+	{
+		UE_LOG(LogWENet, Warning, TEXT("%s extra interaction with %s rejected: out of reach"), *Character->GetName(), *Target->GetName());
+		return false;
+	}
+	FText Text;
+	FText Reason;
+	if (!Interactable->GetExtraInteraction(Character, Text, Reason))
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s extra interaction with %s rejected: %s"), *Character->GetName(), *Target->GetName(), *Reason.ToString());
+		return false;
+	}
+	Interactable->InteractExtra(Character);
+	return true;
+}
+
 // --- Examine / prompts (local) -----------------------------------------------------------------
 
 void UWEInteractionComponent::ToggleExamine()
@@ -358,15 +414,20 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	{
 		// Same check the server makes when [E] is pressed (loose items on the bench are ignored).
 		const AWEWorkbench* Bench = Character->FindAimedWorkbench();
+		const AWEMachine* Machine = Character->FindAimedMachine();
 		FText PlaceReason;
 		if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
 		{
 			OutPrompts.Add({ InteractKey, LOCTEXT("PlaceOnBench", "Auf die Werkbank legen") });
 		}
+		else if (Machine && Machine->CanInsertItem(Held, PlaceReason))
+		{
+			OutPrompts.Add({ InteractKey, FText::Format(LOCTEXT("PutInMachine", "In die Maschine geben ({0})"), Machine->GetMachineDefinition() ? Machine->GetMachineDefinition()->DisplayName : FText::GetEmpty()) });
+		}
 		else
 		{
 			OutPrompts.Add({ InteractKey, LOCTEXT("Drop", "Ablegen") });
-			if (Bench && !PlaceReason.IsEmpty())
+			if ((Bench || Machine) && !PlaceReason.IsEmpty())
 			{
 				OutPrompts.Add({ FText::GetEmpty(), PlaceReason });
 			}
@@ -407,6 +468,17 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	else if (!AlternativeReason.IsEmpty())
 	{
 		OutPrompts.Add({ FText::GetEmpty(), AlternativeReason });
+	}
+
+	FText ExtraText;
+	FText ExtraReason;
+	if (Interactable->GetExtraInteraction(Character, ExtraText, ExtraReason))
+	{
+		OutPrompts.Add({ GetKeyText(Config->RemoveAction), ExtraText });
+	}
+	else if (!ExtraReason.IsEmpty())
+	{
+		OutPrompts.Add({ FText::GetEmpty(), ExtraReason });
 	}
 
 	FWEExamineInfo Info;

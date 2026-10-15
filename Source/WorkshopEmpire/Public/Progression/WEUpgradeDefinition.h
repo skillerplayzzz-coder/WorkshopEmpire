@@ -50,6 +50,10 @@ struct WORKSHOPEMPIRE_API FWEUpgradeDefinition
 	/** Placed actors whose RequiredUpgrade equals this Id become visible/usable once bought. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects")
 	bool bUnlocksActors = false;
+
+	/** Extra power connection for machines (kW, Phase 9). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "0"))
+	float PowerCapacityKw = 0.f;
 };
 
 UCLASS(BlueprintType)

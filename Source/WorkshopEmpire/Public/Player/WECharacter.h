@@ -56,6 +56,9 @@ public:
 
 	/** Workbench under the crosshair within reach (server-side view), or nullptr. */
 	class AWEWorkbench* FindAimedWorkbench() const;
+	/** Machine under the crosshair (to put a carried device in). */
+	class AWEMachine* FindAimedMachine() const;
+	class AWEPlaceholderProp* FindAimedProp() const;
 
 	/** Server only. Releases the held item without placing it (used by loading). */
 	AWEPickupItem* ReleaseHeldItem();

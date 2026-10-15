@@ -54,6 +54,11 @@ public:
 	void RequestAlternativeInteractWith(AActor* Target);
 	bool ExecuteInteractAlternative(AActor* Target);
 
+	/** [X] outside build mode: extra action on the focused object (e.g. maintain a machine). */
+	void RequestExtraInteraction();
+	void RequestExtraInteractWith(AActor* Target);
+	bool ExecuteInteractExtra(AActor* Target);
+
 	/** [F]: open/close the examine panel for the held or focused object. Local only. */
 	void ToggleExamine();
 	void CloseExamine();
@@ -94,6 +99,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerInteractAlternative(AActor* Target);
+
+	UFUNCTION(Server, Reliable)
+	void ServerInteractExtra(AActor* Target);
 
 	AWECharacter* GetCharacter() const;
 	FText GetKeyText(const class UInputAction* Action) const;

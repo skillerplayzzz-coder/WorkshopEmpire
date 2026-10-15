@@ -79,7 +79,9 @@ TRADERS = [
       stock("Multimeter", 3, Q.NEW, 80), stock("SolderingIron", 2, Q.NEW, 80),
       # Phase 8: better tools and the hand truck.
       stock("BitRatchet", 2, Q.NEW, 80), stock("ProSideCutter", 2, Q.NEW, 80), stock("DigitalMultimeter", 2, Q.NEW, 80),
-      stock("SolderingStation", 1, Q.NEW, 80), stock("HandTruck", 1, Q.NEW, 80)]),
+      stock("SolderingStation", 1, Q.NEW, 80), stock("HandTruck", 1, Q.NEW, 80),
+      # Phase 9: maintenance for machines.
+      stock("MaintenanceKit", 6, Q.NEW, 80)]),
     # Phase 6: spare parts for repairs (buying is convenient; parts from another device are cheaper).
     ("DA_Trader_SpareParts", "Ersatzteil-Express", 20.0,
      [rate(C.SPARE_PART, 0.9), rate(C.ELECTRONICS, 0.9)],

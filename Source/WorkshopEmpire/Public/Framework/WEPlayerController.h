@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Items/WEItemTypes.h"
 #include "WEPlayerController.generated.h"
 
 class UWEHUDWidget;
@@ -82,6 +83,14 @@ public:
 	/** Development builds only: adds a customer order offer from a fixed template (test automation). */
 	UFUNCTION(Server, Reliable)
 	void ServerDevAddContractOffer(int32 TemplateIndex);
+
+	/** Development builds only: gives an item (inventory, or in front of the pawn if bulky) (test automation). */
+	UFUNCTION(Server, Reliable)
+	void ServerDevGiveItem(FName ItemId, int32 Quantity, EWEItemCondition Condition);
+
+	/** Development builds only: adds money to the company account (test automation). */
+	UFUNCTION(Server, Reliable)
+	void ServerDevAddMoney(int32 Euros);
 
 	/** Server -> owning client: short on-screen message ("Inventar voll", "Gespeichert"). */
 	UFUNCTION(Client, Reliable)

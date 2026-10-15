@@ -53,6 +53,23 @@ struct WORKSHOPEMPIRE_API FWESavedContainer
 
 	UPROPERTY() FName ActorName;
 	UPROPERTY() TArray<FWESavedSlot> Slots;
+	/** Since save version 8: which inventory of the actor (machines have input and output). None = the first one. */
+	UPROPERTY() FName ComponentName;
+};
+
+/** Since save version 8: state of a machine (production progress is persistent, §13.5). */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedMachine
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	UPROPERTY() bool bOn = false;
+	UPROPERTY() uint8 Maintenance = 100;
+	UPROPERTY() int32 RecipeIndex = INDEX_NONE;
+	UPROPERTY() float Progress = 0.f;
+	UPROPERTY() float CycleSeconds = 0.f;
+	UPROPERTY() TArray<FWESavedItem> Processing;
 };
 
 USTRUCT()
@@ -166,8 +183,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). */
-	static constexpr int32 CurrentVersion = 7;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). */
+	static constexpr int32 CurrentVersion = 8;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -195,4 +212,8 @@ public:
 	// Since version 7. Older saves keep the map layout.
 	UPROPERTY() bool bHasFurniture = false;
 	UPROPERTY() TArray<FWESavedFurniture> Furniture;
+
+	// Since version 8.
+	UPROPERTY() TArray<FWESavedMachine> Machines;
+	UPROPERTY() float PowerUnbilledKWh = 0.f;
 };

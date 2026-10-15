@@ -6,6 +6,7 @@
 #include "Progression/WEProgressionComponent.h"
 #include "Economy/WEAuctionComponent.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
+#include "Machines/WEPowerGridComponent.h"
 
 AWEGameState::AWEGameState()
 {
@@ -15,4 +16,5 @@ AWEGameState::AWEGameState()
 	Progression = CreateDefaultSubobject<UWEProgressionComponent>(TEXT("Progression"));
 	Auctions = CreateDefaultSubobject<UWEAuctionComponent>(TEXT("Auctions"));
 	Layout = CreateDefaultSubobject<UWEWorkshopLayoutComponent>(TEXT("Layout"));
+	PowerGrid = CreateDefaultSubobject<UWEPowerGridComponent>(TEXT("PowerGrid"));
 }

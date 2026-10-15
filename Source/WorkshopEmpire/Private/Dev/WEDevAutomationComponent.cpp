@@ -33,6 +33,9 @@
 #include "Workshop/WEFurnitureDefinition.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
 #include "Progression/WEProgressionComponent.h"
+#include "Machines/WEMachine.h"
+#include "Machines/WEMachineDefinition.h"
+#include "Machines/WEPowerGridComponent.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
 {
@@ -126,6 +129,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("P"))
 	{
 		RunSmokeRoleP();
+	}
+	else if (Role == TEXT("Q"))
+	{
+		RunSmokeRoleQ();
+	}
+	else if (Role == TEXT("R"))
+	{
+		RunSmokeRoleR();
+	}
+	else if (ShotName.StartsWith(TEXT("P9")))
+	{
+		RunMachineShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P8")))
 	{
@@ -1521,4 +1536,220 @@ void UWEDevAutomationComponent::RunSmokeRoleP()
 	});
 	Schedule(23.f, [this]() { if (UWEBuildComponent* B = GetBuild()) { B->SetBuildMode(false); } LogFurniture(TEXT("P4 sold the crate")); });
 	Schedule(31.f, [this]() { Quit(); });
+}
+
+// --- Phase 9: machines -----------------------------------------------------------------------------
+
+AActor* UWEDevAutomationComponent::FindNearestItem(const FString& Substring) const
+{
+	const AWECharacter* Me = GetCharacter();
+	AActor* Best = nullptr;
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+	{
+		if (Me && It->GetDisplayName().ToString().Contains(Substring)
+			&& (!Best || FVector::DistSquared(It->GetActorLocation(), Me->GetActorLocation()) < FVector::DistSquared(Best->GetActorLocation(), Me->GetActorLocation())))
+		{
+			Best = *It;
+		}
+	}
+	return Best;
+}
+AWEMachine* UWEDevAutomationComponent::FindMachine(const TCHAR* FurnitureId) const
+{
+	return Cast<AWEMachine>(FindFurniture(FurnitureId));
+}
+
+void UWEDevAutomationComponent::LogMachines(const TCHAR* Step) const
+{
+	TArray<FString> Parts;
+	for (TActorIterator<AWEMachine> It(GetWorld()); It; ++It)
+	{
+		const AWEMachine* M = *It;
+		if (!IsValid(M) || M->IsActorBeingDestroyed() || !M->GetMachineDefinition())
+		{
+			continue;
+		}
+		int32 In = 0, Out = 0;
+		for (const FWEInventorySlotData& Slot : M->GetStorage()->GetAllSlots()) { In += Slot.Item.Quantity; }
+		for (const FWEInventorySlotData& Slot : M->GetOutputStorage()->GetAllSlots()) { Out += Slot.Item.Quantity; }
+		Parts.Add(FString::Printf(TEXT("%s[%s %d%% Wartung=%d In=%d Proc=%d Out=%d]"), *M->GetMachineDefinition()->DisplayName.ToString(),
+			*M->GetStatusText().ToString(), FMath::RoundToInt(M->GetProgress() * 100.f), static_cast<int32>(M->GetMaintenance()), In, M->GetProcessing().Num(), Out));
+	}
+	TArray<FString> Bales;
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && It->GetItem().Definition && It->GetItem().Definition->ItemId.ToString().EndsWith(TEXT("Bale")))
+		{
+			Bales.Add(It->GetDisplayName().ToString());
+		}
+	}
+	TArray<FString> Mine;
+	if (const AWECharacter* Me = GetCharacter(); Me && Me->GetPlayerInventory())
+	{
+		for (const FWEInventorySlotData& Slot : Me->GetPlayerInventory()->GetAllSlots())
+		{
+			Mine.Add(FString::Printf(TEXT("%dx%s"), Slot.Item.Quantity, *Slot.Item.Definition->ItemId.ToString()));
+		}
+	}
+	const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this);
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Balance=%s Power=%.1f/%.0f kW Unbilled=%.4f kWh LastBill=%s Machines={%s} Bales={%s} Mine={%s}"), *Role, Step,
+		Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"), Grid ? Grid->GetLoadKw() : -1.f, Grid ? Grid->GetCapacityKw() : -1.f,
+		Grid ? Grid->GetUnbilledKWh() : -1.f, Grid ? *Grid->GetLastBill().ToDisplayString() : TEXT("-"),
+		*FString::Join(Parts, TEXT(" ")), *FString::Join(Bales, TEXT(",")), *FString::Join(Mine, TEXT(" ")));
+}
+
+void UWEDevAutomationComponent::PlaceMachines()
+{
+	// Along the +Y wall, fronts facing into the garage: shredder, sorting machine, press.
+	UWEBuildComponent* B = GetBuild();
+	if (!B)
+	{
+		return;
+	}
+	B->SetBuildMode(true);
+	B->SelectIndex(FurnitureIndex(TEXT("Shredder")));
+	B->Rotate(-90.f);
+	B->SetAimOverride(FVector(-20.f, 210.f, 0.f));
+	B->Confirm();
+	B->SelectIndex(FurnitureIndex(TEXT("Sorter")));
+	B->SetAimOverride(FVector(140.f, 200.f, 0.f));
+	B->Confirm();
+	B->SelectIndex(FurnitureIndex(TEXT("Press")));
+	B->SetAimOverride(FVector(310.f, 200.f, 0.f));
+	B->Confirm();
+	B->SetBuildMode(false);
+}
+
+void UWEDevAutomationComponent::TransferToMachine(const TCHAR* ItemId, AWEMachine* Machine)
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const AWECharacter* Me = GetCharacter();
+	if (!PC || !Me || !Machine || !Me->GetPlayerInventory())
+	{
+		return;
+	}
+	for (const FWEInventorySlotData& Slot : Me->GetPlayerInventory()->GetAllSlots())
+	{
+		if (Slot.Item.Definition && Slot.Item.Definition->ItemId == FName(ItemId))
+		{
+			PC->RequestQuickTransfer(Me->GetPlayerInventory(), Slot.SlotIndex, Machine->GetStorage());
+			return;
+		}
+	}
+}
+
+void UWEDevAutomationComponent::RunMachineShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(3.0f, [PC]() { if (PC) { PC->ServerDevAddMoney(2000); PC->ServerDevTeleport(FVector(140.f, -60.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(4.0f, [this]() { PlaceMachines(); });
+	Schedule(5.0f, [this]() { LookAtPoint(FVector(140.f, 200.f, 50.f)); LogMachines(TEXT("S0 machines placed")); LogFurniture(TEXT("S0")); });
+	Schedule(5.5f, [this]() { Shot(TEXT("01_Maschinen_aufgestellt")); });
+	Schedule(6.0f, [PC]()
+	{
+		if (PC)
+		{
+			PC->ServerDevTeleport(FVector(-20.f, 40.f, 100.f), FRotator(0.f, 90.f, 0.f));
+			PC->ServerDevGiveItem(TEXT("MaintenanceKit"), 1, EWEItemCondition::New);
+			PC->ServerDevGiveItem(TEXT("ShredMetal"), 10, EWEItemCondition::Used);
+			PC->ServerDevGiveItem(TEXT("OldComputer"), 1, EWEItemCondition::Defective);
+		}
+	});
+	Schedule(7.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Computer"))); } });
+	Schedule(8.0f, [this]() { LookAtPoint(FVector(-20.f, 200.f, 90.f)); });
+	Schedule(9.0f, [this]() { Shot(TEXT("02_PC_in_den_Schredder")); LogMachines(TEXT("S1 carrying the PC")); });
+	Schedule(9.5f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(10.5f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Shredder"))); } });
+	Schedule(12.0f, [this]() { Shot(TEXT("03_Schredder_laeuft")); LogMachines(TEXT("S2 shredder running")); });
+	Schedule(12.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(140.f, 40.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(13.5f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("ShredMetal"), FindMachine(TEXT("Sorter")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Sorter"))); }
+	});
+	Schedule(14.5f, [this]() { LookAtPoint(FVector(140.f, 200.f, 70.f)); });
+	Schedule(15.5f, [this]() { Shot(TEXT("04_Strom_ueberlastet")); LogMachines(TEXT("S3 sorter waits for power")); });
+	Schedule(26.0f, [this]() { Shot(TEXT("05_Sortiermaschine_laeuft")); LogMachines(TEXT("S4 shredder done, sorter running")); });
+	Schedule(26.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-20.f, 40.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(27.5f, [this, Interaction]()
+	{
+		LookAtPoint(FVector(-20.f, 200.f, 90.f));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestSecondaryInteractWith(FindMachine(TEXT("Shredder"))); }
+	});
+	Schedule(28.5f, [this]() { Shot(TEXT("06_Warten_moeglich")); LogMachines(TEXT("S5 took shredded material")); });
+	Schedule(29.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestExtraInteractWith(FindMachine(TEXT("Shredder"))); } });
+	Schedule(29.6f, [this, PC]() { LogMachines(TEXT("S6 maintained")); if (PC) { PC->ServerDevTeleport(FVector(140.f, 40.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(30.2f, [this]() { TransferToMachine(TEXT("ShredElectronics"), FindMachine(TEXT("Sorter"))); }); // the sorter works through it later
+	Schedule(30.6f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(310.f, 30.f, 100.f), FRotator(0.f, 90.f, 0.f)); PC->ServerDevGiveItem(TEXT("SteelScrap"), 20, EWEItemCondition::Used); } });
+	Schedule(31.5f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("SteelScrap"), FindMachine(TEXT("Press")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Press"))); }
+	});
+	Schedule(41.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(230.f, -40.f, 100.f), FRotator(0.f, 70.f, 0.f)); } });
+	Schedule(42.2f, [this]() { LookAtPoint(FVector(300.f, 110.f, 30.f)); LogMachines(TEXT("S7 bale pressed")); });
+	Schedule(43.0f, [this]() { Shot(TEXT("07_Stahlballen")); });
+	Schedule(43.5f, [PC]() { if (PC) { PC->RequestSave(TEXT("DevP9")); } });
+	Schedule(44.5f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Sorter"))); } }); // change, then load
+	Schedule(45.5f, [PC]() { if (PC) { PC->RequestLoad(TEXT("DevP9")); } });
+	Schedule(47.0f, [this]() { LookAtPoint(FVector(140.f, 200.f, 70.f)); LogMachines(TEXT("S8 after load")); });
+	Schedule(48.0f, [this]() { Shot(TEXT("08_Nach_dem_Laden")); });
+	Schedule(49.0f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleQ()
+{
+	// Operator: places the machines, puts a PC into the shredder and switches it on.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevAddMoney(2000); PC->ServerDevTeleport(FVector(140.f, -60.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(11.f, [this]() { PlaceMachines(); });
+	Schedule(12.f, [PC]()
+	{
+		if (PC)
+		{
+			PC->ServerDevTeleport(FVector(-20.f, 40.f, 100.f), FRotator(0.f, 90.f, 0.f));
+			PC->ServerDevGiveItem(TEXT("OldComputer"), 1, EWEItemCondition::Defective);
+		}
+	});
+	Schedule(13.f, [this, Interaction]() { LogMachines(TEXT("Q0 placed")); if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Computer"))); } });
+	Schedule(14.f, [this]() { LookAtPoint(FVector(-20.f, 200.f, 90.f)); });
+	Schedule(15.f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(16.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Shredder"))); } });
+	Schedule(17.5f, [this]() { LogMachines(TEXT("Q1 shredder running")); });
+	Schedule(40.f, [this]() { LogMachines(TEXT("Q2 sees R's actions")); });
+	Schedule(42.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleR()
+{
+	// Second player: sees the running shredder, starts the sorter (waits: power), takes the products.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(140.f, -120.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(17.f, [this, PC]()
+	{
+		LogMachines(TEXT("R0 sees Q's shredder"));
+		if (PC)
+		{
+			PC->ServerDevTeleport(FVector(140.f, 40.f, 100.f), FRotator(0.f, 90.f, 0.f));
+			PC->ServerDevGiveItem(TEXT("ShredMetal"), 10, EWEItemCondition::Used);
+		}
+	});
+	Schedule(18.5f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("ShredMetal"), FindMachine(TEXT("Sorter")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Sorter"))); }
+	});
+	Schedule(20.f, [this]() { LogMachines(TEXT("R1 sorter waits for power")); });
+	Schedule(31.f, [this, PC]()
+	{
+		LogMachines(TEXT("R2 shredder done, sorter runs"));
+		if (PC) { PC->ServerDevTeleport(FVector(40.f, 60.f, 100.f), FRotator(0.f, 90.f, 0.f)); }
+	});
+	Schedule(32.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestSecondaryInteractWith(FindMachine(TEXT("Shredder"))); } });
+	Schedule(33.5f, [this]() { LogMachines(TEXT("R3 took the shredded material")); });
+	Schedule(38.f, [this]() { Quit(); });
 }

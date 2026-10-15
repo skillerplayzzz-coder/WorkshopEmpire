@@ -35,7 +35,7 @@ protected:
 	UWEInteractionComponent* GetInteraction() const;
 	UTextBlock* MakeText(int32 Size, const FLinearColor& Color, bool bWrap = false);
 
-	static constexpr int32 MaxPromptLines = 4;
+	static constexpr int32 MaxPromptLines = 5;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UCanvasPanel> Canvas;

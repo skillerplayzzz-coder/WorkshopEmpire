@@ -63,6 +63,7 @@ public:
 	float GetInventoryExtraKg() const;
 	float GetWorkSpeedMultiplier() const;
 	float GetLightMultiplier() const;
+	float GetPowerCapacityBonusKw() const;
 
 	/** Re-applies all effects to the world (furniture, storages, inventories, lights). Any machine. */
 	void ApplyEffects();

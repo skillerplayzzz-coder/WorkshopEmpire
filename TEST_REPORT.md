@@ -17,6 +17,50 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 9 – Lauf vom 2026-10-15
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **75/75 bestanden, 0 mit Warnungen** (67 alte + 8 neue), Bericht `Saved/TestReports/Phase9_final/index.json` |
+| ↳ `Machines.ShredSortPressChain` (echte Daten: 3 Maschinen gekauft (1.150 €), Schredder 6 Eingangs-/10 Ausgabeplätze, nimmt sperrige Geräte, Sortiermaschine nicht; defekter PC hinein → läuft sofort, Material beim Start entnommen, Dauer 3 s + 1,2 s/kg × 9 kg = 13,8 s, Last 7,5 kW, Status nennt das Rezept, nach 7 s halb fertig, danach 8 × Schreddergut Elektronik, Verschleiß, Leerlauf 0,4 kW; 10 Schreddergut → 2 Sortiervorgänge mit Elektronikschrott/Stahl/Kunststoff in den erwarteten Spannen; 25 Stahlschrott → 1 Stahlballen vor der Presse, 5 bleiben liegen) | ✅ |
+| ↳ `Machines.InsertRules` (Rohstoff in den Schredder → "verarbeitet das nicht", bleibt liegen; Sammlerstück und Kundengerät abgelehnt; Sortiermaschine nimmt keinen ganzen PC; getragener PC hinein → Hände frei; Schreddergut als Stapel in die Sortiermaschine; Werkzeug-Versand verkauft Wartungssets) | ✅ |
+| ↳ `Machines.PowerLimitAndUpgrade` (11 kW: von Schredder + Sortiermaschine läuft nur eine, die andere "Stromanschluss überlastet"; mit Starkstromanschluss 22 kW → beide laufen, Last 11,5 kW) | ✅ |
+| ↳ `Machines.PowerBill` (10 min Leerlauf = 0,0667 kWh; 6 s Schreddern = 7,5 kW × 6 s; 2 kWh → 5,00 € abgebucht, Zähler auf 0, letzte Rechnung sichtbar; Rechnung bei 1,20 € Kontostand → 0 €, nie negativ; aus = 0 kW) | ✅ |
+| ↳ `Machines.WearAndMaintenance` (unter 30 % Wartung 70 % Tempo (8 s → 11,4 s), 3 % Verschleiß je Pressvorgang, bei 0 % "Wartung nötig" und kein Start, Material bleibt im Eingang; ohne Set kein [X], Grund nennt das Wartungsset; mit Set → 100 %, ein Set verbraucht, läuft wieder mit voller Geschwindigkeit) | ✅ |
+| ↳ `Machines.OutputFullAndPause` (Ausgabe mit 3 freien Plätzen bei 4 möglichen Produkten → "Ausgabe voll", Eingang unberührt; [R] entnimmt 9 → startet; ausschalten mitten im Vorgang → Fortschritt bleibt 10 s lang gleich, Material bleibt drin, nicht verschiebbar; einschalten → läuft weiter und wird fertig) | ✅ |
+| ↳ `Save.MachineRoundTrip` (Version 8: laufender Schredder mit Material, Fortschritt, zweitem Kabelkarton im Eingang, Schreddergut in der Ausgabe und Stromzähler gespeichert; alles verändert, geladen → an, gleicher Vorgang und Fortschritt, Eingang und Ausgabe getrennt richtig, Zähler stimmt, läuft weiter) | ✅ |
+| ↳ `Economy.BalanceRecyclingChain` (**echte Daten, je 8 Stück durch Schredder → Sortiermaschine → Presse, verkauft beim besten Händler, Strom und Wartungssets abgezogen**) | ✅ defekter Elektromotor direkt 8,64 € → recycelt **11,63 €**; defekter Röhrenmonitor 2,70 € → **6,76 €**; Kabelkarton 4,03 € → **4,77 €**; defekter PC 5,67 € → nur 1,25 € (Handarbeit lohnt sich mehr, gewollt). Kein Ausreißer über das Dreifache |
+| Erzeugung von 41 Gegenständen (8 neue), 3 Maschinen, Möbelkatalog (10), 7 Upgrades, Händlerdaten und Map per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P9`, 4 Läufe) | ✅ 8 Screenshots geprüft: drei Maschinen im Baumodus aufgestellt (Konto 2.250 → 1.100 €); "[E] In die Maschine geben (Schredder)" mit dem PC in der Hand; Schredder läuft (Leiste, "Strom 7.5 / 11 kW"); Sortiermaschine "Stromanschluss überlastet – wartet"; nach dem Schreddern startet sie von selbst; Produkte mit [R] entnommen (8 Schreddergut), [X] gewartet (98 → 100 %); 20 Stahlschrott in die Presse → Stahlballen liegt davor; gespeichert, Sortiermaschine umgeschaltet, geladen → Zustand wie gespeichert |
+| **Netzwerktest Maschinen** (`-WESmokeRole=Q/R`, Dedicated Server + 2 Clients, neu, 2 Läufe) | ✅ Q stellt die Maschinen auf, wirft einen PC in den Schredder und schaltet ihn ein; R sieht ihn laufen (Fortschritt 17 % → 39 %, flüssig lokal hochgerechnet); R füllt die Sortiermaschine und schaltet sie ein → "Stromanschluss überlastet" (7,8 / 11 kW); nach dem Schreddern läuft sie an; R entnimmt die 8 Schreddergut, Q sieht die leere Ausgabe und die laufende Sortiermaschine |
+| **Regression** Netzwerktests A/B, C/D, E/F, G/H, K/L, M/N, O/P (Dedicated) und I/J (Listen-Server), Spielläufe P5, P6, P7, P8 | ✅ unverändert |
+
+### Behobene Fehler in Phase 9
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Balance-Test: Kabelkarton und Röhrenmonitor brachten recycelt weniger als direkt verkauft | Die Sortiermaschine fiel nach 50 Vorgängen ohne Wartung aus; Kabel lieferten nur Stahl-Schreddergut | Test kauft Wartungssets (Kosten werden abgezogen); eigenes Schredder-Rezept "Kabel schreddern" → Kupfergranulat |
+| Maschinenprodukte stapelten nicht mit Material von der Werkbank | anderer Qualitätswert (60 statt 50) | gleiche Werte wie an der Werkbank |
+| Schredder-Verschleiß 2,5 % wirkte als 2 % | Wartung wird ganzzahlig gespeichert | Wert auf 2 % gesetzt |
+| UHT-Fehler beim Bauen | Einheit "kW" kennt Unreal nicht | Einheit entfernt |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Stromrechnung nach echten 5 Minuten im Spiel | Im Unit-Test direkt ausgelöst; der Timer selbst ist derselbe Mechanismus wie Autosave |
+| Maschinen mit echter Maus/Tastatur bedienen | Mikes Praxistest; im Spiel über dieselben Anfragewege gesteuert |
+| Mehrere Stunden Dauerbetrieb / Performance mit vielen Maschinen | erst sinnvoll mit Verbindungen zwischen Maschinen (Phase 10) |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweis: Die Rezeptauswahl ist automatisch (erstes passendes Rezept); eine Auswahl von Hand ist Teil von Phase 10.
+
+---
+
 ## Phase 8 – Lauf vom 2026-10-14
 
 ### Ausgeführt

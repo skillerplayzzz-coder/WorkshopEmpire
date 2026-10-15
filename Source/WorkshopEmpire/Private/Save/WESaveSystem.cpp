@@ -1,6 +1,8 @@
 #include "Save/WESaveSystem.h"
 
 #include "Economy/WEAuctionComponent.h"
+#include "Machines/WEMachine.h"
+#include "Machines/WEPowerGridComponent.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
 #include "World/WEPlaceholderProp.h"
 
@@ -191,12 +193,35 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		{
 			continue; // player inventories are saved with the player
 		}
-		if (const UWEInventoryComponent* Inventory = Actor->FindComponentByClass<UWEInventoryComponent>())
+		TArray<UWEInventoryComponent*> Inventories;
+		Actor->GetComponents(Inventories);
+		for (const UWEInventoryComponent* Inventory : Inventories)
 		{
 			FWESavedContainer& Container = Save->Containers.AddDefaulted_GetRef();
 			Container.ActorName = Actor->GetFName();
+			Container.ComponentName = Inventory->GetFName();
 			Container.Slots = ToSavedSlots(Inventory->GetAllSlots());
 		}
+	}
+
+	// Machines and power (version 8).
+	for (TActorIterator<AWEMachine> It(World); It; ++It)
+	{
+		FWESavedMachine& Saved = Save->Machines.AddDefaulted_GetRef();
+		Saved.ActorName = It->GetFName();
+		Saved.bOn = It->IsOn();
+		Saved.Maintenance = It->GetStatus().Maintenance;
+		Saved.RecipeIndex = It->GetStatus().RecipeIndex;
+		Saved.Progress = It->GetProgress();
+		Saved.CycleSeconds = It->GetStatus().CycleSeconds;
+		for (const FWEItemInstance& Item : It->GetProcessing())
+		{
+			Saved.Processing.Add(ToSaved(Item));
+		}
+	}
+	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World))
+	{
+		Save->PowerUnbilledKWh = Grid->GetUnbilledKWh();
 	}
 
 	for (TActorIterator<AWEGarageDoor> It(World); It; ++It)
@@ -389,9 +414,16 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
 		AActor* Actor = *It;
-		if (UWEInventoryComponent* Inventory = Actor->FindComponentByClass<UWEInventoryComponent>(); Inventory && !Actor->IsA<APlayerState>())
+		TArray<UWEInventoryComponent*> Inventories;
+		Actor->GetComponents(Inventories);
+		for (int32 InventoryIndex = 0; InventoryIndex < Inventories.Num() && !Actor->IsA<APlayerState>(); ++InventoryIndex)
 		{
-			const FWESavedContainer* Saved = Save->Containers.FindByPredicate([Actor](const FWESavedContainer& C) { return C.ActorName == Actor->GetFName(); });
+			UWEInventoryComponent* Inventory = Inventories[InventoryIndex];
+			// Older saves have one container per actor without a component name: that is the first inventory.
+			const FWESavedContainer* Saved = Save->Containers.FindByPredicate([Actor, Inventory, InventoryIndex](const FWESavedContainer& C)
+			{
+				return C.ActorName == Actor->GetFName() && (C.ComponentName == Inventory->GetFName() || (C.ComponentName.IsNone() && InventoryIndex == 0));
+			});
 			Inventory->SetAllSlots(Saved ? FromSavedSlots(Saved->Slots) : TArray<FWEInventorySlotData>());
 		}
 		if (AWEGarageDoor* Door = Cast<AWEGarageDoor>(Actor))
@@ -424,6 +456,30 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 				}
 			}
 		}
+	}
+
+	// Machines (version 8): state, maintenance and the running cycle continue where they were.
+	for (TActorIterator<AWEMachine> It(World); It; ++It)
+	{
+		const FWESavedMachine* Saved = Save->Machines.FindByPredicate([&It](const FWESavedMachine& M) { return M.ActorName == It->GetFName(); });
+		TArray<FWEItemInstance> Processing;
+		if (Saved)
+		{
+			for (const FWESavedItem& SavedItem : Saved->Processing)
+			{
+				FWEItemInstance Item;
+				if (FromSaved(SavedItem, Item))
+				{
+					Processing.Add(Item);
+				}
+			}
+		}
+		It->RestoreState(Saved && Saved->bOn, Saved ? Saved->Maintenance : 100, Saved ? Saved->RecipeIndex : INDEX_NONE,
+			Saved ? Saved->Progress : 0.f, Saved ? Saved->CycleSeconds : 0.f, Processing);
+	}
+	if (UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World); Grid && Save->SaveVersion >= 8)
+	{
+		Grid->SetUnbilledKWh(Save->PowerUnbilledKWh);
 	}
 
 	// Auctions (version 6; older saves keep the current lots).

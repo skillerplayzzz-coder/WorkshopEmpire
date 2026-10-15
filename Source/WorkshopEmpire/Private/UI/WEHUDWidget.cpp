@@ -1,4 +1,7 @@
 #include "UI/WEHUDWidget.h"
+#include "Machines/WEMachine.h"
+#include "Machines/WEMachineDefinition.h"
+#include "Machines/WEPowerGridComponent.h"
 #include "Components/SizeBox.h"
 #include "Workshop/WEBuildComponent.h"
 
@@ -264,6 +267,19 @@ void UWEHUDWidget::UpdateWorkProgress()
 
 	if (!Shown)
 	{
+		// A machine under the crosshair: its state and progress (Phase 9).
+		const AWEMachine* Machine = Interaction ? Cast<AWEMachine>(Interaction->GetFocusedActor()) : nullptr;
+		if (Machine && Machine->GetMachineDefinition())
+		{
+			const float MachineProgress = Machine->GetProgress();
+			const bool bCycle = Machine->IsRunning() || Machine->GetProcessing().Num() > 0;
+			WorkBox->SetVisibility(ESlateVisibility::HitTestInvisible);
+			WorkProgress->SetPercent(bCycle ? MachineProgress : 0.f);
+			WorkText->SetText(FText::Format(NSLOCTEXT("WEHUD", "MachineFmt", "{0}: {1}{2} · Wartung {3} %"), Machine->GetMachineDefinition()->DisplayName,
+				Machine->GetStatusText(), bCycle ? FText::Format(NSLOCTEXT("WEHUD", "MachinePct", " … {0} %"), FText::AsNumber(FMath::RoundToInt(MachineProgress * 100.f))) : FText::GetEmpty(),
+				FText::AsNumber(FMath::RoundToInt(Machine->GetMaintenance()))));
+			return;
+		}
 		WorkBox->SetVisibility(ESlateVisibility::Collapsed);
 		return;
 	}
@@ -342,7 +358,14 @@ void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 	if (const UWECompanyComponent* Company = UWECompanyComponent::Get(this))
 	{
-		BalanceText->SetText(FText::Format(NSLOCTEXT("WEHUD", "BalanceFmt", "Firmenkonto  {0}"), FText::FromString(Company->GetBalance().ToDisplayString())));
+		FText Balance = FText::Format(NSLOCTEXT("WEHUD", "BalanceFmt", "Firmenkonto  {0}"), FText::FromString(Company->GetBalance().ToDisplayString()));
+		// Power use, once the workshop has machines (Phase 9).
+		if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this); Grid && Grid->HasMachines())
+		{
+			Balance = FText::Format(NSLOCTEXT("WEHUD", "BalancePowerFmt", "{0}\nStrom  {1} / {2} kW"), Balance,
+				FText::AsNumber(FMath::RoundToInt(Grid->GetLoadKw() * 10.f) / 10.f), FText::AsNumber(FMath::RoundToInt(Grid->GetCapacityKw())));
+		}
+		BalanceText->SetText(Balance);
 	}
 
 	const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;

@@ -124,7 +124,7 @@ TArray<FWEInventorySlotData> UWEInventoryComponent::GetAllSlots() const
 
 int32 UWEInventoryComponent::GetAddableQuantity(const FWEItemInstance& Item) const
 {
-	if (!Item.IsValid() || !Item.Definition->bFitsInInventory)
+	if (!Item.IsValid() || (!Item.Definition->bFitsInInventory && !bAcceptsBulky))
 	{
 		return 0;
 	}
@@ -189,7 +189,7 @@ EWEInventoryResult UWEInventoryComponent::TryAddItem(const FWEItemInstance& Item
 	{
 		return EWEInventoryResult::NotAllowed;
 	}
-	if (!Item.IsValid() || !Item.Definition->bFitsInInventory)
+	if (!Item.IsValid() || (!Item.Definition->bFitsInInventory && !bAcceptsBulky))
 	{
 		return EWEInventoryResult::InvalidItem;
 	}

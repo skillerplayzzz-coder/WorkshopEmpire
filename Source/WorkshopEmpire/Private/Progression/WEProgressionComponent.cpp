@@ -124,6 +124,17 @@ float UWEProgressionComponent::GetWorkSpeedMultiplier() const
 	return Total;
 }
 
+float UWEProgressionComponent::GetPowerCapacityBonusKw() const
+{
+	float Bonus = 0.f;
+	for (const FName& Id : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* Upgrade = Catalog ? Catalog->Find(Id) : nullptr;
+		Bonus += Upgrade ? Upgrade->PowerCapacityKw : 0.f;
+	}
+	return Bonus;
+}
+
 float UWEProgressionComponent::GetLightMultiplier() const
 {
 	float Total = 1.f;

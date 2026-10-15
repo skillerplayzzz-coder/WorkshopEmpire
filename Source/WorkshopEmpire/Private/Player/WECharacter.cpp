@@ -17,6 +17,7 @@
 #include "Inventory/WEInventoryComponent.h"
 #include "Workshop/WEWorkbench.h"
 #include "Workshop/WEBuildComponent.h"
+#include "Machines/WEMachine.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
@@ -248,7 +249,9 @@ void AWECharacter::Input_Remove()
 	if (BuildComponent->IsActive())
 	{
 		BuildComponent->Remove();
+		return;
 	}
+	InteractionComponent->RequestExtraInteraction();
 }
 
 void AWECharacter::Input_Cycle(const FInputActionValue& Value)
@@ -404,6 +407,15 @@ void AWECharacter::DropHeldItem()
 			return;
 		}
 	}
+	// Aiming at a machine that takes it (e.g. a device into the shredder).
+	if (AWEMachine* Machine = FindAimedMachine())
+	{
+		FText Reason;
+		if (Machine->CanInsertItem(Item, Reason) && Machine->InsertItem(Item))
+		{
+			return;
+		}
+	}
 
 	const FTransform DropTransform = ComputeDropTransform(Item);
 	HeldItem = nullptr;
@@ -412,6 +424,16 @@ void AWECharacter::DropHeldItem()
 }
 
 AWEWorkbench* AWECharacter::FindAimedWorkbench() const
+{
+	return Cast<AWEWorkbench>(FindAimedProp());
+}
+
+AWEMachine* AWECharacter::FindAimedMachine() const
+{
+	return Cast<AWEMachine>(FindAimedProp());
+}
+
+AWEPlaceholderProp* AWECharacter::FindAimedProp() const
 {
 	FVector EyeLocation;
 	FRotator EyeRotation;
@@ -435,7 +457,7 @@ AWEWorkbench* AWECharacter::FindAimedWorkbench() const
 			Params.AddIgnoredActor(Item);
 			continue;
 		}
-		return Cast<AWEWorkbench>(Hit.GetActor());
+		return Cast<AWEPlaceholderProp>(Hit.GetActor());
 	}
 	return nullptr;
 }

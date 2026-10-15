@@ -4,6 +4,7 @@
 #include "Workshop/WEWorkshopLayoutComponent.h"
 #include "World/WEPlaceholderProp.h"
 #include "Economy/WEContractComponent.h"
+#include "Economy/WECompanyComponent.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Dev/WEDevAutomationComponent.h"
@@ -383,6 +384,42 @@ void AWEPlayerController::ServerDevAddContractOffer_Implementation(int32 Templat
 	{
 		const bool bAdded = Contracts->AddOffer(TemplateIndex);
 		UE_LOG(LogWENet, Log, TEXT("%s dev-added contract offer from template %d: %s"), *GetName(), TemplateIndex, bAdded ? TEXT("ok") : TEXT("failed"));
+	}
+#endif
+}
+
+void AWEPlayerController::ServerDevGiveItem_Implementation(FName ItemId, int32 Quantity, EWEItemCondition Condition)
+{
+#if !UE_BUILD_SHIPPING
+	UWEItemDefinition* Definition = UWEItemDefinition::FindById(ItemId);
+	AWECharacter* Me = Cast<AWECharacter>(GetPawn());
+	if (!Definition || !Me || Quantity <= 0)
+	{
+		return;
+	}
+	const FWEItemInstance Item = FWEItemInstance::Make(Definition, Quantity, Condition);
+	int32 Added = 0;
+	if (Definition->bFitsInInventory && Me->GetPlayerInventory())
+	{
+		Me->GetPlayerInventory()->TryAddItem(Item, Added);
+	}
+	if (Added < Quantity)
+	{
+		FWEItemInstance Rest = Item;
+		Rest.Quantity -= Added;
+		const FVector Front = Me->GetActorLocation() + Me->GetActorForwardVector() * 80.f + FVector(0.f, 0.f, -40.f);
+		AWEPickupItem::SpawnWorldItem(GetWorld(), Rest, FTransform(Me->GetActorRotation(), Front));
+	}
+	UE_LOG(LogWENet, Log, TEXT("%s dev-got %d x %s"), *GetName(), Quantity, *ItemId.ToString());
+#endif
+}
+
+void AWEPlayerController::ServerDevAddMoney_Implementation(int32 Euros)
+{
+#if !UE_BUILD_SHIPPING
+	if (UWECompanyComponent* Company = UWECompanyComponent::Get(this))
+	{
+		Company->SetBalance(FWEMoney::FromCents(Company->GetBalance().GetCents() + Euros * 100ll));
 	}
 #endif
 }
