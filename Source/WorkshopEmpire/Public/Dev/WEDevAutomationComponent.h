@@ -10,7 +10,7 @@ class AWECharacter;
  * Development-only scripted player actions for unattended tests (never added in Shipping).
  *
  * Added to the local PlayerController when one of these command-line switches is present:
- *   -WESmokeRole=A|B   two-client network smoke test (pick up / conflict / drop / hand-over / reach check)
+ *   -WESmokeRole=A..X  network smoke tests per phase (A|B: pick up / conflict / drop / hand-over / reach check)
  *   -WEShots=<Name>    takes a series of in-game screenshots (overview, pick up, examine), then quits
  *
  * All actions go through the normal input path (UWEInteractionComponent requests -> server RPCs),
@@ -101,6 +101,13 @@ protected:
 	void RunSmokeRoleU();
 	void RunSmokeRoleV();
 	class UWEBuildComponent* GetBuild() const;
+
+	// Phase 12: company expansion (-WESmokeRole=W|X on a dedicated server, -WEShots=P12...)
+	void LogExpansion(const TCHAR* Step) const;
+	class AWEGarageDoor* FindDoorNear(const FVector& Point) const;
+	void RunExpansionShots();
+	void RunSmokeRoleW();
+	void RunSmokeRoleX();
 
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)
 	void RunSmokeRoleM();

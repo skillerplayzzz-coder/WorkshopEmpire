@@ -101,6 +101,19 @@ MACHINES = {
                    second="PlasticParts", second_qty=3, base_s=12.0),
             recipe("Stahlwinkel-Set stanzen", [out("SteelBracketSet", new=True)], input_item="SteelScrap", quantity=6, base_s=8.0),
         ]),
+    # Phase 12: hall machines.
+    "MD_Furnace": dict(
+        name="Schmelzofen", power=15.0, idle=1.0, bulky=False, in_slots=8, in_kg=300.0, out_slots=6, out_kg=150.0, wear=2.0,
+        recipes=[
+            recipe("Aluminium schmelzen", [out("AluminiumIngot", 2, new=True)], input_item="AluminiumScrap", quantity=10, base_s=20.0),
+            recipe("Kupfer schmelzen", [out("CopperIngot", 2, new=True)], input_item="CopperGranulate", quantity=20, base_s=25.0),
+        ]),
+    "MD_Packer": dict(
+        name="Verpackungsanlage", power=3.0, idle=0.3, bulky=False, in_slots=6, in_kg=150.0, out_slots=4, out_kg=200.0, wear=1.0,
+        recipes=[
+            recipe("Stahlwinkel palettieren", [out("PalletBrackets", new=True)], input_item="SteelBracketSet", quantity=20, base_s=15.0),
+            recipe("Kabel palettieren", [out("PalletCables", new=True)], input_item="ExtensionCable", quantity=10, base_s=15.0),
+        ]),
 }
 
 kit = item("MaintenanceKit")

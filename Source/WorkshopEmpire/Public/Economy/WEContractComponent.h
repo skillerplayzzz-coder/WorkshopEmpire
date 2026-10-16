@@ -61,6 +61,18 @@ struct WORKSHOPEMPIRE_API FWEContractTemplate
 	/** Time to deliver after accepting. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1", Units = "Minutes"))
 	float DurationMinutes = 20.f;
+
+	/** Phase 12: only offered from this company tier on (1 = always). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1", ClampMax = "5"))
+	uint8 MinTier = 1;
+
+	/** Phase 12: industrial order (separate board, bigger, a penalty if it fails). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
+	bool bIndustrial = false;
+
+	/** Phase 12: supply contract - the quantity is delivered this many times, each within DurationMinutes. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1"))
+	int32 Rounds = 1;
 };
 
 /** All order templates (one Data Asset). */
@@ -103,6 +115,14 @@ struct WORKSHOPEMPIRE_API FWEContract
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") EWEItemCondition CustomerCondition = EWEItemCondition::Defective;
 	/** Repair orders: instance id of the customer's device (spawned when the order is accepted). */
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") FGuid CustomerItemId;
+	/** Phase 12: industrial order / supply contract with several deliveries. */
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") bool bIndustrial = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") int32 Rounds = 1;
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") int32 RoundsDone = 0;
+
+	bool IsSupplyContract() const { return Rounds > 1; }
+	/** Industrial orders and supply contracts cost a penalty when they fail. */
+	FWEMoney GetPenalty() const { return bIndustrial || Rounds > 1 ? FWEMoney::FromCents(Reward.GetCents() / 4) : FWEMoney(); }
 };
 
 UENUM()
@@ -158,8 +178,13 @@ public:
 	/** Removes expired contracts and tops the offers up. Runs on a timer; public for tests. */
 	void UpdateContracts();
 
-	/** Creates one offer from a random template (tests may pass a fixed index). */
-	bool AddOffer(int32 TemplateIndex = INDEX_NONE);
+	/** Creates one offer from a random template (tests may pass a fixed index). Industrial: from the industrial templates. */
+	bool AddOffer(int32 TemplateIndex = INDEX_NONE, bool bIndustrial = false);
+
+	/** Phase 12: delivers from a storage (e.g. the van's cargo on a delivery tour). */
+	EWEContractResult DeliverFromStorage(const FGuid& Id, class UWEInventoryComponent* Storage, const FString& PlayerName);
+	/** Items in Storage that would count for Contract. */
+	static int32 CountInStorage(const FWEContract& Contract, const class UWEInventoryComponent* Storage);
 
 	EWEContractResult Accept(const FGuid& Id, const FString& PlayerName);
 	EWEContractResult Deliver(const FGuid& Id, AWECharacter* Character);
@@ -174,12 +199,19 @@ public:
 
 	static constexpr int32 MaxOffers = 3;
 	static constexpr int32 MaxAccepted = 3;
+	/** Phase 12: industrial orders on their own board once the company is big enough. */
+	static constexpr int32 MaxIndustrialOffers = 2;
+	static constexpr int32 MaxIndustrialAccepted = 2;
 	/** How long an unaccepted offer stays on the board. */
 	static constexpr float OfferLifetimeSeconds = 600.f;
 
 protected:
 	UFUNCTION()
 	void OnRep_Contracts();
+
+	/** Pays a delivered round / order; supply contracts continue with the next round. */
+	void CompleteDelivery(int32 Index, const FString& PlayerName);
+	int32 GetCompanyTier() const;
 
 	UPROPERTY(EditAnywhere, Category = "Contracts")
 	TObjectPtr<UWEContractCatalog> Catalog;

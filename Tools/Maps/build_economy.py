@@ -106,7 +106,7 @@ for name, display, restock, buys, offers in TRADERS:
     eal.save_asset(path)
 
 
-def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=None, min_quality=0):
+def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=None, min_quality=0, min_tier=1, industrial=False, rounds=1):
     t = unreal.WEContractTemplate()
     t.set_editor_property("title", unreal.Text(title))
     t.set_editor_property("min_quality", min_quality)
@@ -120,6 +120,9 @@ def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=
     t.set_editor_property("min_condition", min_condition)
     t.set_editor_property("reward_factor", factor)
     t.set_editor_property("duration_minutes", minutes)
+    t.set_editor_property("min_tier", min_tier)
+    t.set_editor_property("industrial", industrial)
+    t.set_editor_property("rounds", rounds)
     return t
 
 
@@ -146,6 +149,13 @@ catalog.set_editor_property("templates", [
     template("Baumarkt bestellt Stahlwinkel-Sets", "SteelBracketSet", 5, 10, Q.USED, 1.4, 30.0),
     template("Elektriker-Großhandel sucht Kupferdrahtspulen", "CopperWireSpool", 2, 4, Q.USED, 1.3, 35.0),
     template("Gießerei kauft ein Kupferpaket", "CopperBale", 1, 1, Q.USED, 1.25, 40.0),
+    # Industrial orders and supply contracts (Phase 12): own board, from a company tier on, penalty if they fail.
+    template("Stahlwerk kauft Stahlballen", "SteelBale", 6, 10, Q.USED, 1.5, 60.0, min_tier=2, industrial=True),
+    template("Recyclingverband sucht Kupferpakete", "CopperBale", 2, 4, Q.USED, 1.4, 60.0, min_tier=2, industrial=True),
+    template("Baumarktkette: Liefervertrag Stahlwinkel", "PalletBrackets", 1, 1, Q.USED, 1.45, 20.0, min_tier=2, industrial=True, rounds=3),
+    template("Gießerei kauft Aluminiumbarren", "AluminiumIngot", 6, 10, Q.USED, 1.5, 60.0, min_tier=3, industrial=True),
+    template("Kabelwerk kauft Kupferbarren", "CopperIngot", 4, 6, Q.USED, 1.5, 60.0, min_tier=3, industrial=True),
+    template("Elektrogroßhandel: Liefervertrag Kabel", "PalletCables", 1, 1, Q.USED, 1.45, 20.0, min_tier=3, industrial=True, rounds=4),
 ])
 eal.save_asset(catalog_path)
 

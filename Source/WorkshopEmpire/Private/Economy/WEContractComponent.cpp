@@ -1,4 +1,5 @@
 #include "Economy/WEContractComponent.h"
+#include "Progression/WEProgressionComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEMarketComponent.h"
@@ -125,7 +126,13 @@ int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const 
 	return Count;
 }
 
-bool UWEContractComponent::AddOffer(int32 TemplateIndex)
+int32 UWEContractComponent::GetCompanyTier() const
+{
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	return Progression ? Progression->GetCompanyTier() : 1;
+}
+
+bool UWEContractComponent::AddOffer(int32 TemplateIndex, bool bIndustrial)
 {
 	if (!GetOwner()->HasAuthority() || !Catalog || Catalog->Templates.Num() == 0)
 	{
@@ -133,7 +140,23 @@ bool UWEContractComponent::AddOffer(int32 TemplateIndex)
 	}
 	if (TemplateIndex == INDEX_NONE)
 	{
-		TemplateIndex = FMath::RandRange(0, Catalog->Templates.Num() - 1);
+		// Only what fits the company: its tier, the board (normal / industrial), not offered twice at once.
+		const int32 Tier = GetCompanyTier();
+		TArray<int32> Eligible;
+		for (int32 i = 0; i < Catalog->Templates.Num(); ++i)
+		{
+			const FWEContractTemplate& T = Catalog->Templates[i];
+			const bool bAlready = Contracts.ContainsByPredicate([&T](const FWEContract& C) { return C.Title.EqualTo(T.Title); });
+			if (T.bIndustrial == bIndustrial && T.MinTier <= Tier && !(bIndustrial && bAlready))
+			{
+				Eligible.Add(i);
+			}
+		}
+		if (Eligible.Num() == 0)
+		{
+			return false;
+		}
+		TemplateIndex = Eligible[FMath::RandRange(0, Eligible.Num() - 1)];
 	}
 	if (!Catalog->Templates.IsValidIndex(TemplateIndex) || !Catalog->Templates[TemplateIndex].Item)
 	{
@@ -153,6 +176,8 @@ bool UWEContractComponent::AddOffer(int32 TemplateIndex)
 	Contract.MinQuality = Template.MinQuality;
 	Contract.DeliverySeconds = Template.DurationMinutes * 60.f;
 	Contract.ExpiresAt = GetServerTime() + OfferLifetimeSeconds;
+	Contract.bIndustrial = Template.bIndustrial;
+	Contract.Rounds = FMath::Max(1, Template.Rounds);
 
 	// Reward: market value of exactly the minimum acceptable items, times the template factor.
 	const FWEItemInstance Reference = FWEItemInstance::Make(Template.Item, Contract.Quantity, Template.MinCondition, FMath::Max<uint8>(50, Template.MinQuality));
@@ -178,6 +203,16 @@ void UWEContractComponent::UpdateContracts()
 		{
 			UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' expired (%s)"), *Contracts[i].Title.ToString(),
 				Contracts[i].State == EWEContractState::Accepted ? TEXT("accepted") : TEXT("offer"));
+			// Industrial orders and supply contracts: a missed delivery costs a penalty (never below zero).
+			if (UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+				Company && Contracts[i].State == EWEContractState::Accepted && !Contracts[i].GetPenalty().IsZero())
+			{
+				const FWEMoney Penalty = FWEMoney::FromCents(FMath::Min(Contracts[i].GetPenalty().GetCents(), Company->GetBalance().GetCents()));
+				if (!Penalty.IsZero())
+				{
+					Company->TryWithdraw(Penalty, FString::Printf(TEXT("Vertragsstrafe: %s"), *Contracts[i].Title.ToString()), Contracts[i].AcceptedBy);
+				}
+			}
 			if (Contracts[i].Kind == EWEContractKind::Repair && Contracts[i].CustomerItemId.IsValid())
 			{
 				RemoveCustomerItem(Contracts[i].CustomerItemId);
@@ -186,10 +221,16 @@ void UWEContractComponent::UpdateContracts()
 			bChanged = true;
 		}
 	}
-	int32 Offers = Contracts.FilterByPredicate([](const FWEContract& C) { return C.State == EWEContractState::Offered; }).Num();
+	int32 Offers = Contracts.FilterByPredicate([](const FWEContract& C) { return C.State == EWEContractState::Offered && !C.bIndustrial; }).Num();
 	while (Offers < MaxOffers && AddOffer())
 	{
 		++Offers;
+		bChanged = true;
+	}
+	int32 IndustrialOffers = Contracts.FilterByPredicate([](const FWEContract& C) { return C.State == EWEContractState::Offered && C.bIndustrial; }).Num();
+	while (IndustrialOffers < MaxIndustrialOffers && AddOffer(INDEX_NONE, true))
+	{
+		++IndustrialOffers;
 		bChanged = true;
 	}
 	if (bChanged)
@@ -209,8 +250,9 @@ EWEContractResult UWEContractComponent::Accept(const FGuid& Id, const FString& P
 	{
 		return EWEContractResult::WrongState;
 	}
-	const int32 Accepted = Contracts.FilterByPredicate([](const FWEContract& C) { return C.State == EWEContractState::Accepted; }).Num();
-	if (Accepted >= MaxAccepted)
+	const bool bIndustrial = Contract->bIndustrial;
+	const int32 Accepted = Contracts.FilterByPredicate([bIndustrial](const FWEContract& C) { return C.State == EWEContractState::Accepted && C.bIndustrial == bIndustrial; }).Num();
+	if (Accepted >= (bIndustrial ? MaxIndustrialAccepted : MaxAccepted))
 	{
 		return EWEContractResult::TooManyAccepted;
 	}
@@ -297,11 +339,84 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 			Held->Destroy();
 		}
 	}
-	Contracts.RemoveAt(Index);
 	const APlayerState* PS = Character->GetPlayerState();
-	Company->Deposit(Contract.Reward, FString::Printf(TEXT("Auftrag: %s"), *Contract.Title.ToString()), PS ? PS->GetPlayerName() : FString());
-	UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' delivered, reward %s"), *Contract.Title.ToString(), *Contract.Reward.ToDisplayString());
+	CompleteDelivery(Index, PS ? PS->GetPlayerName() : FString());
+	return EWEContractResult::Success;
+}
+
+void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerName)
+{
+	UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	if (!Contracts.IsValidIndex(Index) || !Company)
+	{
+		return;
+	}
+	FWEContract& Contract = Contracts[Index];
+	++Contract.RoundsDone;
+	FString Booking;
+	if (Contract.Rounds > 1)
+	{
+		Booking = FString::Printf(TEXT("Liefervertrag: %s (Lieferung %d/%d)"), *Contract.Title.ToString(), Contract.RoundsDone, Contract.Rounds);
+	}
+	else
+	{
+		Booking = FString::Printf(TEXT("%s: %s"), Contract.bIndustrial ? TEXT("Industrieauftrag") : TEXT("Auftrag"), *Contract.Title.ToString());
+	}
+	const FWEMoney Reward = Contract.Reward;
+	const FString Title = Contract.Title.ToString();
+	if (Contract.RoundsDone < Contract.Rounds)
+	{
+		// Supply contract: the next delivery is due within the same time again.
+		Contract.ExpiresAt = GetServerTime() + Contract.DeliverySeconds;
+	}
+	else
+	{
+		Contracts.RemoveAt(Index);
+	}
+	Company->Deposit(Reward, Booking, PlayerName);
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' delivered, reward %s"), *Title, *Reward.ToDisplayString());
 	OnRep_Contracts();
+}
+
+int32 UWEContractComponent::CountInStorage(const FWEContract& Contract, const UWEInventoryComponent* Storage)
+{
+	int32 Count = 0;
+	for (const FWEInventorySlotData& Slot : Storage ? Storage->GetAllSlots() : TArray<FWEInventorySlotData>())
+	{
+		Count += Matches(Contract, Slot.Item) ? Slot.Item.Quantity : 0;
+	}
+	return Count;
+}
+
+EWEContractResult UWEContractComponent::DeliverFromStorage(const FGuid& Id, UWEInventoryComponent* Storage, const FString& PlayerName)
+{
+	const int32 Index = Contracts.IndexOfByPredicate([&Id](const FWEContract& C) { return C.Id == Id; });
+	if (!GetOwner()->HasAuthority() || Index == INDEX_NONE || !Storage)
+	{
+		return EWEContractResult::NotFound;
+	}
+	const FWEContract Contract = Contracts[Index];
+	if (Contract.State != EWEContractState::Accepted || Contract.Kind != EWEContractKind::Supply)
+	{
+		return EWEContractResult::WrongState;
+	}
+	if (CountInStorage(Contract, Storage) < Contract.Quantity)
+	{
+		return EWEContractResult::MissingItems;
+	}
+	int32 Remaining = Contract.Quantity;
+	const TArray<FWEInventorySlotData> Slots = Storage->GetAllSlots();
+	for (const FWEInventorySlotData& Slot : Slots)
+	{
+		if (Remaining > 0 && Matches(Contract, Slot.Item))
+		{
+			FWEItemInstance Removed;
+			const int32 Take = FMath::Min(Remaining, Slot.Item.Quantity);
+			Storage->RemoveFromSlot(Slot.SlotIndex, Take, Removed);
+			Remaining -= Take;
+		}
+	}
+	CompleteDelivery(Index, PlayerName);
 	return EWEContractResult::Success;
 }
 

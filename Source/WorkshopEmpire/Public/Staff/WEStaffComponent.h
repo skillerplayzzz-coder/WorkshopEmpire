@@ -46,6 +46,8 @@ public:
 	const TArray<FWEEmployeeProfile>& GetApplicants() const { return Applicants; }
 	TArray<AWEEmployee*> GetEmployees() const;
 	const FWEMoney& GetOwedWages() const { return OwedWages; }
+	/** Catalog limit plus what buildings add (Phase 12). */
+	int32 GetMaxEmployees() const;
 	/** Wages of all employees per minute. */
 	FWEMoney GetWagesPerMinute() const;
 	/** Seconds until the next payroll (from replicated server time). */

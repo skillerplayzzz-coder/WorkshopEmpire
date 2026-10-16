@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 11 – Mitarbeiter und Logistik: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 12 wurde nicht begonnen.
+**Phase 12 – Unternehmensexpansion: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 13 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -93,12 +93,20 @@ Phase 12 wurde nicht begonnen.
 - Mitarbeiter laufen auf einem Navigationsnetz (passt sich der Einrichtung an)
 - Speicherversion 10 (Mitarbeiter mit Aufgaben, Bewerber, Löhne, Touren)
 
+### Phase 12 – Unternehmensexpansion (2026-10-16)
+- Drei Gebäude zum Kaufen, die auf dem Gelände erscheinen (eigenes Tor, Licht, Baufläche): Werkstatt-Erweiterung (6.000 €), Gewerbehalle (25.000 €), Fabrikhalle (90.000 €); mehr Strom und Platz für Mitarbeiter
+- Unternehmensstufen: Kleine Garage → Große Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen (Fabrik + 250.000 € Firmenwert); neue Stufe wird allen gemeldet
+- Neue Produktion: Schmelzofen (Aluminium-/Kupferbarren), Verpackungsanlage (Paletten Stahlwinkel/Kabel); Hochregal und Großes Materiallager; Einrichtung erst ab der passenden Stufe
+- Industrieaufträge (eigene Liste, größer, Vertragsstrafe bei Ablauf) und Lieferverträge mit mehreren Lieferungen; neue Wagentour "Auslieferung"
+- Neuer Reiter "Unternehmen": Stufe, nächste Stufe, Firmenwert, Strom, Personal, Einnahmen und Ausgaben je Bereich (letzte Stunde / gesamt), laufende Aufträge
+- Speicherversion 11 (Lieferungen von Aufträgen, Buchhaltung)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 11 (Anleitung im Development Report)
+- Mike: Praxistest Phase 12 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, Fahrzeug sichtbar losfahren lassen, kleiner/großer LKW
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, Fahrzeug sichtbar losfahren lassen, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, Balancing der Gebäudepreise (Phase 16)
 
 ## Bekannte Fehler
 
@@ -106,8 +114,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 12 – Unternehmensexpansion (laut Spezifikation u. a. größere Werkstätten, Gewerbehallen, Fabrikgebäude, größere Aufträge, Unternehmensverwaltung), erst nach Mikes Freigabe.
+Phase 13 – Multiplayer-Integration (laut Spezifikation u. a. Koop-Lobbys, Listen-Server, Beitreten/Verlassen, synchronisierte Gegenstände, Inventare, Geld, Maschinen und Produktion), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-15: 75/75 Automation-Tests, Netzwerktests A–R (inkl. Maschinen mit 2 Spielern) bestanden, Maschinenkette, Baumodus, Beschaffung, Reparatur und Vertical Slice im Spiel mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-17: 95/95 Automation-Tests, Netzwerktests A–X (Dedicated) und I/J (Listen-Server) bestanden, Expansion (P12) und alle früheren Spielläufe P5–P11 mit Screenshots geprüft.

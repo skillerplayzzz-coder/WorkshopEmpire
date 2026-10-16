@@ -64,6 +64,23 @@ public:
 	float GetWorkSpeedMultiplier() const;
 	float GetLightMultiplier() const;
 	float GetPowerCapacityBonusKw() const;
+	int32 GetStaffSlotBonus() const;
+
+	// --- Company (Phase 12) -----------------------------------------------------------------------
+
+	/** 1 Kleine Garage, 2 Große Werkstatt, 3 Gewerbehalle, 4 Fabrik, 5 Industrieunternehmen. */
+	int32 GetCompanyTier() const;
+	static FText GetTierName(int32 Tier);
+	static constexpr int32 MaxTier = 5;
+	/** Firmenwert: account + half of what furniture, machines, buildings and vehicles cost. */
+	FWEMoney GetCompanyValue() const;
+	/** The fifth tier needs a factory and this company value. */
+	static constexpr int64 IndustrialCompanyValueCents = 25000000;
+	/** What the next tier needs (empty at the top). */
+	FText GetNextTierText() const;
+
+	/** Actors tagged "WEUpgrade.<Id>" (buildings, doors, build areas, lights) appear with that upgrade. */
+	static FName MakeUpgradeTag(FName UpgradeId);
 
 	/** Re-applies all effects to the world (furniture, storages, inventories, lights). Any machine. */
 	void ApplyEffects();

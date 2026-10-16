@@ -22,6 +22,22 @@ struct WORKSHOPEMPIRE_API FWETransactionRecord
 	FString PlayerName;
 };
 
+/** What a booking was for (Unternehmensverwaltung, Phase 12). Derived from the booking text. */
+UENUM(BlueprintType)
+enum class EWEBookingCategory : uint8
+{
+	Sales,
+	Orders,
+	Purchases,
+	Equipment,
+	Expansion,
+	Wages,
+	Power,
+	Logistics,
+	Other,
+	Count UMETA(Hidden)
+};
+
 DECLARE_MULTICAST_DELEGATE(FWEOnCompanyChanged);
 
 /**
@@ -47,6 +63,18 @@ public:
 	FWEMoney GetBalance() const { return Balance; }
 	bool CanAfford(const FWEMoney& Amount) const { return !Amount.IsNegative() && Balance >= Amount; }
 	const TArray<FWETransactionRecord>& GetRecentTransactions() const { return RecentTransactions; }
+
+	// --- Books (Phase 12) ---------------------------------------------------------------------------
+
+	static EWEBookingCategory Classify(const FString& Description);
+	static FText GetCategoryName(EWEBookingCategory Category);
+	/** Net amount of a category since the company started (income positive, expenses negative). */
+	int64 GetCategoryTotalCents(EWEBookingCategory Category) const;
+	/** The same for the last hour of play. */
+	int64 GetCategoryLastHourCents(EWEBookingCategory Category) const;
+	const TArray<int64>& GetCategoryTotals() const { return CategoryTotals; }
+	/** Loading. */
+	void SetCategoryTotals(const TArray<int64>& InTotals);
 
 	// --- Server only ------------------------------------------------------------------------------
 
@@ -81,6 +109,17 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Company)
 	TArray<FWETransactionRecord> RecentTransactions;
+
+	UPROPERTY(Replicated)
+	TArray<int64> CategoryTotals;
+
+	UPROPERTY(Replicated)
+	TArray<int64> CategoryLastHour;
+
+	/** Server: bookings of the last hour (time, category, cents). */
+	struct FHourEntry { float Time; uint8 Category; int64 Cents; };
+	TArray<FHourEntry> HourEntries;
+	void UpdateLastHour();
 
 private:
 	TSet<FGuid> ProcessedRequests;

@@ -251,7 +251,14 @@ void UWEBuildComponent::UpdatePreview()
 	if (bPreviewValid && Definition && !Moving)
 	{
 		const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
-		if (Company && !Company->CanAfford(Definition->Cost))
+		const UWEWorkshopLayoutComponent* LockLayout = UWEWorkshopLayoutComponent::Get(this);
+		const FText Lock = LockLayout ? LockLayout->GetLockReason(*Definition) : FText::GetEmpty();
+		if (!Lock.IsEmpty())
+		{
+			bPreviewValid = false;
+			Reason = Lock;
+		}
+		else if (Company && !Company->CanAfford(Definition->Cost))
 		{
 			bPreviewValid = false;
 			Reason = LOCTEXT("NoMoney", "Nicht genug Geld auf dem Firmenkonto");
@@ -361,7 +368,9 @@ TArray<FString> UWEBuildComponent::GetMenuLines() const
 		for (int32 i = 0; i < Catalog->Items.Num(); ++i)
 		{
 			const FWEFurnitureDefinition& D = Catalog->Items[i];
-			Lines.Add(FString::Printf(TEXT("%s %s – %s"), i == SelectedIndex ? TEXT("▶") : TEXT("   "), *D.DisplayName.ToString(), *D.Cost.ToDisplayString()));
+			const FText Lock = Layout->GetLockReason(D);
+			Lines.Add(FString::Printf(TEXT("%s %s – %s%s"), i == SelectedIndex ? TEXT("▶") : TEXT("   "), *D.DisplayName.ToString(), *D.Cost.ToDisplayString(),
+				Lock.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("  (%s)"), *Lock.ToString())));
 		}
 	}
 	return Lines;

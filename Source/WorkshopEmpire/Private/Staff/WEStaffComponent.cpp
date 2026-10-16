@@ -10,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Player/WECharacter.h"
 #include "Staff/WEEmployee.h"
+#include "Progression/WEProgressionComponent.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
@@ -79,6 +80,12 @@ TArray<AWEEmployee*> UWEStaffComponent::GetEmployees() const
 		}
 	}
 	return Result;
+}
+
+int32 UWEStaffComponent::GetMaxEmployees() const
+{
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	return (Catalog ? Catalog->MaxEmployees : 6) + (Progression ? Progression->GetStaffSlotBonus() : 0);
 }
 
 FWEMoney UWEStaffComponent::GetWagesPerMinute() const
@@ -215,11 +222,11 @@ EWEStaffResult UWEStaffComponent::Hire(AWECharacter* By, int32 ApplicantIndex, c
 	{
 		return EWEStaffResult::Invalid;
 	}
-	if (Catalog && GetEmployees().Num() >= Catalog->MaxEmployees)
+	if (Catalog && GetEmployees().Num() >= GetMaxEmployees())
 	{
 		if (AWEPlayerController* PC = By ? Cast<AWEPlayerController>(By->GetController()) : nullptr)
 		{
-			PC->ClientShowMessage(FText::Format(LOCTEXT("TooMany", "Mehr als {0} Mitarbeiter passen nicht in die Werkstatt"), FText::AsNumber(Catalog->MaxEmployees)));
+			PC->ClientShowMessage(FText::Format(LOCTEXT("TooMany", "Mehr als {0} Mitarbeiter passen nicht in den Betrieb – größere Gebäude bringen mehr Platz"), FText::AsNumber(GetMaxEmployees())));
 		}
 		return EWEStaffResult::TooManyEmployees;
 	}

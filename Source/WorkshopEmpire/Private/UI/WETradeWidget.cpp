@@ -25,6 +25,7 @@
 #include "Progression/WEProgressionComponent.h"
 #include "Progression/WEUpgradeDefinition.h"
 #include "Styling/CoreStyle.h"
+#include "Machines/WEPowerGridComponent.h"
 #include "Staff/WEEmployee.h"
 #include "Staff/WEStaffComponent.h"
 #include "Logistics/WEVehicle.h"
@@ -163,6 +164,10 @@ void UWETradeWidget::ShowPage(int32 Page)
 	{
 		Pages->SetActiveWidgetIndex(Page);
 	}
+	if (TabCompanyText)
+	{
+		TabCompanyText->SetText(Page == 3 ? LOCTEXT("TabCompanyOn", "▶ Unternehmen") : LOCTEXT("TabCompany", "Unternehmen"));
+	}
 	if (TabMarketText && TabAuctionsText && TabStaffText)
 	{
 		TabMarketText->SetText(Page == 0 ? LOCTEXT("TabMarketOn", "▶ Marktplatz") : LOCTEXT("TabMarket", "Marktplatz"));
@@ -185,6 +190,11 @@ void UWETradeWidget::HandleTabAuctions()
 void UWETradeWidget::HandleTabStaff()
 {
 	ShowPage(2);
+}
+
+void UWETradeWidget::HandleTabCompany()
+{
+	ShowPage(3);
 }
 
 UVerticalBox* UWETradeWidget::MakeColumn(const FText& Title, TObjectPtr<UScrollBox>& OutList, float Width)
@@ -241,7 +251,9 @@ void UWETradeWidget::NativeOnInitialized()
 	TabMarket->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabMarket);
 	TabAuctions->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabAuctions);
 	TabStaff->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabStaff);
-	for (UButton* Tab : { TabMarket, TabAuctions, TabStaff })
+	UButton* TabCompany = MakeTabButton(LOCTEXT("TabCompany", "Unternehmen"), TabCompanyText);
+	TabCompany->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabCompany);
+	for (UButton* Tab : { TabMarket, TabAuctions, TabStaff, TabCompany })
 	{
 		if (UHorizontalBoxSlot* S = Header->AddChildToHorizontalBox(Tab))
 		{
@@ -298,6 +310,19 @@ void UWETradeWidget::NativeOnInitialized()
 	Pages->AddChild(Columns);
 	Pages->AddChild(AuctionColumns);
 	Pages->AddChild(StaffColumns);
+	// Page 4: company management (Phase 12).
+	UHorizontalBox* CompanyColumns = WidgetTree->ConstructWidget<UHorizontalBox>();
+	UVerticalBox* TierColumn = MakeColumn(LOCTEXT("CompanyTier", "Unternehmen"), TierList, 360.f);
+	UVerticalBox* BooksColumn = MakeColumn(LOCTEXT("Books", "Einnahmen und Ausgaben"), BooksList, 380.f);
+	UVerticalBox* OrdersColumn = MakeColumn(LOCTEXT("OrdersOverview", "Laufende Aufträge und Verträge"), ContractsOverview, 360.f);
+	for (UVerticalBox* Column : { TierColumn, BooksColumn, OrdersColumn })
+	{
+		if (UHorizontalBoxSlot* S = CompanyColumns->AddChildToHorizontalBox(Column))
+		{
+			S->SetPadding(FMargin(6.f, 0.f));
+		}
+	}
+	Pages->AddChild(CompanyColumns);
 	Outer->AddChildToVerticalBox(Pages);
 	ShowPage(0);
 
@@ -398,6 +423,16 @@ FString UWETradeWidget::BuildSignature() const
 			Sig << TEXT("|e:") << E->GetName() << static_cast<int32>(E->GetState()) << E->GetStateText().ToString() << E->GetTaskText().ToString();
 		}
 		Sig << TEXT("|ow:") << Staff->GetOwedWages().GetCents();
+		if (CurrentPage == 3)
+		{
+			if (const UWECompanyComponent* Books = UWECompanyComponent::Get(this))
+			{
+				for (const int64 Cents : Books->GetCategoryTotals())
+				{
+					Sig << TEXT("|bk:") << Cents;
+				}
+			}
+		}
 		if (CurrentPage == 2)
 		{
 			Sig << TEXT("|pt:") << FMath::CeilToInt(Staff->GetSecondsToPayroll() / 10.f);
@@ -507,8 +542,10 @@ void UWETradeWidget::Rebuild()
 						? LOCTEXT("RepairContractAccepted", "Reparieren: {0} (liegt auf der Palette), in der Hand abliefern · {1} · noch {2} min")
 						: LOCTEXT("RepairContractOpen", "Reparieren: {0} · {1} · noch {2} min"),
 					FText::Format(LOCTEXT("RepairItem", "{0}, {1}"), ItemName, WEItems::GetConditionText(Contract.CustomerCondition)), State, FText::AsNumber(Minutes))
-				: FText::Format(LOCTEXT("ContractDetail", "{0}× {1}, mind. {2} · {3} · noch {4} min"), FText::AsNumber(Contract.Quantity), ItemName,
-					WEItems::GetConditionText(Contract.MinCondition), State, FText::AsNumber(Minutes));
+				: FText::Format(LOCTEXT("ContractDetail", "{5}{0}× {1}, mind. {2} · {3} · noch {4} min{6}"), FText::AsNumber(Contract.Quantity), ItemName,
+					WEItems::GetConditionText(Contract.MinCondition), State, FText::AsNumber(Minutes),
+					Contract.bIndustrial ? LOCTEXT("IndustrialTag", "★ Industrie · ") : FText::GetEmpty(),
+					Contract.Rounds > 1 ? FText::Format(LOCTEXT("RoundsTag", " · Liefervertrag {0}/{1}, je Lieferung"), FText::AsNumber(Contract.RoundsDone + 1), FText::AsNumber(Contract.Rounds)) : FText::GetEmpty());
 			Row->Configure(this, EWETradeRowKind::Contract, Contract.Title, Detail,
 				WETradeStyle::Money(Contract.Reward),
 				bAccepted ? FText::Format(LOCTEXT("Deliver", "Abliefern ({0}/{1})"), FText::AsNumber(FMath::Min(Have, Contract.Quantity)), FText::AsNumber(Contract.Quantity))
@@ -542,6 +579,7 @@ void UWETradeWidget::Rebuild()
 
 	RebuildAuctions(Balance);
 	RebuildStaff(Balance);
+	RebuildCompany();
 
 	// Recent bookings.
 	FString History = LOCTEXT("History", "Letzte Buchungen:").ToString();
@@ -636,7 +674,7 @@ void UWETradeWidget::RebuildStaff(const FWEMoney& Balance)
 		return;
 	}
 	const TArray<AWEEmployee*> Employees = Staff->GetEmployees();
-	const int32 MaxEmployees = Staff->GetCatalog() ? Staff->GetCatalog()->MaxEmployees : 6;
+	const int32 MaxEmployees = Staff->GetMaxEmployees();
 	const TArray<FWEEmployeeProfile>& Applicants = Staff->GetApplicants();
 	for (int32 i = 0; i < Applicants.Num(); ++i)
 	{
@@ -706,6 +744,87 @@ void UWETradeWidget::RebuildStaff(const FWEMoney& Balance)
 	}
 	Info(LOCTEXT("Forklift", "Gabelstapler"), bForklift ? LOCTEXT("ForkliftOwned", "In der Werkstatt: [E] aufsteigen, hebt bis 1.500 kg, [X] absteigen.")
 		: LOCTEXT("ForkliftLocked", "Noch keiner. Unter \"Werkstatt verbessern\": Gabelstapler."));
+}
+
+void UWETradeWidget::RebuildCompany()
+{
+	TierList->ClearChildren();
+	BooksList->ClearChildren();
+	ContractsOverview->ClearChildren();
+	auto Info = [this](UScrollBox* List, const FText& Title, const FText& Detail, const FText& Price = FText::GetEmpty())
+	{
+		UWETradeRowWidget* Row = AddRow(List);
+		Row->WrapOverride = 250.f;
+		Row->Configure(this, EWETradeRowKind::Info, Title, Detail, Price, FText::GetEmpty(), false);
+	};
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	const UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	if (Progression)
+	{
+		const int32 Tier = Progression->GetCompanyTier();
+		Info(TierList, FText::Format(LOCTEXT("TierNow", "Stufe {0}: {1}"), FText::AsNumber(Tier), UWEProgressionComponent::GetTierName(Tier)),
+			LOCTEXT("TierWhat", "Größere Gebäude bringen Platz, Strom, mehr Mitarbeiter, neue Maschinen und Industrieaufträge."));
+		const FText Next = Progression->GetNextTierText();
+		Info(TierList, LOCTEXT("TierNext", "Nächste Stufe"), Next.IsEmpty() ? LOCTEXT("TierTop", "Höchste Stufe erreicht") : Next);
+		Info(TierList, LOCTEXT("Value", "Firmenwert"), LOCTEXT("ValueDetail", "Konto + halber Kaufpreis von Einrichtung, Maschinen, Gebäuden und Fahrzeugen"),
+			WETradeStyle::Money(Progression->GetCompanyValue()));
+	}
+	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this))
+	{
+		Info(TierList, LOCTEXT("Power", "Stromanschluss"), FText::Format(LOCTEXT("PowerDetail", "{0} von {1} kW belegt"),
+			FText::AsNumber(FMath::RoundToInt(Grid->GetLoadKw() * 10.f) / 10.f), FText::AsNumber(FMath::RoundToInt(Grid->GetCapacityKw()))));
+	}
+	if (Staff)
+	{
+		Info(TierList, LOCTEXT("StaffCap", "Personal"), FText::Format(LOCTEXT("StaffCapDetail", "{0} von {1} Mitarbeitern"),
+			FText::AsNumber(Staff->GetEmployees().Num()), FText::AsNumber(Staff->GetMaxEmployees())));
+	}
+
+	if (Company)
+	{
+		int64 HourSum = 0;
+		int64 TotalSum = 0;
+		for (int32 i = 0; i < static_cast<int32>(EWEBookingCategory::Count); ++i)
+		{
+			const EWEBookingCategory Category = static_cast<EWEBookingCategory>(i);
+			const int64 Hour = Company->GetCategoryLastHourCents(Category);
+			const int64 Total = Company->GetCategoryTotalCents(Category);
+			HourSum += Hour;
+			TotalSum += Total;
+			if (Hour == 0 && Total == 0)
+			{
+				continue;
+			}
+			Info(BooksList, UWECompanyComponent::GetCategoryName(Category),
+				FText::Format(LOCTEXT("BookDetail", "letzte Stunde {0} · insgesamt {1}"), WETradeStyle::Money(FWEMoney::FromCents(Hour)), WETradeStyle::Money(FWEMoney::FromCents(Total))));
+		}
+		Info(BooksList, LOCTEXT("BookResult", "Ergebnis"), FText::Format(LOCTEXT("BookResultDetail", "letzte Stunde {0} · insgesamt {1}"),
+			WETradeStyle::Money(FWEMoney::FromCents(HourSum)), WETradeStyle::Money(FWEMoney::FromCents(TotalSum))));
+	}
+
+	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(this))
+	{
+		const float Now = Contracts->GetServerTime();
+		for (const FWEContract& C : Contracts->GetContracts())
+		{
+			if (C.State != EWEContractState::Accepted)
+			{
+				continue;
+			}
+			const int32 Minutes = FMath::Max(0, FMath::CeilToInt((C.ExpiresAt - Now) / 60.f));
+			Info(ContractsOverview, C.Title, FText::Format(LOCTEXT("OverviewDetail", "{0}× {1} · noch {2} min{3}{4}"), FText::AsNumber(C.Quantity),
+				C.Item ? C.Item->DisplayName : FText::GetEmpty(), FText::AsNumber(Minutes),
+				C.Rounds > 1 ? FText::Format(LOCTEXT("OverviewRounds", " · Lieferung {0} von {1}"), FText::AsNumber(C.RoundsDone + 1), FText::AsNumber(C.Rounds)) : FText::GetEmpty(),
+				C.GetPenalty().IsZero() ? FText::GetEmpty() : FText::Format(LOCTEXT("OverviewPenalty", " · Strafe bei Verzug {0}"), WETradeStyle::Money(C.GetPenalty()))),
+				WETradeStyle::Money(C.Reward));
+		}
+		if (ContractsOverview->GetChildrenCount() == 0)
+		{
+			Info(ContractsOverview, LOCTEXT("NoOrders", "Keine laufenden Aufträge"),
+				LOCTEXT("NoOrdersDetail", "Aufträge im Reiter Marktplatz annehmen. Große Mengen liefert der Firmenwagen (Tour \"Auslieferung\")."));
+		}
+	}
 }
 
 void UWETradeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)

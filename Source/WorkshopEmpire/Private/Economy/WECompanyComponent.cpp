@@ -16,6 +16,96 @@ void UWECompanyComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UWECompanyComponent, Balance);
 	DOREPLIFETIME(UWECompanyComponent, RecentTransactions);
+	DOREPLIFETIME(UWECompanyComponent, CategoryTotals);
+	DOREPLIFETIME(UWECompanyComponent, CategoryLastHour);
+}
+
+EWEBookingCategory UWECompanyComponent::Classify(const FString& Description)
+{
+	struct FRule { const TCHAR* Prefix; EWEBookingCategory Category; };
+	// Order matters: longer prefixes first.
+	static const FRule Rules[] = {
+		{ TEXT("Verkaufsfahrt"), EWEBookingCategory::Sales },
+		{ TEXT("Verkauf"), EWEBookingCategory::Sales },
+		{ TEXT("Auftrag"), EWEBookingCategory::Orders },
+		{ TEXT("Industrieauftrag"), EWEBookingCategory::Orders },
+		{ TEXT("Liefervertrag"), EWEBookingCategory::Orders },
+		{ TEXT("Vertragsstrafe"), EWEBookingCategory::Orders },
+		{ TEXT("Einkauf"), EWEBookingCategory::Purchases },
+		{ TEXT("Großeinkauf"), EWEBookingCategory::Purchases },
+		{ TEXT("Auktion"), EWEBookingCategory::Purchases },
+		{ TEXT("Einrichtung"), EWEBookingCategory::Equipment },
+		{ TEXT("Rückbuchung Einrichtung"), EWEBookingCategory::Equipment },
+		{ TEXT("Werkstatt"), EWEBookingCategory::Expansion },
+		{ TEXT("Rückbuchung Werkstatt"), EWEBookingCategory::Expansion },
+		{ TEXT("Löhne"), EWEBookingCategory::Wages },
+		{ TEXT("Stromrechnung"), EWEBookingCategory::Power },
+		{ TEXT("Tankfüllung"), EWEBookingCategory::Logistics },
+		{ TEXT("Rückbuchung Tankfüllung"), EWEBookingCategory::Logistics },
+	};
+	EWEBookingCategory Best = EWEBookingCategory::Other;
+	int32 BestLength = 0;
+	for (const FRule& Rule : Rules)
+	{
+		const int32 Length = FCString::Strlen(Rule.Prefix);
+		if (Length > BestLength && Description.StartsWith(Rule.Prefix))
+		{
+			Best = Rule.Category;
+			BestLength = Length;
+		}
+	}
+	return Best;
+}
+
+FText UWECompanyComponent::GetCategoryName(EWEBookingCategory Category)
+{
+	switch (Category)
+	{
+	case EWEBookingCategory::Sales:     return NSLOCTEXT("WECompany", "CatSales", "Verkäufe");
+	case EWEBookingCategory::Orders:    return NSLOCTEXT("WECompany", "CatOrders", "Aufträge und Verträge");
+	case EWEBookingCategory::Purchases: return NSLOCTEXT("WECompany", "CatPurchases", "Einkauf");
+	case EWEBookingCategory::Equipment: return NSLOCTEXT("WECompany", "CatEquipment", "Einrichtung und Maschinen");
+	case EWEBookingCategory::Expansion: return NSLOCTEXT("WECompany", "CatExpansion", "Ausbau, Gebäude, Fahrzeuge");
+	case EWEBookingCategory::Wages:     return NSLOCTEXT("WECompany", "CatWages", "Löhne");
+	case EWEBookingCategory::Power:     return NSLOCTEXT("WECompany", "CatPower", "Strom");
+	case EWEBookingCategory::Logistics: return NSLOCTEXT("WECompany", "CatLogistics", "Logistik");
+	default:                            return NSLOCTEXT("WECompany", "CatOther", "Sonstiges");
+	}
+}
+
+int64 UWECompanyComponent::GetCategoryTotalCents(EWEBookingCategory Category) const
+{
+	const int32 Index = static_cast<int32>(Category);
+	return CategoryTotals.IsValidIndex(Index) ? CategoryTotals[Index] : 0;
+}
+
+int64 UWECompanyComponent::GetCategoryLastHourCents(EWEBookingCategory Category) const
+{
+	const int32 Index = static_cast<int32>(Category);
+	return CategoryLastHour.IsValidIndex(Index) ? CategoryLastHour[Index] : 0;
+}
+
+void UWECompanyComponent::SetCategoryTotals(const TArray<int64>& InTotals)
+{
+	if (!GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	CategoryTotals = InTotals;
+	CategoryTotals.SetNumZeroed(static_cast<int32>(EWEBookingCategory::Count));
+	HourEntries.Reset();
+	UpdateLastHour();
+}
+
+void UWECompanyComponent::UpdateLastHour()
+{
+	const float Now = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
+	HourEntries.RemoveAll([Now](const FHourEntry& E) { return Now - E.Time > 3600.f; });
+	CategoryLastHour.Init(0, static_cast<int32>(EWEBookingCategory::Count));
+	for (const FHourEntry& E : HourEntries)
+	{
+		CategoryLastHour[E.Category] += E.Cents;
+	}
 }
 
 UWECompanyComponent* UWECompanyComponent::Get(const UObject* WorldContext)
@@ -41,6 +131,12 @@ void UWECompanyComponent::AddRecord(const FWEMoney& Amount, const FString& Descr
 	{
 		RecentTransactions.SetNum(MaxRecentTransactions);
 	}
+	// Books by category (all time and the last hour).
+	const uint8 Category = static_cast<uint8>(Classify(Description));
+	CategoryTotals.SetNumZeroed(static_cast<int32>(EWEBookingCategory::Count));
+	CategoryTotals[Category] += Amount.GetCents();
+	HourEntries.Add({ GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f, Category, Amount.GetCents() });
+	UpdateLastHour();
 }
 
 bool UWECompanyComponent::Deposit(const FWEMoney& Amount, const FString& Description, const FString& PlayerName)

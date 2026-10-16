@@ -1,6 +1,7 @@
 #include "Logistics/WEVehicle.h"
 
 #include "Economy/WECompanyComponent.h"
+#include "Economy/WEContractComponent.h"
 #include "Economy/WETraderTerminal.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -160,7 +161,7 @@ FText AWEVehicle::GetStartBlockReason() const
 	{
 		return FText::Format(LOCTEXT("DriverNotReady", "{0} ist noch nicht am Wagen"), FText::FromString(Driver->GetProfile().Name));
 	}
-	if (Tour->Kind == EWETourKind::Sell && GetStorage()->GetAllSlots().Num() == 0)
+	if (Tour->Kind != EWETourKind::Pickup && GetStorage()->GetAllSlots().Num() == 0)
 	{
 		return LOCTEXT("Empty", "Laderaum leer");
 	}
@@ -344,6 +345,25 @@ void AWEVehicle::FinishTour()
 			Company->Deposit(FWEMoney::FromCents(Cents), FString::Printf(TEXT("Verkaufsfahrt: %s (%d Stück)"), *Tour->DisplayName.ToString(), Units), FString());
 		}
 		Result = FString::Printf(TEXT("%s: %d Stück für %s verkauft"), *Tour->DisplayName.ToString(), Units, *FWEMoney::FromCents(Cents).ToDisplayString());
+	}
+	else if (Tour && Tour->Kind == EWETourKind::Deliver)
+	{
+		// Every accepted order whose goods are complete in the cargo gets one delivery.
+		TArray<FString> Delivered;
+		if (UWEContractComponent* Contracts = UWEContractComponent::Get(this))
+		{
+			const TArray<FWEContract> Open = Contracts->GetContracts();
+			for (const FWEContract& Contract : Open)
+			{
+				if (Contract.State == EWEContractState::Accepted && Contract.Kind == EWEContractKind::Supply
+					&& Contracts->DeliverFromStorage(Contract.Id, GetStorage(), FString()) == EWEContractResult::Success)
+				{
+					Delivered.Add(Contract.Title.ToString());
+				}
+			}
+		}
+		Result = Delivered.Num() > 0 ? FString::Printf(TEXT("%s: %s"), *Tour->DisplayName.ToString(), *FString::Join(Delivered, TEXT(", ")))
+			: FString::Printf(TEXT("%s: nichts Passendes geladen"), *Tour->DisplayName.ToString());
 	}
 	else if (Tour && Tour->Kind == EWETourKind::Pickup)
 	{

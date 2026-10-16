@@ -1,4 +1,10 @@
 #include "Progression/WEProgressionComponent.h"
+#include "World/WEPlaceholderProp.h"
+#include "NavigationSystem.h"
+#include "Workshop/WEFurnitureDefinition.h"
+#include "Workshop/WEWorkshopLayoutComponent.h"
+#include "Economy/WECompanyComponent.h"
+#include "Framework/WEPlayerController.h"
 
 #include "Components/LightComponent.h"
 #include "Engine/Light.h"
@@ -76,9 +82,23 @@ bool UWEProgressionComponent::GrantUpgrade(FName Id)
 	{
 		return false;
 	}
+	const int32 TierBefore = GetCompanyTier();
 	OwnedUpgrades.Add(Id);
 	UE_LOG(LogWorkshopEmpire, Log, TEXT("Upgrade bought: %s"), *Id.ToString());
 	OnRep_Progression();
+	if (GetCompanyTier() > TierBefore)
+	{
+		// A new company tier: everybody hears about it.
+		const FText Message = FText::Format(NSLOCTEXT("WEProgression", "TierUp", "Neue Unternehmensstufe: {0}!"), GetTierName(GetCompanyTier()));
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (AWEPlayerController* PC = Cast<AWEPlayerController>(It->Get()))
+			{
+				PC->ClientShowMessage(Message);
+			}
+		}
+		UE_LOG(LogWorkshopEmpire, Log, TEXT("Company tier %d"), GetCompanyTier());
+	}
 	return true;
 }
 
@@ -146,12 +166,128 @@ float UWEProgressionComponent::GetLightMultiplier() const
 	return Total;
 }
 
+int32 UWEProgressionComponent::GetStaffSlotBonus() const
+{
+	int32 Total = 0;
+	for (const FName& Id : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* U = Catalog ? Catalog->Find(Id) : nullptr;
+		Total += U ? U->StaffSlots : 0;
+	}
+	return Total;
+}
+
+FName UWEProgressionComponent::MakeUpgradeTag(FName UpgradeId)
+{
+	return FName(*FString::Printf(TEXT("WEUpgrade.%s"), *UpgradeId.ToString()));
+}
+
+FText UWEProgressionComponent::GetTierName(int32 Tier)
+{
+	switch (Tier)
+	{
+	case 1: return NSLOCTEXT("WEProgression", "Tier1", "Kleine Garage");
+	case 2: return NSLOCTEXT("WEProgression", "Tier2", "Große Werkstatt");
+	case 3: return NSLOCTEXT("WEProgression", "Tier3", "Gewerbehalle");
+	case 4: return NSLOCTEXT("WEProgression", "Tier4", "Fabrik");
+	case 5: return NSLOCTEXT("WEProgression", "Tier5", "Industrieunternehmen");
+	default: return FText::GetEmpty();
+	}
+}
+
+int32 UWEProgressionComponent::GetCompanyTier() const
+{
+	int32 Tier = 1;
+	for (const FName& Id : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* U = Catalog ? Catalog->Find(Id) : nullptr;
+		Tier = FMath::Max(Tier, U ? U->CompanyTier : 0);
+	}
+	if (Tier >= 4 && GetCompanyValue().GetCents() >= IndustrialCompanyValueCents)
+	{
+		Tier = MaxTier;
+	}
+	return Tier;
+}
+
+FWEMoney UWEProgressionComponent::GetCompanyValue() const
+{
+	int64 Cents = 0;
+	if (const UWECompanyComponent* Company = UWECompanyComponent::Get(this))
+	{
+		Cents += Company->GetBalance().GetCents();
+	}
+	// Equipment and buildings at half their price (what a buyer would pay).
+	for (const FName& Id : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* U = Catalog ? Catalog->Find(Id) : nullptr;
+		Cents += U ? U->Cost.GetCents() / 2 : 0;
+	}
+	if (const UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this))
+	{
+		for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It)
+		{
+			const FWEFurnitureDefinition* Definition = It->IsPlayerPlaced() ? Layout->FindDefinition(It->GetFurnitureId()) : nullptr;
+			Cents += Definition ? Definition->Cost.GetCents() / 2 : 0;
+		}
+	}
+	return FWEMoney::FromCents(Cents);
+}
+
+FText UWEProgressionComponent::GetNextTierText() const
+{
+	const int32 Tier = GetCompanyTier();
+	if (Tier >= MaxTier)
+	{
+		return FText::GetEmpty();
+	}
+	if (Tier == 4)
+	{
+		return FText::Format(NSLOCTEXT("WEProgression", "NextIndustrial", "Industrieunternehmen: Firmenwert {0} erreichen (jetzt {1})"),
+			FText::FromString(FWEMoney::FromCents(IndustrialCompanyValueCents).ToDisplayString()), FText::FromString(GetCompanyValue().ToDisplayString()));
+	}
+	// The cheapest building upgrade that lifts to the next tier.
+	const FWEUpgradeDefinition* Next = nullptr;
+	for (const FWEUpgradeDefinition& U : Catalog ? Catalog->Upgrades : TArray<FWEUpgradeDefinition>())
+	{
+		if (U.CompanyTier == Tier + 1 && (!Next || U.Cost < Next->Cost))
+		{
+			Next = &U;
+		}
+	}
+	return Next ? FText::Format(NSLOCTEXT("WEProgression", "NextBuilding", "{0}: \"{1}\" kaufen ({2})"), GetTierName(Tier + 1), Next->DisplayName,
+		FText::FromString(Next->Cost.ToDisplayString())) : FText::GetEmpty();
+}
+
 void UWEProgressionComponent::ApplyEffects()
 {
 	UWorld* World = GetWorld();
 	if (!World)
 	{
 		return;
+	}
+
+	// Buildings, doors, build areas and lights behind an upgrade (map actors tagged "WEUpgrade.<Id>").
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		for (const FName& Tag : It->Tags)
+		{
+			const FString TagString = Tag.ToString();
+			if (TagString.StartsWith(TEXT("WEUpgrade.")))
+			{
+				const bool bOwned = HasUpgrade(FName(*TagString.RightChop(10)));
+				if (It->IsHidden() == bOwned)
+				{
+					It->SetActorHiddenInGame(!bOwned);
+					It->SetActorEnableCollision(bOwned);
+					if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World))
+					{
+						Nav->UpdateActorInNavOctree(**It);
+					}
+				}
+				break;
+			}
+		}
 	}
 
 	// Furniture behind an upgrade, and storage sizes.

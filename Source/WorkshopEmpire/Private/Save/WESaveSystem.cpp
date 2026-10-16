@@ -272,6 +272,10 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	{
 		Save->Vehicles.Add({ It->GetFName(), It->GetSelectedTour(), It->GetActiveTour(), It->GetRemainingSeconds() });
 	}
+	if (const UWECompanyComponent* Books = UWECompanyComponent::Get(World))
+	{
+		Save->BookTotals = Books->GetCategoryTotals();
+	}
 	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World))
 	{
 		Save->PowerUnbilledKWh = Grid->GetUnbilledKWh();
@@ -310,6 +314,9 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 			Saved.Kind = static_cast<uint8>(Contract.Kind);
 			Saved.CustomerCondition = Contract.CustomerCondition;
 			Saved.CustomerItemId = Contract.CustomerItemId;
+			Saved.bIndustrial = Contract.bIndustrial;
+			Saved.Rounds = Contract.Rounds;
+			Saved.RoundsDone = Contract.RoundsDone;
 			Saved.MinQuality = Contract.MinQuality;
 		}
 	}
@@ -666,6 +673,7 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 		if (UWECompanyComponent* Company = UWECompanyComponent::Get(World))
 		{
 			Company->SetBalance(FWEMoney::FromCents(Save->CompanyBalanceCents));
+			Company->SetCategoryTotals(Save->BookTotals);
 		}
 		if (UWEMarketComponent* Market = UWEMarketComponent::Get(World); Market && Save->MarketDemand.Num() > 0)
 		{
@@ -691,6 +699,9 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 				Contract.Kind = Saved.Kind == 1 ? EWEContractKind::Repair : EWEContractKind::Supply;
 				Contract.CustomerCondition = Saved.CustomerCondition;
 				Contract.CustomerItemId = Saved.CustomerItemId;
+			Contract.bIndustrial = Saved.bIndustrial;
+			Contract.Rounds = FMath::Max(1, Saved.Rounds);
+			Contract.RoundsDone = Saved.RoundsDone;
 				Contract.MinQuality = Saved.MinQuality;
 				if (Contract.Item)
 				{

@@ -151,8 +151,50 @@ staff_spawn.set_editor_property("tags", ["WE_StaffSpawn"])
 spawn(unreal.WEVehicle, (760, -200, 0), label="CompanyVan", folder="Logistics")
 spawn(unreal.WEForklift, (-290, -215, 0), label="Forklift", folder="Logistics")
 # Navigation for employees (rebuilt at runtime when furniture moves, see DefaultEngine.ini).
-nav = spawn(unreal.NavMeshBoundsVolume, (250, 0, 100), label="NavBounds", folder="Staff")
-nav.set_actor_scale3d(unreal.Vector(10.0, 6.0, 3.0))
+nav = spawn(unreal.NavMeshBoundsVolume, (1000, 700, 150), label="NavBounds", folder="Staff")
+nav.set_actor_scale3d(unreal.Vector(23.0, 21.0, 4.0))  # garage, yard and all buildings of Phase 12
+# --- Expansion (Phase 12): buildings appear with their upgrade (actors tagged "WEUpgrade.<Id>") ---------
+def building(upgrade_id, label, center, yaw, depth, width, height, door_width, door_height, wall_color, area_half, lamps):
+    tag = f"WEUpgrade.{upgrade_id}"
+    b = spawn(unreal.WEGarageBuilding, center, (0.0, yaw, 0.0), label, "Expansion")
+    b.set_editor_property("inner_depth", depth)
+    b.set_editor_property("inner_width", width)
+    b.set_editor_property("inner_height", height)
+    b.set_editor_property("door_width", door_width)
+    b.set_editor_property("door_height", door_height)
+    b.set_editor_property("wall_color", unreal.LinearColor(*wall_color, 1.0))
+    b.set_editor_property("tags", [tag])
+    # The door opening is in the local +X wall.
+    rad = 3.14159265 * yaw / 180.0
+    import math
+    dx = math.cos(rad) * (depth * 0.5 + 10.0)
+    dy = math.sin(rad) * (depth * 0.5 + 10.0)
+    d = spawn(unreal.WEGarageDoor, (center[0] + dx, center[1] + dy, 0), (0.0, yaw, 0.0), f"{label}Door", "Expansion")
+    d.set_editor_property("door_width", door_width)
+    d.set_editor_property("door_height", door_height)
+    d.set_editor_property("tags", [tag])
+    a = spawn(unreal.WEBuildArea, (center[0], center[1], 150), label=f"{label}BuildArea", folder="Expansion")
+    a.set_editor_property("half_size", unreal.Vector2D(*area_half))
+    a.set_editor_property("tags", [tag])
+    for i, (lx, ly) in enumerate(lamps):
+        lamp = spawn(unreal.PointLight, (lx, ly, height - 30), label=f"{label}Lamp{i + 1}", folder="Expansion")
+        lc = lamp.get_component_by_class(unreal.PointLightComponent)
+        lc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+        lc.set_intensity(40.0)
+        lc.set_attenuation_radius(1600.0)
+        lc.set_light_color(unreal.LinearColor(1.0, 0.9, 0.75, 1.0))
+        lamp.set_editor_property("tags", [tag, "WE_WorkshopLight"])
+
+
+# Werkstatt-Erweiterung: next to the garage (-Y), door to the yard like the garage.
+building("WorkshopExtension", "WorkshopExtension", (0, -760, 0), 0.0, 800.0, 700.0, 320.0, 400.0, 260.0, (0.34, 0.33, 0.30),
+         (395.0, 345.0), [(-200, -760), (200, -760)])
+# Gewerbehalle: across the yard, door facing the garage (-X).
+building("CommercialHall", "CommercialHall", (1700, -200, 0), 180.0, 1400.0, 1400.0, 600.0, 500.0, 450.0, (0.30, 0.34, 0.38),
+         (695.0, 695.0), [(1400, -500), (2000, -500), (1400, 100), (2000, 100)])
+# Fabrikhalle: next to the commercial hall (+Y), door to the yard as well.
+building("FactoryHall", "FactoryHall", (1700, 1650, 0), 180.0, 1400.0, 1600.0, 700.0, 600.0, 500.0, (0.32, 0.30, 0.28),
+         (695.0, 795.0), [(1400, 1300), (2000, 1300), (1400, 2000), (2000, 2000)])
 # The navmesh itself is built at runtime (RuntimeGeneration=Dynamic); its actor must exist in the level.
 navmesh = spawn(unreal.RecastNavMesh, (0, 0, 0), label="RecastNavMesh-Default", folder="Staff")
 navmesh.set_editor_property("runtime_generation", unreal.RuntimeGenerationType.DYNAMIC)

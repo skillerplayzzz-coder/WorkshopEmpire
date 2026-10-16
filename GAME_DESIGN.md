@@ -202,6 +202,44 @@ Während der Tour sind Wagen und Fahrer weg; das Ergebnis meldet sich bei allen 
 
 **Gemessen** (Test mit echten Daten): Großeinkauf Altgeräte kostet 63 € statt ~89 € am Marktplatz; direkt weiterverkauft brächte er nur ~50 € (keine Endlosschleife). Ein Lagerarbeiter, der 10 Minuten eine Presse aus dem Regal füttert, schafft 7 Stahlballen: Wertzuwachs 6,44 € bei 6,00 € Lohn – Mitarbeiter lohnen sich über Menge und freie Hände, nicht als Gelddruckmaschine.
 
+### 3.9 Unternehmensexpansion und Unternehmensverwaltung (Stand Phase 12)
+
+**Gebäude** kauft man am Marktplatz in der Spalte "Werkstatt verbessern" (nacheinander, vom Firmenkonto). Ein gekauftes Gebäude steht sofort auf dem Gelände, mit eigenem Tor, Licht und Baufläche; dort lässt sich im Baumodus einrichten wie in der Garage. Jedes Gebäude hebt die **Unternehmensstufe**; eine neue Stufe wird allen Spielern gemeldet.
+
+| Stufe | Name | Wie | bringt |
+|---|---|---|---|
+| 1 | Kleine Garage | Start | 11 kW, 6 Mitarbeiter |
+| 2 | Große Werkstatt | Werkstatt-Erweiterung (6.000 €), Anbau neben der Garage (8 × 7 m) | +5,5 kW, +2 Mitarbeiter, Verpackungsanlage, erste Industrieaufträge |
+| 3 | Gewerbehalle | Gewerbehalle (25.000 €), 14 × 14 m, 6 m hoch, Tor zum Hof | +22 kW, +4 Mitarbeiter, Schmelzofen, Hochregal, Großes Materiallager, größere Industrieaufträge |
+| 4 | Fabrik | Fabrikhalle (90.000 €), 14 × 16 m, 7 m hoch | +44 kW, +8 Mitarbeiter, Platz für ganze Linien |
+| 5 | Industrieunternehmen | Fabrik und 250.000 € Firmenwert | Endziel dieser Phase |
+
+**Neue Einrichtung** (im Baumodus erst ab der genannten Stufe kaufbar, vorher steht "Benötigt: …" im Menü):
+
+| Einrichtung | Preis | Strom | Wirkung | ab |
+|---|---|---|---|---|
+| Verpackungsanlage | 1.400 € | 3 kW | 20 Stahlwinkel-Sets → Palette Stahlwinkel, 10 Verlängerungskabel → Palette Kabel (15 s); Paletten sind sperrig | Werkstatt-Erweiterung |
+| Schmelzofen | 2.800 € | 15 kW | 10 Aluminiumschrott → 2 Aluminiumbarren (20 s), 20 Kupfergranulat → 2 Kupferbarren (25 s) | Gewerbehalle |
+| Hochregal | 700 € | – | 40 Plätze, 1.000 kg | Gewerbehalle |
+| Großes Materiallager | 900 € | – | Produktionslager, 60 Plätze, 1.500 kg, nimmt auch Paletten und Ballen | Gewerbehalle |
+
+**Industrieaufträge und Lieferverträge** stehen am Marktplatz unter den Kundenaufträgen mit "★ Industrie". Ab Stufe 2 gibt es bis zu 2 davon zusätzlich zu den 3 normalen Angeboten, höchstens 2 gleichzeitig angenommen. Sie sind größer und zahlen etwa das 1,4–1,5-Fache des Marktwerts, kosten aber eine **Vertragsstrafe** (ein Viertel der Belohnung), wenn die Frist abläuft. Ein **Liefervertrag** wird mehrmals geliefert (3 bzw. 4 Lieferungen); jede Lieferung wird sofort bezahlt und startet die nächste Frist.
+
+| Auftrag | Ware | ab Stufe | Frist |
+|---|---|---|---|
+| Stahlwerk kauft Stahlballen | 6–10 Stahlballen | 2 | 60 min |
+| Recyclingverband sucht Kupferpakete | 2–4 Kupferpakete | 2 | 60 min |
+| Baumarktkette: Liefervertrag Stahlwinkel | 3 × 1 Palette Stahlwinkel | 2 | 20 min je Lieferung |
+| Gießerei kauft Aluminiumbarren | 6–10 Aluminiumbarren | 3 | 60 min |
+| Kabelwerk kauft Kupferbarren | 4–6 Kupferbarren | 3 | 60 min |
+| Elektrogroßhandel: Liefervertrag Kabel | 4 × 1 Palette Kabel | 3 | 20 min je Lieferung |
+
+Große Mengen muss niemand selbst tragen: Die neue Tour **"Auslieferung"** des Firmenwagens (4 min, 6 € Sprit) liefert jeden angenommenen Auftrag, dessen Ware vollständig im Laderaum liegt (Lieferverträge: eine Lieferung). Abliefern am Terminal geht weiterhin.
+
+**Unternehmensverwaltung:** Neuer Reiter "Unternehmen" am Marktplatz mit Stufe, nächster Stufe, **Firmenwert** (Konto + halber Kaufpreis von Gebäuden, Fahrzeugen, Einrichtung und Maschinen), Stromanschluss, Personal, **Einnahmen und Ausgaben** je Bereich (Verkäufe, Aufträge, Einkauf, Einrichtung und Maschinen, Ausbau/Gebäude/Fahrzeuge, Löhne, Strom, Logistik, Sonstiges – letzte Stunde und insgesamt, mit Ergebnis) und den laufenden Aufträgen mit Lieferungen und Strafe.
+
+**Gemessen** (Test mit echten Daten): Der Schmelzofen verdoppelt fast den Wert (Aluminium ×1,97, Kupfer ×1,94), Verpacken bringt ×1,11–1,14 – lohnt sich vor allem für Lieferverträge: Palette Kabel 101,50 € je Lieferung statt 66 € beim Händler, Kupferbarren-Auftrag 194 € statt 134 €. Die Gewerbehalle mit Ofen (27.800 €) zahlt sich mit Kupfer allein erst nach gut 1.000 Ofenläufen aus – ein langfristiges Ziel, das mit Industrieaufträgen deutlich schneller geht.
+
 ## 4. Wirtschaft
 
 - Währung: Euro, intern ganzzahlige Cent (`FWEMoney`).
@@ -279,7 +317,7 @@ Jede Stufe muss neue Aufgaben, neue Werkzeuge/Maschinen, größere Möglichkeite
 
 ## 6. Langzeitziele
 
-Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Baupläne/Sammlerstücke, Unternehmensmanagement. Konkretisierung in Phase 12 und 16.
+Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Baupläne/Sammlerstücke, Unternehmensmanagement. Seit Phase 12 gibt es Gebäude, Unternehmensstufen, Industrieaufträge, Lieferverträge und die Unternehmensübersicht (§3.9); mehrere Standorte und das Feinbalancing folgen (Phase 16).
 
 ## 7. Offene Produktentscheidungen (Mike)
 

@@ -54,6 +54,14 @@ struct WORKSHOPEMPIRE_API FWEUpgradeDefinition
 	/** Extra power connection for machines (kW, Phase 9). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "0"))
 	float PowerCapacityKw = 0.f;
+
+	/** Buildings (Phase 12): owning this lifts the company to this tier (0 = no building). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "0", ClampMax = "5"))
+	int32 CompanyTier = 0;
+
+	/** More employees allowed (Phase 12). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "0"))
+	int32 StaffSlots = 0;
 };
 
 UCLASS(BlueprintType)

@@ -95,8 +95,11 @@ tours.set_editor_property("tours", [
     tour("PickupMotors", "Abholung Industriemotoren", "Zwei ausgemusterte Industriemotoren (je 180 kg) aus einer Fabrikauflösung – ohne Gabelstapler nicht zu bewegen.",
          K.PICKUP, 5.0, 8.0, price=50.0,
          items=[tour_item("IndustrialMotorLarge", 2, Q.DEFECTIVE, 30)]),
+    # Phase 12: bring goods for accepted orders and supply contracts.
+    tour("DeliverOrders", "Auslieferung", "Fährt die Ware aus dem Laderaum zu den Kunden: jeder angenommene Auftrag, dessen Ware vollständig geladen ist, wird geliefert (Lieferverträge: eine Lieferung).",
+         K.DELIVER, 4.0, 6.0),
 ])
 eal.save_asset(tours_path)
 
-unreal.log("WE_STAFF_BUILT 3 roles, 3 tours")
+unreal.log("WE_STAFF_BUILT 3 roles, 4 tours")
 unreal.SystemLibrary.quit_editor()

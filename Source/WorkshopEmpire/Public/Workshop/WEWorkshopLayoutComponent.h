@@ -19,7 +19,9 @@ enum class EWEBuildResult : uint8
 	NotEnoughMoney,
 	NotMovable,
 	NotEmpty,
-	Duplicate
+	Duplicate,
+	/** Phase 12: needs a building / upgrade first. */
+	Locked
 };
 
 /**
@@ -44,6 +46,9 @@ public:
 	const UWEFurnitureCatalog* GetCatalog() const { return Catalog; }
 	void SetCatalog(UWEFurnitureCatalog* InCatalog) { Catalog = InCatalog; }
 	const FWEFurnitureDefinition* FindDefinition(FName Id) const;
+
+	/** Why this furniture cannot be bought yet (empty = available), e.g. "Benötigt: Gewerbehalle". */
+	FText GetLockReason(const FWEFurnitureDefinition& Definition) const;
 
 	/** Footprint size (X depth, Y width, Z height) of a catalog entry or an existing prop. */
 	static FVector GetFootprint(const AWEPlaceholderProp* Prop);

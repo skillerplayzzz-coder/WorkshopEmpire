@@ -13,6 +13,12 @@ AWEBuildArea::AWEBuildArea()
 	RootComponent = Area;
 }
 
+void AWEBuildArea::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	Area->SetBoxExtent(FVector(HalfSize.X, HalfSize.Y, 150.f));
+}
+
 bool AWEBuildArea::ContainsPoint2D(const FVector& Point) const
 {
 	const FVector Local = Area->GetComponentTransform().InverseTransformPosition(Point);
@@ -34,6 +40,10 @@ bool AWEBuildArea::ContainsFootprint(const UWorld* World, const FTransform& Tran
 	};
 	for (TActorIterator<AWEBuildArea> It(const_cast<UWorld*>(World)); It; ++It)
 	{
+		if (It->IsHidden())
+		{
+			continue; // e.g. the hall is not bought yet
+		}
 		bool bAll = true;
 		for (const FVector& Corner : Corners)
 		{

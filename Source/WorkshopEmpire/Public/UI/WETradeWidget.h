@@ -105,6 +105,9 @@ protected:
 	void HandleTabAuctions();
 	UFUNCTION()
 	void HandleTabStaff();
+	UFUNCTION()
+	void HandleTabCompany();
+	void RebuildCompany();
 	void RebuildStaff(const struct FWEMoney& Balance);
 	UWETradeRowWidget* AddRow(UScrollBox* List);
 
@@ -120,6 +123,10 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabMarketText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabAuctionsText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabStaffText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabCompanyText;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> TierList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> BooksList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> ContractsOverview;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> ApplicantList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> StaffList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> LogisticsList;

@@ -23,7 +23,13 @@ public:
 
 	bool ContainsPoint2D(const FVector& Point) const;
 
+	virtual void OnConstruction(const FTransform& Transform) override;
+
 protected:
+	/** Half size of the area in X/Y (cm). Hidden areas (building not bought yet) do not count. */
+	UPROPERTY(EditAnywhere, Category = "Build")
+	FVector2D HalfSize = FVector2D(395.f, 295.f);
+
 	UPROPERTY(VisibleAnywhere, Category = "Build")
 	TObjectPtr<UBoxComponent> Area;
 };

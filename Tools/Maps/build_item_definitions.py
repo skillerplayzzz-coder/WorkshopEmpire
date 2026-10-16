@@ -220,6 +220,23 @@ ITEMS = [
      "180 kg Drehstrommotor aus einer Fabrikhalle. Nur mit dem Gabelstapler zu bewegen; im Schredder wird viel Metall daraus.",
      C.MOTOR, 180.0, 9000, False, 1, False, False, T.NONE, 1.0, CYLINDER, (0.75, 0.75, 0.80), (0.25, 0.32, 0.38),
      [(M.STEEL, 140.0), (M.COPPER, 30.0), (M.ALUMINIUM, 10.0)]),
+    # Phase 12: furnace products and packed pallets for industrial customers.
+    ("AluminiumIngot", "AluminiumIngot", "Aluminiumbarren",
+     "5 kg Reinaluminium, im eigenen Ofen geschmolzen.",
+     C.RAW_MATERIAL, 5.0, 750, True, 10, True, False, T.NONE, 1.0, CUBE, (0.30, 0.12, 0.08), (0.86, 0.88, 0.92),
+     [(M.ALUMINIUM, 5.0)]),
+    ("CopperIngot", "CopperIngot", "Kupferbarren",
+     "5 kg Kupfer in Barrenform – Kabelwerke zahlen gut dafür.",
+     C.RAW_MATERIAL, 5.0, 3700, True, 10, True, False, T.NONE, 1.0, CUBE, (0.30, 0.12, 0.08), (0.85, 0.42, 0.20),
+     [(M.COPPER, 5.0)]),
+    ("PalletBrackets", "PalletBrackets", "Palette Stahlwinkel-Sets",
+     "20 Stahlwinkel-Sets, foliert auf einer Palette – so nimmt sie der Großhandel ab.",
+     C.PRODUCT, 32.0, 5000, False, 1, False, False, T.NONE, 1.0, CUBE, (0.80, 0.80, 0.50), (0.62, 0.55, 0.40),
+     [(M.STEEL, 30.0)]),
+    ("PalletCables", "PalletCables", "Palette Verlängerungskabel",
+     "10 Verlängerungskabel in Kartons auf einer Palette.",
+     C.PRODUCT, 12.0, 10000, False, 1, False, False, T.NONE, 1.0, CUBE, (0.80, 0.80, 0.45), (0.72, 0.70, 0.62),
+     [(M.COPPER, 5.0), (M.PLASTIC, 5.0)]),
 ]
 
 CARRY_BONUS = {"HandTruck": 30.0}

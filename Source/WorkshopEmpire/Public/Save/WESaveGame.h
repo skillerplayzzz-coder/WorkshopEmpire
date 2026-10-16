@@ -163,6 +163,10 @@ struct WORKSHOPEMPIRE_API FWESavedContract
 	UPROPERTY() FGuid CustomerItemId;
 	/** Since save version 6. */
 	UPROPERTY() uint8 MinQuality = 0;
+	/** Since save version 11: industrial order / supply contract progress. */
+	UPROPERTY() bool bIndustrial = false;
+	UPROPERTY() int32 Rounds = 1;
+	UPROPERTY() int32 RoundsDone = 0;
 };
 
 /** Since save version 6: one rolled offer of a terminal. */
@@ -244,7 +248,7 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 
 public:
 	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). */
-	static constexpr int32 CurrentVersion = 10;
+	static constexpr int32 CurrentVersion = 11;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -287,4 +291,7 @@ public:
 	UPROPERTY() TArray<FWEEmployeeProfile> Applicants;
 	UPROPERTY() int64 OwedWagesCents = 0;
 	UPROPERTY() TArray<FWESavedVehicle> Vehicles;
+
+	// Since version 11 (company books).
+	UPROPERTY() TArray<int64> BookTotals;
 };

@@ -12,6 +12,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "Workshop/WEFurnitureDefinition.h"
+#include "Progression/WEUpgradeDefinition.h"
+#include "Progression/WEProgressionComponent.h"
 #include "Workshop/WEWorkbench.h"
 #include "Machines/WEMachine.h"
 #include "Machines/WEConveyor.h"
@@ -44,6 +46,21 @@ UWEWorkshopLayoutComponent* UWEWorkshopLayoutComponent::Get(const UObject* World
 const FWEFurnitureDefinition* UWEWorkshopLayoutComponent::FindDefinition(FName Id) const
 {
 	return Catalog && !Id.IsNone() ? Catalog->Find(Id) : nullptr;
+}
+
+FText UWEWorkshopLayoutComponent::GetLockReason(const FWEFurnitureDefinition& Definition) const
+{
+	if (Definition.RequiredUpgrade.IsNone())
+	{
+		return FText::GetEmpty();
+	}
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	if (Progression && Progression->HasUpgrade(Definition.RequiredUpgrade))
+	{
+		return FText::GetEmpty();
+	}
+	const FWEUpgradeDefinition* Upgrade = Progression && Progression->GetCatalog() ? Progression->GetCatalog()->Find(Definition.RequiredUpgrade) : nullptr;
+	return FText::Format(LOCTEXT("Locked", "Benötigt: {0}"), Upgrade ? Upgrade->DisplayName : FText::FromName(Definition.RequiredUpgrade));
 }
 
 FVector UWEWorkshopLayoutComponent::GetFootprint(const AWEPlaceholderProp* Prop)
@@ -167,6 +184,7 @@ FText UWEWorkshopLayoutComponent::ResultText(EWEBuildResult Result)
 	case EWEBuildResult::NotMovable:       return LOCTEXT("ResNotMovable", "Grundausstattung kann nur verschoben werden");
 	case EWEBuildResult::NotEmpty:         return LOCTEXT("ResNotEmpty", "Erst leer räumen");
 	case EWEBuildResult::Duplicate:        return LOCTEXT("ResDup", "Anfrage wurde bereits bearbeitet");
+	case EWEBuildResult::Locked:           return LOCTEXT("ResLocked", "Noch nicht verfügbar");
 	}
 	return FText::GetEmpty();
 }
@@ -222,7 +240,12 @@ EWEBuildResult UWEWorkshopLayoutComponent::PlaceFurniture(AWECharacter* By, FNam
 	{
 		return EWEBuildResult::OutsideArea;
 	}
-	FText Reason;
+	FText Reason = GetLockReason(*Definition);
+	if (!Reason.IsEmpty())
+	{
+		Notify(By, Reason);
+		return EWEBuildResult::Locked;
+	}
 	if (!CanPlaceAt(Definition->Size, Transform, nullptr, Reason))
 	{
 		Notify(By, Reason);

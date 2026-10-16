@@ -115,7 +115,9 @@ enum class EWETourKind : uint8
 	/** Sell the whole cargo directly at the trader (better price, no shipping). */
 	Sell,
 	/** Pick up a bulk purchase (paid at departure). */
-	Pickup
+	Pickup,
+	/** Phase 12: deliver accepted orders and supply contracts from the cargo. */
+	Deliver
 };
 
 USTRUCT(BlueprintType)

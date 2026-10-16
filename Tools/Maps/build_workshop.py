@@ -17,7 +17,8 @@ eal = unreal.EditorAssetLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 
 
-def furniture(fid, name, desc, euros, prop_type, size, tint, bench=False, storage=None, speed=1.0, machine=None, production_storage=False):
+def furniture(fid, name, desc, euros, prop_type, size, tint, bench=False, storage=None, speed=1.0, machine=None, production_storage=False,
+              requires=None):
     f = unreal.WEFurnitureDefinition()
     f.set_editor_property("id", fid)
     f.set_editor_property("display_name", unreal.Text(name))
@@ -37,6 +38,7 @@ def furniture(fid, name, desc, euros, prop_type, size, tint, bench=False, storag
         f.set_editor_property("storage_max_weight_kg", kg)
     f.set_editor_property("work_speed_multiplier", speed)
     f.set_editor_property("production_storage", production_storage)
+    f.set_editor_property("required_upgrade", requires or "None")
     if machine:
         f.set_editor_property("machine", unreal.load_asset(f"/Game/WorkshopEmpire/Data/Machines/{machine}"))
         f.set_editor_property("has_storage", True)
@@ -74,6 +76,15 @@ ITEMS = [
               (100, 120, 80), (0.30, 0.45, 0.25), storage=("Materiallager", 30, 400.0), production_storage=True),
     furniture("Assembler", "Fertigungsautomat", "Stellt aus sortiertem Material Produkte her: Kupferdrahtspulen, Verlängerungskabel, Stahlwinkel. 6 kW.", 600, P.MACHINE,
               (120, 160, 160), (0.25, 0.30, 0.55), machine="MD_Assembler"),
+    # Phase 12: expansion (need the buildings).
+    furniture("Packer", "Verpackungsanlage", "Palettiert Stahlwinkel-Sets und Verlängerungskabel für den Großhandel. 3 kW.", 1400, P.MACHINE,
+              (160, 200, 180), (0.40, 0.55, 0.30), machine="MD_Packer", requires="WorkshopExtension"),
+    furniture("Furnace", "Schmelzofen", "Schmilzt Aluminiumschrott und Kupfergranulat zu Barren. 15 kW – braucht den Anschluss der Gewerbehalle.", 2800, P.MACHINE,
+              (200, 200, 260), (0.70, 0.22, 0.08), machine="MD_Furnace", requires="CommercialHall"),
+    furniture("HighRack", "Hochregal", "Hohes Palettenregal: 40 Plätze, 1.000 kg, nimmt sperrige Paletten nicht (dafür das Materiallager).", 700, P.SHELF,
+              (120, 400, 450), (0.25, 0.35, 0.55), storage=("Hochregal", 40, 1000.0), requires="CommercialHall"),
+    furniture("BigMaterialStore", "Großes Materiallager", "Gitterboxlager für die Halle: 60 Plätze, 1.500 kg, auch Paletten und Ballen.", 900, P.CRATE,
+              (200, 240, 100), (0.30, 0.45, 0.25), storage=("Großes Materiallager", 60, 1500.0), production_storage=True, requires="CommercialHall"),
 ]
 
 path = f"{FOLDER}/{NAME}"

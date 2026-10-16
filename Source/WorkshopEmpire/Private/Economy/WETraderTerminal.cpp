@@ -529,13 +529,17 @@ EWETradeResult AWETraderTerminal::BuyUpgrade(AWECharacter* Character, FName Upgr
 	{
 		return EWETradeResult::NotEnoughMoney;
 	}
+	const int32 TierBefore = Progression->GetCompanyTier();
 	if (!Progression->GrantUpgrade(UpgradeId))
 	{
 		// Should not happen (checked above); never keep the money without the upgrade.
 		Company->Deposit(Upgrade->Cost, TEXT("Rückbuchung Werkstatt-Upgrade"), PlayerNameOf(Character));
 		return EWETradeResult::InvalidItem;
 	}
-	Notify(Character, FText::Format(LOCTEXT("UpgradeBought", "Werkstatt verbessert: {0}"), Upgrade->DisplayName));
+	// A new company tier is part of the buyer's message (the general tier message would be replaced by it).
+	Notify(Character, Progression->GetCompanyTier() > TierBefore
+		? FText::Format(LOCTEXT("UpgradeBoughtTier", "Werkstatt verbessert: {0} – neue Unternehmensstufe: {1}!"), Upgrade->DisplayName, UWEProgressionComponent::GetTierName(Progression->GetCompanyTier()))
+		: FText::Format(LOCTEXT("UpgradeBought", "Werkstatt verbessert: {0}"), Upgrade->DisplayName));
 	Progression->NotifyEvent(EWEProgressEvent::PurchaseMade);
 	UE_LOG(LogWENet, Log, TEXT("%s bought upgrade %s for %s"), *Character->GetName(), *UpgradeId.ToString(), *Upgrade->Cost.ToDisplayString());
 	return EWETradeResult::Success;

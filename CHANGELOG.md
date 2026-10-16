@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.12.0] – 2026-10-17 – Phase 12: Unternehmensexpansion
+
+### Neu
+- Drei Gebäude zum Kaufen ("Werkstatt verbessern"), die sofort auf dem Gelände stehen, mit eigenem Tor, Licht und Baufläche: Werkstatt-Erweiterung (6.000 €), Gewerbehalle (25.000 €), Fabrikhalle (90.000 €). Sie bringen mehr Stromanschluss (+5,5 / +22 / +44 kW) und Platz für mehr Mitarbeiter (+2 / +4 / +8).
+- Unternehmensstufen: Kleine Garage → Große Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen (Fabrik und 250.000 € Firmenwert). Eine neue Stufe wird allen Spielern gemeldet.
+- Neue Produktion: Schmelzofen (Aluminium- und Kupferbarren), Verpackungsanlage (Paletten Stahlwinkel und Kabel); Hochregal und Großes Materiallager. Diese Einrichtung ist erst ab der passenden Stufe kaufbar ("Benötigt: …" im Baumodus).
+- Industrieaufträge mit eigener Liste (bis zu 2 Angebote, 2 gleichzeitig): größere Mengen, bessere Bezahlung, Vertragsstrafe bei verpasster Frist. Lieferverträge mit 3–4 Lieferungen, jede sofort bezahlt.
+- Neue Wagentour "Auslieferung": liefert alle angenommenen Aufträge, deren Ware im Laderaum liegt.
+- Neuer Reiter "Unternehmen" am Marktplatz: Stufe, nächste Stufe, Firmenwert, Strom, Personal, Einnahmen und Ausgaben je Bereich (letzte Stunde und insgesamt) und die laufenden Aufträge mit Lieferungen und Strafe.
+
+### Multiplayer und Sicherheit
+- Gebäude, Stufe, Firmenwert und Buchhaltung kommen aus dem replizierten Serverzustand; gesperrte Einrichtung wird auch vom Server abgelehnt. Im Netzwerk mit 2 Spielern getestet.
+
+### Technisch
+- Gebäude sind Upgrades; Actors mit Tag `WEUpgrade.<Id>` werden auf jedem Rechner ein- und ausgeblendet (inkl. Kollision und Navigationsnetz).
+- `EWEBookingCategory`-Buchhaltung im `UWECompanyComponent`; Auftragsvorlagen mit Mindeststufe, Industrie-Flag und Lieferungen.
+- Speicherformat Version 11 (Lieferungen von Aufträgen, Buchhaltung).
+- Map mit drei Gebäuden, 4 neue Gegenstände, 2 Maschinen, 4 Möbel, 6 Industrieauftragsvorlagen per Skript.
+- 7 neue Automation-Tests (insgesamt 95) inkl. Balance-Messung; Netzwerktest-Rollen W/X; Screenshot-Lauf P12.
+
 ## [0.11.0] – 2026-10-16 – Phase 11: Mitarbeiter und Logistik
 
 ### Neu

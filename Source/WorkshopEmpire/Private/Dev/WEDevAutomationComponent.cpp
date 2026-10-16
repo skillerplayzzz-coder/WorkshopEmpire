@@ -42,6 +42,7 @@
 #include "Staff/WEStaffComponent.h"
 #include "Logistics/WEVehicle.h"
 #include "Logistics/WEForklift.h"
+#include "World/WEGarageBuilding.h"
 #include "UI/WETradeWidget.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -160,6 +161,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("V"))
 	{
 		RunSmokeRoleV();
+	}
+	else if (Role == TEXT("W"))
+	{
+		RunSmokeRoleW();
+	}
+	else if (Role == TEXT("X"))
+	{
+		RunSmokeRoleX();
+	}
+	else if (ShotName.StartsWith(TEXT("P12")))
+	{
+		RunExpansionShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P11")))
 	{
@@ -2272,4 +2285,207 @@ void UWEDevAutomationComponent::RunSmokeRoleV()
 	Schedule(35.f, [this]() { if (AWECharacter* C = GetCharacter()) { C->RequestExitForklift(); } });
 	Schedule(36.5f, [this]() { LogStaff(TEXT("V4 got off")); });
 	Schedule(44.f, [this]() { Quit(); });
+}
+
+// --- Phase 12: company expansion --------------------------------------------------------------------
+
+AWEGarageDoor* UWEDevAutomationComponent::FindDoorNear(const FVector& Point) const
+{
+	AWEGarageDoor* Best = nullptr;
+	for (TActorIterator<AWEGarageDoor> It(GetWorld()); It; ++It)
+	{
+		if (!Best || FVector::Dist2D(It->GetActorLocation(), Point) < FVector::Dist2D(Best->GetActorLocation(), Point))
+		{
+			Best = *It;
+		}
+	}
+	return Best;
+}
+
+void UWEDevAutomationComponent::LogExpansion(const TCHAR* Step) const
+{
+	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+	const UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+	const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this);
+	TArray<FString> Buildings;
+	for (TActorIterator<AWEGarageBuilding> It(GetWorld()); It; ++It)
+	{
+		if (It->Tags.Num() > 0)
+		{
+			Buildings.Add(FString::Printf(TEXT("%s=%s"), *It->Tags[0].ToString(), It->IsHidden() ? TEXT("hidden") : TEXT("visible")));
+		}
+	}
+	TArray<FString> Books;
+	for (int32 i = 0; Company && i < static_cast<int32>(EWEBookingCategory::Count); ++i)
+	{
+		const int64 Cents = Company->GetCategoryTotalCents(static_cast<EWEBookingCategory>(i));
+		if (Cents != 0)
+		{
+			Books.Add(FString::Printf(TEXT("%s:%.2f"), *UWECompanyComponent::GetCategoryName(static_cast<EWEBookingCategory>(i)).ToString(), Cents / 100.0));
+		}
+	}
+	TArray<FString> Orders;
+	for (const FWEContract& C : Contracts ? Contracts->GetContracts() : TArray<FWEContract>())
+	{
+		if (C.bIndustrial)
+		{
+			Orders.Add(FString::Printf(TEXT("'%s'[%s %d/%d]"), *C.Title.ToString(), C.State == EWEContractState::Accepted ? TEXT("accepted") : TEXT("offered"), C.RoundsDone, C.Rounds));
+		}
+	}
+	const AWEMachine* Furnace = FindMachine(TEXT("Furnace"));
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Tier=%d(%s) Value=%s Balance=%s Power=%.1fkW MaxStaff=%d Buildings={%s} Books={%s} Industrial={%s} Furnace={%s %s ingots=%d}"),
+		*Role, Step, Progression ? Progression->GetCompanyTier() : -1,
+		Progression ? *UWEProgressionComponent::GetTierName(Progression->GetCompanyTier()).ToString() : TEXT("?"),
+		Progression ? *Progression->GetCompanyValue().ToDisplayString() : TEXT("?"), Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"),
+		Grid ? Grid->GetCapacityKw() : -1.f, Staff ? Staff->GetMaxEmployees() : -1,
+		*FString::Join(Buildings, TEXT(" ")), *FString::Join(Books, TEXT(" ")), *FString::Join(Orders, TEXT(" ")),
+		Furnace ? TEXT("placed") : TEXT("-"), Furnace ? *Furnace->GetStatusText().ToString() : TEXT(""),
+		Furnace && Furnace->GetOutputStorage() ? Furnace->GetOutputStorage()->CountItems(UWEItemDefinition::FindById(TEXT("AluminiumIngot"))) : 0);
+}
+
+void UWEDevAutomationComponent::RunExpansionShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	auto Terminal = [this]() { return const_cast<AWETraderTerminal*>(FindTerminal()); };
+	// Before: the small garage.
+	Schedule(3.0f, [this, PC]() { LogExpansion(TEXT("S0 start")); if (PC) { PC->ServerDevAddMoney(150000); PC->ServerDevTeleport(FVector(620.f, 650.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(4.0f, [this]() { LookAtPoint(FVector(1500.f, -200.f, 200.f)); });
+	Schedule(4.5f, [this]() { Shot(TEXT("01_Hof_vorher")); });
+	// Buy the workshop extension and the commercial hall at the terminal.
+	Schedule(5.0f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(6.0f, [this]() { BuyUpgradeAtTerminal(TEXT("WorkshopExtension")); BuyUpgradeAtTerminal(TEXT("CommercialHall")); });
+	Schedule(7.0f, [this, Interaction, Terminal]() { LogExpansion(TEXT("S1 bought extension and hall")); if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(Terminal()); } });
+	Schedule(7.5f, [PC]() { if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(3); } });
+	Schedule(8.5f, [this]() { Shot(TEXT("02_Unternehmen")); });
+	Schedule(9.0f, [PC]() { if (PC) { PC->CloseTrade(); PC->ServerDevTeleport(FVector(250.f, 1150.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(10.0f, [this]() { LookAtPoint(FVector(1500.f, -200.f, 300.f)); });
+	Schedule(10.5f, [this]() { Shot(TEXT("03_Gewerbehalle_aussen")); });
+	Schedule(11.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(800.f, -1400.f, 100.f), FRotator(0.f, 150.f, 0.f)); } });
+	Schedule(11.5f, [this]() { LookAtPoint(FVector(0.f, -760.f, 120.f)); });
+	Schedule(12.0f, [this]() { Shot(TEXT("04_Werkstatt_Erweiterung")); });
+	// Into the hall: open its door, set up a furnace, a packing machine, a high rack and a big material store.
+	Schedule(12.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(880.f, -200.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(13.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindDoorNear(FVector(990.f, -200.f, 0.f))); } });
+	Schedule(15.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1200.f, -200.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(15.5f, [this]()
+	{
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			PlaceFurnitureAt(TEXT("Furnace"), 1450.f, -500.f, 0.f);
+			PlaceFurnitureAt(TEXT("Packer"), 1450.f, 120.f, 0.f);
+			PlaceFurnitureAt(TEXT("BigMaterialStore"), 1850.f, -750.f, 0.f);
+			PlaceFurnitureAt(TEXT("HighRack"), 2100.f, -200.f, 90.f);
+			LogFurniture(TEXT("S2 hall furnished"));
+			B->SetBuildMode(false);
+		}
+	});
+	Schedule(16.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1250.f, -320.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("AluminiumScrap"), 10, EWEItemCondition::Used); } });
+	Schedule(17.5f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("AluminiumScrap"), FindMachine(TEXT("Furnace")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Furnace"))); }
+	});
+	Schedule(19.0f, [this, PC]() { LogExpansion(TEXT("S3 furnace running")); if (PC) { PC->ServerDevTeleport(FVector(1150.f, 300.f, 100.f), FRotator(0.f, -45.f, 0.f)); } });
+	Schedule(19.5f, [this]() { LookAtPoint(FVector(1800.f, -400.f, 120.f)); });
+	Schedule(20.0f, [this]() { Shot(TEXT("05_Halle_innen")); });
+	Schedule(20.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1250.f, -320.f, 100.f), FRotator(0.f, -90.f, 0.f)); } });
+	Schedule(21.0f, [this, Interaction]() { if (AWEMachine* M = FindMachine(TEXT("Furnace"))) { LookAt(M); } if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->ToggleExamine(); } });
+	Schedule(22.0f, [this]() { Shot(TEXT("06_Schmelzofen")); });
+	Schedule(22.5f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CloseExamine(); } });
+	// Industrial orders: the terminal's order board after the hall.
+	Schedule(23.0f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(24.0f, [this, Interaction, Terminal]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(Terminal()); } });
+	Schedule(24.5f, [this, PC, Terminal]()
+	{
+		const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+		for (const FWEContract& C : Contracts ? Contracts->GetContracts() : TArray<FWEContract>())
+		{
+			if (C.bIndustrial && C.State == EWEContractState::Offered && PC)
+			{
+				PC->RequestAcceptContract(Terminal(), C.Id);
+				break;
+			}
+		}
+		if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(0); }
+	});
+	Schedule(25.5f, [this]() { Shot(TEXT("07_Industrieauftraege")); LogExpansion(TEXT("S4 industrial order accepted")); });
+	// Wait for the furnace (20 s), then the factory.
+	Schedule(26.0f, [PC]() { if (PC) { PC->CloseTrade(); } });
+	Schedule(40.0f, [this]() { LogExpansion(TEXT("S5 ingots")); BuyUpgradeAtTerminal(TEXT("FactoryHall")); });
+	Schedule(41.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-250.f, 2700.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(41.5f, [this]() { LookAtPoint(FVector(1500.f, 900.f, 300.f)); });
+	Schedule(42.0f, [this]() { Shot(TEXT("08_Fabrikhalle")); LogExpansion(TEXT("S6 factory")); });
+	Schedule(42.5f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(43.5f, [this, Interaction, Terminal]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(Terminal()); } });
+	Schedule(44.0f, [PC]() { if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(3); } });
+	Schedule(45.0f, [this]() { Shot(TEXT("09_Unternehmen_Fabrik")); });
+	// Save, load: tier, buildings, books and orders come back.
+	Schedule(45.5f, [PC]() { if (PC) { PC->CloseTrade(); PC->RequestSave(TEXT("DevP12")); } });
+	Schedule(46.5f, [PC]() { if (PC) { PC->RequestLoad(TEXT("DevP12")); } });
+	Schedule(48.5f, [this, PC]() { LogExpansion(TEXT("S7 after load")); if (PC) { PC->ServerDevTeleport(FVector(-250.f, 2700.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(49.5f, [this]() { LookAtPoint(FVector(1500.f, 600.f, 300.f)); });
+	Schedule(50.0f, [this]() { Shot(TEXT("10_Nach_dem_Laden")); });
+	Schedule(51.0f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleW()
+{
+	// Buys the extension and the hall, accepts an industrial order, sets up and runs a furnace in the hall.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(10.f, [this, PC]() { LogExpansion(TEXT("W0 start")); if (PC) { PC->ServerDevAddMoney(40000); } TeleportToTerminal(-60.f); });
+	Schedule(11.f, [this]() { BuyUpgradeAtTerminal(TEXT("WorkshopExtension")); BuyUpgradeAtTerminal(TEXT("CommercialHall")); });
+	Schedule(13.f, [this]() { LogExpansion(TEXT("W1 bought")); });
+	Schedule(18.f, [this, PC]()
+	{
+		const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+		for (const FWEContract& C : Contracts ? Contracts->GetContracts() : TArray<FWEContract>())
+		{
+			if (C.bIndustrial && C.State == EWEContractState::Offered && PC)
+			{
+				PC->RequestAcceptContract(const_cast<AWETraderTerminal*>(FindTerminal()), C.Id);
+				break;
+			}
+		}
+	});
+	Schedule(19.f, [this, PC]() { LogExpansion(TEXT("W2 industrial order accepted")); if (PC) { PC->ServerDevTeleport(FVector(1200.f, -200.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(20.f, [this]()
+	{
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			PlaceFurnitureAt(TEXT("Furnace"), 1450.f, -500.f, 0.f);
+			B->SetBuildMode(false);
+		}
+	});
+	Schedule(21.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1250.f, -320.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("AluminiumScrap"), 10, EWEItemCondition::Used); } });
+	Schedule(22.f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("AluminiumScrap"), FindMachine(TEXT("Furnace")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Furnace"))); }
+	});
+	Schedule(24.f, [this]() { LogExpansion(TEXT("W3 furnace running")); });
+	Schedule(46.f, [this]() { LogExpansion(TEXT("W4 final")); });
+	Schedule(48.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleX()
+{
+	// Sees the buildings appear, the tier, the books and the industrial orders; walks into the hall.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(7.f, [this]() { LogExpansion(TEXT("X0 small garage")); });
+	Schedule(15.f, [this]() { LogExpansion(TEXT("X1 sees the hall")); });
+	Schedule(16.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1400.f, 200.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(17.5f, [this]()
+	{
+		const AWECharacter* Me = GetCharacter();
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] X2 inside the hall at %s"), *Role, Me ? *Me->GetActorLocation().ToCompactString() : TEXT("-"));
+	});
+	Schedule(21.f, [this]() { LogExpansion(TEXT("X3 sees the order and the furnace")); });
+	Schedule(46.f, [this]() { LogExpansion(TEXT("X4 final")); });
+	Schedule(48.f, [this]() { Quit(); });
 }

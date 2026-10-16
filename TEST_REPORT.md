@@ -17,6 +17,49 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 12 – Lauf vom 2026-10-16
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **95/95 bestanden, 0 mit Warnungen** (88 alte + 7 neue), Bericht `Saved/TestReports/Phase12_final/index.json` |
+| ↳ `Expansion.TiersAndBuildings` (Halle mit Tag versteckt und ohne Kollision, Baufläche gesperrt; Stufe 1, 6 Mitarbeiter, 11 kW, nächste Stufe nennt die Erweiterung; Halle braucht erst die Erweiterung; Erweiterung → Stufe 2, 8 Mitarbeiter; Halle → Stufe 3, 12 Mitarbeiter, 38,5 kW, sichtbar, Kollision, Baufläche gilt; Firmenwert = Konto + halber Gebäudepreis; Fabrik → Stufe 4, nächste Stufe "Firmenwert"; 250.000 € → Stufe 5) | ✅ (erst rot, siehe Behobene Fehler) |
+| ↳ `Expansion.LockedFurniture` (Schmelzofen ohne Halle: "Benötigt: Gewerbehalle", Aufstellen abgelehnt, nichts bezahlt; nach der Halle aufgestellt) | ✅ (erst rot) |
+| ↳ `Expansion.CompanyBooks` (Zuordnung der Buchungstexte zu Bereichen; Summen je Bereich und letzte Stunde; Laden stellt die Summen wieder her) | ✅ |
+| ↳ `Expansion.IndustrialOrders` (keine Industrieaufträge in der kleinen Garage, ab Stufe 2 ja; 2 Industrie- + 3 normale Angebote; Liefervertrag 3 Lieferungen: erste Lieferung aus dem Laderaum bezahlt, 1/3, Palette verbraucht; leer → "fehlt"; Frist verpasst → Strafe = ¼ Belohnung, Vertrag weg, als "Aufträge" gebucht; Tour "Auslieferung": Fahrer liefert die Stahlballen für das Stahlwerk, Auftrag erledigt, Ballen weg, Ergebnis nennt den Auftrag) | ✅ |
+| ↳ `Machines.FurnaceAndPacker` (15-kW-Ofen läuft am Hallenanschluss; 10 Aluschrott → 2 Barren, 20 Kupfergranulat → 2 Barren; 20 Stahlwinkel-Sets → 1 Palette vor der Anlage, sperrig) | ✅ |
+| ↳ `Save.ExpansionRoundTrip` (Version 11: Liefervertrag mit 1/3 Lieferungen, Industrie-Flag, Stufe aus den Gebäuden, Buchhaltung) | ✅ |
+| ↳ `Economy.BalanceExpansion` (**echte Daten**) | ✅ Aluminium ×1,97 (5,54 € → 10,89 €), Kupfer ×1,94 (27,72 € → 53,72 €), Palette Stahlwinkel ×1,14, Palette Kabel ×1,11. Aufträge zahlen mehr als der Händler: Stahlwerk 73,50 € statt 50,82 €, Kabelwerk 194,25 € statt 134,31 €, Liefervertrag Kabel 101,50 € je Lieferung statt 66 €. Halle + Ofen (27.800 €) mit Kupfer allein nach ~1.070 Ofenläufen bezahlt |
+| Erzeugung von 49 Gegenständen (4 neue), 6 Maschinen (2 neue), 18 Möbeln (4 neue), Upgrades (3 Gebäude), 6 Industrieauftragsvorlagen, Tour "Auslieferung" und Map mit 3 versteckten Gebäuden per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P12`, 2 Läufe) | ✅ 10 Screenshots geprüft: Hof vorher; Erweiterung und Gewerbehalle gekauft → Reiter "Unternehmen" (Stufe 3, nächste Stufe, Firmenwert, Strom, Personal, Ausgaben je Bereich); Halle und Anbau stehen auf dem Gelände; Halle innen mit Schmelzofen, Verpackungsanlage, Großem Materiallager, Hochregal; Ofen schmilzt Aluminium (2 Barren); Industrieauftrag "★ Industrie" angenommen; Fabrikhalle mit Meldung "neue Unternehmensstufe: Fabrik!"; Unternehmen mit Stufe 4; gespeichert und geladen → Gebäude, Stufe, Buchhaltung, Aufträge unverändert |
+| **Netzwerktest Expansion** (`-WESmokeRole=W/X`, Dedicated Server + 2 Clients, neu, 2 Läufe) | ✅ W kauft Erweiterung und Halle, nimmt einen Industrieauftrag an, stellt einen Schmelzofen in die Halle und lässt ihn laufen; X sieht vorher alle Gebäude versteckt (Stufe 1), danach sichtbar mit Stufe 3, 38,5 kW, 12 Plätzen, Buchhaltung, Auftrag und laufendem Ofen, läuft in die Halle |
+| **Regression** Netzwerktests A/B … U/V (Dedicated) und I/J (Listen-Server), Spielläufe P5–P11 | ✅ unverändert (alle Läufe beendet, 0 Fehler im Log; Baumodus-Menü zeigt gesperrte Einrichtung mit "Benötigt: …") |
+
+### Behobene Fehler in Phase 12
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Käufer sah die Meldung "neue Unternehmensstufe" nicht | Die Kaufmeldung "Werkstatt verbessert" ersetzte sie sofort | Kaufmeldung nennt die neue Stufe mit |
+| Hochregal ließ sich in der Halle nicht aufstellen ("Nur innerhalb der Werkstatt") | Testskript: gedreht ragte es über die Baufläche hinaus (richtig abgelehnt) | Position im Skript korrigiert |
+| Zwei Testerwartungen falsch (Stufe 4, Meldungstext) | Tests vergaben Gebäude ohne zu bezahlen, das Konto war schon Firmenwert für Stufe 5 | Konto im Test gesenkt; Erwartung an eine Lognachricht entfernt |
+| Kompilierfehler double → float in der Buchhaltung | Implizite Umwandlung | Explizite Umwandlung |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Liefervertrag über alle Lieferungen im Spiel | Im Unit-Test (Lieferung, Strafe, Tour "Auslieferung"); im Spiel nur Annehmen |
+| Stufe 5 (250.000 € Firmenwert) im Spiel erspielt | Im Unit-Test; im Spiel nur bis Stufe 4 mit Dev-Geld |
+| 20 Mitarbeiter gleichzeitig / Performance in der Fabrik | nicht gemessen |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweise: Gebäude sind Block-out-Platzhalter (Decke innen dunkel). Der Wagen hält weiter vor der Garage, nicht an den Hallentoren.
+
+---
+
 ## Phase 11 – Lauf vom 2026-10-16
 
 ### Ausgeführt

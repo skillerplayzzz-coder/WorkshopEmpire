@@ -51,6 +51,10 @@ struct WORKSHOPEMPIRE_API FWEFurnitureDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture", meta = (Units = "kg"))
 	float StorageMaxWeightKg = 150.f;
 
+	/** Phase 12: only available with this upgrade (e.g. the furnace needs the commercial hall). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture")
+	FName RequiredUpgrade;
+
 	/** Material store in a production line: also feeds conveyors (Phase 10). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture")
 	bool bProductionStorage = false;

@@ -14,7 +14,8 @@ eal = unreal.EditorAssetLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 
 
-def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0.0, work_speed=1.0, light=1.0, unlocks=False, power_kw=0.0):
+def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0.0, work_speed=1.0, light=1.0, unlocks=False, power_kw=0.0,
+            tier=0, staff=0):
     u = unreal.WEUpgradeDefinition()
     u.set_editor_property("id", uid)
     u.set_editor_property("display_name", unreal.Text(name))
@@ -29,6 +30,8 @@ def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0
     u.set_editor_property("light_multiplier", light)
     u.set_editor_property("unlocks_actors", unlocks)
     u.set_editor_property("power_capacity_kw", power_kw)
+    u.set_editor_property("company_tier", tier)
+    u.set_editor_property("staff_slots", staff)
     return u
 
 
@@ -51,6 +54,13 @@ UPGRADES = [
             unlocks=True),
     upgrade("ModernVan", "Moderner Lieferwagen", "Ersetzt den alten Transporter: 30 Plätze, 1.200 kg, Touren 60 % schneller.", 4500,
             requires="OldVan"),
+    # Phase 12: buildings - each lifts the company one tier (map actors tagged "WEUpgrade.<Id>" appear).
+    upgrade("WorkshopExtension", "Werkstatt-Erweiterung", "Zweite Halle neben der Garage (8 × 7 m) mit eigenem Tor. Stufe \"Große Werkstatt\": +2 Mitarbeiter, Verpackungsanlage, erste Industrieaufträge.", 6000,
+            unlocks=True, power_kw=5.5, tier=2, staff=2),
+    upgrade("CommercialHall", "Gewerbehalle", "14 × 14 m Halle auf dem Hof, 6 m hoch, eigener 22-kW-Anschluss. Stufe \"Gewerbehalle\": +4 Mitarbeiter, Schmelzofen, Hochregal, Barren-Aufträge.", 25000,
+            requires="WorkshopExtension", unlocks=True, power_kw=22.0, tier=3, staff=4),
+    upgrade("FactoryHall", "Fabrikhalle", "Große Fabrikhalle (14 × 16 m) mit Industrieanschluss (+44 kW). Stufe \"Fabrik\": +8 Mitarbeiter. Mit 250.000 € Firmenwert wird daraus ein Industrieunternehmen.", 90000,
+            requires="CommercialHall", unlocks=True, power_kw=44.0, tier=4, staff=8),
 ]
 
 path = f"{FOLDER}/{NAME}"
