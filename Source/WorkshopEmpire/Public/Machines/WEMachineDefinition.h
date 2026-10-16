@@ -30,6 +30,13 @@ struct WORKSHOPEMPIRE_API FWEMachineOutput
 	/** > 0: amount = input weight (kg) x this, rounded (e.g. the shredder makes 0.9 units per kg). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = "0"))
 	float PerInputKg = 0.f;
+
+	/** Condition and quality of the product (materials "Gebraucht"/50 like workbench materials; new products "Neu"). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine")
+	EWEItemCondition Condition = EWEItemCondition::Used;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = "0", ClampMax = "100"))
+	int32 Quality = 50;
 };
 
 /**
@@ -54,6 +61,16 @@ struct WORKSHOPEMPIRE_API FWEMachineRecipe
 	/** Used when InputItem is empty: one item of any of these categories per cycle. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine")
 	TArray<EWEItemCategory> InputCategories;
+
+	/** Optional second ingredient (production recipes, Phase 10), e.g. plastic for a cable. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine")
+	TObjectPtr<UWEItemDefinition> SecondInputItem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine", meta = (ClampMin = "1"))
+	int32 SecondInputQuantity = 1;
+
+	/** True if Item is an ingredient of this recipe. */
+	bool UsesItem(const UWEItemDefinition* Item) const;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine")
 	TArray<FWEMachineOutput> Outputs;

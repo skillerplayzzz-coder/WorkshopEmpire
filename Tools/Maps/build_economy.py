@@ -65,7 +65,9 @@ TRADERS = [
       stock("CrtMonitor", 1, Q.DEFECTIVE, 25, 0.7, chance=0.5, cond_spread=1, q_spread=10)]),
     ("DA_Trader_UsedGoods", "Gebrauchtbörse 24", 10.0,
      [rate(C.ELECTRONICS, 1.0), rate(C.SPARE_PART, 1.0), rate(C.HOUSEHOLD_APPLIANCE, 1.0),
-      rate(C.TOOL, 0.8), rate(C.POWER_TOOL, 0.8), rate(C.COLLECTIBLE, 1.2), rate(C.RARE_FIND, 1.2)],
+      rate(C.TOOL, 0.8), rate(C.POWER_TOOL, 0.8), rate(C.COLLECTIBLE, 1.2), rate(C.RARE_FIND, 1.2),
+      # Phase 10: own products (sealed pallets are never bought, see UWEMarketComponent::GetSellPrice).
+      rate(C.PRODUCT, 1.0)],
      [stock("OldComputer", 4, Q.DEFECTIVE, 35), stock("CrtMonitor", 2, Q.DAMAGED, 40), stock("RamModule", 3, Q.USED, 55),
       # Phase 7: rotating offers - each restock rolls which are there and in which state.
       stock("OldComputer", 1, Q.DAMAGED, 55, chance=0.5, q_spread=15),
@@ -137,6 +139,11 @@ catalog.set_editor_property("templates", [
     template("Bastler sucht eine gute Grafikkarte", "GraphicsCard", 1, 1, Q.USED, 1.6, 25.0, min_quality=60),
     template("Eilauftrag: Kupferkabel für die Baustelle", "CopperCable", 8, 12, Q.USED, 2.0, 10.0),
     template("Sammler sucht ein Röhrenradio", "VintageRadio", 1, 1, Q.DAMAGED, 1.3, 45.0),
+    # Production orders (Phase 10): own products and pressed material. Appended (dev role K uses index 8).
+    template("Elektrohandel bestellt Verlängerungskabel", "ExtensionCable", 3, 6, Q.USED, 1.4, 30.0),
+    template("Baumarkt bestellt Stahlwinkel-Sets", "SteelBracketSet", 5, 10, Q.USED, 1.4, 30.0),
+    template("Elektriker-Großhandel sucht Kupferdrahtspulen", "CopperWireSpool", 2, 4, Q.USED, 1.3, 35.0),
+    template("Gießerei kauft ein Kupferpaket", "CopperBale", 1, 1, Q.USED, 1.25, 40.0),
 ])
 eal.save_asset(catalog_path)
 

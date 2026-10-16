@@ -94,6 +94,7 @@ protected:
 	void Input_Alternative();
 	void Input_Build();
 	void Input_Remove();
+	void Input_Setting();
 	void Input_Cycle(const struct FInputActionValue& Value);
 	void Input_Inventory();
 	void Input_QuickSave();

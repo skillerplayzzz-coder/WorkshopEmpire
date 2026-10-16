@@ -2,15 +2,24 @@
 
 #include "Items/WEItemDefinition.h"
 
-bool UWEMachineDefinition::AcceptsItem(const UWEItemDefinition* Item) const
+bool FWEMachineRecipe::UsesItem(const UWEItemDefinition* Item) const
 {
 	if (!Item)
 	{
 		return false;
 	}
+	if (SecondInputItem && SecondInputItem == Item)
+	{
+		return true;
+	}
+	return InputItem ? InputItem == Item : InputCategories.Contains(Item->Category);
+}
+
+bool UWEMachineDefinition::AcceptsItem(const UWEItemDefinition* Item) const
+{
 	for (const FWEMachineRecipe& Recipe : Recipes)
 	{
-		if (Recipe.InputItem ? Recipe.InputItem == Item : Recipe.InputCategories.Contains(Item->Category))
+		if (Recipe.UsesItem(Item))
 		{
 			return true;
 		}

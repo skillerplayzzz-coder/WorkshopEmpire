@@ -3,6 +3,7 @@ Creates/updates the machine definitions (/Game/WorkshopEmpire/Data/Machines, Pha
   MD_Shredder  - devices and scrap -> shredded material (amount by weight)
   MD_Sorter    - shredded material -> copper, aluminium, steel, plastic, electronic scrap
   MD_Press     - loose metal -> bales (worth more at the scrap dealer)
+  MD_Assembler - sorted material -> products (Phase 10)
 
 Run after build_item_definitions.py and before build_workshop.py (the furniture catalog links them):
   UnrealEditor-Cmd.exe <WorkshopEmpire.uproject> -ExecutePythonScript="<this file>" -unattended -RenderOffscreen -nosplash
@@ -31,8 +32,11 @@ def data_asset(name):
     return tools.create_asset(name, FOLDER, unreal.WEMachineDefinition, factory), path
 
 
-def out(suffix, lo=1, hi=None, chance=1.0, per_kg=0.0):
+def out(suffix, lo=1, hi=None, chance=1.0, per_kg=0.0, new=False):
+    """new=True: a product made new (condition Neu, quality 70); otherwise material (Gebraucht, 50)."""
     o = unreal.WEMachineOutput()
+    o.set_editor_property("condition", unreal.WEItemCondition.NEW if new else unreal.WEItemCondition.USED)
+    o.set_editor_property("quality", 70 if new else 50)
     o.set_editor_property("item", item(suffix))
     o.set_editor_property("min_quantity", lo)
     o.set_editor_property("max_quantity", hi if hi is not None else lo)
@@ -41,11 +45,14 @@ def out(suffix, lo=1, hi=None, chance=1.0, per_kg=0.0):
     return o
 
 
-def recipe(name, outputs, input_item=None, quantity=1, categories=(), base_s=4.0, per_kg_s=0.0):
+def recipe(name, outputs, input_item=None, quantity=1, categories=(), base_s=4.0, per_kg_s=0.0, second=None, second_qty=1):
     r = unreal.WEMachineRecipe()
     r.set_editor_property("display_name", unreal.Text(name))
     if input_item:
         r.set_editor_property("input_item", item(input_item))
+    if second:
+        r.set_editor_property("second_input_item", item(second))
+        r.set_editor_property("second_input_quantity", second_qty)
     r.set_editor_property("input_quantity", quantity)
     r.set_editor_property("input_categories", list(categories))
     r.set_editor_property("outputs", outputs)
@@ -84,6 +91,15 @@ MACHINES = {
             recipe("Stahlballen pressen", [out("SteelBale")], input_item="SteelScrap", quantity=20, base_s=8.0),
             recipe("Aluminiumballen pressen", [out("AluBale")], input_item="AluminiumScrap", quantity=10, base_s=8.0),
             recipe("Kupferpaket pressen", [out("CopperBale")], input_item="CopperGranulate", quantity=20, base_s=8.0),
+        ]),
+    # Phase 10: makes products from sorted material. Several recipes share an input: choose with [T].
+    "MD_Assembler": dict(
+        name="Fertigungsautomat", power=6.0, idle=0.4, bulky=False, in_slots=8, in_kg=150.0, out_slots=8, out_kg=120.0, wear=2.0,
+        recipes=[
+            recipe("Kupferdrahtspule wickeln", [out("CopperWireSpool", new=True)], input_item="CopperGranulate", quantity=4, base_s=10.0),
+            recipe("Verlängerungskabel fertigen", [out("ExtensionCable", new=True)], input_item="CopperGranulate", quantity=2,
+                   second="PlasticParts", second_qty=3, base_s=12.0),
+            recipe("Stahlwinkel-Set stanzen", [out("SteelBracketSet", new=True)], input_item="SteelScrap", quantity=6, base_s=8.0),
         ]),
 }
 

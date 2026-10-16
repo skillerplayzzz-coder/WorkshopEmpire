@@ -5,6 +5,7 @@
 #include "EngineUtils.h"
 #include "Framework/WEGameState.h"
 #include "Machines/WEMachine.h"
+#include "Machines/WEConveyor.h"
 #include "Machines/WEMachineDefinition.h"
 #include "Net/UnrealNetwork.h"
 #include "Progression/WEProgressionComponent.h"
@@ -79,10 +80,36 @@ void UWEPowerGridComponent::StepMachines(float DeltaSeconds)
 		}
 	}
 
-	// 1) Running cycles advance. 2) Count the load. 3) Waiting machines start while there is power.
+	TArray<AWEConveyor*> Conveyors;
+	for (TActorIterator<AWEConveyor> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && !It->IsActorBeingDestroyed())
+		{
+			Conveyors.Add(*It);
+		}
+	}
+	// Which machines hand their products to a conveyor (bulky products then wait in the output).
+	for (AWEMachine* Machine : Machines)
+	{
+		Machine->SetOutputConnected(false);
+	}
+	for (AWEConveyor* Belt : Conveyors)
+	{
+		if (AWEMachine* Source = Cast<AWEMachine>(FindPortActor(GetWorld(), Belt->GetInputPortPoint(), Belt)))
+		{
+			Source->SetOutputConnected(true);
+		}
+	}
+
+	// 1) Running cycles advance. 2) Material moves on the belts. 3) Count the load. 4) Waiting machines
+	// start while there is power (so material that just arrived is used in the same step).
 	for (AWEMachine* Machine : Machines)
 	{
 		Machine->AdvanceCycle(DeltaSeconds);
+	}
+	for (AWEConveyor* Belt : Conveyors)
+	{
+		Belt->StepFlow(DeltaSeconds);
 	}
 	float Load = 0.f;
 	for (AWEMachine* Machine : Machines)
@@ -116,9 +143,38 @@ void UWEPowerGridComponent::StepMachines(float DeltaSeconds)
 	{
 		Total += Machine->GetPowerDrawKw();
 	}
+	for (const AWEConveyor* Belt : Conveyors)
+	{
+		Total += Belt->IsOn() ? AWEConveyor::PowerKw : 0.f;
+	}
 	LoadKw = Total;
-	MachineCount = Machines.Num();
+	MachineCount = Machines.Num() + Conveyors.Num();
 	UnbilledKWh += Total * DeltaSeconds / 3600.f;
+}
+
+AWEPlaceholderProp* UWEPowerGridComponent::FindPortActor(const UWorld* World, const FVector& Point, const AActor* Ignore)
+{
+	if (!World)
+	{
+		return nullptr;
+	}
+	constexpr float Margin = 10.f;
+	for (TActorIterator<AWEPlaceholderProp> It(World); It; ++It)
+	{
+		AWEPlaceholderProp* Prop = *It;
+		if (Prop == Ignore || !IsValid(Prop) || Prop->IsActorBeingDestroyed() || Prop->IsHidden())
+		{
+			continue;
+		}
+		const FVector Local = Prop->GetActorTransform().InverseTransformPosition(Point);
+		const FVector Size = Prop->GetSize();
+		if (FMath::Abs(Local.X) <= Size.X * 0.5f + Margin && FMath::Abs(Local.Y) <= Size.Y * 0.5f + Margin
+			&& Local.Z >= -Margin && Local.Z <= Size.Z + 40.f)
+		{
+			return Prop;
+		}
+	}
+	return nullptr;
 }
 
 void UWEPowerGridComponent::OnBillTimer()

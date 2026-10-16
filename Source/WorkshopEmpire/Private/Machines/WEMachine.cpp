@@ -75,6 +75,8 @@ void AWEMachine::RebuildVisuals()
 		GetStorage()->SetAcceptsBulky(MachineDefinition->bAcceptsBulky);
 		OutputStorage->Configure(FText::Format(LOCTEXT("OutputName", "{0} – Ausgabe"), MachineDefinition->DisplayName),
 			MachineDefinition->OutputSlots, MachineDefinition->OutputMaxWeightKg);
+		// Bulky products (bales) wait in the output when a conveyor carries them away (Phase 10).
+		OutputStorage->SetAcceptsBulky(true);
 	}
 }
 
@@ -173,25 +175,59 @@ float AWEMachine::GetProcessingWeightKg() const
 
 // --- Simulation (server) ---------------------------------------------------------------------------
 
-bool AWEMachine::MatchesRecipe(const FWEMachineRecipe& Recipe, int32& OutSlot) const
+int32 AWEMachine::CountIngredient(const FWEMachineRecipe& Recipe, bool bSecond, int32& OutSlot) const
 {
 	OutSlot = INDEX_NONE;
 	int32 Count = 0;
 	for (const FWEInventorySlotData& Slot : GetStorage()->GetAllSlots())
 	{
 		const FWEItemInstance& Item = Slot.Item;
-		if (Item.IsCustomerItem())
+		if (Item.IsCustomerItem() || !Item.Definition)
 		{
 			continue;
 		}
-		const bool bMatch = Recipe.InputItem ? Item.Definition == Recipe.InputItem : (Item.Definition && Recipe.InputCategories.Contains(Item.Definition->Category));
+		const bool bMatch = bSecond ? Item.Definition == Recipe.SecondInputItem
+			: Recipe.InputItem ? Item.Definition == Recipe.InputItem : Recipe.InputCategories.Contains(Item.Definition->Category);
 		if (bMatch)
 		{
 			OutSlot = OutSlot == INDEX_NONE ? Slot.SlotIndex : OutSlot;
 			Count += Item.Quantity;
 		}
 	}
-	return OutSlot != INDEX_NONE && Count >= (Recipe.InputItem ? Recipe.InputQuantity : 1);
+	return Count;
+}
+
+bool AWEMachine::MatchesRecipe(const FWEMachineRecipe& Recipe, int32& OutSlot) const
+{
+	const int32 Count = CountIngredient(Recipe, false, OutSlot);
+	if (OutSlot == INDEX_NONE || Count < (Recipe.InputItem ? Recipe.InputQuantity : 1))
+	{
+		return false;
+	}
+	int32 SecondSlot = INDEX_NONE;
+	return !Recipe.SecondInputItem || CountIngredient(Recipe, true, SecondSlot) >= Recipe.SecondInputQuantity;
+}
+
+bool AWEMachine::TakeIngredient(const FWEMachineRecipe& Recipe, bool bSecond, int32 Quantity)
+{
+	int32 Needed = Quantity;
+	while (Needed > 0)
+	{
+		int32 Slot = INDEX_NONE;
+		if (CountIngredient(Recipe, bSecond, Slot) <= 0)
+		{
+			break;
+		}
+		const FWEItemInstance* InSlot = GetStorage()->GetItemInSlot(Slot);
+		FWEItemInstance Taken;
+		if (!InSlot || GetStorage()->RemoveFromSlot(Slot, FMath::Min(Needed, InSlot->Quantity), Taken) != EWEInventoryResult::Success)
+		{
+			break;
+		}
+		Needed -= Taken.Quantity;
+		Processing.Add(Taken);
+	}
+	return Needed <= 0;
 }
 
 int32 AWEMachine::FindStartableRecipe()
@@ -217,6 +253,10 @@ int32 AWEMachine::FindStartableRecipe()
 	const int32 FreeSlots = OutputStorage->GetNumSlots() - OutputStorage->GetAllSlots().Num();
 	for (int32 i = 0; i < MachineDefinition->Recipes.Num(); ++i)
 	{
+		if (MachineDefinition->Recipes.IsValidIndex(Status.SelectedRecipe) && i != Status.SelectedRecipe)
+		{
+			continue; // a chosen recipe: only that one
+		}
 		int32 Slot = INDEX_NONE;
 		const FWEMachineRecipe& Recipe = MachineDefinition->Recipes[i];
 		if (MatchesRecipe(Recipe, Slot))
@@ -248,22 +288,15 @@ void AWEMachine::StartCycle(int32 RecipeIndex)
 	if (Processing.Num() == 0)
 	{
 		// Take the inputs now: they cannot be taken out of a running machine.
-		int32 Needed = Recipe.InputItem ? Recipe.InputQuantity : 1;
-		while (Needed > 0)
+		int32 Slot = INDEX_NONE;
+		if (!MatchesRecipe(Recipe, Slot))
 		{
-			int32 Slot = INDEX_NONE;
-			if (!MatchesRecipe(Recipe, Slot))
-			{
-				break;
-			}
-			const FWEItemInstance* InSlot = GetStorage()->GetItemInSlot(Slot);
-			FWEItemInstance Taken;
-			if (!InSlot || GetStorage()->RemoveFromSlot(Slot, FMath::Min(Needed, InSlot->Quantity), Taken) != EWEInventoryResult::Success)
-			{
-				break;
-			}
-			Needed -= Taken.Quantity;
-			Processing.Add(Taken);
+			return;
+		}
+		TakeIngredient(Recipe, false, Recipe.InputItem ? Recipe.InputQuantity : 1);
+		if (Recipe.SecondInputItem)
+		{
+			TakeIngredient(Recipe, true, Recipe.SecondInputQuantity);
 		}
 		if (Processing.Num() == 0)
 		{
@@ -310,8 +343,8 @@ void AWEMachine::CompleteCycle()
 		for (int32 Remaining = Quantity; Remaining > 0;)
 		{
 			const int32 Count = FMath::Min(Remaining, Output.Item->GetMaxStackSize());
-			// Same condition/quality as workbench materials, so they stack together.
-			Products.Add(FWEItemInstance::Make(Output.Item, Count, EWEItemCondition::Used, 50));
+			// Materials: same condition/quality as workbench materials, so they stack together.
+			Products.Add(FWEItemInstance::Make(Output.Item, Count, Output.Condition, static_cast<uint8>(FMath::Clamp(Output.Quality, 0, 100))));
 			Remaining -= Count;
 		}
 	}
@@ -332,7 +365,7 @@ void AWEMachine::DeliverProducts(const TArray<FWEItemInstance>& Products)
 	for (const FWEItemInstance& Product : Products)
 	{
 		int32 Added = 0;
-		if (Product.Definition->bFitsInInventory)
+		if (Product.Definition->bFitsInInventory || bOutputConnected)
 		{
 			OutputStorage->TryAddItem(Product, Added);
 		}
@@ -348,7 +381,7 @@ void AWEMachine::DeliverProducts(const TArray<FWEItemInstance>& Products)
 	}
 }
 
-void AWEMachine::RestoreState(bool bOn, uint8 Maintenance, int32 RecipeIndex, float InProgress, float CycleSeconds, const TArray<FWEItemInstance>& InProcessing)
+void AWEMachine::RestoreState(bool bOn, uint8 Maintenance, int32 RecipeIndex, float InProgress, float CycleSeconds, const TArray<FWEItemInstance>& InProcessing, int32 SelectedRecipe)
 {
 	if (!HasAuthority())
 	{
@@ -358,6 +391,7 @@ void AWEMachine::RestoreState(bool bOn, uint8 Maintenance, int32 RecipeIndex, fl
 	Status.Maintenance = Maintenance;
 	Status.RecipeIndex = static_cast<int8>(RecipeIndex);
 	Status.CycleSeconds = CycleSeconds;
+	Status.SelectedRecipe = MachineDefinition && MachineDefinition->Recipes.IsValidIndex(SelectedRecipe) ? static_cast<int8>(SelectedRecipe) : INDEX_NONE;
 	Processing = InProcessing;
 	Progress = InProgress;
 	// The grid decides next step whether the machine runs (power).
@@ -479,6 +513,16 @@ int32 AWEMachine::TakeOutputs(AWECharacter* Character)
 		return 0;
 	}
 	const int32 Moved = OutputStorage->TransferAllTo(Inventory);
+	// Bulky products (only there while a conveyor was connected) go down in front of the machine.
+	const TArray<FWEInventorySlotData> Left = OutputStorage->GetAllSlots();
+	for (const FWEInventorySlotData& Slot : Left)
+	{
+		FWEItemInstance Bulky;
+		if (Slot.Item.Definition && !Slot.Item.Definition->bFitsInInventory && OutputStorage->RemoveFromSlot(Slot.SlotIndex, Slot.Item.Quantity, Bulky) == EWEInventoryResult::Success)
+		{
+			DeliverProducts({ Bulky });
+		}
+	}
 	if (OutputStorage->GetAllSlots().Num() > 0)
 	{
 		if (AWEPlayerController* PC = Cast<AWEPlayerController>(Character->GetController()))
@@ -491,6 +535,76 @@ int32 AWEMachine::TakeOutputs(AWECharacter* Character)
 		SetState(Status.bOn ? EWEMachineState::Idle : EWEMachineState::Off);
 	}
 	return Moved;
+}
+
+FText AWEMachine::GetSelectedRecipeText() const
+{
+	return MachineDefinition && MachineDefinition->Recipes.IsValidIndex(Status.SelectedRecipe)
+		? MachineDefinition->Recipes[Status.SelectedRecipe].DisplayName : LOCTEXT("AutoRecipe", "Automatisch");
+}
+
+bool AWEMachine::SelectRecipe(int32 RecipeIndex)
+{
+	if (!HasAuthority() || !MachineDefinition || (RecipeIndex != INDEX_NONE && !MachineDefinition->Recipes.IsValidIndex(RecipeIndex)))
+	{
+		return false;
+	}
+	Status.SelectedRecipe = static_cast<int8>(RecipeIndex);
+	++Status.EventCounter;
+	ForceNetUpdate();
+	UE_LOG(LogWENet, Log, TEXT("%s: recipe %s"), *GetName(), *GetSelectedRecipeText().ToString());
+	return true;
+}
+
+void AWEMachine::CycleRecipe()
+{
+	if (!MachineDefinition || MachineDefinition->Recipes.Num() < 2)
+	{
+		return;
+	}
+	const int32 Next = Status.SelectedRecipe + 1;
+	SelectRecipe(MachineDefinition->Recipes.IsValidIndex(Next) ? Next : INDEX_NONE);
+}
+
+bool AWEMachine::CanAcceptFromBelt(const FWEItemInstance& Item) const
+{
+	if (!MachineDefinition || !Item.Definition || Item.IsCustomerItem())
+	{
+		return false;
+	}
+	const bool bWanted = MachineDefinition->Recipes.IsValidIndex(Status.SelectedRecipe)
+		? MachineDefinition->Recipes[Status.SelectedRecipe].UsesItem(Item.Definition) : MachineDefinition->AcceptsItem(Item.Definition);
+	return bWanted && GetStorage()->GetAddableQuantity(Item) >= Item.Quantity;
+}
+
+bool AWEMachine::AcceptFromBelt(const FWEItemInstance& Item)
+{
+	if (!HasAuthority() || !CanAcceptFromBelt(Item))
+	{
+		return false;
+	}
+	int32 Added = 0;
+	GetStorage()->TryAddItem(Item, Added);
+	return Added == Item.Quantity;
+}
+
+bool AWEMachine::TakeOutputForBelt(FWEItemInstance& OutItem)
+{
+	const TArray<FWEInventorySlotData>& Slots = OutputStorage->GetAllSlots();
+	if (!HasAuthority() || Slots.Num() == 0)
+	{
+		return false;
+	}
+	const FWEInventorySlotData First = Slots[0];
+	if (OutputStorage->RemoveFromSlot(First.SlotIndex, First.Item.Quantity, OutItem) != EWEInventoryResult::Success)
+	{
+		return false;
+	}
+	if (Status.State == EWEMachineState::OutputFull)
+	{
+		SetState(Status.bOn ? EWEMachineState::Idle : EWEMachineState::Off);
+	}
+	return true;
 }
 
 // --- Interaction ---------------------------------------------------------------------------------------
@@ -560,6 +674,25 @@ void AWEMachine::InteractExtra(AWECharacter* Interactor)
 	Maintain(Interactor);
 }
 
+bool AWEMachine::GetSettingInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const
+{
+	if (!MachineDefinition || !Interactor || MachineDefinition->Recipes.Num() < 2)
+	{
+		return false;
+	}
+	OutText = FText::Format(LOCTEXT("RecipeSetting", "Rezept: {0}"), GetSelectedRecipeText());
+	return true;
+}
+
+void AWEMachine::InteractSetting(AWECharacter* Interactor)
+{
+	CycleRecipe();
+	if (AWEPlayerController* PC = Interactor ? Cast<AWEPlayerController>(Interactor->GetController()) : nullptr)
+	{
+		PC->ClientShowMessage(FText::Format(LOCTEXT("RecipeChosen", "{0}: Rezept {1}"), MachineDefinition->DisplayName, GetSelectedRecipeText()));
+	}
+}
+
 bool AWEMachine::GetExamineInfo(FWEExamineInfo& OutInfo) const
 {
 	if (!MachineDefinition)
@@ -586,6 +719,10 @@ bool AWEMachine::GetExamineInfo(FWEExamineInfo& OutInfo) const
 		Recipes.Add(Recipe.DisplayName.ToString());
 	}
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ExRecipes", "Kann: {0}"), FText::FromString(FString::Join(Recipes, TEXT(", ")))));
+	if (MachineDefinition->Recipes.Num() > 1)
+	{
+		OutInfo.Details.Add(FText::Format(LOCTEXT("ExSelected", "Rezept: {0} ([T] wechseln)"), GetSelectedRecipeText()));
+	}
 	return true;
 }
 

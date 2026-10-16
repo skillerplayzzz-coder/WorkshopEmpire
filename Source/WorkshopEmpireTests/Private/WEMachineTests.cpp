@@ -394,7 +394,7 @@ bool FWEMachineSaveTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Mid cycle"), Shredder->IsRunning() && Progress > 0.2f);
 
 	UWESaveGame* Save = FWESaveSystem::Capture(F.TW.World);
-	TestEqual(TEXT("Version 8"), Save->SaveVersion, 8);
+	TestEqual(TEXT("Current version (8 added machines)"), Save->SaveVersion, UWESaveGame::CurrentVersion);
 	TestEqual(TEXT("Machine saved"), Save->Machines.Num(), 1);
 
 	// Change everything, then load.

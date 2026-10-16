@@ -17,6 +17,48 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 10 – Lauf vom 2026-10-16
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **81/81 bestanden, 0 mit Warnungen** (75 alte + 6 neue), Bericht `Saved/TestReports/Phase10_final2/index.json` |
+| ↳ `Flow.AutomatedRecyclingLine` (echte Daten: Zuführband → Schredder → Band → Sortiermaschine → 2-m-Band → Materiallager; Ports richtig erkannt; PC aufs Band gelegt, danach kein Eingriff: Band bringt ihn in den Schredder, der startet selbst, Bänder leeren beide Ausgaben, im Lager kommen Elektronikschrott 3, Stahl 3, Kunststoff, Kupfer an; 3 Schreddergut warten in der Sortiermaschine auf die nächsten 5; nichts fällt auf den Boden; Bänder ziehen Strom) | ✅ |
+| ↳ `Flow.ConveyorMovesBlocksAndJoins` (60 cm/s; kein zweiter Gegenstand auf derselben Stelle; Übergabe über Eck an den Anfang des nächsten Bands; offenes Ende: Band staut mit 35 cm Abstand; volles Band nicht verschiebbar; angehaltenes Band bewegt nichts und zieht keinen Strom; neu gestellte Kiste am Ende nimmt 3 × 5 Stahl; Kiste nimmt keinen sperrigen PC → wartet auf dem Band) | ✅ |
+| ↳ `Flow.StoreFilterAndRecipes` ([T] am Fertigungsautomaten: Automatisch → 3 Rezepte → Automatisch; Rezept Kabel gewählt: aus Granulat + Kunststoff werden 2 Kabel, keine Drahtspule, Produkte "Neu"; Lager auf "Alles" schickt den Stahl nicht los, weil die Maschine ihn nicht nimmt – Band bleibt frei; Lager nur Stahl → 1 Stahlwinkel-Set, Granulat bleibt im Lager; [T] am Lager: Alles → Material → Aus (nichts geht raus) → Alles) | ✅ (erst rot, siehe Behobene Fehler) |
+| ↳ `Flow.PlayerAndBelt` (getragener PC aufs Band an der Stelle, wo man steht (160 cm); Kundengerät abgelehnt; [E] nimmt den PC wieder in die Hände, Kleinteile ins Inventar; [Q] hält an; volles Band → "Band voll") | ✅ |
+| ↳ `Save.FlowRoundTrip` (Version 9: angehaltenes Band mit Stahl bei 40 cm und PC, Lagerausgabe "nur Kupfergranulat", gewähltes Rezept; alles verändert, geladen → wie gespeichert) | ✅ |
+| ↳ `Economy.BalanceProduction` (**echte Daten, bester Händler, Strom abgezogen**) | ✅ 4 Kupfergranulat 5,54 € → Kupferdrahtspule **9,90 €**; 2 Granulat + 3 Kunststoff 2,91 € → Verlängerungskabel **5,94 €**; 6 Stahlschrott 0,69 € → Stahlwinkel-Set **1,45 €**; Strom je Stück 3–5 ct; kein Produkt über dem 2,5-Fachen; versiegelte Palette weiterhin unverkäuflich |
+| Angepasst: `Input.DefaultMapping` (21 Belegungen, [T]), `Save.MachineRoundTrip` (prüft die aktuelle Version) | ✅ |
+| Erzeugung von 44 Gegenständen (3 neue), 4 Maschinen, Möbelkatalog (14), Händlerdaten mit 4 Produktionsaufträgen und Map per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P10`, 5 Läufe) | ✅ 9 Screenshots geprüft: Linie aus 4 Bändern, Schredder, Sortiermaschine, Materiallager und Fertigungsautomat aufgestellt; "[E] Aufs Band legen" mit dem PC in der Hand; zwei PCs laufen in den Schredder; Schreddergut fährt sichtbar auf dem Band ("[E] Vom Band nehmen (Schreddergut Elektronik)", "[Q] Band anhalten"); Lager füllt sich von allein; "[T] Rezept: Stahlwinkel-Set stanzen"; Untersuchen am Band zeigt "Nimmt von: Materiallager · Gibt ab an: Fertigungsautomat"; Stahlwinkel-Set fertig; gespeichert, Band angehalten, geladen → läuft wieder |
+| **Netzwerktest Produktionslinie** (`-WESmokeRole=S/T`, Dedicated Server + 2 Clients, neu, 3 Läufe) | ✅ S baut die Linie und legt einen PC auf; T sieht das Schreddergut auf dem Band wandern (60 → 90 cm, dann in der Sortiermaschine); T stellt die Lagerausgabe um und hält das Band zum Lager an → S sieht beides; nach dem Starten läuft das Material weiter. Der Server lehnt Einschalten aus zu großer Entfernung ab ("out of reach") |
+| **Regression** Netzwerktests A/B, C/D, E/F, G/H, K/L, M/N, O/P, Q/R (Dedicated) und I/J (Listen-Server), Spielläufe P5–P9 | ✅ unverändert |
+
+### Behobene Fehler in Phase 10
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Linie im Spiel verstopft: Materiallager schickte Elektronikschrott zum Fertigungsautomaten, der ihn nicht nimmt; das Band stand für immer | Lagerausgabe kannte das Ziel nicht | Lager gibt nur ab, was die Maschine am Ende der Linie gerade annimmt (`FindLineDestination`) |
+| Untersuchen-Fenster: Text lief bei Maschinen und Bändern unten aus dem Hintergrund | feste Fensterhöhe | Höhe wächst mit dem Inhalt |
+| Testskript: zwei PCs als ein Stapel "Alter Computer (2)" gespawnt | Dev-Befehl ignorierte die Stapelgröße | ein Actor je Stück |
+| Linie ließ sich im Spiel nicht aufstellen | Spielerstart-Punkt an der geplanten Stelle | Linie verlegt (nur Testskript) |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Bänder mit echter Maus im Baumodus verlegen | Mikes Praxistest; im Spiel per Skript über denselben Baumodus |
+| Lange Linien (> 20 Bänder) / Performance-Messung | Nachbarsuche läuft je Schritt über alle Möbel; bei wenigen Dutzend unkritisch, Cache vorgemerkt |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweise: Gibt eine Maschine etwas aus, das die nächste nicht nimmt (z. B. Kupfergranulat aus dem Schredder vor der Sortiermaschine), staut das Band – gewollt, die Linie muss dann passend gebaut oder über ein Materiallager geführt werden. Eine Weiche/ein Verteiler fehlt noch.
+
+---
+
 ## Phase 9 – Lauf vom 2026-10-15
 
 ### Ausgeführt

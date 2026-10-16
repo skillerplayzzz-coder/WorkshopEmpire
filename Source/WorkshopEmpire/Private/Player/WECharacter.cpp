@@ -18,6 +18,7 @@
 #include "Workshop/WEWorkbench.h"
 #include "Workshop/WEBuildComponent.h"
 #include "Machines/WEMachine.h"
+#include "Machines/WEConveyor.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
@@ -166,6 +167,7 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->BuildAction, ETriggerEvent::Started, this, &AWECharacter::Input_Build);
 	Input->BindAction(InputConfig->RemoveAction, ETriggerEvent::Started, this, &AWECharacter::Input_Remove);
 	Input->BindAction(InputConfig->CycleAction, ETriggerEvent::Triggered, this, &AWECharacter::Input_Cycle);
+	Input->BindAction(InputConfig->SettingAction, ETriggerEvent::Started, this, &AWECharacter::Input_Setting);
 	Input->BindAction(InputConfig->InventoryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Inventory);
 	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
 	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
@@ -252,6 +254,14 @@ void AWECharacter::Input_Remove()
 		return;
 	}
 	InteractionComponent->RequestExtraInteraction();
+}
+
+void AWECharacter::Input_Setting()
+{
+	if (!BuildComponent->IsActive())
+	{
+		InteractionComponent->RequestSettingInteraction();
+	}
 }
 
 void AWECharacter::Input_Cycle(const FInputActionValue& Value)
@@ -412,6 +422,14 @@ void AWECharacter::DropHeldItem()
 	{
 		FText Reason;
 		if (Machine->CanInsertItem(Item, Reason) && Machine->InsertItem(Item))
+		{
+			return;
+		}
+	}
+	// Aiming at a conveyor: onto the belt.
+	if (AWEConveyor* Belt = Cast<AWEConveyor>(FindAimedProp()))
+	{
+		if (Belt->PutOnBelt(Item, this))
 		{
 			return;
 		}

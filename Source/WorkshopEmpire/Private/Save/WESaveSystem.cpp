@@ -2,6 +2,8 @@
 
 #include "Economy/WEAuctionComponent.h"
 #include "Machines/WEMachine.h"
+#include "Machines/WEConveyor.h"
+#include "Machines/WEProductionStorage.h"
 #include "Machines/WEPowerGridComponent.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
 #include "World/WEPlaceholderProp.h"
@@ -214,10 +216,27 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		Saved.RecipeIndex = It->GetStatus().RecipeIndex;
 		Saved.Progress = It->GetProgress();
 		Saved.CycleSeconds = It->GetStatus().CycleSeconds;
+		Saved.SelectedRecipe = It->GetSelectedRecipe();
 		for (const FWEItemInstance& Item : It->GetProcessing())
 		{
 			Saved.Processing.Add(ToSaved(Item));
 		}
+	}
+	// Conveyors and material stores (version 9).
+	for (TActorIterator<AWEConveyor> It(World); It; ++It)
+	{
+		FWESavedConveyor& Saved = Save->Conveyors.AddDefaulted_GetRef();
+		Saved.ActorName = It->GetFName();
+		Saved.bOn = It->IsOn();
+		for (const FWEConveyorItem& Entry : It->GetItems())
+		{
+			Saved.Items.Add(ToSaved(Entry.Item));
+			Saved.Positions.Add(Entry.Position);
+		}
+	}
+	for (TActorIterator<AWEProductionStorage> It(World); It; ++It)
+	{
+		Save->StoreOutputs.Add({ It->GetFName(), It->IsOutputOn(), It->GetOutputFilter() ? It->GetOutputFilter()->ItemId : NAME_None });
 	}
 	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World))
 	{
@@ -475,7 +494,28 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 			}
 		}
 		It->RestoreState(Saved && Saved->bOn, Saved ? Saved->Maintenance : 100, Saved ? Saved->RecipeIndex : INDEX_NONE,
-			Saved ? Saved->Progress : 0.f, Saved ? Saved->CycleSeconds : 0.f, Processing);
+			Saved ? Saved->Progress : 0.f, Saved ? Saved->CycleSeconds : 0.f, Processing, Saved ? Saved->SelectedRecipe : INDEX_NONE);
+	}
+	// Conveyors and material stores (version 9): items stay where they lay on the belt.
+	for (TActorIterator<AWEConveyor> It(World); It; ++It)
+	{
+		const FWESavedConveyor* Saved = Save->Conveyors.FindByPredicate([&It](const FWESavedConveyor& C) { return C.ActorName == It->GetFName(); });
+		TArray<FWEConveyorItem> Items;
+		for (int32 i = 0; Saved && i < Saved->Items.Num(); ++i)
+		{
+			FWEConveyorItem Entry;
+			if (FromSaved(Saved->Items[i], Entry.Item))
+			{
+				Entry.Position = Saved->Positions.IsValidIndex(i) ? Saved->Positions[i] : 0.f;
+				Items.Add(Entry);
+			}
+		}
+		It->RestoreState(!Saved || Saved->bOn, Items);
+	}
+	for (TActorIterator<AWEProductionStorage> It(World); It; ++It)
+	{
+		const FWESavedStoreOutput* Saved = Save->StoreOutputs.FindByPredicate([&It](const FWESavedStoreOutput& S) { return S.ActorName == It->GetFName(); });
+		It->SetOutput(!Saved || Saved->bOutputOn, Saved && !Saved->FilterItemId.IsNone() ? UWEItemDefinition::FindById(Saved->FilterItemId) : nullptr);
 	}
 	if (UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World); Grid && Save->SaveVersion >= 8)
 	{

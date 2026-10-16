@@ -202,6 +202,19 @@ ITEMS = [
      "Öl, Fett, Filter, Ersatzmesser: bringt eine Maschine wieder auf 100 %.",
      C.SPARE_PART, 1.5, 800, True, 5, True, False, T.NONE, 1.0, CUBE, (0.20, 0.12, 0.10), (0.85, 0.65, 0.10),
      [(M.STEEL, 1.0), (M.PLASTIC, 0.5)]),
+    # Phase 10: products of the assembly machine (Fertigungsautomat).
+    ("CopperWireSpool", "CopperWireSpool", "Kupferdrahtspule",
+     "Zwei Kilo blanker Kupferdraht auf einer Spule – aus eigenem Granulat gewickelt.",
+     C.PRODUCT, 2.0, 1500, True, 10, True, False, T.NONE, 1.0, CYLINDER, (0.22, 0.22, 0.14), (0.88, 0.48, 0.22),
+     [(M.COPPER, 2.0)]),
+    ("ExtensionCable", "ExtensionCable", "Verlängerungskabel (5 m)",
+     "Fertig konfektioniertes Verlängerungskabel mit Stecker und Kupplung.",
+     C.PRODUCT, 1.0, 900, True, 10, True, False, T.NONE, 1.0, CUBE, (0.20, 0.20, 0.08), (0.90, 0.90, 0.88),
+     [(M.COPPER, 0.5), (M.PLASTIC, 0.5)]),
+    ("SteelBracketSet", "SteelBracketSet", "Stahlwinkel-Set",
+     "Zehn gestanzte Montagewinkel aus Recyclingstahl, verzinkt.",
+     C.PRODUCT, 1.5, 220, True, 20, True, False, T.NONE, 1.0, CUBE, (0.16, 0.12, 0.06), (0.62, 0.64, 0.68),
+     [(M.STEEL, 1.5)]),
 ]
 
 CARRY_BONUS = {"HandTruck": 30.0}

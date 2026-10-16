@@ -70,6 +70,33 @@ struct WORKSHOPEMPIRE_API FWESavedMachine
 	UPROPERTY() float Progress = 0.f;
 	UPROPERTY() float CycleSeconds = 0.f;
 	UPROPERTY() TArray<FWESavedItem> Processing;
+	/** Since version 9: recipe chosen with [T] (INDEX_NONE = automatic). */
+	UPROPERTY() int32 SelectedRecipe = INDEX_NONE;
+};
+
+/** Since save version 9: a conveyor with the items lying on it. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedConveyor
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	UPROPERTY() bool bOn = true;
+	UPROPERTY() TArray<FWESavedItem> Items;
+	/** Belt position (cm from the start) of each item. */
+	UPROPERTY() TArray<float> Positions;
+};
+
+/** Since save version 9: output setting of a material store. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedStoreOutput
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	UPROPERTY() bool bOutputOn = true;
+	/** ItemId of the only material that goes out (None = everything). */
+	UPROPERTY() FName FilterItemId;
 };
 
 USTRUCT()
@@ -184,7 +211,7 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 
 public:
 	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). */
-	static constexpr int32 CurrentVersion = 8;
+	static constexpr int32 CurrentVersion = 9;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -216,4 +243,8 @@ public:
 	// Since version 8.
 	UPROPERTY() TArray<FWESavedMachine> Machines;
 	UPROPERTY() float PowerUnbilledKWh = 0.f;
+
+	// Since version 9 (material flow).
+	UPROPERTY() TArray<FWESavedConveyor> Conveyors;
+	UPROPERTY() TArray<FWESavedStoreOutput> StoreOutputs;
 };

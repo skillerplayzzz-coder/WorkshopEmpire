@@ -10,6 +10,7 @@
 #include "WELog.h"
 #include "Workshop/WEWorkbench.h"
 #include "Machines/WEMachine.h"
+#include "Machines/WEConveyor.h"
 #include "Machines/WEMachineDefinition.h"
 
 #define LOCTEXT_NAMESPACE "WEInteraction"
@@ -357,6 +358,60 @@ bool UWEInteractionComponent::ExecuteInteractExtra(AActor* Target)
 	return true;
 }
 
+void UWEInteractionComponent::RequestSettingInteraction()
+{
+	const AWECharacter* Character = GetCharacter();
+	if (Character && !Character->GetHeldItem())
+	{
+		RequestSettingInteractWith(FocusedActor.Get());
+	}
+}
+
+void UWEInteractionComponent::RequestSettingInteractWith(AActor* Target)
+{
+	if (!Target)
+	{
+		return;
+	}
+	if (GetOwner()->HasAuthority())
+	{
+		ExecuteInteractSetting(Target);
+	}
+	else
+	{
+		ServerInteractSetting(Target);
+	}
+}
+
+void UWEInteractionComponent::ServerInteractSetting_Implementation(AActor* Target)
+{
+	ExecuteInteractSetting(Target);
+}
+
+bool UWEInteractionComponent::ExecuteInteractSetting(AActor* Target)
+{
+	AWECharacter* Character = GetCharacter();
+	IWEInteractable* Interactable = Cast<IWEInteractable>(Target);
+	if (!Character || !Character->HasAuthority() || !IsValid(Target) || !Interactable)
+	{
+		return false;
+	}
+	if (!IsWithinReach(Character, Target, InteractionRange + ServerRangeTolerance))
+	{
+		UE_LOG(LogWENet, Warning, TEXT("%s setting on %s rejected: out of reach"), *Character->GetName(), *Target->GetName());
+		return false;
+	}
+	FText Text;
+	FText Reason;
+	if (!Interactable->GetSettingInteraction(Character, Text, Reason))
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s setting on %s rejected: %s"), *Character->GetName(), *Target->GetName(), *Reason.ToString());
+		return false;
+	}
+	Interactable->InteractSetting(Character);
+	return true;
+}
+
 // --- Examine / prompts (local) -----------------------------------------------------------------
 
 void UWEInteractionComponent::ToggleExamine()
@@ -415,6 +470,7 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		// Same check the server makes when [E] is pressed (loose items on the bench are ignored).
 		const AWEWorkbench* Bench = Character->FindAimedWorkbench();
 		const AWEMachine* Machine = Character->FindAimedMachine();
+		const AWEConveyor* Belt = Cast<AWEConveyor>(Character->FindAimedProp());
 		FText PlaceReason;
 		if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
 		{
@@ -424,10 +480,14 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		{
 			OutPrompts.Add({ InteractKey, FText::Format(LOCTEXT("PutInMachine", "In die Maschine geben ({0})"), Machine->GetMachineDefinition() ? Machine->GetMachineDefinition()->DisplayName : FText::GetEmpty()) });
 		}
+		else if (Belt && Belt->CanPutOnBelt(Held, Character, PlaceReason))
+		{
+			OutPrompts.Add({ InteractKey, LOCTEXT("PutOnBelt", "Aufs Band legen") });
+		}
 		else
 		{
 			OutPrompts.Add({ InteractKey, LOCTEXT("Drop", "Ablegen") });
-			if ((Bench || Machine) && !PlaceReason.IsEmpty())
+			if ((Bench || Machine || Belt) && !PlaceReason.IsEmpty())
 			{
 				OutPrompts.Add({ FText::GetEmpty(), PlaceReason });
 			}
@@ -479,6 +539,13 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	else if (!ExtraReason.IsEmpty())
 	{
 		OutPrompts.Add({ FText::GetEmpty(), ExtraReason });
+	}
+
+	FText SettingText;
+	FText SettingReason;
+	if (Interactable->GetSettingInteraction(Character, SettingText, SettingReason))
+	{
+		OutPrompts.Add({ GetKeyText(Config->SettingAction), SettingText });
 	}
 
 	FWEExamineInfo Info;

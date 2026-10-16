@@ -57,6 +57,8 @@ public:
 	void CycleSelection(int32 Direction);
 	void SelectIndex(int32 Index);
 	void Rotate(float Degrees);
+	/** Absolute rotation of the preview (automation, tests). */
+	void SetRotation(float Degrees);
 	void Confirm();
 	void Remove();
 

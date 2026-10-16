@@ -104,7 +104,8 @@ FWEMoney UWEMarketComponent::GetMarketValue(const FWEItemInstance& Item, const U
 
 FWEMoney UWEMarketComponent::GetSellPrice(const FWEItemInstance& Item, const UWETraderDefinition* Trader, const UWEMarketComponent* Market)
 {
-	if (!Item.IsValid() || !Trader || Item.IsPartiallyDisassembled())
+	// Sealed containers (return pallets) are bought closed, never sold back unopened.
+	if (!Item.IsValid() || !Trader || Item.IsPartiallyDisassembled() || Item.Definition->IsOpenable())
 	{
 		return FWEMoney(); // nobody buys half-disassembled junk at a normal price
 	}

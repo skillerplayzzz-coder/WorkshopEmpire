@@ -14,6 +14,8 @@
 #include "Workshop/WEFurnitureDefinition.h"
 #include "Workshop/WEWorkbench.h"
 #include "Machines/WEMachine.h"
+#include "Machines/WEConveyor.h"
+#include "Machines/WEProductionStorage.h"
 #include "World/WEBuildArea.h"
 
 #define LOCTEXT_NAMESPACE "WEBuild"
@@ -120,6 +122,11 @@ bool UWEWorkshopLayoutComponent::CanPickUpFurniture(const AWEPlaceholderProp* Pr
 			return false;
 		}
 	}
+	if (const AWEConveyor* Belt = Cast<AWEConveyor>(Prop); Belt && Belt->GetItems().Num() > 0)
+	{
+		OutReason = LOCTEXT("BeltNotEmpty", "Erst das Band leeren");
+		return false;
+	}
 	// Loose items lying on boards or the top.
 	const FVector Size = Prop->GetSize();
 	const FVector Half(Size.X * 0.5f, Size.Y * 0.5f, Size.Z * 0.5f + 20.f);
@@ -188,7 +195,10 @@ AWEPlaceholderProp* UWEWorkshopLayoutComponent::SpawnFurniture(FName FurnitureId
 				REN_DontCreateRedirectors | REN_NonTransactional | REN_DoNotDirty);
 		}
 	}
-	UClass* Class = Definition->Machine ? AWEMachine::StaticClass() : Definition->bWorkbench ? AWEWorkbench::StaticClass() : AWEPlaceholderProp::StaticClass();
+	UClass* Class = Definition->Machine ? AWEMachine::StaticClass()
+		: Definition->PropType == EWEPlaceholderPropType::Conveyor ? AWEConveyor::StaticClass()
+		: Definition->bProductionStorage ? AWEProductionStorage::StaticClass()
+		: Definition->bWorkbench ? AWEWorkbench::StaticClass() : AWEPlaceholderProp::StaticClass();
 	AWEPlaceholderProp* Prop = World->SpawnActor<AWEPlaceholderProp>(Class, Transform, Params);
 	if (!Prop)
 	{

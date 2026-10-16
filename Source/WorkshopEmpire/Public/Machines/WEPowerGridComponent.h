@@ -34,8 +34,14 @@ public:
 	const FWEMoney& GetLastBill() const { return LastBill; }
 	bool HasMachines() const { return MachineCount > 0; }
 
-	/** Server: advances all machines by DeltaSeconds and hands out power. Timer; public for tests. */
+	/** Server: advances all machines and conveyors by DeltaSeconds and hands out power. Timer; public for tests. */
 	void StepMachines(float DeltaSeconds);
+
+	/**
+	 * Material flow (Phase 10): the furniture whose footprint contains Point (a conveyor port), or null.
+	 * Conveyors use it to find their neighbours; touching or a gap of up to ~10 cm connects.
+	 */
+	static class AWEPlaceholderProp* FindPortActor(const UWorld* World, const FVector& Point, const AActor* Ignore);
 
 	/** Server: bills the energy used since the last bill. Timer; public for tests. */
 	FWEMoney Bill();

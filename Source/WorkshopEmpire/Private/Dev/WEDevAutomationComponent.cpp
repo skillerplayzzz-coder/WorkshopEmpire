@@ -36,6 +36,8 @@
 #include "Machines/WEMachine.h"
 #include "Machines/WEMachineDefinition.h"
 #include "Machines/WEPowerGridComponent.h"
+#include "Machines/WEConveyor.h"
+#include "Machines/WEProductionStorage.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
 {
@@ -137,6 +139,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("R"))
 	{
 		RunSmokeRoleR();
+	}
+	else if (Role == TEXT("S"))
+	{
+		RunSmokeRoleS();
+	}
+	else if (Role == TEXT("T"))
+	{
+		RunSmokeRoleT();
+	}
+	else if (ShotName.StartsWith(TEXT("P10")))
+	{
+		RunFlowShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P9")))
 	{
@@ -1752,4 +1766,247 @@ void UWEDevAutomationComponent::RunSmokeRoleR()
 	Schedule(32.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestSecondaryInteractWith(FindMachine(TEXT("Shredder"))); } });
 	Schedule(33.5f, [this]() { LogMachines(TEXT("R3 took the shredded material")); });
 	Schedule(38.f, [this]() { Quit(); });
+}
+
+// --- Phase 10: production line ------------------------------------------------------------------------
+
+void UWEDevAutomationComponent::PlaceFurnitureAt(const TCHAR* FurnitureId, float X, float Y, float Yaw)
+{
+	if (UWEBuildComponent* B = GetBuild())
+	{
+		B->SelectIndex(FurnitureIndex(FurnitureId));
+		B->SetRotation(Yaw);
+		B->SetAimOverride(FVector(X, Y, 0.f));
+		B->Confirm();
+	}
+}
+
+void UWEDevAutomationComponent::PlaceProductionLine()
+{
+	// Feed belt from the front into the shredder, then along y = 130: belt -> sorting machine -> belt -> material store;
+	// from the store a belt runs to the assembly machine near the delivery pallet.
+	UWEBuildComponent* B = GetBuild();
+	if (!B)
+	{
+		return;
+	}
+	B->SetBuildMode(true);
+	PlaceFurnitureAt(TEXT("Conveyor"), -70.f, 20.f, 90.f);
+	PlaceFurnitureAt(TEXT("Shredder"), -70.f, 130.f, 0.f);
+	PlaceFurnitureAt(TEXT("Conveyor"), 35.f, 130.f, 0.f);
+	PlaceFurnitureAt(TEXT("Sorter"), 135.f, 130.f, 0.f);
+	PlaceFurnitureAt(TEXT("Conveyor"), 235.f, 130.f, 0.f);
+	PlaceFurnitureAt(TEXT("MaterialStore"), 335.f, 130.f, 0.f);
+	PlaceFurnitureAt(TEXT("Conveyor"), 335.f, 20.f, -90.f);
+	PlaceFurnitureAt(TEXT("Assembler"), 310.f, -90.f, 90.f);
+	B->SetRotation(0.f);
+	B->SetBuildMode(false);
+}
+
+AWEConveyor* UWEDevAutomationComponent::FindConveyorNear(const FVector& Point) const
+{
+	AWEConveyor* Best = nullptr;
+	for (TActorIterator<AWEConveyor> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && (!Best || FVector::Dist2D(It->GetActorLocation(), Point) < FVector::Dist2D(Best->GetActorLocation(), Point)))
+		{
+			Best = *It;
+		}
+	}
+	return Best;
+}
+
+void UWEDevAutomationComponent::LogFlow(const TCHAR* Step) const
+{
+	TArray<FString> Belts;
+	for (TActorIterator<AWEConveyor> It(GetWorld()); It; ++It)
+	{
+		TArray<FString> Entries;
+		for (const FWEConveyorItem& Entry : It->GetItems())
+		{
+			Entries.Add(FString::Printf(TEXT("%dx%s@%.0f"), Entry.Item.Quantity, Entry.Item.Definition ? *Entry.Item.Definition->ItemId.ToString() : TEXT("?"), Entry.Position));
+		}
+		const FVector L = It->GetActorLocation();
+		Belts.Add(FString::Printf(TEXT("Band(%.0f,%.0f)[%s]{%s}"), L.X, L.Y, It->IsOn() ? TEXT("an") : TEXT("aus"), *FString::Join(Entries, TEXT(","))));
+	}
+	TArray<FString> Stores;
+	for (TActorIterator<AWEProductionStorage> It(GetWorld()); It; ++It)
+	{
+		TArray<FString> Content;
+		for (const FWEInventorySlotData& Slot : It->GetStorage()->GetAllSlots())
+		{
+			Content.Add(FString::Printf(TEXT("%dx%s"), Slot.Item.Quantity, *Slot.Item.Definition->ItemId.ToString()));
+		}
+		Stores.Add(FString::Printf(TEXT("Lager[Ausgabe=%s]{%s}"), *It->GetOutputText().ToString(), *FString::Join(Content, TEXT(" "))));
+	}
+	TArray<FString> Machines;
+	for (TActorIterator<AWEMachine> It(GetWorld()); It; ++It)
+	{
+		if (!It->GetMachineDefinition())
+		{
+			continue;
+		}
+		TArray<FString> Out;
+		for (const FWEInventorySlotData& Slot : It->GetOutputStorage()->GetAllSlots())
+		{
+			Out.Add(FString::Printf(TEXT("%dx%s"), Slot.Item.Quantity, *Slot.Item.Definition->ItemId.ToString()));
+		}
+		int32 In = 0;
+		for (const FWEInventorySlotData& Slot : It->GetStorage()->GetAllSlots()) { In += Slot.Item.Quantity; }
+		Machines.Add(FString::Printf(TEXT("%s[%s | Rezept=%s In=%d Out={%s}]"), *It->GetMachineDefinition()->DisplayName.ToString(), *It->GetStatusText().ToString(),
+			*It->GetSelectedRecipeText().ToString(), In, *FString::Join(Out, TEXT(" "))));
+	}
+	const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this);
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Power=%.2f/%.0f kW Belts={%s} Stores={%s} Machines={%s}"), *Role, Step,
+		Grid ? Grid->GetLoadKw() : -1.f, Grid ? Grid->GetCapacityKw() : -1.f, *FString::Join(Belts, TEXT(" ")), *FString::Join(Stores, TEXT(" ")), *FString::Join(Machines, TEXT(" ")));
+}
+
+void UWEDevAutomationComponent::RunFlowShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	auto Store = [this]() { TActorIterator<AWEProductionStorage> It(GetWorld()); return It ? *It : nullptr; };
+	Schedule(3.0f, [PC]() { if (PC) { PC->ServerDevAddMoney(3000); PC->ServerDevTeleport(FVector(40.f, -60.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(4.0f, [this]() { PlaceProductionLine(); });
+	Schedule(5.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(60.f, -200.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(5.5f, [this]() { LookAtPoint(FVector(130.f, 100.f, 20.f)); LogFurniture(TEXT("S0")); LogFlow(TEXT("S0 line placed")); });
+	Schedule(6.5f, [this]() { Shot(TEXT("01_Linie_aufgebaut")); });
+	Schedule(7.0f, [this, PC, Interaction]()
+	{
+		if (PC)
+		{
+			PC->ServerDevTeleport(FVector(-170.f, -80.f, 100.f), FRotator(0.f, 0.f, 0.f));
+			PC->ServerDevGiveItem(TEXT("OldComputer"), 2, EWEItemCondition::Defective);
+		}
+	});
+	Schedule(7.5f, [this, Interaction]()
+	{
+		if (UWEInteractionComponent* I = Interaction())
+		{
+			I->RequestAlternativeInteractWith(FindMachine(TEXT("Shredder")));
+			I->RequestAlternativeInteractWith(FindMachine(TEXT("Sorter")));
+		}
+	});
+	Schedule(8.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Computer"))); } });
+	Schedule(8.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-150.f, 10.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(9.0f, [this]() { LookAtPoint(FVector(-70.f, 20.f, 45.f)); });
+	Schedule(9.5f, [this]() { Shot(TEXT("02_PC_aufs_Band")); });
+	Schedule(10.0f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(10.5f, [this]() { LogFlow(TEXT("S1 first PC on the feed belt")); });
+	Schedule(11.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-170.f, -80.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(11.5f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Computer"))); } });
+	Schedule(12.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-150.f, 10.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(12.5f, [this]() { LookAtPoint(FVector(-70.f, 20.f, 45.f)); });
+	Schedule(13.0f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(13.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-180.f, 40.f, 100.f), FRotator(0.f, 45.f, 0.f)); } });
+	Schedule(14.0f, [this]() { LookAtPoint(FVector(-70.f, 130.f, 60.f)); LogFlow(TEXT("S2 both PCs fed")); });
+	Schedule(14.5f, [this]() { Shot(TEXT("03_Schredder_vom_Band")); });
+	Schedule(24.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(35.f, -20.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(24.5f, [this]() { LookAtPoint(FVector(35.f, 130.f, 45.f)); });
+	Schedule(25.6f, [this]() { Shot(TEXT("04_Schreddergut_auf_dem_Band")); LogFlow(TEXT("S3 shredded material on its way")); });
+	Schedule(58.0f, [this, PC]() { LogFlow(TEXT("S4 sorted into the store")); if (PC) { PC->ServerDevTeleport(FVector(250.f, 30.f, 100.f), FRotator(0.f, 45.f, 0.f)); } });
+	Schedule(58.5f, [this, Store]() { if (AWEProductionStorage* S = Store()) { LookAt(S); } });
+	Schedule(59.5f, [this, Store, Interaction]()
+	{
+		// [T] until the store sends out only steel.
+		AWEProductionStorage* S = Store();
+		UWEInteractionComponent* I = Interaction();
+		UWEItemDefinition* Steel = UWEItemDefinition::FindById(TEXT("SteelScrap"));
+		for (int32 i = 0; i < 8 && S && I && S->GetOutputFilter() != Steel; ++i)
+		{
+			I->RequestSettingInteractWith(S);
+		}
+	});
+	Schedule(60.0f, [this]() { Shot(TEXT("05_Materiallager_Ausgabe")); LogFlow(TEXT("S5 store sends steel")); });
+	Schedule(60.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(120.f, -60.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(61.0f, [this, Interaction]()
+	{
+		AWEMachine* Assembler = FindMachine(TEXT("Assembler"));
+		LookAt(Assembler);
+		if (UWEInteractionComponent* I = Interaction())
+		{
+			for (int32 i = 0; i < 3; ++i) { I->RequestSettingInteractWith(Assembler); }
+			I->RequestAlternativeInteractWith(Assembler);
+		}
+	});
+	Schedule(62.0f, [this]() { Shot(TEXT("06_Fertigungsautomat_Rezept")); });
+	Schedule(63.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(250.f, 20.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(63.5f, [this, Interaction]() { LookAtPoint(FVector(335.f, 20.f, 40.f)); if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->ToggleExamine(); } });
+	Schedule(64.5f, [this]() { Shot(TEXT("07_Band_untersuchen")); });
+	Schedule(65.0f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CloseExamine(); } });
+	Schedule(80.0f, [this, PC]() { LogFlow(TEXT("S6 products made")); if (PC) { PC->ServerDevTeleport(FVector(120.f, -60.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(80.5f, [this]() { LookAt(FindMachine(TEXT("Assembler"))); });
+	Schedule(81.5f, [this]() { Shot(TEXT("08_Stahlwinkel_fertig")); });
+	Schedule(82.0f, [PC]() { if (PC) { PC->RequestSave(TEXT("DevP10")); } });
+	Schedule(83.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindConveyorNear(FVector(335.f, 20.f, 0.f))); } }); // change, then load
+	Schedule(84.0f, [PC]() { if (PC) { PC->RequestLoad(TEXT("DevP10")); } });
+	Schedule(85.5f, [this]() { LookAtPoint(FVector(130.f, 100.f, 20.f)); LogFlow(TEXT("S7 after load")); });
+	Schedule(86.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(60.f, -200.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(87.0f, [this]() { LookAtPoint(FVector(130.f, 100.f, 20.f)); });
+	Schedule(88.0f, [this]() { Shot(TEXT("09_Nach_dem_Laden")); });
+	Schedule(89.0f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleS()
+{
+	// Builds the line, feeds a PC, switches the machines on; later sees what T changed.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevAddMoney(3000); PC->ServerDevTeleport(FVector(40.f, -60.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(11.f, [this]() { PlaceProductionLine(); });
+	Schedule(12.f, [PC]()
+	{
+		if (PC)
+		{
+			PC->ServerDevTeleport(FVector(-170.f, -80.f, 100.f), FRotator(0.f, 0.f, 0.f));
+			PC->ServerDevGiveItem(TEXT("OldComputer"), 1, EWEItemCondition::Defective);
+		}
+	});
+	Schedule(13.f, [this, Interaction]()
+	{
+		LogFlow(TEXT("S0 line placed"));
+		if (UWEInteractionComponent* I = Interaction())
+		{
+			I->RequestAlternativeInteractWith(FindMachine(TEXT("Shredder")));
+			I->RequestAlternativeInteractWith(FindMachine(TEXT("Sorter")));
+			I->RequestInteractWith(FindNearestItem(TEXT("Computer")));
+		}
+	});
+	Schedule(14.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-150.f, 10.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(14.5f, [this]() { LookAtPoint(FVector(-70.f, 20.f, 45.f)); });
+	Schedule(15.5f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(16.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(140.f, 30.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(17.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Sorter"))); } });
+	Schedule(18.0f, [this]() { LogFlow(TEXT("S1 PC fed, shredder and sorter on")); });
+	Schedule(38.f, [this]() { LogFlow(TEXT("S2 sees T's changes")); });
+	Schedule(46.f, [this]() { LogFlow(TEXT("S3 final")); });
+	Schedule(48.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleT()
+{
+	// Watches the material move on the belts, changes the store output and stops/starts a belt.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(100.f, -60.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(17.f, [this]() { LogFlow(TEXT("T0 sees the line")); });
+	for (const float At : { 30.5f, 31.0f, 31.5f, 32.0f })
+	{
+		Schedule(At, [this, At]() { LogFlow(*FString::Printf(TEXT("T1 belts at %.1f s"), At)); });
+	}
+	Schedule(33.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(250.f, 30.f, 100.f), FRotator(0.f, 45.f, 0.f)); } });
+	Schedule(34.f, [this, Interaction]()
+	{
+		TActorIterator<AWEProductionStorage> It(GetWorld());
+		if (UWEInteractionComponent* I = Interaction(); I && It) { I->RequestSettingInteractWith(*It); }
+	});
+	Schedule(35.f, [this, Interaction]()
+	{
+		LogFlow(TEXT("T2 store output changed"));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindConveyorNear(FVector(235.f, 130.f, 0.f))); }
+	});
+	Schedule(36.5f, [this]() { LogFlow(TEXT("T3 stopped the belt to the store")); });
+	Schedule(40.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindConveyorNear(FVector(235.f, 130.f, 0.f))); } });
+	Schedule(42.f, [this]() { LogFlow(TEXT("T4 started it again")); });
+	Schedule(47.f, [this]() { Quit(); });
 }

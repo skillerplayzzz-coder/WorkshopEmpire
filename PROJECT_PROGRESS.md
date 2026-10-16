@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 9 – Erste Industriemaschinen: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 10 wurde nicht begonnen.
+**Phase 10 – Produktion und Automatisierung: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 11 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -73,12 +73,22 @@ Phase 10 wurde nicht begonnen.
 - Verschleiß und Wartung (Wartungsset), 8 neue Gegenstände, Rezepte als Daten
 - Speicherversion 8 (Maschinen inkl. laufendem Vorgang, Eingang und Ausgabe getrennt, Stromzähler)
 
+### Phase 10 – Produktion und Automatisierung (2026-10-16)
+- Förderbänder (1 m, 2 m) im Baumodus: nehmen Produkte aus der Maschine bzw. dem Materiallager dahinter, geben vorn an Band, Maschine oder Lager ab; über Eck verbindbar, stauen sich bei vollem Ziel
+- Maschinenverbindungen und Materialfluss: eine Linie wie Zuführband → Schredder → Sortiermaschine → Materiallager → Fertigungsautomat läuft ohne Spieler
+- Produktionsrezepte wählbar mit [T] (Automatisch oder fest); zweite Zutat möglich
+- Fertigungsautomat (600 €, 6 kW): Kupferdrahtspule, Verlängerungskabel, Stahlwinkel-Set; Produkte kauft die Gebrauchtbörse, 4 neue Produktionsaufträge
+- Materiallager (Produktionslager): Ausgabe aufs Band mit [T] (Alles / ein Material / Aus), schickt nur, was die Maschine am Ende der Linie annimmt
+- Bänder: Gegenstände auflegen/herunternehmen [E], anhalten [Q], untersuchen [F]
+- Untersuchen-Fenster wächst mit dem Inhalt
+- Speicherversion 9 (Bänder mit Gegenständen und Positionen, Lagerausgabe, gewähltes Rezept)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 9 (Anleitung im Development Report)
+- Mike: Praxistest Phase 10 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinen: Rezeptauswahl von Hand und Weitergabe zwischen Maschinen (Phase 10), Maschinengeräusche, Stromausfall/Sicherung statt nur Warten
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen
 
 ## Bekannte Fehler
 
@@ -86,7 +96,7 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 10 – Produktion und Automatisierung (laut Spezifikation u. a. Produktionsrezepte mit Auswahl, Förderbänder/Verbindungen zwischen Maschinen), erst nach Mikes Freigabe.
+Phase 11 – Mitarbeiter und Logistik (laut Spezifikation u. a. Mitarbeiter einstellen, Aufgaben zuweisen), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 

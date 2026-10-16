@@ -59,6 +59,11 @@ public:
 	void RequestExtraInteractWith(AActor* Target);
 	bool ExecuteInteractExtra(AActor* Target);
 
+	/** [T]: setting on the focused object (e.g. recipe of a machine). */
+	void RequestSettingInteraction();
+	void RequestSettingInteractWith(AActor* Target);
+	bool ExecuteInteractSetting(AActor* Target);
+
 	/** [F]: open/close the examine panel for the held or focused object. Local only. */
 	void ToggleExamine();
 	void CloseExamine();
@@ -102,6 +107,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerInteractExtra(AActor* Target);
+
+	UFUNCTION(Server, Reliable)
+	void ServerInteractSetting(AActor* Target);
 
 	AWECharacter* GetCharacter() const;
 	FText GetKeyText(const class UInputAction* Action) const;

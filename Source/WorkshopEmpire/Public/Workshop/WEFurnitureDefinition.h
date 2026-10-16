@@ -51,6 +51,10 @@ struct WORKSHOPEMPIRE_API FWEFurnitureDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture", meta = (Units = "kg"))
 	float StorageMaxWeightKg = 150.f;
 
+	/** Material store in a production line: also feeds conveyors (Phase 10). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture")
+	bool bProductionStorage = false;
+
 	/** Set for machines (shredder, sorting machine, press; Phase 9). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture")
 	TObjectPtr<class UWEMachineDefinition> Machine;

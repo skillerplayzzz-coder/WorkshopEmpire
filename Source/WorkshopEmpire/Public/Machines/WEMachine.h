@@ -41,6 +41,8 @@ struct WORKSHOPEMPIRE_API FWEMachineStatus
 	UPROPERTY() float CycleSeconds = 0.f;
 	UPROPERTY() uint8 Maintenance = 100;
 	UPROPERTY() uint16 EventCounter = 0;
+	/** Recipe chosen with [T] (Phase 10); INDEX_NONE = automatic (first recipe that has its material). */
+	UPROPERTY() int8 SelectedRecipe = INDEX_NONE;
 };
 
 /**
@@ -73,6 +75,8 @@ public:
 	virtual void InteractAlternative(AWECharacter* Interactor) override;
 	virtual bool GetExtraInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const override;
 	virtual void InteractExtra(AWECharacter* Interactor) override;
+	virtual bool GetSettingInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const override;
+	virtual void InteractSetting(AWECharacter* Interactor) override;
 	virtual bool GetExamineInfo(FWEExamineInfo& OutInfo) const override;
 
 	const UWEMachineDefinition* GetMachineDefinition() const { return MachineDefinition; }
@@ -100,6 +104,14 @@ public:
 	/** Can a carried item go in? (accepted by a recipe, not a customer's, fits). */
 	bool CanInsertItem(const AWEPickupItem* Item, FText& OutReason) const;
 
+	/** Recipe chosen with [T]; INDEX_NONE = automatic. */
+	int32 GetSelectedRecipe() const { return Status.SelectedRecipe; }
+	/** "Automatisch" or the recipe name. */
+	FText GetSelectedRecipeText() const;
+
+	/** Material flow (Phase 10): would the input take this from a conveyor? (fits, matches the chosen recipe). */
+	bool CanAcceptFromBelt(const FWEItemInstance& Item) const;
+
 	// --- Server only --------------------------------------------------------------------------------
 
 	bool InsertItem(AWEPickupItem* Item);
@@ -107,6 +119,19 @@ public:
 	bool Maintain(AWECharacter* Character);
 	/** Takes all products into the character's inventory (as much as fits). Returns units moved. */
 	int32 TakeOutputs(AWECharacter* Character);
+
+	/** Chooses a recipe (INDEX_NONE = automatic); applies from the next cycle. */
+	bool SelectRecipe(int32 RecipeIndex);
+	/** Next choice: automatic -> recipe 1 -> ... -> automatic. */
+	void CycleRecipe();
+
+	/** Material flow: puts a conveyor item into the input (all or nothing). */
+	bool AcceptFromBelt(const FWEItemInstance& Item);
+	/** Material flow: takes the first product stack for a conveyor at the output. */
+	bool TakeOutputForBelt(FWEItemInstance& OutItem);
+	/** Set by the flow simulation: a conveyor starts at this machine (bulky products then stay in the output). */
+	void SetOutputConnected(bool bConnected) { bOutputConnected = bConnected; }
+	bool IsOutputConnected() const { return bOutputConnected; }
 
 	/** Simulation (called by the power grid). */
 	void AdvanceCycle(float DeltaSeconds);
@@ -117,7 +142,8 @@ public:
 	void CompleteCycle();
 
 	/** Loading / tests. */
-	void RestoreState(bool bOn, uint8 Maintenance, int32 RecipeIndex, float Progress, float CycleSeconds, const TArray<FWEItemInstance>& InProcessing);
+	void RestoreState(bool bOn, uint8 Maintenance, int32 RecipeIndex, float Progress, float CycleSeconds, const TArray<FWEItemInstance>& InProcessing,
+		int32 SelectedRecipe = INDEX_NONE);
 	void SetRandomSeed(int32 Seed) { Random.Initialize(Seed); }
 
 	/** Weight of the items in the running cycle (kg). */
@@ -134,6 +160,10 @@ protected:
 	void SetState(EWEMachineState NewState);
 	float GetServerTime() const;
 	bool MatchesRecipe(const FWEMachineRecipe& Recipe, int32& OutSlot) const;
+	/** Units of an ingredient in the input (bSecond: the second ingredient). First matching slot in OutSlot. */
+	int32 CountIngredient(const FWEMachineRecipe& Recipe, bool bSecond, int32& OutSlot) const;
+	/** Moves Quantity units of an ingredient from the input to Processing. */
+	bool TakeIngredient(const FWEMachineRecipe& Recipe, bool bSecond, int32 Quantity);
 	void DeliverProducts(const TArray<FWEItemInstance>& Products);
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -152,6 +182,7 @@ protected:
 private:
 	float Progress = 0.f;
 	float LocalSegmentStart = 0.f;
+	bool bOutputConnected = false;
 	uint16 LastHandledEvent = 0;
 	FRandomStream Random;
 };

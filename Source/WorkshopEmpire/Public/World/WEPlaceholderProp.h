@@ -17,7 +17,9 @@ enum class EWEPlaceholderPropType : uint8
 	/** Open crate (Phase 8). */
 	Crate,
 	/** Industrial machine: body, hopper, control box (Phase 9). */
-	Machine
+	Machine,
+	/** Conveyor belt segment along +X (Phase 10). */
+	Conveyor
 };
 
 /**

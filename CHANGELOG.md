@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.10.0] – 2026-10-16 – Phase 10: Produktion und Automatisierung
+
+### Neu
+- Förderbänder (1 m 25 €, 2 m 45 €): im Baumodus aufstellen, nehmen am hinteren Ende Produkte aus Maschine oder Materiallager, geben vorn an Band, Maschine oder Lager ab; über Eck verbindbar, stauen sich bei vollem Ziel. [E] auflegen bzw. herunternehmen, [Q] anhalten, [F] zeigt Quelle und Ziel.
+- Maschinenverbindungen und automatischer Materialfluss: eine Linie Zuführband → Schredder → Sortiermaschine → Materiallager → Fertigungsautomat arbeitet ohne Spieler.
+- Materiallager (150 €, 30 Plätze, 400 kg): nimmt vom Band an, gibt aufs Band ab; [T] Ausgabe Alles / ein Material / Aus; schickt nur, was die Maschine am Ende der Linie annimmt.
+- Produktionsrezepte wählbar mit der neuen Taste [T] (Automatisch oder fest) an jeder Maschine; Rezepte mit zweiter Zutat.
+- Fertigungsautomat (600 €, 6 kW) mit Kupferdrahtspule, Verlängerungskabel und Stahlwinkel-Set (Produkte im Zustand "Neu"); die Gebrauchtbörse kauft Produkte; 4 neue Produktionsaufträge.
+
+### Multiplayer und Sicherheit
+- Bänder replizieren ihre Gegenstände als Daten (keine Actors) und laufen auf Clients flüssig weiter; alle Aktionen über Server-RPCs mit Reichweitenprüfung. Im Netzwerk mit 2 Spielern getestet.
+- Versiegelte Retourenpaletten kauft auch nach der neuen Produktkategorie niemand ungeöffnet.
+
+### Behoben
+- Untersuchen-Fenster schnitt lange Angaben (Maschinen, Bänder) ab.
+
+### Technisch
+- `AWEConveyor`, `AWEProductionStorage`; Materialfluss im Simulationsschritt von `UWEPowerGridComponent` (kein Tick); `FindPortActor`, `FindLineDestination`.
+- Neue Interaktion [T] (`GetSettingInteraction`/`InteractSetting`), 21 Tastenbelegungen.
+- Speicherformat Version 9 (Bänder mit Gegenständen, Lagerausgabe, gewähltes Rezept).
+- 6 neue Automation-Tests (insgesamt 81) inkl. Balance-Messung der Produkte; Netzwerktest-Rollen S/T; Screenshot-Lauf P10.
+
 ## [0.9.0] – 2026-10-15 – Phase 9: Erste Industriemaschinen
 
 ### Neu

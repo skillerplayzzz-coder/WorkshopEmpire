@@ -109,6 +109,25 @@ void AWEPlaceholderProp::BuildBoxes(UInstancedStaticMeshComponent* ISM, EWEPlace
 		Box(FVector(D * 0.5f + 6.f, W * 0.3f, BodyH * 0.65f), FVector(12.f, 22.f, 30.f));
 		break;
 	}
+	case EWEPlaceholderPropType::Conveyor:
+	{
+		// Side rails, belt, legs and a chevron on the belt pointing along +X (the running direction).
+		const float Rail = 6.f;
+		for (const float S : { -1.f, 1.f })
+		{
+			Box(FVector(0.f, S * (W * 0.5f - Rail * 0.5f), H - 6.f), FVector(D, Rail, 12.f));
+			for (const float SX : { -1.f, 1.f })
+			{
+				Box(FVector(SX * (D * 0.5f - 6.f), S * (W * 0.5f - Rail * 0.5f), (H - 12.f) * 0.5f), FVector(6.f, Rail, H - 12.f));
+			}
+		}
+		Box(FVector(0.f, 0.f, H - 3.f), FVector(D, W - 2.f * Rail, 4.f));
+		for (const float S : { -1.f, 1.f })
+		{
+			ISM->AddInstance(FTransform(FRotator(0.f, S * 40.f, 0.f), FVector(D * 0.25f, S * (W * 0.12f), H - 0.5f), FVector(0.22f, 0.04f, 0.02f)));
+		}
+		break;
+	}
 	case EWEPlaceholderPropType::Crate:
 	{
 		const float Wall = 3.f;

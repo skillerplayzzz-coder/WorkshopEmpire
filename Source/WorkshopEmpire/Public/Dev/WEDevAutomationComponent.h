@@ -82,6 +82,15 @@ protected:
 	void RunMachineShots();
 	void RunSmokeRoleQ();
 	void RunSmokeRoleR();
+
+	// Phase 10: production line
+	void PlaceFurnitureAt(const TCHAR* FurnitureId, float X, float Y, float Yaw);
+	void PlaceProductionLine();
+	void LogFlow(const TCHAR* Step) const;
+	class AWEConveyor* FindConveyorNear(const FVector& Point) const;
+	void RunFlowShots();
+	void RunSmokeRoleS();
+	void RunSmokeRoleT();
 	class UWEBuildComponent* GetBuild() const;
 
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)

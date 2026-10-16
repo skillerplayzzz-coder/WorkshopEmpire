@@ -74,4 +74,10 @@ public:
 
 	/** Server only. Performs the extra action after validation. */
 	virtual void InteractExtra(AWECharacter* Interactor) {}
+
+	/** Optional setting on [T] (e.g. choose a machine recipe, a storage output filter). Same contract. */
+	virtual bool GetSettingInteraction(const AWECharacter* Interactor, FText& OutText, FText& OutReason) const { return false; }
+
+	/** Server only. Changes the setting after validation. */
+	virtual void InteractSetting(AWECharacter* Interactor) {}
 };

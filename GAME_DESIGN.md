@@ -37,7 +37,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
-### 3.1 Steuerung (Stand Phase 9, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 10, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -51,6 +51,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Q | Reparieren: nächster Reparaturschritt am Gerät auf der Werkbank; Retourenpalette öffnen |
 | B | Baumodus an/aus |
 | X | An einer Maschine: Warten (Phase 9) |
+| T | Einstellung: Rezept einer Maschine, Ausgabe eines Materiallagers (Phase 10) |
 | Im Baumodus | Mausrad: Möbel wählen oder "Bearbeiten" · [E] aufstellen bzw. anfassen und neu abstellen · [R] 90° · [Q] 15° drehen · [X] abbauen bzw. Verschieben abbrechen |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
@@ -144,7 +145,31 @@ Maschinen werden wie Möbel im Baumodus gekauft, aufgestellt, verschoben und abg
 
 **Verschleiß:** Jeder Vorgang kostet 2–3 % Wartung. Unter 30 % arbeitet die Maschine 30 % langsamer, bei 0 % bleibt sie stehen ("Wartung nötig"). Ein **Wartungsset** (Werkzeug-Versand, ca. 10 €) bringt sie mit [X] wieder auf 100 %.
 
-**Gemessen** (Test mit echten Daten, je 8 Stück, Strom und Wartung abgezogen): defekter Elektromotor direkt verkauft 8,64 € → recycelt 11,63 €; defekter Röhrenmonitor 2,70 € → 6,76 €; Kabelkarton 4,03 € → 4,77 €. Ein defekter PC bringt geschreddert nur 1,25 € (direkt 5,67 €) – PCs zerlegt oder repariert man besser von Hand. Maschinen lohnen sich also für Schrott und Massenware, nicht für alles; die Investition (1.150 € plus Upgrade) amortisiert sich erst über Menge.
+**Gemessen (Phase 9)** (Test mit echten Daten, je 8 Stück, Strom und Wartung abgezogen): defekter Elektromotor direkt verkauft 8,64 € → recycelt 11,63 €; defekter Röhrenmonitor 2,70 € → 6,76 €; Kabelkarton 4,03 € → 4,77 €. Ein defekter PC bringt geschreddert nur 1,25 € (direkt 5,67 €) – PCs zerlegt oder repariert man besser von Hand. Maschinen lohnen sich also für Schrott und Massenware, nicht für alles; die Investition (1.150 € plus Upgrade) amortisiert sich erst über Menge.
+
+### 3.7 Produktion und Automatisierung (Stand Phase 10)
+
+**Förderbänder** (1 m 25 €, 2 m 45 €, je 0,15 kW) werden im Baumodus gestellt; der Pfeil auf dem Band zeigt die Laufrichtung (60 cm/s). Ein Band **nimmt** am hinteren Ende die Produkte der Maschine bzw. des Materiallagers, das dort steht, und **gibt** vorn an das ab, was davor steht: ein weiteres Band (auch über Eck oder seitlich einmündend), einen Maschineneingang, ein Lager. Berühren genügt (bis ca. 10 cm Abstand). Nimmt das Ziel etwas nicht an (falsches Material, voll, kein Ziel), bleibt der vordere Gegenstand am Ende stehen und das Band staut sich mit Abstand – wie im echten Betrieb muss man die Linie dann umbauen oder leeren.
+
+| Taste am Band | Aktion |
+|---|---|
+| E | Mit Gegenstand in der Hand: aufs Band legen (an die freie Stelle, wo man steht). Mit leeren Händen: vorderen Gegenstand herunternehmen (Kleinteile ins Inventar, Sperriges in die Hände) |
+| Q | Band anhalten / starten |
+| F | Untersuchen: was darauf liegt, woher es nimmt, wohin es abgibt |
+
+**Materiallager** (150 €, 30 Plätze, 400 kg, nimmt auch Sperriges): Bänder liefern hinein; ein Band, das am Lager beginnt, holt Material heraus. **[T] Ausgabe:** Alles → nur ein bestimmtes Material → Aus. Endet die Linie an einer Maschine, schickt das Lager nur, was diese Maschine gerade annimmt – so verstopft kein Band mit Material, das niemand braucht.
+
+**Fertigungsautomat** (600 €, 6 kW) macht aus sortiertem Material Produkte. **[T] Rezept:** Automatisch (erstes, für das Material da ist) oder ein fest gewähltes; mit festem Rezept nimmt die Maschine vom Band nur dessen Zutaten. Gilt auch für Schredder, Sortiermaschine und Presse.
+
+| Produkt (Neu) | Zutaten | Zeit | Material direkt verkauft → Produkt |
+|---|---|---|---|
+| Kupferdrahtspule | 4 Kupfergranulat | 10 s | 5,54 € → 9,90 € |
+| Verlängerungskabel (5 m) | 2 Kupfergranulat + 3 Kunststoffteile | 12 s | 2,91 € → 5,94 € |
+| Stahlwinkel-Set | 6 Stahlschrott | 8 s | 0,69 € → 1,45 € |
+
+Produkte kauft die Gebrauchtbörse; dazu kommen **Produktionsaufträge**: "Elektrohandel bestellt Verlängerungskabel", "Baumarkt bestellt Stahlwinkel-Sets", "Elektriker-Großhandel sucht Kupferdrahtspulen", "Gießerei kauft ein Kupferpaket". Versiegelte Retourenpaletten kauft weiterhin niemand ungeöffnet zurück.
+
+**Beispiellinie (im Spiel getestet):** PC aufs Zuführband → Schredder → Band → Sortiermaschine → Band → Materiallager → Band → Fertigungsautomat (Stahlwinkel). Nach dem Auflegen arbeitet die Linie ohne Spieler; Bänder ziehen die fertigen Produkte aus den Maschinen, sperrige Produkte (Ballen) bleiben dafür in der Ausgabe statt vor der Maschine zu landen.
 
 ## 4. Wirtschaft
 

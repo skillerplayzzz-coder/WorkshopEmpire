@@ -160,6 +160,12 @@ void UWEBuildComponent::Rotate(float Degrees)
 	UpdatePreview();
 }
 
+void UWEBuildComponent::SetRotation(float Degrees)
+{
+	Yaw = FRotator::NormalizeAxis(Degrees);
+	UpdatePreview();
+}
+
 bool UWEBuildComponent::TraceAim(FVector& OutLocation, AActor*& OutHitActor) const
 {
 	OutHitActor = nullptr;

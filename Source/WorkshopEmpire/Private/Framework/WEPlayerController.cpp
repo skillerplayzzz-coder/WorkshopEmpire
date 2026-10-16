@@ -403,11 +403,13 @@ void AWEPlayerController::ServerDevGiveItem_Implementation(FName ItemId, int32 Q
 	{
 		Me->GetPlayerInventory()->TryAddItem(Item, Added);
 	}
-	if (Added < Quantity)
+	// The rest in front of the pawn: one actor per stack (non-stackable items one by one, side by side).
+	for (int32 Left = Quantity - Added, Index = 0; Left > 0; ++Index)
 	{
 		FWEItemInstance Rest = Item;
-		Rest.Quantity -= Added;
-		const FVector Front = Me->GetActorLocation() + Me->GetActorForwardVector() * 80.f + FVector(0.f, 0.f, -40.f);
+		Rest.Quantity = FMath::Min(Left, Definition->GetMaxStackSize());
+		Left -= Rest.Quantity;
+		const FVector Front = Me->GetActorLocation() + Me->GetActorForwardVector() * 80.f + Me->GetActorRightVector() * (Index * 60.f) + FVector(0.f, 0.f, -40.f);
 		AWEPickupItem::SpawnWorldItem(GetWorld(), Rest, FTransform(Me->GetActorRotation(), Front));
 	}
 	UE_LOG(LogWENet, Log, TEXT("%s dev-got %d x %s"), *GetName(), Quantity, *ItemId.ToString());

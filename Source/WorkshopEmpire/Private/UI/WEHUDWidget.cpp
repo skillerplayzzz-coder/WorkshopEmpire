@@ -115,13 +115,16 @@ void UWEHUDWidget::NativeOnInitialized()
 	ExamineBox->AddChildToVerticalBox(ExamineDetails);
 	ExaminePanel->SetContent(ExamineBox);
 	ExaminePanel->SetVisibility(ESlateVisibility::Collapsed);
-	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(ExaminePanel))
+	// Fixed width, height grows with the details (machines and belts list many lines).
+	USizeBox* ExamineWidth = WidgetTree->ConstructWidget<USizeBox>();
+	ExamineWidth->SetWidthOverride(380.f);
+	ExamineWidth->SetContent(ExaminePanel);
+	if (UCanvasPanelSlot* CSlot = Canvas->AddChildToCanvas(ExamineWidth))
 	{
 		CSlot->SetAnchors(FAnchors(1.f, 0.5f));
 		CSlot->SetAlignment(FVector2D(1.f, 0.5f));
 		CSlot->SetPosition(FVector2D(-48.f, 0.f));
-		CSlot->SetSize(FVector2D(380.f, 220.f));
-		CSlot->SetAutoSize(false);
+		CSlot->SetAutoSize(true);
 	}
 
 	// Work progress bar, lower centre (above the held-item line).
