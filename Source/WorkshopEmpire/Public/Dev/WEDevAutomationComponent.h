@@ -91,6 +91,15 @@ protected:
 	void RunFlowShots();
 	void RunSmokeRoleS();
 	void RunSmokeRoleT();
+
+	// Phase 11: staff and logistics
+	class AWEEmployee* FindEmployee(uint8 Role) const;
+	void LogStaff(const TCHAR* Step) const;
+	void BuyUpgradeAtTerminal(const TCHAR* UpgradeId);
+	void TransferToStorage(const TCHAR* ItemId, class UWEInventoryComponent* Storage);
+	void RunStaffShots();
+	void RunSmokeRoleU();
+	void RunSmokeRoleV();
 	class UWEBuildComponent* GetBuild() const;
 
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)

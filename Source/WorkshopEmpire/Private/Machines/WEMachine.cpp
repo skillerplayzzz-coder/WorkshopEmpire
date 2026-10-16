@@ -304,7 +304,7 @@ void AWEMachine::StartCycle(int32 RecipeIndex)
 		}
 		Progress = 0.f;
 		Status.RecipeIndex = static_cast<int8>(RecipeIndex);
-		Status.CycleSeconds = FMath::Max(0.5f, (Recipe.BaseSeconds + Recipe.SecondsPerKg * GetProcessingWeightKg()) / GetEfficiency());
+		Status.CycleSeconds = FMath::Max(0.5f, (Recipe.BaseSeconds + Recipe.SecondsPerKg * GetProcessingWeightKg()) / (GetEfficiency() * OperatorBonus));
 		UE_LOG(LogWENet, Log, TEXT("%s: start '%s' (%.1f kg, %.1fs)"), *GetName(), *Recipe.DisplayName.ToString(), GetProcessingWeightKg(), Status.CycleSeconds);
 	}
 	SetState(EWEMachineState::Running);
@@ -503,6 +503,21 @@ bool AWEMachine::Maintain(AWECharacter* Character)
 		}
 	}
 	return false;
+}
+
+void AWEMachine::MaintainWithKit()
+{
+	if (!HasAuthority() || !MachineDefinition)
+	{
+		return;
+	}
+	Status.Maintenance = 100;
+	if (Status.State == EWEMachineState::NeedsMaintenance)
+	{
+		SetState(Status.bOn ? EWEMachineState::Idle : EWEMachineState::Off);
+	}
+	ForceNetUpdate();
+	UE_LOG(LogWENet, Log, TEXT("%s maintained by staff"), *GetName());
 }
 
 int32 AWEMachine::TakeOutputs(AWECharacter* Character)

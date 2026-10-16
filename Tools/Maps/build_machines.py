@@ -63,7 +63,7 @@ def recipe(name, outputs, input_item=None, quantity=1, categories=(), base_s=4.0
 
 MACHINES = {
     "MD_Shredder": dict(
-        name="Schredder", power=7.5, idle=0.4, bulky=True, in_slots=6, in_kg=120.0, out_slots=10, out_kg=250.0, wear=2.0,
+        name="Schredder", power=7.5, idle=0.4, bulky=True, in_slots=6, in_kg=300.0, out_slots=10, out_kg=250.0, wear=2.0,
         recipes=[
             # Specific inputs first: cables are worth it for their copper.
             recipe("Kabel schreddern", [out("CopperGranulate", 3, 4), out("PlasticParts", 2, 3)],

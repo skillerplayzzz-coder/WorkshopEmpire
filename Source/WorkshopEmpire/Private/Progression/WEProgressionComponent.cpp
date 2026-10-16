@@ -160,6 +160,7 @@ void UWEProgressionComponent::ApplyEffects()
 		const FName Required = It->GetRequiredUpgrade();
 		It->SetUnlocked(Required.IsNone() || HasUpgrade(Required));
 		It->SetStorageBonusSlots(It->IsA<AWEWorkbench>() ? GetBenchExtraSlots() : 0);
+		It->RefreshFromUpgrades();
 	}
 
 	// Player inventories.

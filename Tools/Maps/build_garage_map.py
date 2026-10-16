@@ -143,6 +143,20 @@ spawn(unreal.WEDeliveryZone, (320, -220, 6), label="DeliveryPallet", folder="Wor
 spawn(unreal.WEBuildArea, (0, 0, 150), label="BuildArea_Garage", folder="World")
 # --- Scrap heap outside, to the side of the door (Phase 7) ---------------------------------------------
 spawn(unreal.WEScrapPile, (760, 260, 0), label="ScrapPile", folder="World")
+# --- Staff and logistics (Phase 11) --------------------------------------------------------------
+# New employees appear inside the door.
+staff_spawn = spawn(unreal.TargetPoint, (300, 60, 100), label="StaffSpawn", folder="Staff")
+staff_spawn.set_editor_property("tags", ["WE_StaffSpawn"])
+# Company van outside the door, forklift in the corner by the bench (both hidden until bought).
+spawn(unreal.WEVehicle, (760, -200, 0), label="CompanyVan", folder="Logistics")
+spawn(unreal.WEForklift, (-290, -215, 0), label="Forklift", folder="Logistics")
+# Navigation for employees (rebuilt at runtime when furniture moves, see DefaultEngine.ini).
+nav = spawn(unreal.NavMeshBoundsVolume, (250, 0, 100), label="NavBounds", folder="Staff")
+nav.set_actor_scale3d(unreal.Vector(10.0, 6.0, 3.0))
+# The navmesh itself is built at runtime (RuntimeGeneration=Dynamic); its actor must exist in the level.
+navmesh = spawn(unreal.RecastNavMesh, (0, 0, 0), label="RecastNavMesh-Default", folder="Staff")
+navmesh.set_editor_property("runtime_generation", unreal.RuntimeGenerationType.DYNAMIC)
+navmesh.set_editor_property("agent_radius", 34.0)
 # --- Player starts (in front of the workbench, all items within reach) --------------------------
 for i, y in enumerate((-120.0, -40.0, 40.0, 120.0)):
     spawn(unreal.PlayerStart, (-170, y, 100), (0.0, 180.0, 0.0), f"PlayerStart{i + 1}", "Players")

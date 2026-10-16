@@ -37,7 +37,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
 | Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
 
-### 3.1 Steuerung (Stand Phase 10, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 11, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -51,7 +51,8 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Q | Reparieren: nächster Reparaturschritt am Gerät auf der Werkbank; Retourenpalette öffnen |
 | B | Baumodus an/aus |
 | X | An einer Maschine: Warten (Phase 9) |
-| T | Einstellung: Rezept einer Maschine, Ausgabe eines Materiallagers (Phase 10) |
+| T | Einstellung: Rezept einer Maschine, Ausgabe eines Materiallagers (Phase 10), Material eines Lagerarbeiters, Tour des Wagens (Phase 11) |
+| X | Vom Gabelstapler absteigen; Zuweisen abbrechen; Mitarbeiter entlassen (2×) (Phase 11) |
 | Im Baumodus | Mausrad: Möbel wählen oder "Bearbeiten" · [E] aufstellen bzw. anfassen und neu abstellen · [R] 90° · [Q] 15° drehen · [X] abbauen bzw. Verschieben abbrechen |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
@@ -169,7 +170,37 @@ Maschinen werden wie Möbel im Baumodus gekauft, aufgestellt, verschoben und abg
 
 Produkte kauft die Gebrauchtbörse; dazu kommen **Produktionsaufträge**: "Elektrohandel bestellt Verlängerungskabel", "Baumarkt bestellt Stahlwinkel-Sets", "Elektriker-Großhandel sucht Kupferdrahtspulen", "Gießerei kauft ein Kupferpaket". Versiegelte Retourenpaletten kauft weiterhin niemand ungeöffnet zurück.
 
-**Beispiellinie (im Spiel getestet):** PC aufs Zuführband → Schredder → Band → Sortiermaschine → Band → Materiallager → Band → Fertigungsautomat (Stahlwinkel). Nach dem Auflegen arbeitet die Linie ohne Spieler; Bänder ziehen die fertigen Produkte aus den Maschinen, sperrige Produkte (Ballen) bleiben dafür in der Ausgabe statt vor der Maschine zu landen.
+**Beispiellinie (Phase 10, im Spiel getestet):** PC aufs Zuführband → Schredder → Band → Sortiermaschine → Band → Materiallager → Band → Fertigungsautomat (Stahlwinkel). Nach dem Auflegen arbeitet die Linie ohne Spieler; Bänder ziehen die fertigen Produkte aus den Maschinen, sperrige Produkte (Ballen) bleiben dafür in der Ausgabe statt vor der Maschine zu landen.
+
+### 3.8 Mitarbeiter und Logistik (Stand Phase 11)
+
+**Einstellen:** Marktplatz → Reiter "Personal & Logistik". Immer 3 Bewerber (alle 10 Minuten neue, jede Rolle ist dabei), höchstens 6 Mitarbeiter. Neue Mitarbeiter stehen am Tor. Erfahrung 1–3: schneller laufen und arbeiten (+20 % je Stufe), Lohn +25 % je Stufe.
+
+| Rolle | Lohn (Erfahrung 1) | Aufgabe |
+|---|---|---|
+| Lagerarbeiter | 0,60 €/min | Transport: Quelle (Lager, Maschinenausgabe, Wagen) → Ziel (Lager, Maschine, Wagen). Trägt bis 25 kg bzw. einen sperrigen Gegenstand bis 30 kg; bringt einer Maschine nur, was sie (mit gewähltem Rezept) verarbeitet. [T] am Mitarbeiter: nur ein bestimmtes Material |
+| Maschinenbediener | 0,80 €/min | Bedient eine Maschine: schaltet sie ein, wartet sie mit einem Wartungsset aus seinem Lager (unter 40 %), bringt fertige Produkte ins Lager (wenn kein Band dranhängt). Solange er dort steht, arbeitet die Maschine 15 % schneller |
+| Fahrer | 0,70 €/min | Fährt den Firmenwagen: wartet am Wagen auf eine Tour |
+
+**Aufgabe zuweisen:** [E] auf den Mitarbeiter, dann in der Werkstatt hinschauen und [E]: Lagerarbeiter Quelle, dann Ziel; Maschinenbediener Maschine, dann sein Lager ([Q] ohne Lager); Fahrer den Wagen. [X] bricht ab. Am Mitarbeiter: [Q] Pause/Weiterarbeiten, [X] zweimal Entlassen, [F] Details. Im Reiter "Personal & Logistik" geht Pause und Entlassen auch vom Marktplatz aus.
+
+**Löhne:** Alle 5 Minuten wird die gearbeitete Zeit bezahlt (Pausen nicht). Reicht das Geld nicht, legen alle die Arbeit nieder ("Lohn ausstehend"), bis die Schuld bei einer späteren Abrechnung bezahlt ist. Entlassene bekommen ihre Zeit bei der nächsten Abrechnung.
+
+**Wege:** Mitarbeiter laufen auf einem Navigationsnetz, das sich nach der Einrichtung richtet. Gibt es keinen Weg (z. B. Tor zu für den Fahrer), warten sie ("kein Weg frei").
+
+**Firmenwagen** (Upgrade "Alter Transporter", 2.400 €; "Moderner Lieferwagen", 4.500 €: 30 statt 20 Plätze, 1.200 statt 600 kg, Touren 60 % schneller). Steht vor dem Tor. [E] Laderaum, getragene Dinge mit [E] einladen, [R] Sperriges ausladen, [T] Tour wählen, [Q] losfahren (braucht einen Fahrer am Wagen):
+
+| Tour | Dauer (alter Wagen) | Kosten | Ergebnis |
+|---|---|---|---|
+| Verkaufsfahrt | 4 min | 6 € Sprit | ganzer Laderaum direkt beim besten Händler, +15 % |
+| Großeinkauf Altgeräte | 5 min | 8 € + 55 € | 4 PCs, 3 Röhrenmonitore, 4 Kabelkartons (am Marktplatz ~89 €) |
+| Abholung Industriemotoren | 5 min | 8 € + 50 € | 2 große Industriemotoren je 180 kg (am Marktplatz ~63 €) |
+
+Während der Tour sind Wagen und Fahrer weg; das Ergebnis meldet sich bei allen Spielern.
+
+**Gabelstapler** (Upgrade, 900 €): [E] aufsteigen; dann trägt man einen Gegenstand bis 1.500 kg auf der Gabel, langsamer (380 cm/s) und ohne Sprint/Baumodus; [X] absteigen. Für den neuen **Großen Industriemotor** (180 kg, Schrotthandel/Abholtour) – der Schredder nimmt jetzt bis 300 kg auf.
+
+**Gemessen** (Test mit echten Daten): Großeinkauf Altgeräte kostet 63 € statt ~89 € am Marktplatz; direkt weiterverkauft brächte er nur ~50 € (keine Endlosschleife). Ein Lagerarbeiter, der 10 Minuten eine Presse aus dem Regal füttert, schafft 7 Stahlballen: Wertzuwachs 6,44 € bei 6,00 € Lohn – Mitarbeiter lohnen sich über Menge und freie Hände, nicht als Gelddruckmaschine.
 
 ## 4. Wirtschaft
 

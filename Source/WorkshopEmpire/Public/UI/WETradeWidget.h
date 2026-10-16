@@ -20,7 +20,10 @@ enum class EWETradeRowKind : uint8
 	Contract,
 	Upgrade,
 	Auction,
-	Info
+	Info,
+	/** Phase 11: applicant (button: hire) and employee (buttons: pause/resume, fire). */
+	Applicant,
+	Employee
 };
 
 /** One line in a trade list with up to two buttons. Built in C++. */
@@ -41,6 +44,8 @@ public:
 	bool bContractAccepted = false;
 	FName UpgradeId;
 	FGuid LotId;
+	TWeakObjectPtr<class AWEEmployee> Employee;
+	bool bEmployeePaused = false;
 	/** Wrap width for the texts (0 = by row kind). Set before Configure. */
 	float WrapOverride = 0.f;
 
@@ -98,6 +103,9 @@ protected:
 
 	UFUNCTION()
 	void HandleTabAuctions();
+	UFUNCTION()
+	void HandleTabStaff();
+	void RebuildStaff(const struct FWEMoney& Balance);
 	UWETradeRowWidget* AddRow(UScrollBox* List);
 
 	UPROPERTY(Transient) TObjectPtr<AWETraderTerminal> Terminal;
@@ -111,6 +119,10 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UWidgetSwitcher> Pages;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabMarketText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabAuctionsText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> TabStaffText;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> ApplicantList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> StaffList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> LogisticsList;
 	int32 CurrentPage = 0;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HistoryText;
 

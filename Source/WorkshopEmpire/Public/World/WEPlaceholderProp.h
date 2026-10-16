@@ -19,7 +19,11 @@ enum class EWEPlaceholderPropType : uint8
 	/** Industrial machine: body, hopper, control box (Phase 9). */
 	Machine,
 	/** Conveyor belt segment along +X (Phase 10). */
-	Conveyor
+	Conveyor,
+	/** Van: cab at the front (+X), cargo box behind (Phase 11). */
+	Vehicle,
+	/** Forklift: body, mast and forks at the front (+X) (Phase 11). */
+	Forklift
 };
 
 /**
@@ -64,7 +68,10 @@ public:
 	FName GetRequiredUpgrade() const { return RequiredUpgrade; }
 
 	/** Shows/hides the furniture and its collision (bought upgrade). Any machine. */
-	void SetUnlocked(bool bInUnlocked);
+	virtual void SetUnlocked(bool bInUnlocked);
+
+	/** Upgrades changed (any machine): e.g. a vehicle takes the better van's stats. */
+	virtual void RefreshFromUpgrades() {}
 	bool IsUnlocked() const { return bUnlocked; }
 
 	/** Extra storage slots from upgrades (applied on every machine). */

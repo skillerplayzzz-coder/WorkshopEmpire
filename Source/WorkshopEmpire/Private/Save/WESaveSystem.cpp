@@ -4,6 +4,10 @@
 #include "Machines/WEMachine.h"
 #include "Machines/WEConveyor.h"
 #include "Machines/WEProductionStorage.h"
+#include "Staff/WEEmployee.h"
+#include "Staff/WEStaffComponent.h"
+#include "Logistics/WEVehicle.h"
+#include "Logistics/WEForklift.h"
 #include "Machines/WEPowerGridComponent.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
 #include "World/WEPlaceholderProp.h"
@@ -238,6 +242,36 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	{
 		Save->StoreOutputs.Add({ It->GetFName(), It->IsOutputOn(), It->GetOutputFilter() ? It->GetOutputFilter()->ItemId : NAME_None });
 	}
+	// Staff and vans (version 10).
+	if (const UWEStaffComponent* Staff = UWEStaffComponent::Get(World))
+	{
+		Save->bHasStaff = true;
+		Save->Applicants = Staff->GetApplicants();
+		Save->OwedWagesCents = Staff->GetOwedWages().GetCents();
+		for (const AWEEmployee* Employee : Staff->GetEmployees())
+		{
+			FWESavedEmployee& Saved = Save->Employees.AddDefaulted_GetRef();
+			Saved.ActorName = Employee->GetFName();
+			Saved.Profile = Employee->GetProfile();
+			Saved.Location = Employee->GetActorLocation();
+			Saved.Yaw = Employee->GetActorRotation().Yaw;
+			Saved.TaskKind = static_cast<uint8>(Employee->GetTask().Kind);
+			Saved.SourceName = Employee->GetTask().Source ? Employee->GetTask().Source->GetFName() : NAME_None;
+			Saved.TargetName = Employee->GetTask().Target ? Employee->GetTask().Target->GetFName() : NAME_None;
+			Saved.FilterItemId = Employee->GetTask().Filter ? Employee->GetTask().Filter->ItemId : NAME_None;
+			Saved.bPaused = Employee->IsPaused();
+			Saved.bHasCarried = Employee->GetCarried().IsValid();
+			if (Saved.bHasCarried)
+			{
+				Saved.Carried = ToSaved(Employee->GetCarried());
+			}
+			Saved.UnpaidSeconds = Employee->GetUnpaidSeconds();
+		}
+	}
+	for (TActorIterator<AWEVehicle> It(World); It; ++It)
+	{
+		Save->Vehicles.Add({ It->GetFName(), It->GetSelectedTour(), It->GetActiveTour(), It->GetRemainingSeconds() });
+	}
 	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World))
 	{
 		Save->PowerUnbilledKWh = Grid->GetUnbilledKWh();
@@ -339,6 +373,12 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 	if (!World || !Save)
 	{
 		return;
+	}
+
+	// Nobody keeps driving a forklift through a load (it is restored where it was saved).
+	for (TActorIterator<AWEForklift> It(World); It; ++It)
+	{
+		It->Dismount();
 	}
 
 	// 0) Furniture first: items lying on benches and container contents refer to furniture by name.
@@ -516,6 +556,66 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 	{
 		const FWESavedStoreOutput* Saved = Save->StoreOutputs.FindByPredicate([&It](const FWESavedStoreOutput& S) { return S.ActorName == It->GetFName(); });
 		It->SetOutput(!Saved || Saved->bOutputOn, Saved && !Saved->FilterItemId.IsNone() ? UWEItemDefinition::FindById(Saved->FilterItemId) : nullptr);
+	}
+
+	// Staff and vans (version 10): employees are replaced by the saved ones (tasks refer to furniture by name).
+	if (UWEStaffComponent* Staff = UWEStaffComponent::Get(World); Staff && Save->bHasStaff)
+	{
+		for (AWEEmployee* Employee : Staff->GetEmployees())
+		{
+			Employee->Destroy();
+		}
+		auto FindActor = [World](FName Name) -> AActor*
+		{
+			if (Name.IsNone())
+			{
+				return nullptr;
+			}
+			for (TActorIterator<AActor> It(World); It; ++It)
+			{
+				if (It->GetFName() == Name && IsValid(*It) && !It->IsActorBeingDestroyed())
+				{
+					return *It;
+				}
+			}
+			return nullptr;
+		};
+		for (const FWESavedEmployee& Saved : Save->Employees)
+		{
+			AWEEmployee* Employee = Staff->SpawnEmployee(Saved.Profile, FTransform(FRotator(0.f, Saved.Yaw, 0.f), Saved.Location), Saved.ActorName);
+			if (!Employee)
+			{
+				continue;
+			}
+			FWEEmployeeTask Task;
+			Task.Kind = static_cast<EWETaskKind>(Saved.TaskKind);
+			Task.Source = FindActor(Saved.SourceName);
+			Task.Target = FindActor(Saved.TargetName);
+			Task.Filter = Saved.FilterItemId.IsNone() ? nullptr : UWEItemDefinition::FindById(Saved.FilterItemId);
+			if (Task.Kind != EWETaskKind::None)
+			{
+				Employee->AssignTask(Task);
+			}
+			FWEItemInstance Carried;
+			if (Saved.bHasCarried && FromSaved(Saved.Carried, Carried))
+			{
+				Employee->RestoreCarried(Carried);
+			}
+			Employee->SetPaused(Saved.bPaused);
+		}
+		Staff->RestoreState(Save->Applicants, FWEMoney::FromCents(Save->OwedWagesCents));
+	}
+	for (TActorIterator<AWEVehicle> It(World); It; ++It)
+	{
+		const FWESavedVehicle* Saved = Save->Vehicles.FindByPredicate([&It](const FWESavedVehicle& V) { return V.ActorName == It->GetFName(); });
+		It->RestoreTour(Saved ? Saved->SelectedTour : NAME_None, Saved ? Saved->ActiveTour : NAME_None, Saved ? Saved->RemainingSeconds : 0.f);
+		if (It->IsAway())
+		{
+			if (AWEEmployee* Driver = It->FindDriver())
+			{
+				Driver->SetAway(true);
+			}
+		}
 	}
 	if (UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World); Grid && Save->SaveVersion >= 8)
 	{

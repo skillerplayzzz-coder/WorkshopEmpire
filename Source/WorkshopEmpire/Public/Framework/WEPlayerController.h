@@ -60,6 +60,14 @@ public:
 	void RequestBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId);
 	void RequestBid(class AWETraderTerminal* Terminal, const FGuid& LotId);
 
+	// Staff (Phase 11).
+	void RequestHire(class AWETraderTerminal* Terminal, int32 ApplicantIndex);
+	/** Fire / pause / resume, from the terminal's staff page or standing next to the employee. */
+	void RequestStaffAction(class AWETraderTerminal* Terminal, class AWEEmployee* Employee, uint8 Action);
+	void RequestAssignTask(class AWEEmployee* Employee, AActor* Source, AActor* Target);
+
+	enum EStaffAction : uint8 { StaffFire = 0, StaffPause = 1, StaffResume = 2 };
+
 	/** Moves every stack from a container into the player inventory (as much as fits). */
 	void RequestTakeAll(UWEInventoryComponent* From);
 
@@ -151,6 +159,15 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerHire(class AWETraderTerminal* Terminal, int32 ApplicantIndex, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerStaffAction(class AWETraderTerminal* Terminal, class AWEEmployee* Employee, uint8 Action);
+
+	UFUNCTION(Server, Reliable)
+	void ServerAssignTask(class AWEEmployee* Employee, AActor* Source, AActor* Target);
 
 	UFUNCTION(Server, Reliable)
 	void ServerBid(class AWETraderTerminal* Terminal, FGuid LotId, FGuid RequestId);

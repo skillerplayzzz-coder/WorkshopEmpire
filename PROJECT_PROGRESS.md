@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 10 – Produktion und Automatisierung: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 11 wurde nicht begonnen.
+**Phase 11 – Mitarbeiter und Logistik: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 12 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -83,12 +83,22 @@ Phase 11 wurde nicht begonnen.
 - Untersuchen-Fenster wächst mit dem Inhalt
 - Speicherversion 9 (Bänder mit Gegenständen und Positionen, Lagerausgabe, gewähltes Rezept)
 
+### Phase 11 – Mitarbeiter und Logistik (2026-10-16)
+- Mitarbeiter einstellen (Reiter "Personal & Logistik"): Lagerarbeiter, Maschinenbediener, Fahrer; 3 Bewerber, max. 6 Mitarbeiter, Erfahrung 1–3
+- Aufgaben in der Werkstatt zuweisen ([E] auf Mitarbeiter, dann Quelle/Ziel anschauen); Pause, Entlassen, Materialfilter
+- Lagertransporte (Lager/Maschine/Wagen → Lager/Maschine/Wagen), Maschinenbedienung (einschalten, warten, Produkte einlagern, +15 % Tempo)
+- Löhne alle 5 Minuten; ohne Geld wird gestreikt, die Schuld bleibt
+- Firmenwagen (Alter Transporter, Moderner Lieferwagen): Laderaum, Verkaufsfahrten (+15 %), Großeinkäufe; braucht einen Fahrer
+- Gabelstapler: hebt bis 1.500 kg (neuer Großer Industriemotor 180 kg)
+- Mitarbeiter laufen auf einem Navigationsnetz (passt sich der Einrichtung an)
+- Speicherversion 10 (Mitarbeiter mit Aufgaben, Bewerber, Löhne, Touren)
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 10 (Anleitung im Development Report)
+- Mike: Praxistest Phase 11 (Anleitung im Development Report)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, Fahrzeug sichtbar losfahren lassen, kleiner/großer LKW
 
 ## Bekannte Fehler
 
@@ -96,7 +106,7 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 11 – Mitarbeiter und Logistik (laut Spezifikation u. a. Mitarbeiter einstellen, Aufgaben zuweisen), erst nach Mikes Freigabe.
+Phase 12 – Unternehmensexpansion (laut Spezifikation u. a. größere Werkstätten, Gewerbehallen, Fabrikgebäude, größere Aufträge, Unternehmensverwaltung), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 

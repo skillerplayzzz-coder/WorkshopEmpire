@@ -62,7 +62,9 @@ TRADERS = [
      [stock("CableBox", 3, Q.SCRAP, 20, 0.8), stock("ElectricMotor", 1, Q.DEFECTIVE, 30, 0.9),
       # Phase 7: the scrapyard sometimes has cheap scrap devices.
       stock("OldComputer", 2, Q.SCRAP, 20, 0.7, chance=0.6, q_spread=10),
-      stock("CrtMonitor", 1, Q.DEFECTIVE, 25, 0.7, chance=0.5, cond_spread=1, q_spread=10)]),
+      stock("CrtMonitor", 1, Q.DEFECTIVE, 25, 0.7, chance=0.5, cond_spread=1, q_spread=10),
+      # Phase 11: heavy scrap for the forklift (delivered to the pallet).
+      stock("IndustrialMotorLarge", 1, Q.DEFECTIVE, 30, 0.9, chance=0.5)]),
     ("DA_Trader_UsedGoods", "Gebrauchtbörse 24", 10.0,
      [rate(C.ELECTRONICS, 1.0), rate(C.SPARE_PART, 1.0), rate(C.HOUSEHOLD_APPLIANCE, 1.0),
       rate(C.TOOL, 0.8), rate(C.POWER_TOOL, 0.8), rate(C.COLLECTIBLE, 1.2), rate(C.RARE_FIND, 1.2),

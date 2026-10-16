@@ -38,6 +38,11 @@
 #include "Machines/WEPowerGridComponent.h"
 #include "Machines/WEConveyor.h"
 #include "Machines/WEProductionStorage.h"
+#include "Staff/WEEmployee.h"
+#include "Staff/WEStaffComponent.h"
+#include "Logistics/WEVehicle.h"
+#include "Logistics/WEForklift.h"
+#include "UI/WETradeWidget.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
 {
@@ -147,6 +152,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("T"))
 	{
 		RunSmokeRoleT();
+	}
+	else if (Role == TEXT("U"))
+	{
+		RunSmokeRoleU();
+	}
+	else if (Role == TEXT("V"))
+	{
+		RunSmokeRoleV();
+	}
+	else if (ShotName.StartsWith(TEXT("P11")))
+	{
+		RunStaffShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P10")))
 	{
@@ -2009,4 +2026,250 @@ void UWEDevAutomationComponent::RunSmokeRoleT()
 	Schedule(40.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindConveyorNear(FVector(235.f, 130.f, 0.f))); } });
 	Schedule(42.f, [this]() { LogFlow(TEXT("T4 started it again")); });
 	Schedule(47.f, [this]() { Quit(); });
+}
+
+// --- Phase 11: staff and logistics ------------------------------------------------------------------
+
+AWEEmployee* UWEDevAutomationComponent::FindEmployee(uint8 InRole) const
+{
+	for (TActorIterator<AWEEmployee> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && static_cast<uint8>(It->GetProfile().Role) == InRole)
+		{
+			return *It;
+		}
+	}
+	return nullptr;
+}
+
+void UWEDevAutomationComponent::LogStaff(const TCHAR* Step) const
+{
+	TArray<FString> People;
+	for (TActorIterator<AWEEmployee> It(GetWorld()); It; ++It)
+	{
+		const FVector L = It->GetActorLocation();
+		People.Add(FString::Printf(TEXT("%s(%s)@(%.0f,%.0f)[%s | %s | trägt %d %s]"), *It->GetProfile().Name, *It->GetRoleText().ToString(), L.X, L.Y,
+			*It->GetTaskText().ToString(), *It->GetStateText().ToString(), It->GetCarried().IsValid() ? It->GetCarried().Quantity : 0,
+			It->GetCarried().Definition ? *It->GetCarried().Definition->ItemId.ToString() : TEXT("-")));
+	}
+	FString Van = TEXT("-");
+	for (TActorIterator<AWEVehicle> It(GetWorld()); It; ++It)
+	{
+		Van = FString::Printf(TEXT("%s unlocked=%d away=%d back_in=%.0fs cargo=%d tour=%s last='%s'"), *It->GetStats().DisplayName.ToString(), It->IsUnlocked() ? 1 : 0,
+			It->IsAway() ? 1 : 0, It->GetSecondsToReturn(), It->GetStorage()->GetAllSlots().Num(), *It->GetSelectedTour().ToString(), *It->GetLastResult());
+	}
+	FString Forklift = TEXT("-");
+	for (TActorIterator<AWEForklift> It(GetWorld()); It; ++It)
+	{
+		const FVector L = It->GetActorLocation();
+		const FVector D = It->GetDriver() ? It->GetDriver()->GetActorLocation() : FVector::ZeroVector;
+		Forklift = FString::Printf(TEXT("unlocked=%d driver=%s@(%.0f,%.0f) attached=%d @(%.0f,%.0f) load=%s"), It->IsUnlocked() ? 1 : 0, *GetNameSafe(It->GetDriver()), D.X, D.Y, It->GetAttachParentActor() ? 1 : 0, L.X, L.Y,
+			It->GetDriver() && It->GetDriver()->GetHeldItem() ? *It->GetDriver()->GetHeldItem()->GetDisplayName().ToString() : TEXT("-"));
+	}
+	const UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Balance=%s Wages/min=%s Owed=%s Applicants=%d Staff={%s} Van={%s} Forklift={%s}"), *Role, Step,
+		Company ? *Company->GetBalance().ToDisplayString() : TEXT("?"), Staff ? *Staff->GetWagesPerMinute().ToDisplayString() : TEXT("?"),
+		Staff ? *Staff->GetOwedWages().ToDisplayString() : TEXT("?"), Staff ? Staff->GetApplicants().Num() : -1,
+		*FString::Join(People, TEXT(" ")), *Van, *Forklift);
+}
+
+void UWEDevAutomationComponent::BuyUpgradeAtTerminal(const TCHAR* UpgradeId)
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	if (PC)
+	{
+		PC->RequestBuyUpgrade(const_cast<AWETraderTerminal*>(FindTerminal()), FName(UpgradeId));
+	}
+}
+
+void UWEDevAutomationComponent::TransferToStorage(const TCHAR* ItemId, UWEInventoryComponent* Storage)
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const AWECharacter* Me = GetCharacter();
+	if (!PC || !Me || !Storage || !Me->GetPlayerInventory())
+	{
+		return;
+	}
+	for (const FWEInventorySlotData& Slot : Me->GetPlayerInventory()->GetAllSlots())
+	{
+		if (Slot.Item.Definition && Slot.Item.Definition->ItemId == FName(ItemId))
+		{
+			PC->RequestQuickTransfer(Me->GetPlayerInventory(), Slot.SlotIndex, Storage);
+			return;
+		}
+	}
+}
+
+void UWEDevAutomationComponent::RunStaffShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	auto Van = [this]() { TActorIterator<AWEVehicle> It(GetWorld()); return It ? *It : nullptr; };
+	auto Forklift = [this]() { TActorIterator<AWEForklift> It(GetWorld()); return It ? *It : nullptr; };
+	// Money, the van and the forklift, three employees (every role is among the first applicants).
+	Schedule(3.0f, [this, PC]() { if (PC) { PC->ServerDevAddMoney(8000); } TeleportToTerminal(0.f); });
+	Schedule(4.0f, [this, PC]()
+	{
+		BuyUpgradeAtTerminal(TEXT("Forklift"));
+		BuyUpgradeAtTerminal(TEXT("OldVan"));
+		if (PC)
+		{
+			AWETraderTerminal* Terminal = const_cast<AWETraderTerminal*>(FindTerminal());
+			PC->RequestHire(Terminal, 0);
+			PC->RequestHire(Terminal, 1);
+			PC->RequestHire(Terminal, 2);
+		}
+	});
+	Schedule(5.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(const_cast<AWETraderTerminal*>(FindTerminal())); } });
+	Schedule(6.0f, [PC]() { if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(2); } });
+	Schedule(7.0f, [this]() { Shot(TEXT("01_Personal_und_Logistik")); LogStaff(TEXT("S0 hired")); });
+	Schedule(7.5f, [PC]() { if (PC) { PC->CloseTrade(); } });
+	// A small line: shelf with steel, press, shredder; the door open for the van.
+	Schedule(8.0f, [this, PC]()
+	{
+		if (PC) { PC->ServerDevTeleport(FVector(-60.f, -60.f, 100.f), FRotator(0.f, -90.f, 0.f)); }
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			PlaceFurnitureAt(TEXT("HeavyShelf"), 60.f, -210.f, 90.f);
+			PlaceFurnitureAt(TEXT("Press"), 60.f, -60.f, 0.f);
+			PlaceFurnitureAt(TEXT("Shredder"), 150.f, 170.f, 0.f);
+			LogFurniture(TEXT("S0b line placed"));
+			B->SetBuildMode(false);
+		}
+	});
+	Schedule(8.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(320.f, 0.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(9.0f, [this, PC, Interaction]()
+	{
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindDoor()); }
+		if (PC) { PC->ServerDevTeleport(FVector(-60.f, -60.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("SteelScrap"), 25, EWEItemCondition::Used); }
+	});
+	Schedule(10.0f, [this, PC]()
+	{
+		if (AWEPlaceholderProp* Shelf = FindFurniture(TEXT("HeavyShelf"))) { TransferToStorage(TEXT("SteelScrap"), Shelf->GetStorage()); }
+		if (PC) { PC->ServerDevGiveItem(TEXT("SteelScrap"), 20, EWEItemCondition::Used); }
+	});
+	Schedule(11.0f, [this, PC, Van]()
+	{
+		if (AWEPlaceholderProp* Shelf = FindFurniture(TEXT("HeavyShelf"))) { TransferToStorage(TEXT("SteelScrap"), Shelf->GetStorage()); }
+		AWEPlaceholderProp* Shelf = FindFurniture(TEXT("HeavyShelf"));
+		AWEPlaceholderProp* Press = FindFurniture(TEXT("Press"));
+		if (PC)
+		{
+			PC->RequestAssignTask(FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker)), Shelf, Press);
+			PC->RequestAssignTask(FindEmployee(static_cast<uint8>(EWEStaffRole::MachineOperator)), Shelf, Press);
+			PC->RequestAssignTask(FindEmployee(static_cast<uint8>(EWEStaffRole::Driver)), nullptr, Van());
+		}
+	});
+	// The assignment prompt (a second worker would be assigned like this).
+	Schedule(12.0f, [this, Interaction]()
+	{
+		if (UWEInteractionComponent* I = Interaction()) { I->StartAssignment(FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker))); }
+		if (AWEPlaceholderProp* Shelf = FindFurniture(TEXT("HeavyShelf"))) { LookAt(Shelf); }
+	});
+	Schedule(13.0f, [this]() { Shot(TEXT("02_Aufgabe_zuweisen")); });
+	Schedule(13.6f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CancelAssignment(); } });
+	Schedule(16.0f, [this, PC]() { LogStaff(TEXT("S1 working")); if (PC) { PC->ServerDevTeleport(FVector(-100.f, -40.f, 100.f), FRotator(0.f, -30.f, 0.f)); } });
+	Schedule(17.0f, [this]() { if (AWEEmployee* W = FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker))) { LookAt(W); } });
+	Schedule(17.5f, [this]() { Shot(TEXT("03_Lagerarbeiter")); LogStaff(TEXT("S2 worker")); });
+	// Forklift: the 180-kg motor into the shredder.
+	Schedule(18.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-60.f, 60.f, 100.f), FRotator(0.f, 0.f, 0.f)); PC->ServerDevGiveItem(TEXT("IndustrialMotorLarge"), 1, EWEItemCondition::Defective); } });
+	Schedule(19.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-130.f, -215.f, 100.f), FRotator(0.f, 180.f, 0.f)); } });
+	Schedule(20.0f, [this, Interaction, Forklift]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(Forklift()); } });
+	Schedule(21.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-80.f, 60.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(22.0f, [this]() { if (AActor* Motor = FindNearestItem(TEXT("Industriemotor"))) { LookAt(Motor); } });
+	Schedule(22.5f, [this, Interaction]() { LogStaff(TEXT("S3 on the forklift")); if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Industriemotor"))); } });
+	Schedule(23.0f, [this]() { LookYawPitch(0.f, -8.f); });
+	Schedule(23.5f, [this]() { Shot(TEXT("04_Gabelstapler")); });
+	Schedule(24.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(150.f, 20.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(25.0f, [this]() { LookAtPoint(FVector(150.f, 140.f, 80.f)); });
+	Schedule(25.5f, [this]() { Shot(TEXT("05_Motor_zum_Schredder")); });
+	Schedule(26.0f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(27.0f, [this]() { LogStaff(TEXT("S4 motor in the shredder")); LogMachines(TEXT("S4 machines")); if (AWECharacter* C = GetCharacter()) { C->RequestExitForklift(); } });
+	// Van: load a box, the driver takes it on a sell run.
+	Schedule(28.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(490.f, 30.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("CableBox"), 1, EWEItemCondition::Used); } });
+	Schedule(29.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Kabel"))); } });
+	Schedule(30.0f, [this, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(-120.f, 0.f, 110.f)); } });
+	Schedule(31.0f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(36.0f, [this, Van]() { LogStaff(TEXT("S5 van loaded")); if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(-120.f, 0.f, 110.f)); } });
+	Schedule(37.0f, [this]() { Shot(TEXT("06_Tour_starten")); });
+	Schedule(37.5f, [this, Interaction, Van]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(Van()); } });
+	Schedule(39.0f, [this]() { Shot(TEXT("07_Wagen_unterwegs")); LogStaff(TEXT("S6 van away")); });
+	// Details of an employee; save, fire, load.
+	Schedule(40.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-100.f, -40.f, 100.f), FRotator(0.f, -30.f, 0.f)); } });
+	Schedule(41.0f, [this, Interaction]()
+	{
+		if (AWEEmployee* W = FindEmployee(static_cast<uint8>(EWEStaffRole::MachineOperator))) { LookAt(W); }
+		if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->ToggleExamine(); }
+	});
+	Schedule(42.0f, [this]() { Shot(TEXT("08_Mitarbeiter_Details")); });
+	Schedule(42.5f, [this, PC, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CloseExamine(); } if (PC) { PC->RequestSave(TEXT("DevP11")); } });
+	Schedule(43.5f, [this, PC]() { if (PC) { PC->RequestStaffAction(nullptr, FindEmployee(static_cast<uint8>(EWEStaffRole::MachineOperator)), AWEPlayerController::StaffFire); } });
+	Schedule(44.5f, [this, PC]() { LogStaff(TEXT("S7 operator fired")); if (PC) { PC->RequestLoad(TEXT("DevP11")); } });
+	Schedule(46.0f, [this]() { LogStaff(TEXT("S8 after load")); if (AWEEmployee* W = FindEmployee(static_cast<uint8>(EWEStaffRole::MachineOperator))) { LookAt(W); } });
+	Schedule(47.0f, [this]() { Shot(TEXT("09_Nach_dem_Laden")); });
+	Schedule(48.0f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleU()
+{
+	// Buys van and forklift, hires, assigns the driver, loads the van and sends it off.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	auto Van = [this]() { TActorIterator<AWEVehicle> It(GetWorld()); return It ? *It : nullptr; };
+	Schedule(10.f, [this, PC]() { if (PC) { PC->ServerDevAddMoney(8000); } TeleportToTerminal(-60.f); });
+	Schedule(11.f, [this, PC]()
+	{
+		BuyUpgradeAtTerminal(TEXT("Forklift"));
+		BuyUpgradeAtTerminal(TEXT("OldVan"));
+		AWETraderTerminal* Terminal = const_cast<AWETraderTerminal*>(FindTerminal());
+		if (PC) { PC->RequestHire(Terminal, 0); PC->RequestHire(Terminal, 1); PC->RequestHire(Terminal, 2); }
+	});
+	Schedule(13.f, [this, PC, Van, Interaction]()
+	{
+		LogStaff(TEXT("U0 hired"));
+		if (PC)
+		{
+			PC->RequestAssignTask(FindEmployee(static_cast<uint8>(EWEStaffRole::Driver)), nullptr, Van());
+			PC->ServerDevTeleport(FVector(330.f, 40.f, 100.f), FRotator(0.f, 0.f, 0.f));
+		}
+	});
+	Schedule(14.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindDoor()); } });
+	Schedule(15.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(560.f, -40.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("CableBox"), 1, EWEItemCondition::Used); } });
+	Schedule(16.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Kabel"))); } });
+	Schedule(17.f, [this, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(-120.f, 0.f, 110.f)); } });
+	Schedule(18.f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
+	Schedule(25.f, [this, Interaction, Van]() { LogStaff(TEXT("U1 van loaded, driver walking")); if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(Van()); } });
+	Schedule(27.f, [this]() { LogStaff(TEXT("U2 van started")); });
+	Schedule(40.f, [this]() { LogStaff(TEXT("U3 sees V's changes")); });
+	Schedule(43.f, [this]() { Quit(); });
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleV()
+{
+	// Sees the staff, pauses the warehouse worker, drives the forklift around.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	auto Forklift = [this]() { TActorIterator<AWEForklift> It(GetWorld()); return It ? *It : nullptr; };
+	Schedule(10.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(100.f, -40.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(14.f, [this]() { LogStaff(TEXT("V0 sees the new staff")); });
+	Schedule(20.f, [this]() { LogStaff(TEXT("V1 driver on his way")); });
+	Schedule(28.f, [this]() { LogStaff(TEXT("V2 sees the van away")); });
+	Schedule(29.f, [this, PC]()
+	{
+		AWEEmployee* Worker = FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker));
+		if (PC && Worker)
+		{
+			PC->ServerDevTeleport(Worker->GetActorLocation() + FVector(120.f, 0.f, 10.f), FRotator(0.f, 180.f, 0.f));
+		}
+	});
+	Schedule(30.f, [this, PC]() { if (PC) { PC->RequestStaffAction(nullptr, FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker)), AWEPlayerController::StaffPause); } });
+	Schedule(31.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(-130.f, -215.f, 100.f), FRotator(0.f, 180.f, 0.f)); } });
+	Schedule(32.f, [this, Interaction, Forklift]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(Forklift()); } });
+	Schedule(33.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(100.f, 100.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(34.f, [this]() { LogStaff(TEXT("V3 drove the forklift")); });
+	Schedule(35.f, [this]() { if (AWECharacter* C = GetCharacter()) { C->RequestExitForklift(); } });
+	Schedule(36.5f, [this]() { LogStaff(TEXT("V4 got off")); });
+	Schedule(44.f, [this]() { Quit(); });
 }

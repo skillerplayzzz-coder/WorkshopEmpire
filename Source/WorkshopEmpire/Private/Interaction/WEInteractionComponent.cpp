@@ -11,6 +11,9 @@
 #include "Workshop/WEWorkbench.h"
 #include "Machines/WEMachine.h"
 #include "Machines/WEConveyor.h"
+#include "Staff/WEEmployee.h"
+#include "Logistics/WEVehicle.h"
+#include "Framework/WEPlayerController.h"
 #include "Machines/WEMachineDefinition.h"
 
 #define LOCTEXT_NAMESPACE "WEInteraction"
@@ -113,10 +116,122 @@ void UWEInteractionComponent::RequestPrimaryInteraction()
 		return;
 	}
 
+	if (IsAssigning())
+	{
+		HandleAssignmentPick(FocusedActor.Get());
+		return;
+	}
+	if (AWEEmployee* Employee = Cast<AWEEmployee>(FocusedActor.Get()))
+	{
+		StartAssignment(Employee);
+		return;
+	}
 	if (AActor* Target = FocusedActor.Get())
 	{
 		RequestInteractWith(Target);
 	}
+}
+
+// --- Assignment (local picks, one server request at the end) ---------------------------------------
+
+void UWEInteractionComponent::StartAssignment(AWEEmployee* Employee)
+{
+	if (!Employee)
+	{
+		return;
+	}
+	AssignEmployee = Employee;
+	AssignFirstPick.Reset();
+}
+
+void UWEInteractionComponent::CancelAssignment()
+{
+	AssignEmployee.Reset();
+	AssignFirstPick.Reset();
+}
+
+FText UWEInteractionComponent::GetAssignmentStepText() const
+{
+	const AWEEmployee* Employee = AssignEmployee.Get();
+	if (!Employee)
+	{
+		return FText::GetEmpty();
+	}
+	switch (Employee->GetProfile().Role)
+	{
+	case EWEStaffRole::WarehouseWorker:
+		return AssignFirstPick.IsValid() ? LOCTEXT("PickTarget", "Ziel wählen: Lager, Maschine oder Wagen")
+			: LOCTEXT("PickSource", "Quelle wählen: Lager, Maschinenausgabe oder Wagen");
+	case EWEStaffRole::MachineOperator:
+		return AssignFirstPick.IsValid() ? LOCTEXT("PickStore", "Lager für Produkte und Wartungssets wählen")
+			: LOCTEXT("PickMachine", "Maschine wählen");
+	case EWEStaffRole::Driver:
+		return LOCTEXT("PickVan", "Firmenwagen wählen");
+	}
+	return FText::GetEmpty();
+}
+
+bool UWEInteractionComponent::HandleAssignmentPick(AActor* Picked)
+{
+	AWEEmployee* Employee = AssignEmployee.Get();
+	if (!Employee || !Picked)
+	{
+		return false;
+	}
+	const EWEStaffRole Role = Employee->GetProfile().Role;
+	if (Role == EWEStaffRole::WarehouseWorker && !AssignFirstPick.IsValid())
+	{
+		if (!Employee->IsValidSource(Picked))
+		{
+			return false;
+		}
+		AssignFirstPick = Picked;
+		return true;
+	}
+	if (Role == EWEStaffRole::WarehouseWorker)
+	{
+		if (!Employee->IsValidTarget(Picked) || Picked == AssignFirstPick.Get())
+		{
+			return false;
+		}
+		FinishAssignment(AssignFirstPick.Get(), Picked);
+		return true;
+	}
+	if (Role == EWEStaffRole::MachineOperator && !AssignFirstPick.IsValid())
+	{
+		if (!Employee->IsValidTarget(Picked))
+		{
+			return false;
+		}
+		AssignFirstPick = Picked;
+		return true;
+	}
+	if (Role == EWEStaffRole::MachineOperator)
+	{
+		if (!Employee->IsValidSource(Picked))
+		{
+			return false;
+		}
+		FinishAssignment(Picked, AssignFirstPick.Get());
+		return true;
+	}
+	if (!Employee->IsValidTarget(Picked))
+	{
+		return false;
+	}
+	FinishAssignment(nullptr, Picked);
+	return true;
+}
+
+void UWEInteractionComponent::FinishAssignment(AActor* Source, AActor* Target)
+{
+	AWECharacter* Character = GetCharacter();
+	AWEPlayerController* PC = Character ? Cast<AWEPlayerController>(Character->GetController()) : nullptr;
+	if (PC && AssignEmployee.IsValid())
+	{
+		PC->RequestAssignTask(AssignEmployee.Get(), Source, Target);
+	}
+	CancelAssignment();
 }
 
 void UWEInteractionComponent::RequestInteractWith(AActor* Target)
@@ -252,6 +367,11 @@ bool UWEInteractionComponent::ExecuteInteractSecondary(AActor* Target)
 
 void UWEInteractionComponent::RequestAlternativeInteraction()
 {
+	if (IsAssigning() && AssignFirstPick.IsValid() && AssignEmployee->GetProfile().Role == EWEStaffRole::MachineOperator)
+	{
+		FinishAssignment(nullptr, AssignFirstPick.Get()); // operator without a store
+		return;
+	}
 	const AWECharacter* Character = GetCharacter();
 	if (Character && !Character->GetHeldItem())
 	{
@@ -307,9 +427,31 @@ bool UWEInteractionComponent::ExecuteInteractAlternative(AActor* Target)
 void UWEInteractionComponent::RequestExtraInteraction()
 {
 	const AWECharacter* Character = GetCharacter();
+	if (IsAssigning())
+	{
+		CancelAssignment();
+		return;
+	}
 	if (Character && !Character->GetHeldItem())
 	{
-		RequestExtraInteractWith(FocusedActor.Get());
+		AActor* Target = FocusedActor.Get();
+		if (Target && Target->IsA<AWEEmployee>())
+		{
+			// Firing needs a second press within a few seconds.
+			const double Now = FPlatformTime::Seconds();
+			if (FireArmed.Get() != Target || Now > FireArmedUntil)
+			{
+				FireArmed = Target;
+				FireArmedUntil = Now + 3.0;
+				if (AWEPlayerController* PC = Cast<AWEPlayerController>(Character->GetController()))
+				{
+					PC->ClientShowMessage(LOCTEXT("FireConfirm", "Wirklich entlassen? Zum Bestätigen noch einmal [X]"));
+				}
+				return;
+			}
+			FireArmed.Reset();
+		}
+		RequestExtraInteractWith(Target);
 	}
 }
 
@@ -462,6 +604,10 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	}
 
 	const FText InteractKey = GetKeyText(Config->InteractAction);
+	if (Character->GetForklift() && !IsAssigning())
+	{
+		OutPrompts.Add({ GetKeyText(Config->RemoveAction), LOCTEXT("ExitForklift", "Vom Gabelstapler absteigen") });
+	}
 	const FText ExamineKey = GetKeyText(Config->ExamineAction);
 	const FText ExamineText = IsExamining() ? LOCTEXT("CloseExamine", "Schließen") : LOCTEXT("Examine", "Untersuchen");
 
@@ -471,6 +617,7 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		const AWEWorkbench* Bench = Character->FindAimedWorkbench();
 		const AWEMachine* Machine = Character->FindAimedMachine();
 		const AWEConveyor* Belt = Cast<AWEConveyor>(Character->FindAimedProp());
+		const AWEVehicle* Van = Cast<AWEVehicle>(Character->FindAimedProp());
 		FText PlaceReason;
 		if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
 		{
@@ -484,10 +631,14 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		{
 			OutPrompts.Add({ InteractKey, LOCTEXT("PutOnBelt", "Aufs Band legen") });
 		}
+		else if (Van && Van->CanLoad(Held, PlaceReason))
+		{
+			OutPrompts.Add({ InteractKey, LOCTEXT("LoadVan", "In den Laderaum legen") });
+		}
 		else
 		{
 			OutPrompts.Add({ InteractKey, LOCTEXT("Drop", "Ablegen") });
-			if ((Bench || Machine || Belt) && !PlaceReason.IsEmpty())
+			if ((Bench || Machine || Belt || Van) && !PlaceReason.IsEmpty())
 			{
 				OutPrompts.Add({ FText::GetEmpty(), PlaceReason });
 			}
@@ -497,6 +648,25 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 	}
 
 	AActor* Focus = FocusedActor.Get();
+	if (const AWEEmployee* Assigning = AssignEmployee.Get())
+	{
+		OutPrompts.Add({ FText::GetEmpty(), FText::Format(LOCTEXT("AssignFor", "Aufgabe für {0}: {1}"), FText::FromString(Assigning->GetProfile().Name), GetAssignmentStepText()) });
+		const bool bSecond = AssignFirstPick.IsValid();
+		const EWEStaffRole Role = Assigning->GetProfile().Role;
+		const bool bWantsSource = (Role == EWEStaffRole::WarehouseWorker && !bSecond) || (Role == EWEStaffRole::MachineOperator && bSecond);
+		const bool bValid = Focus && Focus != AssignFirstPick.Get() && (bWantsSource ? Assigning->IsValidSource(Focus) : Assigning->IsValidTarget(Focus));
+		if (bValid)
+		{
+			const AWEPlaceholderProp* Prop = Cast<AWEPlaceholderProp>(Focus);
+			OutPrompts.Add({ InteractKey, FText::Format(LOCTEXT("PickThis", "{0} wählen"), Prop ? Prop->GetFurnitureName() : FText::FromString(Focus->GetName())) });
+		}
+		if (Role == EWEStaffRole::MachineOperator && bSecond)
+		{
+			OutPrompts.Add({ GetKeyText(Config->AlternativeAction), LOCTEXT("NoStore", "ohne Lager") });
+		}
+		OutPrompts.Add({ GetKeyText(Config->RemoveAction), LOCTEXT("CancelAssign", "Abbrechen") });
+		return;
+	}
 	const IWEInteractable* Interactable = Cast<IWEInteractable>(Focus);
 	if (!Interactable)
 	{

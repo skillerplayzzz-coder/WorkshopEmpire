@@ -5,6 +5,8 @@
 #include "World/WEPlaceholderProp.h"
 #include "Economy/WEContractComponent.h"
 #include "Economy/WECompanyComponent.h"
+#include "Staff/WEEmployee.h"
+#include "Staff/WEStaffComponent.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Dev/WEDevAutomationComponent.h"
@@ -221,6 +223,74 @@ void AWEPlayerController::RequestBuyUpgrade(AWETraderTerminal* Terminal, FName U
 void AWEPlayerController::RequestBid(AWETraderTerminal* Terminal, const FGuid& LotId)
 {
 	ServerBid(Terminal, LotId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestHire(AWETraderTerminal* Terminal, int32 ApplicantIndex)
+{
+	ServerHire(Terminal, ApplicantIndex, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestStaffAction(AWETraderTerminal* Terminal, AWEEmployee* Employee, uint8 Action)
+{
+	ServerStaffAction(Terminal, Employee, Action);
+}
+
+void AWEPlayerController::RequestAssignTask(AWEEmployee* Employee, AActor* Source, AActor* Target)
+{
+	ServerAssignTask(Employee, Source, Target);
+}
+
+void AWEPlayerController::ServerHire_Implementation(AWETraderTerminal* Terminal, int32 ApplicantIndex, FGuid RequestId)
+{
+	AWECharacter* Me = GetPawn<AWECharacter>();
+	UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+	if (Terminal && Staff && Terminal->IsWithinUseRange(Me))
+	{
+		Staff->Hire(Me, ApplicantIndex, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerStaffAction_Implementation(AWETraderTerminal* Terminal, AWEEmployee* Employee, uint8 Action)
+{
+	AWECharacter* Me = GetPawn<AWECharacter>();
+	UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+	if (!Me || !Staff || !IsValid(Employee))
+	{
+		return;
+	}
+	// From the terminal (staff page) or standing next to the employee.
+	const bool bAllowed = (Terminal && Terminal->IsWithinUseRange(Me)) || FVector::Dist(Me->GetActorLocation(), Employee->GetActorLocation()) <= 400.f;
+	if (!bAllowed)
+	{
+		UE_LOG(LogWENet, Warning, TEXT("%s staff action on %s rejected: out of reach"), *GetName(), *Employee->GetName());
+		return;
+	}
+	switch (Action)
+	{
+	case StaffFire:   Staff->Fire(Employee, Me); break;
+	case StaffPause:  Employee->SetPaused(true); break;
+	case StaffResume: Employee->SetPaused(false); break;
+	default: break;
+	}
+}
+
+void AWEPlayerController::ServerAssignTask_Implementation(AWEEmployee* Employee, AActor* Source, AActor* Target)
+{
+	AWECharacter* Me = GetPawn<AWECharacter>();
+	if (!Me || !IsValid(Employee))
+	{
+		return;
+	}
+	FWEEmployeeTask Task;
+	Task.Kind = AWEEmployee::GetTaskKindForRole(Employee->GetProfile().Role);
+	Task.Source = Source;
+	Task.Target = Target;
+	if (!Employee->AssignTask(Task))
+	{
+		ClientShowMessage(NSLOCTEXT("WEStaff", "AssignFailed", "Diese Aufgabe passt nicht zu diesem Mitarbeiter"));
+		return;
+	}
+	ClientShowMessage(FText::Format(NSLOCTEXT("WEStaff", "Assigned", "{0}: {1}"), FText::FromString(Employee->GetProfile().Name), Employee->GetTaskText()));
 }
 
 void AWEPlayerController::ServerPlaceFurniture_Implementation(FName FurnitureId, FTransform Transform, FGuid RequestId)

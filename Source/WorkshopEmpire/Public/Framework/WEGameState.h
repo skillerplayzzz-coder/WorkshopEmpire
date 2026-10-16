@@ -7,6 +7,7 @@
 class UWEAuctionComponent;
 class UWEWorkshopLayoutComponent;
 class UWEPowerGridComponent;
+class UWEStaffComponent;
 class UWECompanyComponent;
 class UWEContractComponent;
 class UWEMarketComponent;
@@ -32,6 +33,7 @@ public:
 	UWEAuctionComponent* GetAuctions() const { return Auctions; }
 	UWEWorkshopLayoutComponent* GetLayout() const { return Layout; }
 	UWEPowerGridComponent* GetPowerGrid() const { return PowerGrid; }
+	UWEStaffComponent* GetStaff() const { return Staff; }
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Company")
@@ -54,4 +56,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWEPowerGridComponent> PowerGrid;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<UWEStaffComponent> Staff;
 };

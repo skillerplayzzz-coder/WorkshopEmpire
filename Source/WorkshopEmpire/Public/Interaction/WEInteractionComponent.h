@@ -89,6 +89,15 @@ public:
 
 	float GetInteractionRange() const { return InteractionRange; }
 
+	// --- Assigning a task to an employee (Phase 11, local until the last pick) ---------------------
+
+	/** [E] on an employee: the following [E] presses pick source / target in the world. */
+	void StartAssignment(class AWEEmployee* Employee);
+	void CancelAssignment();
+	bool IsAssigning() const { return AssignEmployee.IsValid(); }
+	/** Prompt for the current pick, e.g. "Quelle wählen: Lager oder Maschine". */
+	FText GetAssignmentStepText() const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -128,5 +137,13 @@ protected:
 private:
 	TWeakObjectPtr<AActor> FocusedActor;
 	TWeakObjectPtr<AActor> ExaminedActor;
+
+	bool HandleAssignmentPick(AActor* Picked);
+	void FinishAssignment(AActor* Source, AActor* Target);
+	TWeakObjectPtr<class AWEEmployee> AssignEmployee;
+	TWeakObjectPtr<AActor> AssignFirstPick;
+	/** [X] on an employee must be pressed twice. */
+	TWeakObjectPtr<AActor> FireArmed;
+	double FireArmedUntil = 0.0;
 	FTimerHandle FocusTimer;
 };

@@ -215,6 +215,11 @@ ITEMS = [
      "Zehn gestanzte Montagewinkel aus Recyclingstahl, verzinkt.",
      C.PRODUCT, 1.5, 220, True, 20, True, False, T.NONE, 1.0, CUBE, (0.16, 0.12, 0.06), (0.62, 0.64, 0.68),
      [(M.STEEL, 1.5)]),
+    # Phase 11: too heavy for hands and hand truck - forklift job.
+    ("IndustrialMotorLarge", "IndustrialMotorLarge", "Großer Industriemotor",
+     "180 kg Drehstrommotor aus einer Fabrikhalle. Nur mit dem Gabelstapler zu bewegen; im Schredder wird viel Metall daraus.",
+     C.MOTOR, 180.0, 9000, False, 1, False, False, T.NONE, 1.0, CYLINDER, (0.75, 0.75, 0.80), (0.25, 0.32, 0.38),
+     [(M.STEEL, 140.0), (M.COPPER, 30.0), (M.ALUMINIUM, 10.0)]),
 ]
 
 CARRY_BONUS = {"HandTruck": 30.0}

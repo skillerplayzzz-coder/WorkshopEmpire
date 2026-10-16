@@ -133,6 +133,12 @@ public:
 	void SetOutputConnected(bool bConnected) { bOutputConnected = bConnected; }
 	bool IsOutputConnected() const { return bOutputConnected; }
 
+	/** Staff (Phase 11): an operator at the machine makes it work faster (applies from the next cycle). */
+	void SetOperatorBonus(float Bonus) { OperatorBonus = FMath::Max(1.f, Bonus); }
+	float GetOperatorBonus() const { return OperatorBonus; }
+	/** Staff: maintenance with a kit the employee brought (the kit is already used up). */
+	void MaintainWithKit();
+
 	/** Simulation (called by the power grid). */
 	void AdvanceCycle(float DeltaSeconds);
 	/** Recipe that could start now (input present, output room), or INDEX_NONE. Sets the waiting state. */
@@ -183,6 +189,7 @@ private:
 	float Progress = 0.f;
 	float LocalSegmentStart = 0.f;
 	bool bOutputConnected = false;
+	float OperatorBonus = 1.f;
 	uint16 LastHandledEvent = 0;
 	FRandomStream Random;
 };

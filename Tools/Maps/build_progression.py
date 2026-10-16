@@ -44,6 +44,13 @@ UPGRADES = [
     # Phase 9: more power for machines (11 kW house connection -> 22 kW).
     upgrade("HeavyCurrent", "Starkstromanschluss", "Zweiter Drehstromanschluss: +11 kW für Maschinen – Schredder und Sortiermaschine laufen gleichzeitig.", 300,
             power_kw=11.0),
+    # Phase 11: logistics. The van and the forklift stand in the map and appear once bought.
+    upgrade("Forklift", "Gabelstapler", "Gebrauchter Elektro-Gabelstapler: hebt bis 1.500 kg – für Industriemotoren, Ballen und Paletten.", 900,
+            unlocks=True),
+    upgrade("OldVan", "Alter Transporter", "Firmenwagen vor dem Tor (20 Plätze, 600 kg): Verkaufsfahrten und Großeinkäufe – braucht einen Fahrer.", 2400,
+            unlocks=True),
+    upgrade("ModernVan", "Moderner Lieferwagen", "Ersetzt den alten Transporter: 30 Plätze, 1.200 kg, Touren 60 % schneller.", 4500,
+            requires="OldVan"),
 ]
 
 path = f"{FOLDER}/{NAME}"

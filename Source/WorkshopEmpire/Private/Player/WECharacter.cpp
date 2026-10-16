@@ -19,6 +19,8 @@
 #include "Workshop/WEBuildComponent.h"
 #include "Machines/WEMachine.h"
 #include "Machines/WEConveyor.h"
+#include "Logistics/WEForklift.h"
+#include "Logistics/WEVehicle.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
@@ -89,6 +91,7 @@ void AWECharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AWECharacter, bIsSprinting, COND_SkipOwner);
 	DOREPLIFETIME(AWECharacter, HeldItem);
+	DOREPLIFETIME(AWECharacter, Forklift);
 }
 
 void AWECharacter::BeginPlay()
@@ -101,6 +104,10 @@ void AWECharacter::BeginPlay()
 void AWECharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	// A player leaving (or dying later on) must never take an item out of the world.
+	if (HasAuthority() && Forklift)
+	{
+		Forklift->Dismount();
+	}
 	if (HasAuthority() && HeldItem)
 	{
 		DropHeldItem();
@@ -243,6 +250,10 @@ void AWECharacter::Input_Interact()
 
 void AWECharacter::Input_Build()
 {
+	if (Forklift)
+	{
+		return; // no building from the forklift
+	}
 	BuildComponent->Toggle();
 }
 
@@ -251,6 +262,11 @@ void AWECharacter::Input_Remove()
 	if (BuildComponent->IsActive())
 	{
 		BuildComponent->Remove();
+		return;
+	}
+	if (Forklift)
+	{
+		RequestExitForklift();
 		return;
 	}
 	InteractionComponent->RequestExtraInteraction();
@@ -284,7 +300,52 @@ float AWECharacter::GetMaxCarryWeightKg() const
 			Bonus = FMath::Max(Bonus, Slot.Item.Definition ? Slot.Item.Definition->CarryBonusKg : 0.f);
 		}
 	}
-	return MaxCarryWeightKg + Bonus;
+	return Forklift ? AWEForklift::LiftKg : MaxCarryWeightKg + Bonus;
+}
+
+void AWECharacter::SetForklift(AWEForklift* InForklift)
+{
+	Forklift = InForklift;
+	OnForkliftChanged();
+	ForceNetUpdate();
+}
+
+void AWECharacter::OnRep_Forklift()
+{
+	OnForkliftChanged();
+}
+
+void AWECharacter::OnForkliftChanged()
+{
+	if (Forklift)
+	{
+		SetSprinting(false);
+		if (BuildComponent->IsActive())
+		{
+			BuildComponent->SetBuildMode(false);
+		}
+	}
+	UpdateMovementSpeed();
+}
+
+void AWECharacter::RequestExitForklift()
+{
+	if (HasAuthority())
+	{
+		ServerExitForklift_Implementation();
+	}
+	else
+	{
+		ServerExitForklift();
+	}
+}
+
+void AWECharacter::ServerExitForklift_Implementation()
+{
+	if (Forklift)
+	{
+		Forklift->Dismount();
+	}
 }
 
 void AWECharacter::Input_Examine()
@@ -366,7 +427,7 @@ void AWECharacter::OnRep_IsSprinting()
 
 void AWECharacter::UpdateMovementSpeed()
 {
-	GetCharacterMovement()->MaxWalkSpeed = (bIsSprinting && !bIsCrouched) ? SprintSpeed : WalkSpeed;
+	GetCharacterMovement()->MaxWalkSpeed = Forklift ? AWEForklift::DriveSpeed : (bIsSprinting && !bIsCrouched) ? SprintSpeed : WalkSpeed;
 	GetCharacterMovement()->MaxWalkSpeedCrouched = CrouchSpeed;
 }
 
@@ -392,7 +453,16 @@ bool AWECharacter::TryPickUpItem(AWEPickupItem* Item)
 	}
 
 	HeldItem = Item;
-	Item->HandlePickedUp(this, HoldPoint);
+	if (Forklift)
+	{
+		// On the forks, a little lifted.
+		Item->HandlePickedUp(this, Forklift->GetForks());
+		Item->SetActorRelativeLocation(FVector(Item->GetCarryRadius() * 0.6f, 0.f, Item->GetCarryRadius() + 15.f));
+	}
+	else
+	{
+		Item->HandlePickedUp(this, HoldPoint);
+	}
 	UE_LOG(LogWENet, Log, TEXT("%s picked up %s"), *GetName(), *Item->GetName());
 	return true;
 }
@@ -422,6 +492,14 @@ void AWECharacter::DropHeldItem()
 	{
 		FText Reason;
 		if (Machine->CanInsertItem(Item, Reason) && Machine->InsertItem(Item))
+		{
+			return;
+		}
+	}
+	// Aiming at the van: into the cargo.
+	if (AWEVehicle* Van = Cast<AWEVehicle>(FindAimedProp()))
+	{
+		if (Van->LoadItem(Item))
 		{
 			return;
 		}
@@ -457,6 +535,10 @@ AWEPlaceholderProp* AWECharacter::FindAimedProp() const
 	FRotator EyeRotation;
 	GetActorEyesViewPoint(EyeLocation, EyeRotation);
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(WEBenchTrace), false, this);
+	if (Forklift)
+	{
+		Params.AddIgnoredActor(Forklift);
+	}
 	if (HeldItem)
 	{
 		Params.AddIgnoredActor(HeldItem);
@@ -555,6 +637,10 @@ FTransform AWECharacter::ComputeDropTransform(float InRadius, const AActor* Igno
 	if (IgnoredActor)
 	{
 		Params.AddIgnoredActor(IgnoredActor);
+	}
+	if (Forklift)
+	{
+		Params.AddIgnoredActor(Forklift);
 	}
 
 	FVector Location = EyeLocation + Direction * DropDistance;

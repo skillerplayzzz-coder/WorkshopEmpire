@@ -128,6 +128,38 @@ void AWEPlaceholderProp::BuildBoxes(UInstancedStaticMeshComponent* ISM, EWEPlace
 		}
 		break;
 	}
+	case EWEPlaceholderPropType::Vehicle:
+	{
+		// Wheels, cargo box (back), cab (front) with a windscreen strip.
+		const float Wheel = 34.f;
+		for (const float SX : { -0.32f, 0.32f })
+		{
+			for (const float SY : { -1.f, 1.f })
+			{
+				Box(FVector(SX * D, SY * (W * 0.5f - 12.f), Wheel * 0.5f), FVector(Wheel * 1.6f, 22.f, Wheel));
+			}
+		}
+		const float CargoLength = D * 0.68f;
+		Box(FVector(-D * 0.5f + CargoLength * 0.5f, 0.f, Wheel + (H - Wheel) * 0.5f), FVector(CargoLength, W, H - Wheel));
+		const float CabLength = D - CargoLength - 4.f;
+		Box(FVector(D * 0.5f - CabLength * 0.5f, 0.f, Wheel + (H * 0.72f - Wheel) * 0.5f), FVector(CabLength, W - 6.f, H * 0.72f - Wheel));
+		Box(FVector(D * 0.5f - 2.f, 0.f, H * 0.58f), FVector(4.f, W - 30.f, H * 0.18f));
+		break;
+	}
+	case EWEPlaceholderPropType::Forklift:
+	{
+		// Body with counterweight at the back, overhead guard, mast and forks at the front.
+		Box(FVector(-D * 0.12f, 0.f, 35.f), FVector(D * 0.6f, W, 50.f));
+		Box(FVector(-D * 0.38f, 0.f, 75.f), FVector(D * 0.16f, W, 40.f));
+		for (const float SY : { -1.f, 1.f })
+		{
+			Box(FVector(-D * 0.05f, SY * (W * 0.5f - 4.f), H * 0.6f), FVector(6.f, 6.f, H * 0.8f));
+			Box(FVector(D * 0.2f, SY * 22.f, H * 0.5f), FVector(8.f, 8.f, H));
+			Box(FVector(D * 0.36f, SY * 22.f, 6.f), FVector(D * 0.3f, 10.f, 4.f));
+		}
+		Box(FVector(-D * 0.05f, 0.f, H - 3.f), FVector(D * 0.4f, W, 4.f));
+		break;
+	}
 	case EWEPlaceholderPropType::Crate:
 	{
 		const float Wall = 3.f;

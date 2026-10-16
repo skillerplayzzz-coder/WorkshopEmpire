@@ -17,6 +17,53 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 11 – Lauf vom 2026-10-16
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless) | ✅ **88/88 bestanden, 0 mit Warnungen** (81 alte + 7 neue), Bericht `Saved/TestReports/Phase11_final2/index.json` |
+| ↳ `Staff.HireFireAndPayroll` (3 Bewerber, jede Rolle dabei, Lohn nach Rolle/Erfahrung; Einstellen, gleiche Anfrage-ID → einmal; 1 Minute Arbeit = 1 Minutenlohn; Pause unbezahlt; ohne Geld: Lohnabrechnung scheitert, alle "Lohn ausstehend", Konto unberührt, Schuld bleibt, keine neue Lohnzeit; mit Geld: Schuld bezahlt, arbeitet wieder; höchstens 6; Entlassen) | ✅ |
+| ↳ `Staff.WarehouseTransport` (Regal → Presse: trägt 25 kg, bringt alle 30 Stahl, lässt den Kunststoff liegen (Presse braucht ihn nicht), wartet dann; Presse macht einen Ballen; [T]-Filter Alles → Material → Alles; Maschinenausgabe → Kiste: sperriger Ballen passt nicht → wartet; kleine Produkte ins Regal) | ✅ (erst rot, siehe Behobene Fehler) |
+| ↳ `Staff.MachineOperator` (schaltet die Sortiermaschine ein, holt bei 20 % Wartung ein Wartungsset aus dem Regal und wartet sie (100 %), Takt 5 s / 1,15; sortiert alles, bringt die Produkte ins Regal; Pause → Bonus weg) | ✅ (erst rot) |
+| ↳ `Logistics.VanTours` (Wagen erst nach dem Upgrade; ohne Fahrer/leer keine Tour; Verkaufsfahrt: Sprit bezahlt, Wagen und Fahrer weg, nach 4 min zurück, Ladung zum besten Preis +15 %, Laderaum leer; Großeinkauf: 55 € + 8 € beim Losfahren, 4 PCs, 3 Monitore, 4 Kabelkartons im Laderaum, [R] lädt 11 Sperrige aus; Moderner Lieferwagen: 30 Plätze, Touren 60 % schneller) | ✅ (erst rot) |
+| ↳ `Logistics.ForkliftCarriesHeavy` (erst nach dem Upgrade; 180-kg-Motor von Hand zu schwer; aufsteigen → 1.500 kg, Kollision aus, Motor auf der Gabel; Schredder nimmt ihn; absteigen → Last abgesetzt, Stapler bleibt stehen, wieder 30 kg; mit vollen Händen nicht aufsteigen) | ✅ |
+| ↳ `Save.StaffRoundTrip` (Version 10: Lagerarbeiter mit Aufgabe, Filter und Ladung, Fahrer auf Tour mit Restzeit, Bewerber; Lagerarbeiter entlassen, Tour beendet, geladen → alles wie gespeichert, Fahrer wieder unterwegs) | ✅ (erst rot) |
+| ↳ `Economy.BalanceStaffAndTours` (**echte Daten**) | ✅ Großeinkauf Altgeräte **63 €** statt **89,35 €** am Marktplatz, direkt weiterverkauft nur 43,78 € (mit Verkaufsfahrt 50,35 €) → keine Endlosschleife. Industriemotoren 58 € statt 63,18 €, weiterverkauft 23,32 € (Wert entsteht erst im Schredder). Lagerarbeiter füttert 10 min die Presse: 7 Ballen, Wertzuwachs 6,44 € bei 6,00 € Lohn |
+| Angepasst: `Save.FlowRoundTrip`, `Save.MachineRoundTrip` (prüfen die jeweils aktuelle Version) | ✅ |
+| Erzeugung von 45 Gegenständen (1 neuer), Personal- und Tourdaten, 10 Upgrades (3 neue), Maschinen, Möbel und Map (Wagen, Gabelstapler, Navigationsnetz, Personal-Startpunkt) per Skript | ✅ |
+| **Spiel mit Grafik** (`-WEShots=P11`, 8 Läufe) | ✅ 9 Screenshots geprüft: Reiter "Personal & Logistik" mit Bewerbern, Mitarbeitern, Löhnen, Wagen und Stapler; Zuweisen-Hinweis "Aufgabe für …: Quelle wählen …/[E] Schwerlastregal wählen/[X] Abbrechen"; Lagerarbeiter und Maschinenbediener arbeiten (Presse läuft mit Bediener); Gabelstapler mit dem 180-kg-Motor auf der Gabel → in den Schredder; Kabelkarton in den Wagen, Fahrer am Wagen, Tour gestartet (Wagen weg); Mitarbeiter-Details; gespeichert, Bediener entlassen, geladen → wieder da. Mitarbeiter laufen über das Navigationsnetz, der Fahrer durchs offene Tor |
+| **Netzwerktest Personal & Logistik** (`-WESmokeRole=U/V`, Dedicated Server + 2 Clients, neu, 4 Läufe) | ✅ U kauft Wagen und Stapler, stellt 3 Mitarbeiter ein, weist den Fahrer zu; V sieht alle drei mit Namen, Aufgabe und Zustand ("kein Weg frei (Tor zu?)", nach dem Öffnen "bereit für eine Tour"); U lädt und schickt den Wagen los, V sieht ihn unterwegs; V pausiert den Lagerarbeiter, U sieht "Pause"; V fährt Gabelstapler (hängt auch beim Client unter dem Fahrer), steigt ab, U sieht ihn am neuen Ort |
+| **Regression** Netzwerktests A/B … S/T (Dedicated) und I/J (Listen-Server), Spielläufe P5–P10 | ✅ unverändert |
+
+### Behobene Fehler in Phase 11
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Fahrer galt am Wagen nie als "da", Touren starteten nicht (Tests rot) | Abstand über Bounding-Box, die bei Platzhaltern unzuverlässig ist | Abstand zur (gedrehten) Grundfläche |
+| Maschinenbediener brachte die Produkte nicht ins Lager | Mengenprüfung fragte die Maschine statt das Lager | Ziel wird je Weg übergeben |
+| Fahrer lief durch die geschlossene Garagenwand | Kein Navigationsnetz in der Map, Notlösung "direkt" | `RecastNavMesh` in der Map (zur Laufzeit aufgebaut); gibt es keinen Weg, wartet der Mitarbeiter |
+| Gabelstapler: Motor ließ sich nicht in den Schredder setzen | Upgrade-Neuberechnung schaltete die Kollision des gefahrenen Staplers wieder ein, der Zielstrahl traf ihn | Stapler behält beim Fahren Kollision aus; Zielstrahl ignoriert ihn |
+| Gabelstapler beim fahrenden Client nicht angehängt | Anhängen nur auf dem Server | Anhängen auf jedem Rechner aus dem replizierten Fahrer |
+| Spalten im Reiter "Personal & Logistik" überlappten | Umbruchbreiten | Breiten angepasst |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Echte Lohnabrechnung nach 5 Minuten im Spiel | Im Unit-Test direkt ausgelöst (gleicher Timer-Mechanismus wie Strom/Autosave) |
+| Tour bis zur Rückkehr im Spiel (4 min) | Im Unit-Test komplett; im Spiel nur Abfahrt und Speichern/Laden während der Fahrt |
+| Gabelstapler mit echter Maus/Tastatur fahren | Mikes Praxistest; im Spiel per Teleport des Fahrers |
+| Viele Mitarbeiter gleichzeitig / Performance | max. 6 Mitarbeiter; nicht gemessen |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweise: Der Wagen verschwindet beim Losfahren (noch keine Fahranimation). Wird ein Client-Spieler per Dev-Befehl teleportiert, sieht er sich erst nach der nächsten Bewegungskorrektur am neuen Ort (nur Testskripte).
+
+---
+
 ## Phase 10 – Lauf vom 2026-10-16
 
 ### Ausgeführt

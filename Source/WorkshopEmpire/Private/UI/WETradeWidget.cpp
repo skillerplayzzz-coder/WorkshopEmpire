@@ -25,6 +25,11 @@
 #include "Progression/WEProgressionComponent.h"
 #include "Progression/WEUpgradeDefinition.h"
 #include "Styling/CoreStyle.h"
+#include "Staff/WEEmployee.h"
+#include "Staff/WEStaffComponent.h"
+#include "Logistics/WEVehicle.h"
+#include "Logistics/WEForklift.h"
+#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "WETrade"
 
@@ -158,10 +163,11 @@ void UWETradeWidget::ShowPage(int32 Page)
 	{
 		Pages->SetActiveWidgetIndex(Page);
 	}
-	if (TabMarketText && TabAuctionsText)
+	if (TabMarketText && TabAuctionsText && TabStaffText)
 	{
 		TabMarketText->SetText(Page == 0 ? LOCTEXT("TabMarketOn", "▶ Marktplatz") : LOCTEXT("TabMarket", "Marktplatz"));
 		TabAuctionsText->SetText(Page == 1 ? LOCTEXT("TabAuctionsOn", "▶ Auktionen & Beschaffung") : LOCTEXT("TabAuctions", "Auktionen & Beschaffung"));
+		TabStaffText->SetText(Page == 2 ? LOCTEXT("TabStaffOn", "▶ Personal & Logistik") : LOCTEXT("TabStaff", "Personal & Logistik"));
 	}
 	LastSignature.Reset();
 }
@@ -174,6 +180,11 @@ void UWETradeWidget::HandleTabMarket()
 void UWETradeWidget::HandleTabAuctions()
 {
 	ShowPage(1);
+}
+
+void UWETradeWidget::HandleTabStaff()
+{
+	ShowPage(2);
 }
 
 UVerticalBox* UWETradeWidget::MakeColumn(const FText& Title, TObjectPtr<UScrollBox>& OutList, float Width)
@@ -226,9 +237,11 @@ void UWETradeWidget::NativeOnInitialized()
 	}
 	UButton* TabMarket = MakeTabButton(LOCTEXT("TabMarket", "Marktplatz"), TabMarketText);
 	UButton* TabAuctions = MakeTabButton(LOCTEXT("TabAuctions", "Auktionen & Beschaffung"), TabAuctionsText);
+	UButton* TabStaff = MakeTabButton(LOCTEXT("TabStaff", "Personal & Logistik"), TabStaffText);
 	TabMarket->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabMarket);
 	TabAuctions->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabAuctions);
-	for (UButton* Tab : { TabMarket, TabAuctions })
+	TabStaff->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTabStaff);
+	for (UButton* Tab : { TabMarket, TabAuctions, TabStaff })
 	{
 		if (UHorizontalBoxSlot* S = Header->AddChildToHorizontalBox(Tab))
 		{
@@ -269,9 +282,22 @@ void UWETradeWidget::NativeOnInitialized()
 			S->SetPadding(FMargin(6.f, 0.f));
 		}
 	}
+	// Page 3: staff and logistics (Phase 11).
+	UHorizontalBox* StaffColumns = WidgetTree->ConstructWidget<UHorizontalBox>();
+	UVerticalBox* ApplicantColumn = MakeColumn(LOCTEXT("Applicants", "Bewerber"), ApplicantList, 350.f);
+	UVerticalBox* StaffColumn = MakeColumn(LOCTEXT("Staff", "Mitarbeiter"), StaffList, 420.f);
+	UVerticalBox* LogisticsColumn = MakeColumn(LOCTEXT("Logistics", "Fahrzeuge & Löhne"), LogisticsList, 340.f);
+	for (UVerticalBox* Column : { ApplicantColumn, StaffColumn, LogisticsColumn })
+	{
+		if (UHorizontalBoxSlot* S = StaffColumns->AddChildToHorizontalBox(Column))
+		{
+			S->SetPadding(FMargin(6.f, 0.f));
+		}
+	}
 	Pages = WidgetTree->ConstructWidget<UWidgetSwitcher>();
 	Pages->AddChild(Columns);
 	Pages->AddChild(AuctionColumns);
+	Pages->AddChild(StaffColumns);
 	Outer->AddChildToVerticalBox(Pages);
 	ShowPage(0);
 
@@ -359,6 +385,26 @@ FString UWETradeWidget::BuildSignature() const
 		for (const FString& Result : Auctions->GetRecentResults())
 		{
 			Sig << TEXT("|r:") << Result;
+		}
+	}
+	if (const UWEStaffComponent* Staff = UWEStaffComponent::Get(this))
+	{
+		for (const FWEEmployeeProfile& A : Staff->GetApplicants())
+		{
+			Sig << TEXT("|ap:") << A.Name;
+		}
+		for (const AWEEmployee* E : Staff->GetEmployees())
+		{
+			Sig << TEXT("|e:") << E->GetName() << static_cast<int32>(E->GetState()) << E->GetStateText().ToString() << E->GetTaskText().ToString();
+		}
+		Sig << TEXT("|ow:") << Staff->GetOwedWages().GetCents();
+		if (CurrentPage == 2)
+		{
+			Sig << TEXT("|pt:") << FMath::CeilToInt(Staff->GetSecondsToPayroll() / 10.f);
+			for (TActorIterator<AWEVehicle> It(GetWorld()); It; ++It)
+			{
+				Sig << TEXT("|v:") << (It->IsAway() ? FMath::CeilToInt(It->GetSecondsToReturn() / 10.f) : -1) << It->GetLastResult() << (It->IsUnlocked() ? 1 : 0);
+			}
 		}
 	}
 	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(this))
@@ -495,6 +541,7 @@ void UWETradeWidget::Rebuild()
 	}
 
 	RebuildAuctions(Balance);
+	RebuildStaff(Balance);
 
 	// Recent bookings.
 	FString History = LOCTEXT("History", "Letzte Buchungen:").ToString();
@@ -578,6 +625,89 @@ void UWETradeWidget::RebuildAuctions(const FWEMoney& Balance)
 	}
 }
 
+void UWETradeWidget::RebuildStaff(const FWEMoney& Balance)
+{
+	ApplicantList->ClearChildren();
+	StaffList->ClearChildren();
+	LogisticsList->ClearChildren();
+	const UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+	if (!Staff)
+	{
+		return;
+	}
+	const TArray<AWEEmployee*> Employees = Staff->GetEmployees();
+	const int32 MaxEmployees = Staff->GetCatalog() ? Staff->GetCatalog()->MaxEmployees : 6;
+	const TArray<FWEEmployeeProfile>& Applicants = Staff->GetApplicants();
+	for (int32 i = 0; i < Applicants.Num(); ++i)
+	{
+		const FWEEmployeeProfile& A = Applicants[i];
+		UWETradeRowWidget* Row = AddRow(ApplicantList);
+		Row->OfferIndex = i;
+		Row->WrapOverride = 165.f;
+		Row->Configure(this, EWETradeRowKind::Applicant,
+			FText::Format(LOCTEXT("ApplicantTitle", "{0} – {1}"), FText::FromString(A.Name), AWEEmployee::GetRoleText(A.Role)),
+			FText::Format(LOCTEXT("ApplicantDetail", "Erfahrung {0}/3 · {1}"), FText::AsNumber(A.Skill), Staff->GetRoleDescription(A.Role)),
+			FText::Format(LOCTEXT("PerMinute", "{0}/min"), WETradeStyle::Money(FWEMoney::FromCents(A.WageCentsPerMinute))),
+			LOCTEXT("Hire", "Einstellen"), Employees.Num() < MaxEmployees);
+	}
+	for (AWEEmployee* Employee : Employees)
+	{
+		UWETradeRowWidget* Row = AddRow(StaffList);
+		Row->Employee = Employee;
+		Row->bEmployeePaused = Employee->IsPaused();
+		Row->WrapOverride = 150.f;
+		Row->Configure(this, EWETradeRowKind::Employee,
+			FText::Format(LOCTEXT("EmployeeTitle", "{0} – {1}"), FText::FromString(Employee->GetProfile().Name), Employee->GetRoleText()),
+			FText::Format(LOCTEXT("EmployeeDetail", "{0}\n{1}"), Employee->GetTaskText(), Employee->GetStateText()),
+			Employee->GetWageText(),
+			Employee->IsPaused() ? LOCTEXT("ResumeBtn", "Arbeiten") : LOCTEXT("PauseBtn", "Pause"), Employee->GetState() != EWEEmployeeState::Away,
+			LOCTEXT("FireBtn", "Entlassen"), Employee->GetState() != EWEEmployeeState::Away);
+	}
+	if (Employees.Num() == 0)
+	{
+		UWETradeRowWidget* Row = AddRow(StaffList);
+		Row->WrapOverride = 400.f;
+		Row->Configure(this, EWETradeRowKind::Info, LOCTEXT("NoStaff", "Noch keine Mitarbeiter"),
+			LOCTEXT("NoStaffDetail", "Neue Mitarbeiter warten am Tor. Aufgaben verteilt ihr in der Werkstatt: [E] auf den Mitarbeiter, dann Quelle und Ziel anschauen und [E]."),
+			FText::GetEmpty(), FText::GetEmpty(), false);
+	}
+
+	auto Info = [this](const FText& Title, const FText& Detail)
+	{
+		UWETradeRowWidget* Row = AddRow(LogisticsList);
+		Row->WrapOverride = 350.f;
+		Row->Configure(this, EWETradeRowKind::Info, Title, Detail, FText::GetEmpty(), FText::GetEmpty(), false);
+	};
+	const int32 PayrollSeconds = FMath::CeilToInt(Staff->GetSecondsToPayroll());
+	Info(LOCTEXT("Wages", "Löhne"), FText::Format(LOCTEXT("WagesDetail", "{0} pro Minute · nächste Abrechnung in {1}:{2}{3}"),
+		WETradeStyle::Money(Staff->GetWagesPerMinute()), FText::AsNumber(PayrollSeconds / 60), FText::FromString(FString::Printf(TEXT("%02d"), PayrollSeconds % 60)),
+		Staff->GetOwedWages().IsZero() ? FText::GetEmpty() : FText::Format(LOCTEXT("Owed", "\nAusstehend: {0} – ohne Lohn wird nicht gearbeitet"), WETradeStyle::Money(Staff->GetOwedWages()))));
+	for (TActorIterator<AWEVehicle> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsUnlocked())
+		{
+			Info(LOCTEXT("VanLocked", "Firmenwagen"), LOCTEXT("VanLockedDetail", "Noch keiner. Unter \"Werkstatt verbessern\": Alter Transporter."));
+			continue;
+		}
+		const FWETourDefinition* Tour = It->FindTour(It->IsAway() ? It->GetActiveTour() : It->GetSelectedTour());
+		const int32 Seconds = FMath::CeilToInt(It->GetSecondsToReturn());
+		const AWEEmployee* Driver = It->FindDriver();
+		Info(It->GetStats().DisplayName, It->IsAway()
+			? FText::Format(LOCTEXT("VanAway", "Unterwegs: {0} · zurück in {1}:{2}"), Tour ? Tour->DisplayName : FText::GetEmpty(),
+				FText::AsNumber(Seconds / 60), FText::FromString(FString::Printf(TEXT("%02d"), Seconds % 60)))
+			: FText::Format(LOCTEXT("VanParked", "Steht vor dem Tor · Fahrer: {0} · gewählte Tour: {1}{2}"),
+				Driver ? FText::FromString(Driver->GetProfile().Name) : LOCTEXT("NoDriver", "keiner"), Tour ? Tour->DisplayName : FText::GetEmpty(),
+				It->GetLastResult().IsEmpty() ? FText::GetEmpty() : FText::Format(LOCTEXT("VanLast", "\nLetzte Tour: {0}"), FText::FromString(It->GetLastResult()))));
+	}
+	bool bForklift = false;
+	for (TActorIterator<AWEForklift> It(GetWorld()); It; ++It)
+	{
+		bForklift |= It->IsUnlocked();
+	}
+	Info(LOCTEXT("Forklift", "Gabelstapler"), bForklift ? LOCTEXT("ForkliftOwned", "In der Werkstatt: [E] aufsteigen, hebt bis 1.500 kg, [X] absteigen.")
+		: LOCTEXT("ForkliftLocked", "Noch keiner. Unter \"Werkstatt verbessern\": Gabelstapler."));
+}
+
 void UWETradeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -641,6 +771,16 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 		break;
 	case EWETradeRowKind::Auction:
 		PC->RequestBid(Terminal, Row->LotId);
+		break;
+	case EWETradeRowKind::Applicant:
+		PC->RequestHire(Terminal, Row->OfferIndex);
+		break;
+	case EWETradeRowKind::Employee:
+		if (AWEEmployee* Employee = Row->Employee.Get())
+		{
+			PC->RequestStaffAction(Terminal, Employee, ButtonIndex == 2 ? AWEPlayerController::StaffFire
+				: Row->bEmployeePaused ? AWEPlayerController::StaffResume : AWEPlayerController::StaffPause);
+		}
 		break;
 	case EWETradeRowKind::Contract:
 		if (Row->bContractAccepted)

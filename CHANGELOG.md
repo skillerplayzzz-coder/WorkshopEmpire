@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0] – 2026-10-16 – Phase 11: Mitarbeiter und Logistik
+
+### Neu
+- Mitarbeiter einstellen im neuen Reiter "Personal & Logistik": Lagerarbeiter, Maschinenbediener, Fahrer; 3 Bewerber (alle 10 Minuten neu), höchstens 6 Mitarbeiter, Erfahrung 1–3 (schneller, teurer).
+- Aufgaben in der Werkstatt zuweisen: [E] auf den Mitarbeiter, dann Quelle/Ziel anschauen und [E]; [Q] Pause, [T] Material, [X] zweimal Entlassen, [F] Details.
+- Lagertransporte zwischen Lagern, Maschinen und Wagen (nur was das Ziel verarbeitet); Maschinenbedienung (einschalten, warten mit Wartungsset, Produkte einlagern, Maschine 15 % schneller).
+- Löhne alle 5 Minuten für die gearbeitete Zeit; ohne Geld legen alle die Arbeit nieder, bis die Schuld bezahlt ist.
+- Firmenwagen "Alter Transporter" und "Moderner Lieferwagen" (Upgrades): Laderaum, Verkaufsfahrten (+15 %), Großeinkäufe Altgeräte und Industriemotoren; braucht einen Fahrer.
+- Gabelstapler (Upgrade): hebt bis 1.500 kg; neuer Großer Industriemotor (180 kg); der Schredder nimmt jetzt bis 300 kg.
+- Mitarbeiter laufen über ein Navigationsnetz, das sich der Einrichtung anpasst, und warten, wenn kein Weg frei ist.
+
+### Multiplayer und Sicherheit
+- Einstellen, Entlassen, Pause und Zuweisen über Server-RPCs (Terminal-Reichweite bzw. Nähe zum Mitarbeiter, Anfrage-ID beim Einstellen); Mitarbeiter, Wagen und Gabelstapler replizieren ihren Zustand. Im Netzwerk mit 2 Spielern getestet.
+
+### Behoben
+- Ein gefahrener Gabelstapler bekam nach einem Upgrade wieder Kollision.
+
+### Technisch
+- `AWEEmployee`, `UWEStaffComponent`, `UWEStaffCatalog`/`UWETourCatalog`, `AWEVehicle`, `AWEForklift`; neue Module `AIModule` und `NavigationSystem`; `RecastNavMesh` mit Laufzeit-Aufbau.
+- Speicherformat Version 10 (Mitarbeiter mit Aufgaben, Bewerber, Löhne, Touren).
+- Neues Skript `Tools/Maps/build_staff.py`; Map mit Wagen, Gabelstapler, Navigationsnetz und Personal-Startpunkt.
+- 7 neue Automation-Tests (insgesamt 88) inkl. Balance-Messung von Touren und Lohn; Netzwerktest-Rollen U/V; Screenshot-Lauf P11.
+
 ## [0.10.0] – 2026-10-16 – Phase 10: Produktion und Automatisierung
 
 ### Neu

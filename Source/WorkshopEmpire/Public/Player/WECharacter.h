@@ -76,6 +76,16 @@ public:
 	bool IsSprinting() const { return bIsSprinting; }
 	void SetSprinting(bool bNewSprinting);
 
+	// --- Forklift (Phase 11) ------------------------------------------------------------------
+
+	class AWEForklift* GetForklift() const { return Forklift; }
+	/** Server: set by AWEForklift::Mount / Dismount. */
+	void SetForklift(class AWEForklift* InForklift);
+	/** Speed and carry limit follow the forklift (any machine). */
+	void OnForkliftChanged();
+	/** [X] while driving: get off (asks the server). */
+	void RequestExitForklift();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -102,6 +112,12 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetSprinting(bool bNewSprinting);
+
+	UFUNCTION(Server, Reliable)
+	void ServerExitForklift();
+
+	UFUNCTION()
+	void OnRep_Forklift();
 
 	UFUNCTION()
 	void OnRep_IsSprinting();
@@ -162,6 +178,9 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_HeldItem)
 	TObjectPtr<AWEPickupItem> HeldItem;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Forklift)
+	TObjectPtr<class AWEForklift> Forklift;
 
 private:
 	float CurrentCameraHeight = 0.f;

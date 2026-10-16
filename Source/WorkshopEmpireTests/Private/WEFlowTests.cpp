@@ -329,7 +329,7 @@ bool FWEFlowSaveTest::RunTest(const FString& Parameters)
 	Assembler->SelectRecipe(1);
 
 	UWESaveGame* Save = FWESaveSystem::Capture(F.TW.World);
-	TestEqual(TEXT("Version 9"), Save->SaveVersion, 9);
+	TestEqual(TEXT("Current version (9 added conveyors)"), Save->SaveVersion, UWESaveGame::CurrentVersion);
 	TestEqual(TEXT("Conveyor saved"), Save->Conveyors.Num(), 1);
 
 	Belt->SetPower(true);

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "Items/WEItemTypes.h"
+#include "Staff/WEStaffTypes.h"
 #include "WESaveGame.generated.h"
 
 /** Item reference by stable ItemId (not by asset path), so assets can move without breaking saves. */
@@ -85,6 +86,38 @@ struct WORKSHOPEMPIRE_API FWESavedConveyor
 	UPROPERTY() TArray<FWESavedItem> Items;
 	/** Belt position (cm from the start) of each item. */
 	UPROPERTY() TArray<float> Positions;
+};
+
+/** Since save version 10: an employee with his task (actors by name). */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedEmployee
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	UPROPERTY() FWEEmployeeProfile Profile;
+	UPROPERTY() FVector Location = FVector::ZeroVector;
+	UPROPERTY() float Yaw = 0.f;
+	UPROPERTY() uint8 TaskKind = 0;
+	UPROPERTY() FName SourceName;
+	UPROPERTY() FName TargetName;
+	UPROPERTY() FName FilterItemId;
+	UPROPERTY() bool bPaused = false;
+	UPROPERTY() bool bHasCarried = false;
+	UPROPERTY() FWESavedItem Carried;
+	UPROPERTY() float UnpaidSeconds = 0.f;
+};
+
+/** Since save version 10: van tour state. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedVehicle
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FName ActorName;
+	UPROPERTY() FName SelectedTour;
+	UPROPERTY() FName ActiveTour;
+	UPROPERTY() float RemainingSeconds = 0.f;
 };
 
 /** Since save version 9: output setting of a material store. */
@@ -211,7 +244,7 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 
 public:
 	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). */
-	static constexpr int32 CurrentVersion = 9;
+	static constexpr int32 CurrentVersion = 10;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -247,4 +280,11 @@ public:
 	// Since version 9 (material flow).
 	UPROPERTY() TArray<FWESavedConveyor> Conveyors;
 	UPROPERTY() TArray<FWESavedStoreOutput> StoreOutputs;
+
+	// Since version 10 (staff and logistics).
+	UPROPERTY() bool bHasStaff = false;
+	UPROPERTY() TArray<FWESavedEmployee> Employees;
+	UPROPERTY() TArray<FWEEmployeeProfile> Applicants;
+	UPROPERTY() int64 OwedWagesCents = 0;
+	UPROPERTY() TArray<FWESavedVehicle> Vehicles;
 };

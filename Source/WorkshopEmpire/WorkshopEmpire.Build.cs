@@ -15,6 +15,8 @@ public class WorkshopEmpire : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"NetCore",
+			"AIModule",
+			"NavigationSystem",
 			"WECore"
 		});
 
