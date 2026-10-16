@@ -1,4 +1,5 @@
 #include "Save/WESaveSystem.h"
+#include "Framework/WEGameMode.h"
 
 #include "Economy/WEAuctionComponent.h"
 #include "Machines/WEMachine.h"
@@ -149,6 +150,36 @@ FString FWESaveSystem::GetPlayerKey(const APlayerController* PC)
 	return PS ? PS->GetPlayerName() : PC->GetName();
 }
 
+FWESavedPlayer FWESaveSystem::CapturePlayer(APlayerController* PC)
+{
+	FWESavedPlayer Player;
+	const AWECharacter* Character = PC ? Cast<AWECharacter>(PC->GetPawn()) : nullptr;
+	if (!Character)
+	{
+		return Player;
+	}
+	Player.PlayerKey = GetPlayerKey(PC);
+	Player.PlayerName = PC->PlayerState ? PC->PlayerState->GetPlayerName() : FString();
+	Player.PawnTransform = Character->GetActorTransform();
+	Player.ControlRotation = PC->GetControlRotation();
+	if (const UWEInventoryComponent* Inventory = Character->GetPlayerInventory())
+	{
+		Player.Inventory = ToSavedSlots(Inventory->GetAllSlots());
+	}
+	return Player;
+}
+
+void FWESaveSystem::AddDepartedPlayers(UWESaveGame* Save, const TArray<FWESavedPlayer>& Departed)
+{
+	for (const FWESavedPlayer& Player : Departed)
+	{
+		if (Save && !FindPlayer(Save->Players, Player.PlayerKey, FString()))
+		{
+			Save->Players.Add(Player);
+		}
+	}
+}
+
 UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 {
 	UWESaveGame* Save = NewObject<UWESaveGame>();
@@ -162,19 +193,16 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
 	{
 		APlayerController* PC = It->Get();
-		AWECharacter* Character = PC ? Cast<AWECharacter>(PC->GetPawn()) : nullptr;
-		if (!Character)
+		if (PC && Cast<AWECharacter>(PC->GetPawn()))
 		{
-			continue;
+			Save->Players.Add(CapturePlayer(PC));
 		}
-		FWESavedPlayer& Player = Save->Players.AddDefaulted_GetRef();
-		Player.PlayerKey = GetPlayerKey(PC);
-		Player.PawnTransform = Character->GetActorTransform();
-		Player.ControlRotation = PC->GetControlRotation();
-		if (const UWEInventoryComponent* Inventory = Character->GetPlayerInventory())
-		{
-			Player.Inventory = ToSavedSlots(Inventory->GetAllSlots());
-		}
+	}
+
+	// Players who left the session keep their place and inventory in the save (Phase 13).
+	if (const AWEGameMode* GameMode = World->GetAuthGameMode<AWEGameMode>())
+	{
+		AddDepartedPlayers(Save, GameMode->GetDepartedPlayers());
 	}
 
 	for (TActorIterator<AWEPickupItem> It(World); It; ++It)
@@ -726,21 +754,78 @@ void FWESaveSystem::ApplyPlayer(APlayerController* PC, const UWESaveGame* Save)
 	{
 		return;
 	}
-	const FString Key = GetPlayerKey(PC);
-	const FWESavedPlayer* Saved = Save->Players.FindByPredicate([&Key](const FWESavedPlayer& P) { return P.PlayerKey == Key; });
+	const FWESavedPlayer* Saved = FindPlayer(Save->Players, GetPlayerKey(PC), PC->PlayerState ? PC->PlayerState->GetPlayerName() : FString());
 	if (!Saved)
 	{
 		return;
 	}
-	Character->TeleportTo(Saved->PawnTransform.GetLocation(), Saved->PawnTransform.Rotator(), false, true);
-	PC->ClientSetRotation(Saved->ControlRotation);
+	ApplySavedPlayer(PC, *Saved);
+}
+
+const FWESavedPlayer* FWESaveSystem::FindPlayer(const TArray<FWESavedPlayer>& Players, const FString& Key, const FString& Name)
+{
+	if (const FWESavedPlayer* ByKey = Players.FindByPredicate([&Key](const FWESavedPlayer& P) { return !Key.IsEmpty() && P.PlayerKey == Key; }))
+	{
+		return ByKey;
+	}
+	// LAN ids change between game starts: fall back to the name, but only if it is unambiguous.
+	if (Name.IsEmpty() || Key == TEXT("Host"))
+	{
+		return nullptr;
+	}
+	const FWESavedPlayer* Match = nullptr;
+	for (const FWESavedPlayer& P : Players)
+	{
+		if (P.PlayerKey != TEXT("Host") && P.PlayerName == Name)
+		{
+			if (Match)
+			{
+				return nullptr;
+			}
+			Match = &P;
+		}
+	}
+	return Match;
+}
+
+void FWESaveSystem::ApplySavedPlayer(APlayerController* PC, const FWESavedPlayer& Saved)
+{
+	AWECharacter* Character = PC ? Cast<AWECharacter>(PC->GetPawn()) : nullptr;
+	if (!Character)
+	{
+		return;
+	}
+	Character->TeleportTo(Saved.PawnTransform.GetLocation(), Saved.PawnTransform.Rotator(), false, true);
+	PC->ClientSetRotation(Saved.ControlRotation);
 	if (UWEInventoryComponent* Inventory = Character->GetPlayerInventory())
 	{
-		Inventory->SetAllSlots(FromSavedSlots(Saved->Inventory));
+		Inventory->SetAllSlots(FromSavedSlots(Saved.Inventory));
 	}
 }
 
 // --- Files -----------------------------------------------------------------------------------------
+
+TArray<FWESaveSlotInfo> FWESaveSystem::ListSlots()
+{
+	TArray<FString> Files;
+	IFileManager::Get().FindFiles(Files, *FPaths::Combine(GetSaveDirectory(), TEXT("*.wesave")), true, false);
+	TArray<FWESaveSlotInfo> Result;
+	for (const FString& File : Files)
+	{
+		FWESaveSlotInfo& Info = Result.AddDefaulted_GetRef();
+		Info.Slot = FPaths::GetBaseFilename(File);
+		FText Error;
+		if (const UWESaveGame* Save = IsValidSlotName(Info.Slot) ? ReadFromFile(GetSlotPath(Info.Slot), Error) : nullptr)
+		{
+			Info.bReadable = true;
+			Info.SavedAtUtc = Save->SavedAtUtc;
+			Info.BalanceCents = Save->CompanyBalanceCents;
+			Info.Version = Save->SaveVersion;
+		}
+	}
+	Result.Sort([](const FWESaveSlotInfo& A, const FWESaveSlotInfo& B) { return A.SavedAtUtc > B.SavedAtUtc; });
+	return Result;
+}
 
 bool FWESaveSystem::WriteToFile(const UWESaveGame* Save, const FString& Path, FText& OutError)
 {

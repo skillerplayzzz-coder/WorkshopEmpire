@@ -178,6 +178,7 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->InventoryAction, ETriggerEvent::Started, this, &AWECharacter::Input_Inventory);
 	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
 	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
+	Input->BindAction(InputConfig->PauseAction, ETriggerEvent::Started, this, &AWECharacter::Input_Pause);
 
 	AddInputMappingContext();
 }
@@ -378,6 +379,14 @@ void AWECharacter::Input_Inventory()
 	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetController()))
 	{
 		PC->ToggleInventory();
+	}
+}
+
+void AWECharacter::Input_Pause()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetController()))
+	{
+		PC->TogglePauseMenu();
 	}
 }
 

@@ -43,6 +43,12 @@
 #include "Logistics/WEVehicle.h"
 #include "Logistics/WEForklift.h"
 #include "World/WEGarageBuilding.h"
+#include "Framework/WEMenuGameMode.h"
+#include "Framework/WEGameMode.h"
+#include "Online/WESessionSubsystem.h"
+#include "UI/WEMenuWidgets.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "UI/WETradeWidget.h"
 
 UWEDevAutomationComponent::UWEDevAutomationComponent()
@@ -161,6 +167,18 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("V"))
 	{
 		RunSmokeRoleV();
+	}
+	else if (Role.StartsWith(TEXT("M")) && Role.Len() == 2)
+	{
+		RunCoopRole();
+	}
+	else if (Role == TEXT("SH") || Role == TEXT("SC"))
+	{
+		RunSteamRole();
+	}
+	else if (ShotName.StartsWith(TEXT("P13")))
+	{
+		RunCoopShots();
 	}
 	else if (Role == TEXT("W"))
 	{
@@ -2488,4 +2506,278 @@ void UWEDevAutomationComponent::RunSmokeRoleX()
 	Schedule(21.f, [this]() { LogExpansion(TEXT("X3 sees the order and the furnace")); });
 	Schedule(46.f, [this]() { LogExpansion(TEXT("X4 final")); });
 	Schedule(48.f, [this]() { Quit(); });
+}
+
+// --- Phase 13/14: sessions through the real menu ---------------------------------------------------
+
+bool UWEDevAutomationComponent::IsInMenu() const
+{
+	return Cast<AWEMenuPlayerController>(GetOwner()) != nullptr;
+}
+
+void UWEDevAutomationComponent::LogCoop(const TCHAR* Step) const
+{
+	const UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	TArray<FString> Players;
+	if (const AGameStateBase* GS = GetWorld()->GetGameState())
+	{
+		for (const APlayerState* PS : GS->PlayerArray)
+		{
+			const AWEPlayerState* WEPS = Cast<AWEPlayerState>(PS);
+			Players.Add(FString::Printf(TEXT("%s%s"), PS ? *PS->GetPlayerName() : TEXT("?"), WEPS && WEPS->IsHost() ? TEXT("(Host)") : TEXT("")));
+		}
+	}
+	FString Departed = TEXT("-");
+	if (const AWEGameMode* GM = GetWorld()->GetAuthGameMode<AWEGameMode>())
+	{
+		TArray<FString> Names;
+		for (const FWESavedPlayer& P : GM->GetDepartedPlayers())
+		{
+			Names.Add(FString::Printf(TEXT("%s[%d slots]"), *P.PlayerName, P.Inventory.Num()));
+		}
+		Departed = FString::Join(Names, TEXT(" "));
+	}
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	const AWEMenuPlayerController* MenuPC = Cast<AWEMenuPlayerController>(GetOwner());
+	const AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: Map=%s Net=%d Service=%d State=%d Status='%s' Players=%d{%s} Departed={%s} Balance=%s Mine=%s Pause=%d Menu='%s'"),
+		*Role, Step, *UWorld::RemovePIEPrefix(GetWorld()->GetMapName()), static_cast<int32>(GetWorld()->GetNetMode()),
+		Session ? static_cast<int32>(Session->GetService()) : -1, Session ? static_cast<int32>(Session->GetState()) : -1,
+		Session ? *Session->GetStatusText().ToString() : TEXT(""), Players.Num(), *FString::Join(Players, TEXT(", ")), *Departed,
+		Company ? *Company->GetBalance().ToDisplayString() : TEXT("-"), *DescribeInventory(GetMyInventory()),
+		PC && PC->GetPauseMenu() ? PC->GetPauseMenu()->GetListedPlayers() : -1,
+		MenuPC && MenuPC->GetMenu() ? *MenuPC->GetMenu()->BuildSignature() : TEXT(""));
+}
+
+void UWEDevAutomationComponent::FindAndJoin(int32 TriesLeft)
+{
+	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	if (!Session)
+	{
+		return;
+	}
+	if (TriesLeft <= 0)
+	{
+		// Several instances on one PC share the LAN discovery port, so the reply can reach another process.
+		LogCoop(TEXT("LAN search found nothing, joining by IP"));
+		Session->JoinAddress(TEXT("127.0.0.1"));
+		return;
+	}
+	Session->FindGames(/*bLAN*/ true);
+	Schedule(7.f, [this, TriesLeft]()
+	{
+		UWESessionSubsystem* S = UWESessionSubsystem::Get(this);
+		if (S && S->GetFoundGames().Num() > 0)
+		{
+			LogCoop(TEXT("found"));
+			S->JoinGame(S->GetFoundGames()[0].ResultIndex);
+		}
+		else
+		{
+			FindAndJoin(TriesLeft - 1);
+		}
+	});
+}
+
+void UWEDevAutomationComponent::RunCoopRole()
+{
+	// MH hosts from the menu (LAN); M1 leaves and rejoins (inventory comes back); M2 crashes; M3 is
+	// kicked; M5 tries to join a full game by IP. All roles quit when the host ends the game.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	const int32 Visit = Session ? Session->DevMenuVisits : 0;
+	if (IsInMenu())
+	{
+		Schedule(1.f, [this, Visit]() { LogCoop(*FString::Printf(TEXT("menu visit %d"), Visit)); });
+		if (Visit > 1 || Role == TEXT("M3") && Visit > 1)
+		{
+			// Back in the menu after leaving / being kicked / the host ending the game.
+			if (Role == TEXT("M1") && Visit == 2)
+			{
+				Schedule(4.f, [this]() { FindAndJoin(3); });
+			}
+			else
+			{
+				Schedule(3.f, [this]() { LogCoop(TEXT("final menu")); Quit(); });
+			}
+			return;
+		}
+		if (Role == TEXT("MH"))
+		{
+			Schedule(3.f, [Session]() { if (Session) { Session->HostGame(FString(), /*bLAN*/ true); } });
+		}
+		else if (Role == TEXT("M5"))
+		{
+			Schedule(3.f, [Session]() { if (Session) { Session->JoinAddress(TEXT("127.0.0.1")); } });
+			Schedule(25.f, [this]() { LogCoop(TEXT("M5 still in menu")); Quit(); });
+		}
+		else if (Role == TEXT("M1"))
+		{
+			Schedule(4.f, [this]() { FindAndJoin(3); });
+		}
+		else
+		{
+			// Several searching instances on one PC share the LAN discovery port: the others join by IP.
+			Schedule(4.f, [Session]() { if (Session) { Session->JoinAddress(TEXT("127.0.0.1")); } });
+		}
+		return;
+	}
+
+	// In the garage.
+	Schedule(3.f, [this]() { LogCoop(TEXT("in game")); });
+	if (Role == TEXT("MH"))
+	{
+		for (float At = 10.f; At <= 120.f; At += 10.f)
+		{
+			Schedule(At, [this, At]() { LogCoop(*FString::Printf(TEXT("host t=%.0f"), At)); });
+		}
+		Schedule(32.f, [PC]() { if (PC) { PC->OpenPauseMenu(); } });
+		Schedule(33.f, [this]() { LogCoop(TEXT("host pause menu")); });
+		Schedule(34.f, [PC]() { if (PC) { PC->ClosePauseMenu(); } });
+		Schedule(55.f, [this, PC]()
+		{
+			// Kick M3.
+			for (const APlayerState* PS : GetWorld()->GetGameState()->PlayerArray)
+			{
+				if (PS && PS->GetPlayerName() == TEXT("M3") && PC)
+				{
+					PC->RequestKick(const_cast<APlayerState*>(PS));
+				}
+			}
+		});
+		Schedule(125.f, [PC]() { if (PC) { PC->RequestLeaveGame(); } });
+		return;
+	}
+	if (Role == TEXT("M1"))
+	{
+		if (Session && Session->DevMenuVisits <= 1)
+		{
+			Schedule(5.f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("CopperCable"), 6, EWEItemCondition::Used); PC->ServerDevAddMoney(100); } });
+			Schedule(8.f, [this]() { LogCoop(TEXT("M1 has the cable")); });
+			Schedule(30.f, [PC]() { if (PC) { PC->RequestLeaveGame(); } });
+		}
+		else
+		{
+			Schedule(5.f, [this]() { LogCoop(TEXT("M1 rejoined")); });
+			Schedule(30.f, [this]() { LogCoop(TEXT("M1 still in game")); });
+		}
+		return;
+	}
+	if (Role == TEXT("M2"))
+	{
+		Schedule(5.f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("RamModule"), 2, EWEItemCondition::Used); } });
+		Schedule(8.f, [this]() { LogCoop(TEXT("M2 before crash")); });
+		Schedule(32.f, []() { UE_LOG(LogWENet, Display, TEXT("SMOKE[M2] crashing now")); GLog->Flush(); FPlatformMisc::RequestExit(true); });
+		return;
+	}
+	Schedule(8.f, [this]() { LogCoop(TEXT("client in game")); });
+}
+
+void UWEDevAutomationComponent::RunSteamRole()
+{
+	// SH hosts a Steam lobby, opens the invite overlay and ends; SC (same Steam account) looks for it
+	// and tries to join (Steam cannot connect an account to itself: the error must be clean).
+	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	if (IsInMenu())
+	{
+		Schedule(2.f, [this]() { LogCoop(TEXT("steam menu")); });
+		if (Session && Session->DevMenuVisits > 1)
+		{
+			Schedule(3.f, [this]() { LogCoop(TEXT("steam final menu")); Quit(); });
+			return;
+		}
+		if (Role == TEXT("SH"))
+		{
+			Schedule(3.f, [this]() { Shot(TEXT("01_Hauptmenue_Steam")); });
+			Schedule(4.f, [Session]() { if (Session) { Session->HostGame(FString(), /*bLAN*/ false); } });
+		}
+		else
+		{
+			Schedule(14.f, [Session]() { if (Session) { Session->FindGames(/*bLAN*/ false); } });
+			Schedule(22.f, [this, Session]()
+			{
+				LogCoop(TEXT("steam search done"));
+				if (Session && Session->GetFoundGames().Num() > 0)
+				{
+					Session->JoinGame(Session->GetFoundGames()[0].ResultIndex);
+				}
+			});
+			Schedule(55.f, [this]() { LogCoop(TEXT("steam join result")); Quit(); });
+		}
+		return;
+	}
+	Schedule(3.f, [this, PC]() { LogCoop(TEXT("steam in game")); if (PC) { PC->OpenPauseMenu(); } });
+	Schedule(4.f, [this]() { Shot(TEXT("02_Pausemenue_Steam")); });
+	Schedule(5.f, [PC]() { if (PC) { PC->ClosePauseMenu(); } });
+	Schedule(6.f, [this, Session]()
+	{
+		FText Error;
+		const bool bShown = Session && Session->ShowInviteUI(Error);
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] invite overlay: %s %s"), *Role, bShown ? TEXT("shown") : TEXT("failed"), *Error.ToString());
+	});
+	Schedule(45.f, [PC]() { if (PC) { PC->RequestLeaveGame(); } });
+}
+
+void UWEDevAutomationComponent::RunCoopShots()
+{
+	// P13 = host (menu pages, hosting, pause menu with the client); P13C = client (joins, sees the host end the game).
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	AWEMenuPlayerController* MenuPC = Cast<AWEMenuPlayerController>(GetOwner());
+	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	const bool bHost = ShotName == TEXT("P13");
+	const int32 Visit = Session ? Session->DevMenuVisits : 0;
+	if (MenuPC)
+	{
+		if (!bHost && Visit > 1)
+		{
+			Schedule(2.f, [this]() { Shot(TEXT("08_Host_hat_beendet")); LogCoop(TEXT("client back in menu")); });
+			Schedule(3.f, [this]() { Quit(); });
+			return;
+		}
+		if (bHost && Visit > 1)
+		{
+			Schedule(2.f, [this]() { LogCoop(TEXT("host back in menu")); Quit(); });
+			return;
+		}
+		if (bHost)
+		{
+			Schedule(2.f, [this]() { Shot(TEXT("01_Hauptmenue")); });
+			Schedule(2.5f, [MenuPC]() { if (MenuPC->GetMenu()) { MenuPC->GetMenu()->ShowPage(1); } });
+			Schedule(3.5f, [this]() { Shot(TEXT("02_Spielstand_laden")); });
+			Schedule(4.f, [MenuPC]() { if (MenuPC->GetMenu()) { MenuPC->GetMenu()->ShowPage(0); } });
+			Schedule(5.f, [Session]() { if (Session) { Session->HostGame(FString(), true); } });
+		}
+		else
+		{
+			Schedule(12.f, [MenuPC, Session]() { if (MenuPC->GetMenu()) { MenuPC->GetMenu()->ShowPage(2); } if (Session) { Session->FindGames(true); } });
+			Schedule(18.f, [this]() { Shot(TEXT("03_Spiel_beitreten")); LogCoop(TEXT("client found")); });
+			Schedule(19.f, [Session]() { if (Session && Session->GetFoundGames().Num() > 0) { Session->JoinGame(Session->GetFoundGames()[0].ResultIndex); } });
+		}
+		return;
+	}
+	if (bHost)
+	{
+		Schedule(20.f, [this, PC]() { LogCoop(TEXT("host with client")); if (PC) { PC->ServerDevTeleport(FVector(250.f, -120.f, 100.f), FRotator(0.f, 180.f, 0.f)); } });
+		Schedule(21.f, [this]()
+		{
+			for (TActorIterator<AWECharacter> It(GetWorld()); It; ++It)
+			{
+				if (*It != GetCharacter()) { LookAt(*It); }
+			}
+		});
+		Schedule(22.f, [this]() { Shot(TEXT("05_Mitspieler")); });
+		Schedule(23.f, [PC]() { if (PC) { PC->OpenPauseMenu(); } });
+		Schedule(24.f, [this]() { Shot(TEXT("06_Pausemenue_Host")); LogCoop(TEXT("host pause")); });
+		Schedule(25.f, [PC]() { if (PC) { PC->ClosePauseMenu(); } });
+		Schedule(34.f, [PC]() { if (PC) { PC->RequestLeaveGame(); } });
+	}
+	else
+	{
+		Schedule(4.f, [this, PC]() { LogCoop(TEXT("client in game")); if (PC) { PC->ServerDevTeleport(FVector(-100.f, -120.f, 100.f), FRotator::ZeroRotator); } });
+		Schedule(6.f, [this]() { Shot(TEXT("04_Beigetreten")); });
+		Schedule(9.f, [PC]() { if (PC) { PC->OpenPauseMenu(); } });
+		Schedule(10.f, [this]() { Shot(TEXT("07_Pausemenue_Mitspieler")); LogCoop(TEXT("client pause")); });
+		Schedule(10.5f, [PC]() { if (PC) { PC->ClosePauseMenu(); } });
+	}
 }

@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 12 – Unternehmensexpansion: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 13 wurde nicht begonnen.
+**Phase 13 – Multiplayer-Integration und Phase 14 – Steam-Integration: abgeschlossen (auf Mikes Wunsch zusammen), warten auf Mikes Praxistest und Freigabe.**
+Phase 15 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -101,9 +101,24 @@ Phase 13 wurde nicht begonnen.
 - Neuer Reiter "Unternehmen": Stufe, nächste Stufe, Firmenwert, Strom, Personal, Einnahmen und Ausgaben je Bereich (letzte Stunde / gesamt), laufende Aufträge
 - Speicherversion 11 (Lieferungen von Aufträgen, Buchhaltung)
 
+### Phase 13 – Multiplayer-Integration (2026-10-17)
+- Hauptmenü (eigene Karte): neues Spiel oder Spielstand hosten, Spiel beitreten (Liste mit Host, Spielern, Ping, Version oder per IP), Name im LAN, Beenden
+- Listen-Server mit Drop-in für 2–4 Spieler; Meldungen bei Beitritt und Verlassen
+- Menü im Spiel [Esc]: Spielerliste mit Ping und Host, Entfernen (Host), Speichern (Host), Zum Hauptmenü (Host beendet für alle nach automatischem Speichern), Beenden
+- Wer geht oder abstürzt, behält Position und Inventar beim Host (auch im Spielstand) und bekommt es beim Wiederkommen zurück
+- Klare deutsche Meldungen bei Verbindungsabbruch, Zeitüberschreitung, vollem Spiel, anderer Version, Entfernen, Host beendet
+- Versionsprüfung beim Beitritt; Speicherversion 12 (Spielernamen, gegangene Spieler)
+
+### Phase 14 – Steam-Integration (2026-10-17)
+- Steam-Sitzungen als Steam-Lobbys; Verbindung über Steam (keine Portfreigabe nötig)
+- Freunde einladen über das Steam-Overlay, Beitreten über die Steam-Freundesliste, Steam-Spiele suchen
+- Ohne Steam automatisch LAN/IP; Steam-Fehler werden als Meldung im Hauptmenü gezeigt
+- Entwicklung mit Valves Test-App 480; eigene App ID für die Veröffentlichung nötig
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 12 (Anleitung im Development Report)
+- Mike: Praxistest Phase 13/14 – vor allem Steam mit einem Freund (Anleitung im Development Report)
+- Mike: eigene Steam App ID vor einer Veröffentlichung (GAME_DESIGN.md §7)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Später: Git LFS vor großen Assets; Remote-Repository für Backups
 - Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, Fahrzeug sichtbar losfahren lassen, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, Balancing der Gebäudepreise (Phase 16)
@@ -114,8 +129,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 13 – Multiplayer-Integration (laut Spezifikation u. a. Koop-Lobbys, Listen-Server, Beitreten/Verlassen, synchronisierte Gegenstände, Inventare, Geld, Maschinen und Produktion), erst nach Mikes Freigabe.
+Phase 15 – Grafik und Atmosphäre (laut Spezifikation), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-17: 95/95 Automation-Tests, Netzwerktests A–X (Dedicated) und I/J (Listen-Server) bestanden, Expansion (P12) und alle früheren Spielläufe P5–P11 mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-17 (Phase 13/14): 98/98 Automation-Tests, Netzwerktests A–X (Dedicated) und I/J (Listen-Server), 4 Spieler über das Hauptmenü (Gehen/Wiederkommen, Absturz, Entfernen, volles Spiel, Host beendet), Steam-Lobby und Einladen-Overlay, alle Spielläufe P5–P13 mit Screenshots geprüft.

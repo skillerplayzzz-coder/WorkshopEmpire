@@ -1,4 +1,9 @@
 #include "Framework/WEPlayerController.h"
+#include "UI/WEMenuWidgets.h"
+#include "Online/WESessionSubsystem.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "TimerManager.h"
+#include "Save/WESaveSystem.h"
 
 #include "Economy/WEAuctionComponent.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
@@ -179,7 +184,7 @@ void AWEPlayerController::CloseTrade()
 	{
 		TradeWidget->RemoveFromParent();
 	}
-	if (!IsInventoryOpen())
+	if (!IsInventoryOpen() && !IsPauseMenuOpen())
 	{
 		SetInputMode(FInputModeGameOnly());
 		SetShowMouseCursor(false);
@@ -685,6 +690,138 @@ void AWEPlayerController::WESave(const FString& Slot)
 void AWEPlayerController::WELoad(const FString& Slot)
 {
 	RequestLoad(Slot.IsEmpty() ? TEXT("Quicksave") : Slot);
+}
+
+// --- Pause menu and session (Phase 13) ----------------------------------------------------------------
+
+bool AWEPlayerController::IsPauseMenuOpen() const
+{
+	return PauseMenuWidget && PauseMenuWidget->IsInViewport();
+}
+
+void AWEPlayerController::TogglePauseMenu()
+{
+	if (IsPauseMenuOpen())
+	{
+		ClosePauseMenu();
+	}
+	else
+	{
+		OpenPauseMenu();
+	}
+}
+
+void AWEPlayerController::OpenPauseMenu()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	CloseInventory();
+	CloseTrade();
+	if (!PauseMenuWidget)
+	{
+		PauseMenuWidget = CreateWidget<UWEPauseMenuWidget>(this, UWEPauseMenuWidget::StaticClass());
+	}
+	if (PauseMenuWidget && !PauseMenuWidget->IsInViewport())
+	{
+		PauseMenuWidget->AddToViewport(20);
+		EnterMenuInputMode(PauseMenuWidget);
+	}
+}
+
+void AWEPlayerController::ClosePauseMenu()
+{
+	if (PauseMenuWidget && PauseMenuWidget->IsInViewport())
+	{
+		PauseMenuWidget->RemoveFromParent();
+	}
+	if (!IsInventoryOpen() && !IsTradeOpen())
+	{
+		SetInputMode(FInputModeGameOnly());
+		SetShowMouseCursor(false);
+		ResetIgnoreLookInput();
+		ResetIgnoreMoveInput();
+	}
+}
+
+void AWEPlayerController::RequestSaveCurrent()
+{
+	AWEGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AWEGameMode>() : nullptr;
+	RequestSave(GameMode ? GameMode->GetCurrentSlot() : FString(TEXT("Quicksave")));
+}
+
+void AWEPlayerController::RequestLeaveGame(bool bQuitAfterwards)
+{
+	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	AWEGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AWEGameMode>() : nullptr;
+	auto Leave = [this, bQuitAfterwards]()
+	{
+		if (bQuitAfterwards)
+		{
+			UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+		}
+		else if (UWESessionSubsystem* S = UWESessionSubsystem::Get(this))
+		{
+			S->LeaveToMainMenu();
+		}
+	};
+	if (GameMode && IsLocalController())
+	{
+		// Host: nothing gets lost, and every friend is told why the game ends.
+		GameMode->SaveToSlot(TEXT("Autosave"));
+		GameMode->EndSessionForClients();
+		GetWorldTimerManager().SetTimer(LeaveTimer, FTimerDelegate::CreateWeakLambda(this, Leave), 0.5f, false);
+		return;
+	}
+	if (Session)
+	{
+		Session->SetPendingMessage(FText::GetEmpty());
+	}
+	Leave();
+}
+
+void AWEPlayerController::RequestKick(APlayerState* KickedPlayer)
+{
+	AWEGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AWEGameMode>() : nullptr;
+	APlayerController* Target = KickedPlayer ? KickedPlayer->GetPlayerController() : nullptr;
+	if (!GameMode || !IsLocalController() || !Target || Target == this)
+	{
+		ShowLocalMessage(LOCTEXT("HostOnlyKick", "Nur der Host kann Mitspieler entfernen."));
+		return;
+	}
+	GameMode->KickPlayer(Target);
+}
+
+void AWEPlayerController::ClientSessionEnded_Implementation(const FText& Reason)
+{
+	UE_LOG(LogWENet, Log, TEXT("%s: session ended by the host: %s"), *GetName(), *Reason.ToString());
+	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
+	{
+		Session->LeaveToMainMenu(Reason);
+	}
+}
+
+void AWEPlayerController::PawnLeavingGame()
+{
+	if (HasAuthority() && !IsLocalController() && GetPawn())
+	{
+		if (AWEGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AWEGameMode>() : nullptr)
+		{
+			// Keep what the player had: it is theirs when they come back, and it is in the next save.
+			GameMode->RememberDepartedPlayer(FWESaveSystem::CapturePlayer(this));
+		}
+	}
+	Super::PawnLeavingGame();
+}
+
+void AWEPlayerController::ClientWasKicked_Implementation(const FText& KickReason)
+{
+	Super::ClientWasKicked_Implementation(KickReason);
+	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
+	{
+		Session->SetPendingMessage(LOCTEXT("WasKicked", "Der Host hat dich aus dem Spiel entfernt."));
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

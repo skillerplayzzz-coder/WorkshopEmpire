@@ -235,6 +235,8 @@ struct WORKSHOPEMPIRE_API FWESavedPlayer
 	UPROPERTY() FTransform PawnTransform;
 	UPROPERTY() FRotator ControlRotation = FRotator::ZeroRotator;
 	UPROPERTY() TArray<FWESavedSlot> Inventory;
+	/** Version 12: display name, to recognise a rejoining LAN player whose net id changed. */
+	UPROPERTY() FString PlayerName;
 };
 
 /**
@@ -247,8 +249,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). */
-	static constexpr int32 CurrentVersion = 11;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). */
+	static constexpr int32 CurrentVersion = 12;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;

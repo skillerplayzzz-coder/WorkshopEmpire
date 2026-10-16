@@ -23,6 +23,12 @@ public:
 	/** Capacity bonus from company upgrades (applied on every machine). */
 	void ApplyInventoryBonus(float ExtraKg);
 
+	/** The listen-server host (shown in the player list; only the host saves and kicks). */
+	bool IsHost() const { return bIsHost; }
+	void SetIsHost(bool bHost) { bIsHost = bHost; }
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	static constexpr int32 BaseSlots = 20;
 	static constexpr float BaseWeightKg = 25.f;
 
@@ -31,4 +37,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Inventory")
 	TObjectPtr<UWEInventoryComponent> Inventory;
+
+	UPROPERTY(Replicated)
+	bool bIsHost = false;
 };

@@ -1,6 +1,7 @@
 #include "Framework/WEPlayerState.h"
 
 #include "Inventory/WEInventoryComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "Progression/WEProgressionComponent.h"
 
 AWEPlayerState::AWEPlayerState()
@@ -23,4 +24,10 @@ void AWEPlayerState::ApplyInventoryBonus(float ExtraKg)
 {
 	Inventory->Configure(NSLOCTEXT("WEPlayerState", "Inventory", "Inventar"), BaseSlots, BaseWeightKg + FMath::Max(0.f, ExtraKg));
 	Inventory->NotifyChanged();
+}
+
+void AWEPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AWEPlayerState, bIsHost);
 }

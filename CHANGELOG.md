@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.14.0] – 2026-10-17 – Phase 13: Multiplayer-Integration und Phase 14: Steam-Integration
+
+### Neu
+- Hauptmenü beim Start: neues Spiel hosten, Spielstand laden und hosten (Liste mit Datum und Firmenkonto), Spiel beitreten (gefundene Spiele mit Host, Spielern, Ping und Version oder per IP-Adresse), Name (ohne Steam), Beenden.
+- Koop für 2–4 Spieler mit Drop-in: Mitspieler kommen und gehen jederzeit, alle sehen "… ist beigetreten" bzw. "… hat das Spiel verlassen".
+- Menü im Spiel auf [Esc] (das Spiel läuft weiter): Spielerliste mit Host und Ping, Mitspieler entfernen (Host), Speichern (Host), Steam-Freunde einladen, Zum Hauptmenü, Spiel beenden.
+- Wer geht, abstürzt oder die Verbindung verliert, legt Getragenes ab; Position und Inventar warten beim Host, kommen beim Wiederkommen zurück und stehen im Spielstand.
+- Beendet der Host das Spiel, wird automatisch gespeichert und alle kehren mit Meldung ins Hauptmenü zurück.
+- Klare Meldungen im Hauptmenü: Host hat beendet, vom Host entfernt, Spiel voll, andere Spielversion, Verbindung verloren, Zeitüberschreitung, Adresse nicht erreichbar, Einladung ungültig.
+- Steam: Spiele laufen als Steam-Lobby über Steams Relay-Netz (keine Portfreigabe), Freunde einladen über das Steam-Overlay, Beitreten über die Steam-Freundesliste oder "Steam-Spiele suchen". Ohne Steam automatisch LAN/IP.
+
+### Multiplayer und Sicherheit
+- Der Server prüft beim Beitritt Spielerzahl und Spielversion; nur der Host speichert, lädt und entfernt Spieler. Mit 4 Spielern über das echte Hauptmenü getestet (inkl. Absturz eines Mitspielers).
+
+### Technisch
+- `UWESessionSubsystem` (Sessions, Suche, Beitritt, Einladungen, Fehlermeldungen), `AWEMenuGameMode`/`AWEMenuPlayerController`, `UWEMainMenuWidget`, `UWEPauseMenuWidget`; neue Karte `L_MainMenu` (Skript `build_menu_map.py`), jetzt Startkarte.
+- Plugins OnlineSubsystem, OnlineSubsystemNull, OnlineSubsystemSteam, SteamSockets; Steam-NetDriver mit IP-Fallback; Steam-Test-App 480.
+- Speicherformat Version 12 (Spielernamen, gegangene Spieler).
+- 3 neue Automation-Tests (insgesamt 98); Netzwerktest-Rollen für 4 Spieler (MH, M1–M3, M5) und Steam (SH, SC); Screenshot-Läufe P13/P13C und P14. Alle automatischen Läufe mit `-nosteam`.
+
 ## [0.12.0] – 2026-10-17 – Phase 12: Unternehmensexpansion
 
 ### Neu

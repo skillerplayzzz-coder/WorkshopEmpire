@@ -44,8 +44,31 @@ public:
 	void CloseTrade();
 	bool IsTradeOpen() const;
 
-	/** Any full-screen menu (inventory, trade) open. */
-	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen(); }
+	/** Any full-screen menu (inventory, trade, pause) open. */
+	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen() || IsPauseMenuOpen(); }
+
+	// --- Pause menu and session (Phase 13) ----------------------------------------------------------
+
+	void TogglePauseMenu();
+	void OpenPauseMenu();
+	void ClosePauseMenu();
+	bool IsPauseMenuOpen() const;
+	class UWEPauseMenuWidget* GetPauseMenu() const { return PauseMenuWidget; }
+
+	/** Host: saves ("Autosave"), sends every client to the main menu, then leaves. Client: leaves. */
+	void RequestLeaveGame(bool bQuitAfterwards = false);
+	/** Host only: removes a player from the session. */
+	void RequestKick(APlayerState* KickedPlayer);
+	/** Host only: saves to the slot the game was loaded from (or "Quicksave"). */
+	void RequestSaveCurrent();
+
+	/** Server -> client: the host ended the game or removed this player; back to the main menu with Reason. */
+	UFUNCTION(Client, Reliable)
+	void ClientSessionEnded(const FText& Reason);
+
+	virtual void ClientWasKicked_Implementation(const FText& KickReason) override;
+	/** Server: a remote player leaves (quit, kicked, connection lost): remember position and inventory first. */
+	virtual void PawnLeavingGame() override;
 
 	/** Server -> owning client: open the market screen after a validated interaction. */
 	UFUNCTION(Client, Reliable)
@@ -213,4 +236,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWEInventoryWidget> InventoryWidget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UWEPauseMenuWidget> PauseMenuWidget;
+
+	FTimerHandle LeaveTimer;
 };

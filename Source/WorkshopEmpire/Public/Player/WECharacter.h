@@ -109,6 +109,7 @@ protected:
 	void Input_Inventory();
 	void Input_QuickSave();
 	void Input_QuickLoad();
+	void Input_Pause();
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetSprinting(bool bNewSprinting);

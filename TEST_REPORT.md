@@ -17,6 +17,52 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 13 + 14 – Lauf vom 2026-10-17
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) mit Online-Subsystem- und Steam-Plugins | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless, `-nosteam`) | ✅ **98/98 bestanden, 0 mit Warnungen** (95 alte + 3 neue), Bericht `Saved/TestReports/Phase13_full1/index.json` |
+| ↳ `Session.VersionAddressAndOptions` (Versionen: Patch egal, andere Minor-Version gesperrt; IP-Adresse mit/ohne Port, keine URL-Tricks, Portbereich; Beitrittsoptionen: Name ohne Sonderzeichen, Version, LAN-Kennung, mit Steam kein eigener Name) | ✅ |
+| ↳ `Session.ErrorMessages` (Server-Ablehnung "voll" kommt beim Spieler an, auch die Engine-Meldung "Server full."; Host antwortet nicht, Verbindung verloren, Zeitüberschreitung, Version, Port, Adresse; Steam-Beitrittsfehler; Login-Regeln: 4. Spieler ja, 5. nein, andere Version nein, Konsolenbeitritt ohne Version ja) | ✅ |
+| ↳ `Session.LeaveAndRejoin` (gegangener Spieler gemerkt – doppelt gegangen: neuester Stand; im Spielstand enthalten; Rückkehr per ID mit Inventar; LAN: per eindeutigem Namen, bei zwei gleichen Namen niemand; Host nie per Name; Version 12 speichert Namen) | ✅ (erst Absturz im Test, siehe Behobene Fehler) |
+| Angepasst: `Gameplay` Tastenbelegung (22 statt 21, neu Esc) | ✅ |
+| Hauptmenü-Karte `L_MainMenu` per Skript (`build_menu_map.py`) | ✅ |
+| **Steam-Grundlage** (Spiel ohne `-nosteam`, Steam läuft auf diesem PC) | ✅ Steam-Client-API mit App 480 initialisiert, Spieler angemeldet, Steam Sockets lauschen auf der Steam-ID, Relay-Netz "OK". Mit `-nosteam`: NULL-Subsystem und IP-NetDriver (Fallback greift) |
+| **Koop über das echte Hauptmenü, 2 Fenster mit Grafik** (`-WEShots=P13` Host / `P13C` Mitspieler, 2 Läufe) | ✅ 8 Screenshots geprüft: Hauptmenü; Spielstand-Liste; "LAN-Spiele suchen" findet "Spiel von Mike · 1/4 Spieler · 20 ms · Version 0.12.0"; Beitritt; "Anna ist beigetreten (2/4)"; Menü [Esc] beim Host (Spieler mit Host-Markierung, Ping, "Entfernen", eigene LAN-Adresse) und beim Mitspieler (Speichern gesperrt); Host beendet → Mitspieler im Hauptmenü mit "Der Host hat das Spiel beendet." |
+| **4 Spieler über das Hauptmenü** (`-WESmokeRole=MH/M1/M2/M3/M5`, Listen-Server, 5 Prozesse, 4 Läufe) | ✅ Host + 3 Mitspieler gleichzeitig mit ihren Namen; Geld eines Mitspielers (+100 €) sehen alle; M1 geht mit 6 Kupferkabeln und kommt zurück → Kabel wieder da ("Restored returning player"); M2 stürzt ab (Prozess beendet) → Host meldet "hat das Spiel verlassen", Inventar gemerkt; Host entfernt M3 → M3 im Hauptmenü mit "Der Host hat dich aus dem Spiel entfernt."; 5. Spieler bei 4/4 abgelehnt ("Das Spiel ist voll"); Host beendet → alle im Hauptmenü mit Meldung |
+| **Steam mit 2 Instanzen** (`-WESmokeRole=SH/SC`, ohne `-nosteam`, 2 Läufe) | ✅ Host erstellt eine Steam-Lobby ("Lobby session", Steam-P2P-Adresse), Menü [Esc] zeigt "Steam-Lobby", "Steam-Freunde einladen" öffnet das Steam-Overlay (Ergebnis "shown"), Hauptmenü zeigt "Steam – angemeldet als …" mit dem Steam-Namen. Zweite Instanz auf demselben Steam-Konto findet keine Lobby und zeigt "Keine Spiele gefunden. Tipp: …" (kein Absturz) |
+| **Regression** Netzwerktests A/B … W/X (Dedicated) und I/J (Listen-Server), Spielläufe P5–P12 | ✅ unverändert (alle mit `-nosteam`; 0 Fehler im Log) |
+
+### Behobene Fehler in Phase 13/14
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Spielernamen "Mike-C6E4…" statt des gewählten Namens | Die Engine ersetzt `?Name=` beim Login durch den Nicknamen des Online-Dienstes | Eigene Option `?WEName=`, übernommen in `AWEGameMode::InitNewPlayer`; mit Steam der Steam-Name |
+| Inventar nach dem Wiederkommen leer | Beim `Logout` ist die Spielfigur schon entfernt, es wurde nichts gemerkt | Merken in `AWEPlayerController::PawnLeavingGame` (vorher) |
+| Hauptmenü zeigte nach einem IP-Spiel "Verlasse das Spiel …" | Zustand wurde nur nach dem Schließen einer Session zurückgesetzt | Hauptmenü setzt den Zustand beim Öffnen zurück |
+| Volles Spiel: englische Meldung "Server full." | Die Engine prüft die Spielerzahl vor unserem Login-Check | Meldung übersetzt |
+| Port als "7,777" | Zahlenformat mit Tausendertrennung | Als Text |
+| Steam-Name mit Unterstrichen | Name wurde wie im LAN bereinigt mitgeschickt | Mit Steam wird kein eigener Name geschickt |
+| Test `LeaveAndRejoin` stürzte ab | `SetGameMode` in der Test-Welt ohne Netz | GameMode direkt erzeugt, Hilfsfunktion `AddDepartedPlayers` |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Echter Beitritt über Steam (Lobby finden, Einladung annehmen, über die Freundesliste beitreten, Spiel über Steam-Relay) | Braucht ein zweites Steam-Konto auf einem zweiten PC (Steam verbindet ein Konto nicht mit sich selbst). **Mikes Praxistest mit einem Freund** |
+| Spiel über das Internet ohne Steam (IP) | Braucht Portfreigabe beim Host; per IP im eigenen Netz getestet |
+| LAN-Suche zwischen zwei PCs | Auf einem PC funktioniert sie mit einem suchenden Fenster (2 von 2 Läufen, dazu 1 von 3 Läufen im 4-Spieler-Test); suchen mehrere Instanzen gleichzeitig, landet die Antwort teils bei einer anderen Instanz (gemeinsamer Port auf einem PC) – im 4-Spieler-Test treten deshalb die übrigen per IP bei |
+| Steam-Overlay im Screenshot | Das Overlay zeichnet Steam selbst; es erscheint nicht in Engine-Screenshots (Aufruf "shown" im Log) |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Hinweise: Steam läuft mit Valves Test-App 480 – in Steam steht dann "Spacewar" statt Workshop Empire; für die Veröffentlichung braucht es eine eigene App ID (GAME_DESIGN §7). Ein abgestürzter Mitspieler bleibt bis zur Zeitüberschreitung der Verbindung in der Liste (im Test wenige Sekunden, bei echten Netzproblemen bis 60 s).
+
+---
+
 ## Phase 12 – Lauf vom 2026-10-16
 
 ### Ausgeführt

@@ -81,4 +81,8 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> QuickLoadAction;
+
+	/** [Esc]: in-game menu with players, invite, save, leave (Phase 13). */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> PauseAction;
 };

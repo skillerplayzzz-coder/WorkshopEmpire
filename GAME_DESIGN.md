@@ -35,9 +35,9 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Maschinen/Produktion | Schredder, Sortierer, Presse, Ofen, Förderband; datengetriebene Rezepte | 9–10 |
 | Mitarbeiter/Logistik | Einfache, nachvollziehbare Aufgaben-KI; Fahrzeuge, Gabelstapler | 11 |
 | Expansion | Garage → Werkstatt → Gewerbehalle → Fabrik → Industrieunternehmen | 12 |
-| Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand | durchgehend, Härtung in 13 |
+| Koop | Gemeinsames Konto, Lager, Maschinen; Host besitzt den Spielstand; Hauptmenü, Steam-Lobbys, Beitreten/Verlassen (§3.10) | durchgehend, Integration in 13/14 |
 
-### 3.1 Steuerung (Stand Phase 11, später frei belegbar)
+### 3.1 Steuerung (Stand Phase 13, später frei belegbar)
 
 | Taste | Aktion |
 |---|---|
@@ -56,6 +56,7 @@ Erster Kontakt (Spec §4.1): defekter Computer → Werkbank → Gehäuse öffnen
 | Im Baumodus | Mausrad: Möbel wählen oder "Bearbeiten" · [E] aufstellen bzw. anfassen und neu abstellen · [R] 90° · [Q] 15° drehen · [X] abbauen bzw. Verschieben abbrechen |
 | Tab oder I | Inventar öffnen/schließen |
 | F5 / F9 | Schnellspeichern / Schnellladen (nur Host) |
+| Esc | Menü im Spiel: Spielerliste, Steam-Freunde einladen, Speichern (Host), Zum Hauptmenü, Beenden – das Spiel läuft dabei weiter (Phase 13) |
 
 Im Inventar: Ziehen = verschieben, Shift+Ziehen = halber Stapel, Doppelklick = zwischen Inventar und Lager umlagern, Rechtsklick = in die Welt ablegen (Shift: 1 Stück), aus dem Fenster ziehen = ablegen.
 
@@ -240,6 +241,20 @@ Große Mengen muss niemand selbst tragen: Die neue Tour **"Auslieferung"** des F
 
 **Gemessen** (Test mit echten Daten): Der Schmelzofen verdoppelt fast den Wert (Aluminium ×1,97, Kupfer ×1,94), Verpacken bringt ×1,11–1,14 – lohnt sich vor allem für Lieferverträge: Palette Kabel 101,50 € je Lieferung statt 66 € beim Händler, Kupferbarren-Auftrag 194 € statt 134 €. Die Gewerbehalle mit Ofen (27.800 €) zahlt sich mit Kupfer allein erst nach gut 1.000 Ofenläufen aus – ein langfristiges Ziel, das mit Industrieaufträgen deutlich schneller geht.
 
+### 3.10 Koop und Steam (Stand Phase 13/14)
+
+**Hauptmenü** (startet mit dem Spiel): "Neues Spiel hosten", "Spielstand laden und hosten" (Liste aller Spielstände mit Datum und Firmenkonto), "Spiel beitreten", "Beenden". Oben steht, worüber gespielt wird: "Steam – angemeldet als …" oder "LAN / direkte IP (Steam nicht verfügbar)". Ohne Steam gibt man sich im Menü einen Namen; mit Steam gilt der Steam-Name.
+
+**Hosten:** Wer hostet, besitzt den Spielstand, speichert ([F5], [Esc] → Speichern, Autosave alle 5 Minuten) und kann Mitspieler entfernen. Mit Steam entsteht eine Steam-Lobby: Freunde lädt man über [Esc] → "Steam-Freunde einladen" (Steam-Overlay) ein, oder sie treten über die Steam-Freundesliste bei ("Spiel beitreten"). Steam verbindet über sein Relay-Netz, Portfreigaben sind nicht nötig. Mit dem Haken "Im LAN / per IP hosten" (oder ohne Steam) läuft das Spiel im LAN; [Esc] zeigt die eigene Adresse für den Beitritt per IP (Port 7777).
+
+**Beitreten:** "Steam-Spiele suchen" bzw. "LAN-Spiele suchen" zeigt jedes Spiel mit Host, Spielern (x/4), Ping und Version; volle Spiele und andere Versionen sind gesperrt. Alternativ IP-Adresse eingeben und "Verbinden". Man kann jederzeit dazukommen und gehen (Drop-in); alle sehen "… ist beigetreten" bzw. "… hat das Spiel verlassen".
+
+**Gemeinsam:** Firmenkonto, Gebäude, Maschinen, Lager, Produktion, Aufträge, Mitarbeiter und Fortschritt gehören allen; jeder hat sein eigenes Inventar. Wer geht (auch durch Absturz oder Verbindungsabbruch), legt Getragenes ab; Position und Inventar wartet beim Host, kommt beim erneuten Beitritt zurück und steht im Spielstand. Erkannt wird man an der Steam-ID, im LAN am Namen (bei zwei gleichen Namen bekommt keiner das Inventar des anderen).
+
+**Wenn etwas schiefgeht**, landet man im Hauptmenü mit einer klaren Meldung: "Der Host hat das Spiel beendet.", "Der Host hat dich aus dem Spiel entfernt.", "Beitritt abgelehnt: Das Spiel ist voll (4/4 Spieler).", "Andere Spielversion (Host …, du …).", "Verbindung zum Host verloren.", "Die Einladung ist nicht mehr gültig." usw. Beendet der Host, wird vorher automatisch gespeichert; der Host bestätigt das mit einem zweiten Klick.
+
+**Grenzen:** 2–4 Spieler (Host + 3). Das Spiel pausiert im Koop nicht. Steam läuft bis zur Veröffentlichung mit der Test-App 480 ("Spacewar"), siehe §7.
+
 ## 4. Wirtschaft
 
 - Währung: Euro, intern ganzzahlige Cent (`FWEMoney`).
@@ -324,4 +339,5 @@ Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Ba
 1. Persönliches Konto zusätzlich zum Firmenkonto im Koop? (Vorschlag: nein – vorerst so umgesetzt: nur Firmenkonto)
 2. Referenzhardware für das 60-FPS-Ziel (Vorschlag: RTX 3060 / Ryzen 5900X als "empfohlen")
 3. Sprache der Spieltexte zuerst Deutsch, Englisch, oder beides von Anfang an? (Vorschlag: Texte von Anfang an als lokalisierbare FText, Start auf Deutsch – so umgesetzt in Phase 1)
-4. Sollen zwei Spieler schwere Gegenstände gemeinsam tragen können? (Vorschlag: ja, als Koop-Mechanik in Phase 13; bis dahin Hilfsmittel)
+4. Sollen zwei Spieler schwere Gegenstände gemeinsam tragen können? (Vorschlag: ja; in Phase 13 noch nicht umgesetzt, weil die Spezifikation es nicht verlangt – schwere Dinge bewegen Sackkarre und Gabelstapler)
+5. Eigene Steam App ID: Bis zur Veröffentlichung läuft Steam mit Valves Test-App 480 ("Spacewar"). Für den Verkauf braucht es einen Steamworks-Zugang (einmalig 100 US-Dollar je Spiel) und die eigene App ID.

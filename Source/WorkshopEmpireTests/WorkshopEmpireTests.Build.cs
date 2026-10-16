@@ -15,6 +15,8 @@ public class WorkshopEmpireTests : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"UMG",
+			"OnlineSubsystem",
+			"CoreOnline",
 			"WECore",
 			"WorkshopEmpire"
 		});

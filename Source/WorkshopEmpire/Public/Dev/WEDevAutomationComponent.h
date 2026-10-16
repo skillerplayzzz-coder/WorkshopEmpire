@@ -109,6 +109,14 @@ protected:
 	void RunSmokeRoleW();
 	void RunSmokeRoleX();
 
+	// Phase 13/14: sessions through the real menu (-WESmokeRole=MH|M1|M2|M3|M5 listen server + LAN, SH|SC Steam; -WEShots=P13 / P13C)
+	bool IsInMenu() const;
+	void LogCoop(const TCHAR* Step) const;
+	void FindAndJoin(int32 TriesLeft);
+	void RunCoopRole();
+	void RunSteamRole();
+	void RunCoopShots();
+
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)
 	void RunSmokeRoleM();
 	void RunSmokeRoleN();

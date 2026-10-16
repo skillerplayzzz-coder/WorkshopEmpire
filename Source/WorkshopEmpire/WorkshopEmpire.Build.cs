@@ -24,6 +24,10 @@ public class WorkshopEmpire : ModuleRules
 		{
 			"UMG",
 			"CoreOnline",
+			"OnlineSubsystem",
+			"OnlineSubsystemUtils",
+			"EngineSettings",
+			"Sockets",
 			"Slate",
 			"SlateCore"
 		});
