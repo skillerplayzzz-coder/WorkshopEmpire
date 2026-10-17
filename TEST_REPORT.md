@@ -17,6 +17,43 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 16 – Lauf vom 2026-10-17
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Automation-Suite `WorkshopEmpire` (headless, `-nosteam`) | ✅ **106/106 bestanden, 0 mit Warnungen** (103 alte + 3 neue), Bericht `Saved/TestReports/Phase16_full3/index.json` |
+| ↳ `Balance.ProgressionCurve` (60-h-Simulation auf echten Spieldaten, allein und zu zweit, Bericht `Saved/Balance/ProgressionCurve.md`, Kopie `Docs/ProgressionCurve_Phase16.md`) | ✅ Allein: Stufe 2 nach 9,9 h, Stufe 3 nach 18,2 h, Stufe 4 nach 32,4 h, Stufe 5 nach 44,7 h (Zielfenster 7–14 / 14–26 / 26–42 / 38–60 h). Zu zweit: 6,6 / 13,1 / 25,6 / 37,5 h. Erstes Upgrade in der ersten Stunde, keine Verluststunde |
+| ↳ `Progression.Milestones` (Zählen, Prämie genau einmal, als "Sonstiges" gebucht; Sammlerstücke je Sorte einmal, gewöhnliche zählen nicht; Stufen-Meilenstein; Fortschritt "4 / 5" und in Euro; Speichern/Laden Version 13 ohne doppelte Auszahlung) | ✅ |
+| ↳ `Logistics.TierToursAndTruck` (Touren für Stufe 2–4, Zufall nur bei seltenen Funden; Großauflösung bei Stufe 2 gesperrt mit "Benötigt Stufe 3", ab Gewerbehalle frei; Lkw schneller, 40 Plätze; Wagen bleibt auf seinem Platz) | ✅ |
+| Angepasst: `Economy.BalanceRecyclingChain` (Meilensteinprämien aus der Strommessung herausgehalten; Grenze für "kein Durchgehen" 4× statt 3×, weil ein kaputter Röhrenmonitor unverarbeitet fast nichts wert ist: 2,70 € gegen 9,71 € recycelt) | ✅ |
+| **Spiellauf P16 mit Screenshots** (`-WEShots=P16`, angesehen) | ✅ Transporter: "Tour: Benötigt Stufe 3: Gewerbehalle" bei der Großauflösung; nach Gewerbehalle und Fabrik "Lkw mit Ladekran", 40 Plätze, 3000 kg, Tour 3 min; Edelmetall-Rückgewinnung in der Fabrik aufgestellt, nach einem Lauf "Edelmetallkonzentrat ×1, Kupfergranulat ×2"; Marktplatz mit neuen Aufträgen ("Maschinenbauer sucht einen Servomotor", 261,80 €); Reiter Unternehmen mit Meilensteinen und Meldung "Meilenstein erreicht: Fabrikant (+4.000,00 €)" |
+| **Regression** Netzwerktests A/B … W/X (Dedicated), I/J (Listen-Server), 4 Spieler über das Hauptmenü, Spielläufe P5–P12, P13 + P13C gemeinsam, P14, P15 | ✅ Abläufe wie in Phase 15 (gleich viele Messpunkte, Unterschiede nur durch Zufall bei Aufträgen und Zerlegen sowie durch die neuen Preise bei W/X); 0 Fehler in den Spielläufen; Rückkehr mit Inventar, Entfernen, volles Spiel, Host beendet |
+
+### Behobene Fehler in Phase 16
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Firmenwagen stand in der Garage statt vor dem Tor (seit Phase 15, auf den P11-Screenshots von Phase 15 zu sehen, damals übersehen) | Die Fahranimation setzte die Körper-Komponente auf den Nullpunkt – sie ist die Wurzel des Actors, also wanderte der ganze Wagen zum Ursprung | Animation relativ zum gemerkten Parkplatz (`DriveHome`); Test prüft die Position |
+| Stufen-Meilensteine kamen erst bis zu 5 s nach dem Kauf | Nur der Timer prüfte | `GrantUpgrade` prüft sofort |
+| "3,000 kg" im Fahrzeug | Zahlenformat der Engine-Kultur | Ohne Tausendertrennung |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Echte Langzeit-Playtests über viele Stunden | Ersetzt durch die Simulation auf den echten Daten; Handgriff-Zeiten, Effizienz und Auftragsfrequenz sind Annahmen (`Docs/BALANCING.md`). **Mikes Praxistest:** Fühlt sich das Tempo richtig an? |
+| Auktionen, Retourenpaletten, Schrotthaufen in der Simulation | Nicht simuliert (kleine Nebenquellen); ihre Einzelwerte prüfen die bestehenden Balance-Tests |
+| 3 oder 4 Spieler in der Simulation | Nur allein und zu zweit gerechnet; mit mehr Spielern wird es schneller, Nachschub und Aufträge begrenzen aber |
+
+### Offene Probleme
+
+Keine bekannten Fehler. Bestehende Spielstände bekommen beim ersten Laden alle schon erfüllten Meilensteine auf einmal ausgezahlt (so gewollt, aber ungewohnt).
+
+---
+
 ## Phase 15 – Lauf vom 2026-10-17
 
 ### Ausgeführt

@@ -129,6 +129,8 @@ struct WORKSHOPEMPIRE_API FWETourItem
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour", meta = (ClampMin = "1")) int32 Quantity = 1;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour") EWEItemCondition Condition = EWEItemCondition::Defective;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour", meta = (ClampMin = "0", ClampMax = "100")) int32 Quality = 40;
+	/** Phase 16: chance that this entry is in the lot (rare finds); rolled once per tour. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour", meta = (ClampMin = "0", ClampMax = "1")) float Chance = 1.f;
 };
 
 /** A van tour (§16 Waren transportieren). */
@@ -149,6 +151,8 @@ struct WORKSHOPEMPIRE_API FWETourDefinition
 	/** Pickup tours: price of the lot and what comes back. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour") FWEMoney PickupPrice;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour") TArray<FWETourItem> PickupItems;
+	/** Phase 16: company tier needed (bigger lots for bigger companies). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tour", meta = (ClampMin = "1", ClampMax = "5")) int32 MinTier = 1;
 };
 
 UCLASS(BlueprintType)

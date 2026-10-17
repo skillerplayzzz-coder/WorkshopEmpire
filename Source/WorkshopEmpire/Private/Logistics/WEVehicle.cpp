@@ -16,6 +16,7 @@
 #include "Items/WEPickupItem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/WECharacter.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Staff/WEEmployee.h"
 #include "Staff/WEStaffComponent.h"
@@ -38,6 +39,11 @@ AWEVehicle::AWEVehicle()
 	ImprovedStats.CargoMaxKg = 1200.f;
 	ImprovedStats.TourSpeed = 1.6f;
 	ImprovedStats.Tint = FLinearColor(0.25f, 0.45f, 0.75f);
+	TruckStats.DisplayName = LOCTEXT("Truck", "Lkw mit Ladekran");
+	TruckStats.CargoSlots = 40;
+	TruckStats.CargoMaxKg = 3000.f;
+	TruckStats.TourSpeed = 2.4f;
+	TruckStats.Tint = FLinearColor(0.85f, 0.55f, 0.12f);
 	RequiredUpgrade = TEXT("OldVan");
 }
 
@@ -46,6 +52,7 @@ void AWEVehicle::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AWEVehicle, bAway);
 	DOREPLIFETIME(AWEVehicle, bImproved);
+	DOREPLIFETIME(AWEVehicle, bTruck);
 	DOREPLIFETIME(AWEVehicle, SelectedTour);
 	DOREPLIFETIME(AWEVehicle, ActiveTour);
 	DOREPLIFETIME(AWEVehicle, ReturnAt);
@@ -70,13 +77,14 @@ void AWEVehicle::BeginPlay()
 
 const FWEVehicleStats& AWEVehicle::GetStats() const
 {
-	return bImproved ? ImprovedStats : BasicStats;
+	return bTruck ? TruckStats : bImproved ? ImprovedStats : BasicStats;
 }
 
 void AWEVehicle::RefreshFromUpgrades()
 {
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
 	bImproved = Progression && !ImprovedUpgrade.IsNone() && Progression->HasUpgrade(ImprovedUpgrade);
+	bTruck = Progression && !TruckUpgrade.IsNone() && Progression->HasUpgrade(TruckUpgrade);
 	RebuildVisuals();
 }
 
@@ -117,13 +125,19 @@ void AWEVehicle::ApplyVisibility()
 	{
 		bVisualAway = bAway;
 		SetActorHiddenInGame(!(bUnlocked && !bAway));
-		if (Boxes) { Boxes->SetRelativeLocation(FVector::ZeroVector); }
+		if (Boxes && bDriveHomeValid) { Boxes->SetRelativeLocation(DriveHome); }
 	}
 	bVisualStateKnown = HasActorBegunPlay();
 }
 
 void AWEVehicle::StartDriveAnimation(bool bLeaving)
 {
+	// The body is the root: remember where the van parks (relative = world location for a root component).
+	if (Boxes && !GetWorld()->GetTimerManager().IsTimerActive(DriveTimer))
+	{
+		DriveHome = Boxes->GetRelativeLocation();
+		bDriveHomeValid = true;
+	}
 	bVisualAway = bLeaving;
 	bDriveLeaving = bLeaving;
 	DriveStart = GetWorld()->GetTimeSeconds();
@@ -144,12 +158,17 @@ void AWEVehicle::DriveTick()
 	const float Offset = bDriveLeaving ? Along * DriveDistance : (1.f - Along) * DriveDistance;
 	if (Boxes)
 	{
-		Boxes->SetRelativeLocation(FVector(Offset, 0.f, FMath::Sin(T * 40.f) * 0.6f));
+		FVector Delta(Offset, 0.f, FMath::Sin(T * 40.f) * 0.6f);
+		if (Boxes == GetRootComponent())
+		{
+			Delta = GetActorRotation().RotateVector(Delta); // along the nose of the van in world space
+		}
+		Boxes->SetRelativeLocation(DriveHome + Delta);
 	}
 	if (T >= 1.f)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(DriveTimer);
-		if (Boxes) { Boxes->SetRelativeLocation(FVector::ZeroVector); }
+		if (Boxes) { Boxes->SetRelativeLocation(DriveHome); }
 		SetActorHiddenInGame(!(bUnlocked && !bAway));
 		bVisualAway = bAway;
 	}
@@ -202,6 +221,10 @@ FText AWEVehicle::GetStartBlockReason() const
 	if (!Tour)
 	{
 		return LOCTEXT("NoTour", "Keine Tour gewählt ([T])");
+	}
+	if (const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this); Progression && Progression->GetCompanyTier() < Tour->MinTier)
+	{
+		return FText::Format(LOCTEXT("NeedsTier", "Benötigt Stufe {0}: {1}"), FText::AsNumber(Tour->MinTier), UWEProgressionComponent::GetTierName(Tour->MinTier));
 	}
 	const AWEEmployee* Driver = FindDriver();
 	if (!Driver)
@@ -422,6 +445,10 @@ void AWEVehicle::FinishTour()
 		int32 Index = 0;
 		for (const FWETourItem& Entry : Tour->PickupItems)
 		{
+			if (Entry.Chance < 1.f && FMath::FRand() > Entry.Chance)
+			{
+				continue; // a rare find that is not in this lot
+			}
 			for (int32 Left = Entry.Item ? Entry.Quantity : 0; Left > 0;)
 			{
 				FWEItemInstance Item = FWEItemInstance::Make(Entry.Item, FMath::Min(Left, Entry.Item->GetMaxStackSize()), Entry.Condition, static_cast<uint8>(Entry.Quality));
@@ -439,6 +466,10 @@ void AWEVehicle::FinishTour()
 			}
 		}
 		Result = FString::Printf(TEXT("%s: %d Teile im Laderaum"), *Tour->DisplayName.ToString(), Units);
+	}
+	if (Tour)
+	{
+		if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this)) { Milestones->AddCount(EWEMilestoneKind::ToursCompleted); }
 	}
 	bAway = false;
 	ActiveTour = NAME_None;
@@ -567,8 +598,11 @@ bool AWEVehicle::GetExamineInfo(FWEExamineInfo& OutInfo) const
 	OutInfo.Title = Stats.DisplayName;
 	OutInfo.Description = LOCTEXT("Desc", "Firmenwagen für Touren: Ware direkt beim Händler verkaufen (besserer Preis) oder Großeinkäufe abholen. Braucht einen Fahrer. [E] Laderaum, [T] Tour wählen, [Q] losfahren.");
 	OutInfo.Details.Reset();
+	FNumberFormattingOptions NoGrouping; // "3000 kg" - the engine culture would write "3,000"
+	NoGrouping.SetUseGrouping(false);
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ExCargo", "Laderaum: {0} / {1} Plätze, {2} / {3} kg"), FText::AsNumber(GetStorage()->GetAllSlots().Num()),
-		FText::AsNumber(GetStorage()->GetNumSlots()), FText::AsNumber(FMath::RoundToInt(GetStorage()->GetTotalWeightKg())), FText::AsNumber(FMath::RoundToInt(GetStorage()->GetMaxWeightKg()))));
+		FText::AsNumber(GetStorage()->GetNumSlots()), FText::AsNumber(FMath::RoundToInt(GetStorage()->GetTotalWeightKg()), &NoGrouping),
+		FText::AsNumber(FMath::RoundToInt(GetStorage()->GetMaxWeightKg()), &NoGrouping)));
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ExDriver", "Fahrer: {0}"), Driver ? FText::FromString(Driver->GetProfile().Name) : LOCTEXT("NoDriverShort", "keiner")));
 	if (Tour)
 	{

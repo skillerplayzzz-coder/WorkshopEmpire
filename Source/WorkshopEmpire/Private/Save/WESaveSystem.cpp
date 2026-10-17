@@ -35,6 +35,7 @@
 #include "Economy/WEContractComponent.h"
 #include "Economy/WEMarketComponent.h"
 #include "Economy/WETraderTerminal.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 
 #define LOCTEXT_NAMESPACE "WESaveSystem"
@@ -303,6 +304,12 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	if (const UWECompanyComponent* Books = UWECompanyComponent::Get(World))
 	{
 		Save->BookTotals = Books->GetCategoryTotals();
+	}
+	if (const UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(World))
+	{
+		Save->bHasMilestones = true;
+		Save->CompanyStats = Milestones->GetStats();
+		Save->CompletedMilestones = Milestones->GetCompleted();
 	}
 	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(World))
 	{
@@ -702,6 +709,11 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 		{
 			Company->SetBalance(FWEMoney::FromCents(Save->CompanyBalanceCents));
 			Company->SetCategoryTotals(Save->BookTotals);
+		}
+		// Since version 13. Older saves start counting now (milestones already met are paid on the next check).
+		if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(World); Milestones && Save->bHasMilestones)
+		{
+			Milestones->SetState(Save->CompanyStats, Save->CompletedMilestones);
 		}
 		if (UWEMarketComponent* Market = UWEMarketComponent::Get(World); Market && Save->MarketDemand.Num() > 0)
 		{

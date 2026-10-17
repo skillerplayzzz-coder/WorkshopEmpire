@@ -61,8 +61,9 @@ def item(suffix):
     return unreal.load_asset(f"{ITEMS}/DA_Item_{suffix}")
 
 
-def tour_item(suffix, quantity, condition, quality):
+def tour_item(suffix, quantity, condition, quality, chance=1.0):
     t = unreal.WETourItem()
+    t.set_editor_property("chance", chance)
     t.set_editor_property("item", item(suffix))
     t.set_editor_property("quantity", quantity)
     t.set_editor_property("condition", condition)
@@ -70,8 +71,9 @@ def tour_item(suffix, quantity, condition, quality):
     return t
 
 
-def tour(tid, name, desc, kind, minutes, fuel, sell_factor=1.15, price=0.0, items=()):
+def tour(tid, name, desc, kind, minutes, fuel, sell_factor=1.15, price=0.0, items=(), min_tier=1):
     t = unreal.WETourDefinition()
+    t.set_editor_property("min_tier", min_tier)
     t.set_editor_property("id", tid)
     t.set_editor_property("display_name", unreal.Text(name))
     t.set_editor_property("description", unreal.Text(desc))
@@ -96,10 +98,28 @@ tours.set_editor_property("tours", [
          K.PICKUP, 5.0, 8.0, price=50.0,
          items=[tour_item("IndustrialMotorLarge", 2, Q.DEFECTIVE, 30)]),
     # Phase 12: bring goods for accepted orders and supply contracts.
+    # Phase 16: bigger companies get bigger lots (supply grows with the tier; Saved/Balance/ProgressionCurve.md).
+    tour("PickupEWasteContainer", "Elektroschrott-Container", "Ein Container vom Wertstoffhof: 12 Computer, 8 Röhrenmonitore, 10 Kabelkartons, 2 Elektromotoren – manchmal ist etwas Seltenes dabei.",
+         K.PICKUP, 6.0, 10.0, price=120.0, min_tier=2,
+         items=[tour_item("OldComputer", 12, Q.DEFECTIVE, 30), tour_item("CrtMonitor", 8, Q.DEFECTIVE, 30), tour_item("CableBox", 10, Q.USED, 35),
+                tour_item("ElectricMotor", 2, Q.DEFECTIVE, 30), tour_item("RareGpu", 1, Q.DAMAGED, 40, chance=0.04), tour_item("VintageRadio", 1, Q.DAMAGED, 40, chance=0.03)]),
+    tour("PickupCableLot", "Kabel- und Motorenschrott vom Netzbetreiber", "Ein Lkw voll Altkabel und ausgebauter Motoren: 30 Kabelkartons, 4 Elektromotoren, ein großer Industriemotor.",
+         K.PICKUP, 6.0, 12.0, price=160.0, min_tier=3,
+         items=[tour_item("CableBox", 30, Q.USED, 35), tour_item("ElectricMotor", 4, Q.DEFECTIVE, 35), tour_item("IndustrialMotorLarge", 1, Q.DEFECTIVE, 30),
+                tour_item("ServoMotor", 1, Q.USED, 50, chance=0.05)]),
+    tour("PickupOfficeClearance", "Großauflösung Bürogebäude", "Ein ganzes Bürogebäude wird geräumt: 25 Computer, 12 Röhrenmonitore, 10 Kabelkartons, 2 Elektromotoren aus der Haustechnik – Sammlerstücke nicht ausgeschlossen.",
+         K.PICKUP, 7.0, 12.0, price=200.0, min_tier=3,
+         items=[tour_item("OldComputer", 25, Q.DEFECTIVE, 35), tour_item("CrtMonitor", 12, Q.DEFECTIVE, 35), tour_item("CableBox", 10, Q.USED, 40),
+                tour_item("ElectricMotor", 2, Q.DEFECTIVE, 35),
+                tour_item("GoldCpu", 1, Q.USED, 50, chance=0.06), tour_item("RareGpu", 1, Q.DAMAGED, 45, chance=0.05)]),
+    tour("PickupFactoryClearance", "Fabrikauflösung", "Eine stillgelegte Fabrik: 4 große Industriemotoren, 8 Elektromotoren, 30 Kabelkartons, 20 Computer aus der Verwaltung, oft Servomotoren.",
+         K.PICKUP, 8.0, 20.0, price=350.0, min_tier=4,
+         items=[tour_item("IndustrialMotorLarge", 4, Q.DEFECTIVE, 35), tour_item("ElectricMotor", 8, Q.DEFECTIVE, 35), tour_item("CableBox", 30, Q.USED, 40),
+                tour_item("OldComputer", 20, Q.DEFECTIVE, 35), tour_item("ServoMotor", 1, Q.USED, 55, chance=0.25), tour_item("GoldCpu", 1, Q.USED, 50, chance=0.08)]),
     tour("DeliverOrders", "Auslieferung", "Fährt die Ware aus dem Laderaum zu den Kunden: jeder angenommene Auftrag, dessen Ware vollständig geladen ist, wird geliefert (Lieferverträge: eine Lieferung).",
          K.DELIVER, 4.0, 6.0),
 ])
 eal.save_asset(tours_path)
 
-unreal.log("WE_STAFF_BUILT 3 roles, 4 tours")
+unreal.log(f"WE_STAFF_BUILT 3 roles, {len(tours.get_editor_property('tours'))} tours")
 unreal.SystemLibrary.quit_editor()

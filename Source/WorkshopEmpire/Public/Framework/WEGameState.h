@@ -12,6 +12,7 @@ class UWECompanyComponent;
 class UWEContractComponent;
 class UWEMarketComponent;
 class UWEProgressionComponent;
+class UWEMilestoneComponent;
 
 /**
  * Replicated state shared by every player of the session: the shared company (account),
@@ -34,6 +35,7 @@ public:
 	UWEWorkshopLayoutComponent* GetLayout() const { return Layout; }
 	UWEPowerGridComponent* GetPowerGrid() const { return PowerGrid; }
 	UWEStaffComponent* GetStaff() const { return Staff; }
+	UWEMilestoneComponent* GetMilestones() const { return Milestones; }
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Company")
@@ -59,4 +61,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWEStaffComponent> Staff;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<UWEMilestoneComponent> Milestones;
 };

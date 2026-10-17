@@ -189,7 +189,7 @@ Produkte kauft die Gebrauchtbörse; dazu kommen **Produktionsaufträge**: "Elekt
 
 **Wege:** Mitarbeiter laufen auf einem Navigationsnetz, das sich nach der Einrichtung richtet. Gibt es keinen Weg (z. B. Tor zu für den Fahrer), warten sie ("kein Weg frei").
 
-**Firmenwagen** (Upgrade "Alter Transporter", 2.400 €; "Moderner Lieferwagen", 4.500 €: 30 statt 20 Plätze, 1.200 statt 600 kg, Touren 60 % schneller). Steht vor dem Tor. [E] Laderaum, getragene Dinge mit [E] einladen, [R] Sperriges ausladen, [T] Tour wählen, [Q] losfahren (braucht einen Fahrer am Wagen):
+**Firmenwagen** (Upgrade "Alter Transporter", 2.000 € seit Phase 16; "Moderner Lieferwagen", 4.500 €: 30 statt 20 Plätze, 1.200 statt 600 kg, Touren 60 % schneller; seit Phase 16 "Lkw mit Ladekran", 12.000 € nach der Gewerbehalle: 40 Plätze, 3 t, Touren 2,4-mal so schnell wie der alte Transporter). Steht vor dem Tor. [E] Laderaum, getragene Dinge mit [E] einladen, [R] Sperriges ausladen, [T] Tour wählen, [Q] losfahren (braucht einen Fahrer am Wagen):
 
 | Tour | Dauer (alter Wagen) | Kosten | Ergebnis |
 |---|---|---|---|
@@ -210,9 +210,9 @@ Während der Tour sind Wagen und Fahrer weg; das Ergebnis meldet sich bei allen 
 | Stufe | Name | Wie | bringt |
 |---|---|---|---|
 | 1 | Kleine Garage | Start | 11 kW, 6 Mitarbeiter |
-| 2 | Große Werkstatt | Werkstatt-Erweiterung (6.000 €), Anbau neben der Garage (8 × 7 m) | +5,5 kW, +2 Mitarbeiter, Verpackungsanlage, erste Industrieaufträge |
+| 2 | Große Werkstatt | Werkstatt-Erweiterung (5.000 €, bis Phase 15 6.000 €), Anbau neben der Garage (8 × 7 m) | +5,5 kW, +2 Mitarbeiter, Verpackungsanlage, erste Industrieaufträge |
 | 3 | Gewerbehalle | Gewerbehalle (25.000 €), 14 × 14 m, 6 m hoch, Tor zum Hof | +22 kW, +4 Mitarbeiter, Schmelzofen, Hochregal, Großes Materiallager, größere Industrieaufträge |
-| 4 | Fabrik | Fabrikhalle (90.000 €), 14 × 16 m, 7 m hoch | +44 kW, +8 Mitarbeiter, Platz für ganze Linien |
+| 4 | Fabrik | Fabrikhalle (75.000 €, bis Phase 15 90.000 €), 14 × 16 m, 7 m hoch | +44 kW, +8 Mitarbeiter, Platz für ganze Linien |
 | 5 | Industrieunternehmen | Fabrik und 250.000 € Firmenwert | Endziel dieser Phase |
 
 **Neue Einrichtung** (im Baumodus erst ab der genannten Stufe kaufbar, vorher steht "Benötigt: …" im Menü):
@@ -314,7 +314,7 @@ Der erste vollständige Ablauf: **Werkzeug und Gerät besorgen → zur Werkbank 
 | Arbeitsmatte und Magnetschale | 80 € | Zerlegen 25 % schneller | Werkbank-Unterschrank |
 | Profi-Werkbankausstattung | 220 € | nochmals 25 % schneller, +6 Plätze | Arbeitsmatte |
 
-Ziel: Das erste Upgrade nach etwa 2–5 PCs, alle nach etwa einer Stunde. Erste Werte, Balancing in Phase 16.
+Ziel: Das erste Upgrade nach etwa 2–5 PCs, alle nach etwa einer Stunde. Phase 16 hat das bestätigt (Simulation: alle nach 0,7 h allein).
 
 ### 4.3 Reparatur (Stand Phase 6)
 
@@ -335,20 +335,93 @@ Ziel: Das erste Upgrade nach etwa 2–5 PCs, alle nach etwa einer Stunde. Erste 
 
 **Seltene Gegenstände:** Grafikkarte (Sammlerstück, 180 €), Röhrenradio (1958, 120 €), Keramik-Prozessor mit Goldkontakten (90 €, sehr selten), Industrie-Servomotor (220 €). Sie tauchen auf dem Schrotthaufen, in Paletten, bei Händlern und in Auktionen auf. Gemessen: Der Gewinn mit Paletten hängt nicht an ihnen (ohne seltene Funde noch 86 % des Erlöses).
 
-## 5. Progression (Designziele, durch Playtests zu prüfen)
+## 5. Progression (Stand Phase 16, gemessen mit der Simulation auf echten Spieldaten)
 
-| Abschnitt | Spielzeit (Ziel) | Inhalt |
+| Abschnitt | Spielzeit (Ziel) | allein gemessen | zu zweit | Inhalt |
+|---|---|---|---|---|
+| Früh | 0–5 h | alle kleinen Upgrades 0,7 h, Schredder 1,1 h, Maschinenkette bis 3,6 h | schneller | Handarbeit, Reparaturen, erste Werkzeuge, kleine Aufträge, erste Maschinen |
+| Mitte | 5–15 h | Transporter mit Personal 5,6 h, **Große Werkstatt 9,9 h** | 6,6 h | Abholtouren, Lagerarbeiter, Verpackung, Industrieaufträge |
+| Fortgeschritten | 15–30 h | **Gewerbehalle 18,2 h**, Lkw 21,2 h | 13,1 h | Großauflösungen, Schmelzofen, mehrere Linien |
+| Spät | 30–60+ h | **Fabrik 32,4 h**, **Industrieunternehmen 44,7 h**, „Halbe Million“ 59,5 h | 25,6 h / 37,5 h | Fabrikauflösungen, Edelmetall-Rückgewinnung, Großprojekte |
+| Endgame | 60–100 h | Firmenwert 1 Mio. € nach rund 90 h (hochgerechnet) | – | Meilensteine, Sammlervitrine, Großaufträge |
+
+Ergebnis pro Stunde (allein, nach Abzug von Einkauf, Löhnen und Strom):
+
+| Abschnitt | Ergebnis pro Stunde |
+|---|---|
+| Garage | 600–1.200 € |
+| Große Werkstatt | 2.000–3.600 € |
+| Gewerbehalle | 5.700–6.200 € |
+| Fabrik | rund 16.000 € |
+
+Jede Stufe bringt neue Aufgaben, neue Maschinen, größere Touren und Aufträge, nicht nur größere Zahlen. Methode, Annahmen und Vorher/Nachher: `Docs/BALANCING.md`. Der Test `WorkshopEmpire.Balance.ProgressionCurve` schlägt fehl, wenn Daten die Kurve aus den Zielfenstern schieben.
+
+### 5.1 Was Phase 16 geändert hat
+
+**Nachschub wächst mit der Firma:**
+
+| Tour | ab Stufe | Inhalt | Preis |
+|---|---|---|---|
+| Großeinkauf Altgeräte | 1 | 4 PCs, 3 Monitore, 4 Kabelkartons | 55 € |
+| **Elektroschrott-Container** | 2 | 12 PCs, 8 Röhrenmonitore, 10 Kabelkartons, 2 Motoren; 4 % Grafikkarte (Sammlerstück), 3 % Röhrenradio | 120 € |
+| **Kabel- und Motorenschrott vom Netzbetreiber** | 3 | 30 Kabelkartons, 4 Motoren, 1 Großmotor; 5 % Servomotor | 160 € |
+| **Großauflösung Bürogebäude** | 3 | 25 PCs, 12 Monitore, 10 Kabelkartons, 2 Motoren; 6 % Keramik-Prozessor, 5 % Grafikkarte | 200 € |
+| **Fabrikauflösung** | 4 (Großmotoren bewegt nur der Gabelstapler) | 4 Großmotoren, 8 Motoren, 30 Kabelkartons, 20 PCs; 25 % Servomotor, 8 % Keramik-Prozessor | 350 € |
+
+Im Fahrzeug steht bei gesperrten Touren „Benötigt Stufe 3: Gewerbehalle“.
+
+**Neue Maschine Edelmetall-Rückgewinnung** (9.000 €, 12 kW, nur Fabrikhalle):
+- 20 Elektronikschrott → 1 Edelmetallkonzentrat + 2 Kupfergranulat (30 s).
+- 1 Keramik-Prozessor → 2 Konzentrat.
+- Ein Konzentrat bringt beim Händler rund 47 €, als Industrieauftrag mehr. Damit wird der Elektronikschrott aus Sortiermaschine und Monitoren in der Fabrik zur wichtigsten Einnahme.
+
+**Sortiermaschine:** Aus Elektronik-Schreddergut kommt mehr Kupfer (1–2 mit 80 %) und Aluminium (50 %).
+
+**14 neue Aufträge:**
+
+| Auftrag | ab Stufe | Art |
 |---|---|---|
-| Früh | 0–5 h | Handarbeit, kleine Gewinne, erste Werkzeuge, Reparaturen, kleine Aufträge |
-| Mitte | 5–15 h | Größere Werkstatt, erste Maschinen, Lager, erste Mitarbeiter |
-| Fortgeschritten | 15–30 h | Gewerbehalle, Produktionsmaschinen, Förderbänder, Teilautomatisierung |
-| Spät | 30–60+ h | Fabriken, komplexe Ketten, Logistik, neue Standorte, Industrieaufträge |
+| Second-Hand-Laden: 2 aufbereitete PCs (sehr gut, ab Qualität 70) | 1 | normal |
+| Bastelkeller: Netzteile | 1 | normal |
+| Schrotthändler: alte Elektromotoren | 1 | normal |
+| Sammler: legendäre Grafikkarte (×1,9) | 1 | Sammlerauftrag |
+| Retro-Sammlung: Keramik-Prozessor (×1,9) | 1 | Sammlerauftrag |
+| Maschinenbauer: Servomotor (×1,7) | 1 | Sammlerauftrag |
+| Schulausstattung: 4–6 funktionierende PCs | 2 | normal |
+| Kabelhandel: 6–10 Kupferdrahtspulen | 2 | normal |
+| Recyclinghof: Aluminiumballen | 3 | Industrie |
+| Gießerei: Liefervertrag Aluminiumbarren (3 Lieferungen) | 3 | Industrie |
+| Scheideanstalt: Edelmetallkonzentrat | 4 | Industrie |
+| Installateur-Kette: Liefervertrag Kabelpaletten (5 Lieferungen) | 4 | Industrie |
+| Großprojekt Stadtwerke: 20–30 Kupferbarren | 5 | Industrie |
+| Exportauftrag: Stahlwinkel-Paletten (3 Lieferungen) | 5 | Industrie |
 
-Jede Stufe muss neue Aufgaben, neue Werkzeuge/Maschinen, größere Möglichkeiten, neue Entscheidungen und langfristige Ziele bringen, nicht nur größere Zahlen.
+**Seltene Gegenstände:**
+- Beim Händler kaufen und weiterverkaufen lohnt sich nicht (Kaufpreis 130 %, Verkauf 60 % des Marktwerts).
+- Ein Sammler zahlt dagegen fast das Doppelte des Marktwerts.
+- Die großen Touren bringen sie gelegentlich mit.
+- Der Keramik-Prozessor kann in der Fabrik zu Edelmetall werden.
 
+**Meilensteine** (Marktplatz, Reiter „Unternehmen“; Prämie aufs Firmenkonto, Meldung an alle Spieler; 31 Stück):
+
+| Bereich | Stufen (Prämie) |
+|---|---|
+| Geräte zerlegt | 5 / 50 / 250 (25 / 100 / 300 €) |
+| Geräte repariert | 1 / 25 / 100 / 500 (20 / 150 / 400 / 2.000 €) |
+| Kundenaufträge | 5 / 25 / 100 (60 / 300 / 1.500 €) |
+| Industrieaufträge | 5 / 25 (1.000 / 4.000 €) |
+| Maschinenvorgänge | 100 / 1.000 / 10.000 (100 / 600 / 4.000 €) |
+| Touren | 10 / 100 (150 / 1.500 €) |
+| Umsatz | 1.000 / 10.000 / 100.000 / 1 Mio. € (50 / 300 / 2.000 / 15.000 €) |
+| Stufen 2–5 | 300 / 1.500 / 4.000 / 10.000 € |
+| Personal | 3 / 10 (150 / 1.500 €) |
+| Sammlerstücke | 1 Sorte, alle 4 (100 / 1.500 €) |
+| Firmenwert | 500.000 € (15.000 €), 1 Mio. € („Werkstatt-Imperium“, das Lebenswerk) |
+
+Die Reiterseite zeigt die sechs Ziele, die am nächsten dran sind, mit Fortschritt („37 / 50“), darunter die erreichten. Die Prämien sind ein Bonus (etwa 15–30 Minuten Einkommen der jeweiligen Phase), kein Antrieb.
 ## 6. Langzeitziele
 
-Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Baupläne/Sammlerstücke, Unternehmensmanagement. Seit Phase 12 gibt es Gebäude, Unternehmensstufen, Industrieaufträge, Lieferverträge und die Unternehmensübersicht (§3.9); mehrere Standorte und das Feinbalancing folgen (Phase 16).
+Automatisierte Produktionslinien, mehrere Standorte, Lieferverträge, seltene Baupläne/Sammlerstücke, Unternehmensmanagement. Seit Phase 12 gibt es Gebäude, Unternehmensstufen, Industrieaufträge, Lieferverträge und die Unternehmensübersicht (§3.9). Seit Phase 16 gibt es Meilensteine bis zu einem Firmenwert von 1 Mio. €, die Edelmetall-Rückgewinnung als Endgame-Kette und Großaufträge ab Stufe 5 (§5.1). Mehrere Standorte sind noch offen.
 
 ## 7. Offene Produktentscheidungen (Mike)
 

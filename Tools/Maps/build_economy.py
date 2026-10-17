@@ -156,6 +156,25 @@ catalog.set_editor_property("templates", [
     template("Gießerei kauft Aluminiumbarren", "AluminiumIngot", 6, 10, Q.USED, 1.5, 60.0, min_tier=3, industrial=True),
     template("Kabelwerk kauft Kupferbarren", "CopperIngot", 4, 6, Q.USED, 1.5, 60.0, min_tier=3, industrial=True),
     template("Elektrogroßhandel: Liefervertrag Kabel", "PalletCables", 1, 1, Q.USED, 1.45, 20.0, min_tier=3, industrial=True, rounds=4),
+    # Phase 16: more orders over the whole game (appended - dev role K relies on index 8).
+    # Early: refurbished devices, single parts, motors.
+    template("Second-Hand-Laden sucht aufbereitete PCs", "OldComputer", 2, 2, Q.VERY_GOOD, 1.35, 45.0, min_quality=70),
+    template("Bastelkeller sucht Netzteile", "PowerSupply", 2, 3, Q.USED, 1.5, 25.0),
+    template("Schrotthändler kauft alte Elektromotoren", "ElectricMotor", 1, 2, Q.DEFECTIVE, 1.5, 30.0),
+    # Collectors: rare finds are worth much more to the right customer than to a trader.
+    template("Sammler sucht die legendäre Grafikkarte", "RareGpu", 1, 1, Q.DAMAGED, 1.9, 60.0),
+    template("Retro-Sammlung kauft Keramik-Prozessoren", "GoldCpu", 1, 1, Q.USED, 1.9, 60.0),
+    template("Maschinenbauer sucht einen Servomotor", "ServoMotor", 1, 1, Q.USED, 1.7, 60.0),
+    # Bigger companies: bigger normal orders.
+    template("Schulausstattung: funktionierende PCs", "OldComputer", 4, 6, Q.USED, 1.55, 60.0, min_quality=50, min_tier=2),
+    template("Kabelhandel bestellt Kupferdrahtspulen", "CopperWireSpool", 6, 10, Q.USED, 1.45, 45.0, min_tier=2),
+    # Industrial orders for the hall and the factory.
+    template("Recyclinghof kauft Aluminiumballen", "AluBale", 3, 5, Q.USED, 1.5, 60.0, min_tier=3, industrial=True),
+    template("Gießerei: Liefervertrag Aluminiumbarren", "AluminiumIngot", 8, 8, Q.USED, 1.5, 30.0, min_tier=3, industrial=True, rounds=3),
+    template("Scheideanstalt kauft Edelmetallkonzentrat", "PreciousConcentrate", 5, 10, Q.USED, 1.45, 60.0, min_tier=4, industrial=True),
+    template("Installateur-Kette: Liefervertrag Kabel", "PalletCables", 2, 2, Q.USED, 1.5, 30.0, min_tier=4, industrial=True, rounds=5),
+    template("Großprojekt Stadtwerke: Kupferbarren", "CopperIngot", 20, 30, Q.USED, 1.6, 90.0, min_tier=5, industrial=True),
+    template("Exportauftrag: Paletten Stahlwinkel", "PalletBrackets", 4, 4, Q.USED, 1.5, 40.0, min_tier=5, industrial=True, rounds=3),
 ])
 eal.save_asset(catalog_path)
 

@@ -22,6 +22,7 @@
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
 #include "Player/WECharacter.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Progression/WEUpgradeDefinition.h"
 #include "Styling/CoreStyle.h"
@@ -359,6 +360,12 @@ FString UWETradeWidget::BuildSignature() const
 	TStringBuilder<1024> Sig;
 	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
 	Sig << (Company ? Company->GetBalance().GetCents() : -1) << TEXT("|");
+	if (const UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this))
+	{
+		const FWECompanyStats& S = Milestones->GetStats();
+		Sig << TEXT("ms") << Milestones->GetCompleted().Num() << TEXT(",") << S.DevicesDisassembled << TEXT(",") << S.DevicesRepaired << TEXT(",") << S.OrdersCompleted
+			<< TEXT(",") << S.IndustrialOrders << TEXT(",") << S.MachineCycles << TEXT(",") << S.ToursCompleted << TEXT(",") << S.RareFinds.Num() << TEXT("|");
+	}
 	const AWECharacter* Character = Cast<AWECharacter>(GetOwningPlayerPawn());
 	if (const UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr)
 	{
@@ -780,7 +787,67 @@ void UWETradeWidget::RebuildCompany()
 		Info(TierList, LOCTEXT("StaffCap", "Personal"), FText::Format(LOCTEXT("StaffCapDetail", "{0} von {1} Mitarbeitern"),
 			FText::AsNumber(Staff->GetEmployees().Num()), FText::AsNumber(Staff->GetMaxEmployees())));
 	}
-
+	// Phase 16: long-term goals - the open ones closest to completion first, then the reached ones.
+	if (const UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this); Milestones && Milestones->GetCatalog())
+	{
+		const TArray<FWEMilestoneDefinition>& All = Milestones->GetCatalog()->Milestones;
+		Info(TierList, FText::Format(LOCTEXT("MilestonesTitle", "Meilensteine: {0} von {1} erreicht"), FText::AsNumber(Milestones->GetCompleted().Num()), FText::AsNumber(All.Num())),
+			LOCTEXT("MilestonesDetail", "Ziele für die ganze Firma – jedes bringt eine Prämie aufs Firmenkonto."));
+		TArray<const FWEMilestoneDefinition*> Open;
+		for (const FWEMilestoneDefinition& M : All)
+		{
+			if (!Milestones->IsCompleted(M.Id))
+			{
+				Open.Add(&M);
+			}
+		}
+		Open.StableSort([Milestones](const FWEMilestoneDefinition& A, const FWEMilestoneDefinition& B)
+		{
+			return static_cast<double>(Milestones->GetProgress(A.Kind)) / A.Target > static_cast<double>(Milestones->GetProgress(B.Kind)) / B.Target;
+		});
+		for (int32 i = 0; i < Open.Num() && i < 6; ++i)
+		{
+			Info(TierList, Open[i]->Title, FText::Format(LOCTEXT("MilestoneOpen", "{0}  ·  {1}"), Open[i]->Description, Milestones->GetProgressText(*Open[i])),
+				Open[i]->Reward.IsZero() ? FText::GetEmpty() : WETradeStyle::Money(Open[i]->Reward));
+		}
+		for (const FWEMilestoneDefinition& M : All)
+		{
+			if (Milestones->IsCompleted(M.Id))
+			{
+				Info(TierList, FText::Format(LOCTEXT("MilestoneDone", "✓ {0}"), M.Title), M.Description);
+			}
+		}
+	}	// Phase 16: long-term goals - the open ones closest to completion first, then the reached ones.
+	if (const UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this); Milestones && Milestones->GetCatalog())
+	{
+		const TArray<FWEMilestoneDefinition>& All = Milestones->GetCatalog()->Milestones;
+		Info(TierList, FText::Format(LOCTEXT("MilestonesTitle", "Meilensteine: {0} von {1} erreicht"), FText::AsNumber(Milestones->GetCompleted().Num()), FText::AsNumber(All.Num())),
+			LOCTEXT("MilestonesDetail", "Ziele für die ganze Firma – jedes bringt eine Prämie aufs Firmenkonto."));
+		TArray<const FWEMilestoneDefinition*> Open;
+		for (const FWEMilestoneDefinition& M : All)
+		{
+			if (!Milestones->IsCompleted(M.Id))
+			{
+				Open.Add(&M);
+			}
+		}
+		Open.StableSort([Milestones](const FWEMilestoneDefinition& A, const FWEMilestoneDefinition& B)
+		{
+			return static_cast<double>(Milestones->GetProgress(A.Kind)) / A.Target > static_cast<double>(Milestones->GetProgress(B.Kind)) / B.Target;
+		});
+		for (int32 i = 0; i < Open.Num() && i < 6; ++i)
+		{
+			Info(TierList, Open[i]->Title, FText::Format(LOCTEXT("MilestoneOpen", "{0}  ·  {1}"), Open[i]->Description, Milestones->GetProgressText(*Open[i])),
+				Open[i]->Reward.IsZero() ? FText::GetEmpty() : WETradeStyle::Money(Open[i]->Reward));
+		}
+		for (const FWEMilestoneDefinition& M : All)
+		{
+			if (Milestones->IsCompleted(M.Id))
+			{
+				Info(TierList, FText::Format(LOCTEXT("MilestoneDone", "✓ {0}"), M.Title), M.Description);
+			}
+		}
+	}
 	if (Company)
 	{
 		int64 HourSum = 0;

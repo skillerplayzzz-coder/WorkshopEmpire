@@ -99,6 +99,9 @@ protected:
 	void DriveTick();
 	FTimerHandle DriveTimer;
 	float DriveStart = 0.f;
+	/** Where the body stands when parked (captured before driving; the body is the root component). */
+	FVector DriveHome = FVector::ZeroVector;
+	bool bDriveHomeValid = false;
 	bool bDriveLeaving = false;
 	bool bVisualAway = false;
 	bool bVisualStateKnown = false;
@@ -116,11 +119,21 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
 	FName ImprovedUpgrade = TEXT("ModernVan");
 
+	/** Phase 16: third level for big companies (bigger lots need a truck). */
+	UPROPERTY(EditAnywhere, Category = "Vehicle")
+	FWEVehicleStats TruckStats;
+
+	UPROPERTY(EditAnywhere, Category = "Vehicle")
+	FName TruckUpgrade = TEXT("Truck");
+
 	UPROPERTY(ReplicatedUsing = OnRep_Away)
 	bool bAway = false;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Away)
 	bool bImproved = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Away)
+	bool bTruck = false;
 
 	UPROPERTY(Replicated)
 	FName SelectedTour;

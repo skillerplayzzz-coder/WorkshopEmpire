@@ -13,6 +13,7 @@
 #include "Machines/WEMachineDefinition.h"
 #include "Machines/WEPowerGridComponent.h"
 #include "Player/WECharacter.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Save/WESaveGame.h"
 #include "Save/WESaveSystem.h"
@@ -432,6 +433,7 @@ bool FWEMachineBalanceTest::RunTest(const FString& Parameters)
 	// compared with selling the junk as it is. Machines should pay off for junk, without a runaway.
 	FMachineFixture F;
 	F.GameState->GetProgression()->GrantUpgrade(TEXT("HeavyCurrent"));
+	F.GameState->GetMilestones()->SetCatalog(nullptr); // the power bill is measured on the account: no milestone rewards in between
 	AWEMachine* Shredder = F.Shredder();
 	AWEMachine* Sorter = F.Sorter();
 	AWEMachine* Press = F.Press();
@@ -539,7 +541,8 @@ bool FWEMachineBalanceTest::RunTest(const FString& Parameters)
 		{
 			TestTrue(*FString::Printf(TEXT("Recycling %s pays more than selling it as is"), J.Id), Net > Sale);
 		}
-		TestTrue(*FString::Printf(TEXT("%s: no runaway (< 3x)"), J.Id), Net < FMath::Max(Sale, 1.0) * 3.0);
+		// Phase 16: machines pay at volume (richer sorting); a broken CRT sells for almost nothing as it is.
+		TestTrue(*FString::Printf(TEXT("%s: no runaway (< 4x)"), J.Id), Net < FMath::Max(Sale, 1.0) * 4.0);
 	}
 	AddInfo(FString::Printf(TEXT("Total: sell as is %.2f EUR, recycled %.2f EUR"), TotalDirect, TotalChain));
 	return true;

@@ -1,4 +1,5 @@
 #include "Economy/WEContractComponent.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 
 #include "Economy/WECompanyComponent.h"
@@ -364,6 +365,15 @@ void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerNa
 	}
 	const FWEMoney Reward = Contract.Reward;
 	const FString Title = Contract.Title.ToString();
+	// Phase 16: long-term goals count every completed order (supply contracts once, at the last delivery) and collectors' pieces.
+	if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this))
+	{
+		Milestones->AddRareFind(Contract.Item);
+		if (Contract.RoundsDone >= Contract.Rounds)
+		{
+			Milestones->AddCount(Contract.bIndustrial ? EWEMilestoneKind::IndustrialOrders : EWEMilestoneKind::OrdersCompleted);
+		}
+	}
 	if (Contract.RoundsDone < Contract.Rounds)
 	{
 		// Supply contract: the next delivery is due within the same time again.

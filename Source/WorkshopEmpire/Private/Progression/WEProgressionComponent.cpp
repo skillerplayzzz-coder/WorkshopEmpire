@@ -1,4 +1,5 @@
 #include "Progression/WEProgressionComponent.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "World/WEPlaceholderProp.h"
 #include "NavigationSystem.h"
 #include "Workshop/WEFurnitureDefinition.h"
@@ -98,6 +99,10 @@ bool UWEProgressionComponent::GrantUpgrade(FName Id)
 			}
 		}
 		UE_LOG(LogWorkshopEmpire, Log, TEXT("Company tier %d"), GetCompanyTier());
+		if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this))
+		{
+			Milestones->CheckMilestones(); // tier milestones right away, not at the next periodic check
+		}
 	}
 	return true;
 }

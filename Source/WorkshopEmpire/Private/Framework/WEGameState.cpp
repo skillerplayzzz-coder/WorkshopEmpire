@@ -3,6 +3,7 @@
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
 #include "Economy/WEMarketComponent.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Economy/WEAuctionComponent.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
@@ -19,4 +20,5 @@ AWEGameState::AWEGameState()
 	Layout = CreateDefaultSubobject<UWEWorkshopLayoutComponent>(TEXT("Layout"));
 	PowerGrid = CreateDefaultSubobject<UWEPowerGridComponent>(TEXT("PowerGrid"));
 	Staff = CreateDefaultSubobject<UWEStaffComponent>(TEXT("Staff"));
+	Milestones = CreateDefaultSubobject<UWEMilestoneComponent>(TEXT("Milestones"));
 }

@@ -20,6 +20,7 @@
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WERepairDefinition.h"
 #include "Workshop/WEFurnitureDefinition.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "World/WEPlaceholderVisuals.h"
 
@@ -377,6 +378,7 @@ void AWEWorkbench::CompleteActiveStep()
 		DeliverOutputs(Outputs, Worker);
 		RaiseEvent(EWEWorkbenchEvent::Finished);
 		if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::DisassemblyFinished); }
+		if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this)) { Milestones->AddCount(EWEMilestoneKind::DevicesDisassembled); }
 		if (AWEPlayerController* PC = Cast<AWEPlayerController>(Worker->GetController()))
 		{
 			PC->ClientShowMessage(FText::Format(LOCTEXT("FinishedMsg", "Vollständig zerlegt: {0}"), Name));
@@ -964,6 +966,7 @@ void AWEWorkbench::CompleteRepairStep(AWECharacter* Worker)
 			Message = FText::Format(LOCTEXT("TestPassed", "Funktionstest bestanden: {0} läuft wieder ({1}, Qualität {2} %)"),
 				Name, WEItems::GetConditionText(Item.Condition), FText::AsNumber(Item.Quality));
 			UE_LOG(LogWENet, Log, TEXT("%s: %s repaired"), *GetName(), *Name.ToString());
+			if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this)) { Milestones->AddCount(EWEMilestoneKind::DevicesRepaired); }
 			if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::DisassemblyFinished); }
 		}
 		else

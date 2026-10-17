@@ -76,9 +76,10 @@ MACHINES = {
     "MD_Sorter": dict(
         name="Sortiermaschine", power=4.0, idle=0.3, bulky=False, in_slots=8, in_kg=150.0, out_slots=12, out_kg=200.0, wear=2.0,
         recipes=[
+            # Phase 16: richer fractions - machines must pay off at volume (see Saved/Balance/ProgressionCurve.md).
             recipe("Schreddergut Elektronik sortieren", [
                 out("ElectronicScrap", 3, 5), out("SteelScrap", 2, 3), out("PlasticParts", 1, 2),
-                out("CopperGranulate", 1, 1, chance=0.5), out("AluminiumScrap", 1, 1, chance=0.25)],
+                out("CopperGranulate", 1, 2, chance=0.8), out("AluminiumScrap", 1, 1, chance=0.5)],
                 input_item="ShredElectronics", quantity=5, base_s=6.0),
             recipe("Schreddergut Metall sortieren", [
                 out("SteelScrap", 3, 4), out("AluminiumScrap", 1, 1, chance=0.6), out("CopperGranulate", 1, 1, chance=0.4),
@@ -108,6 +109,14 @@ MACHINES = {
             recipe("Aluminium schmelzen", [out("AluminiumIngot", 2, new=True)], input_item="AluminiumScrap", quantity=10, base_s=20.0),
             recipe("Kupfer schmelzen", [out("CopperIngot", 2, new=True)], input_item="CopperGranulate", quantity=20, base_s=25.0),
         ]),
+    # Phase 16: endgame chain in the factory - electronic scrap (from the sorter and CRTs) becomes precious-metal concentrate.
+    "MD_Refinery": dict(
+        name="Edelmetall-Rückgewinnung", power=12.0, idle=0.8, bulky=False, in_slots=8, in_kg=120.0, out_slots=6, out_kg=60.0, wear=2.0,
+        recipes=[
+            recipe("Platinen aufschließen", [out("PreciousConcentrate", 1, new=True), out("CopperGranulate", 2)],
+                   input_item="ElectronicScrap", quantity=20, base_s=30.0),
+            recipe("Goldkontakte lösen", [out("PreciousConcentrate", 2, new=True)], input_item="GoldCpu", quantity=1, base_s=20.0),
+        ]),
     "MD_Packer": dict(
         name="Verpackungsanlage", power=3.0, idle=0.3, bulky=False, in_slots=6, in_kg=150.0, out_slots=4, out_kg=200.0, wear=1.0,
         recipes=[
@@ -133,6 +142,8 @@ FEEDBACK = {
     "MD_Furnace": dict(running=(FX.SMOKE, (0, 0, 280)), second=(FX.EMBERS, (105, 0, 95)), cycle=(FX.STEAM, (110, 0, 70)),
                        loop="SFX_FurnaceLoop", cycle_sound="SFX_PourSizzle", shake=0.0),
     "MD_Packer": dict(cycle=(FX.DUST, (85, 0, 40)), loop="SFX_MotorLoop", cycle_sound="SFX_Strap", shake=0.15),
+    "MD_Refinery": dict(running=(FX.STEAM, (0, 0, 250)), second=(FX.EMBERS, (100, 0, 90)), cycle=(FX.SPARKS, (100, 0, 70)),
+                        loop="SFX_FurnaceLoop", cycle_sound="SFX_PourSizzle", shake=0.1),
 }
 
 kit = item("MaintenanceKit")

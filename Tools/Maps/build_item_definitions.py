@@ -237,6 +237,11 @@ ITEMS = [
      "10 Verlängerungskabel in Kartons auf einer Palette.",
      C.PRODUCT, 12.0, 10000, False, 1, False, False, T.NONE, 1.0, CUBE, (0.80, 0.80, 0.45), (0.72, 0.70, 0.62),
      [(M.COPPER, 5.0), (M.PLASTIC, 5.0)]),
+    # Phase 16: product of the precious-metal recovery in the factory (endgame chain for electronic scrap).
+    ("PreciousConcentrate", "PreciousConcentrate", "Edelmetallkonzentrat",
+     "Ein Kilo Konzentrat aus Gold, Silber und Palladium, aus Platinenschrott gewonnen. Scheideanstalten zahlen sehr gut.",
+     C.RAW_MATERIAL, 1.0, 6500, True, 20, True, False, T.NONE, 1.0, CUBE, (0.12, 0.12, 0.08), (0.80, 0.68, 0.30),
+     [(M.PRECIOUS_METAL, 0.05), (M.COPPER, 0.9)]),
 ]
 
 CARRY_BONUS = {"HandTruck": 30.0}
@@ -388,7 +393,7 @@ SURFACE_ITEMS = {
     "PowerSupply": S.PAINTED_METAL, "SteelScrap": S.RUSTY_METAL, "ShredMetal": S.RUSTY_METAL, "SteelBale": S.RUSTY_METAL,
     "AluBale": S.TREAD_PLATE, "CopperBale": S.PAINTED_METAL, "AluminiumIngot": S.PAINTED_METAL, "CopperIngot": S.PAINTED_METAL,
     "AluminiumScrap": S.TREAD_PLATE, "SteelBracketSet": S.TREAD_PLATE, "CopperWireSpool": S.PAINTED_METAL,
-    "PalletBrackets": S.OSB, "PalletCables": S.OSB, "VintageRadio": S.PLYWOOD,
+    "PalletBrackets": S.OSB, "PalletCables": S.OSB, "VintageRadio": S.PLYWOOD, "PreciousConcentrate": S.PAINTED_METAL,
 }
 for suffix, (da, path) in items.items():
     if suffix in MODEL_ITEMS:

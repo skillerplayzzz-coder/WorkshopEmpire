@@ -106,6 +106,7 @@ protected:
 	void LogExpansion(const TCHAR* Step) const;
 	class AWEGarageDoor* FindDoorNear(const FVector& Point) const;
 	void RunExpansionShots();
+	void RunBalanceShots();
 	void RunSmokeRoleW();
 	void RunSmokeRoleX();
 

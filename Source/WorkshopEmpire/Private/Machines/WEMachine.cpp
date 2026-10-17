@@ -1,4 +1,5 @@
 #include "Machines/WEMachine.h"
+#include "Progression/WEMilestoneComponent.h"
 
 #include "Components/AudioComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -480,6 +481,7 @@ void AWEMachine::CompleteCycle()
 	Progress = 0.f;
 	Status.RecipeIndex = INDEX_NONE;
 	++Status.CycleCounter;
+	if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this)) { Milestones->AddCount(EWEMilestoneKind::MachineCycles); }
 	Status.Maintenance = static_cast<uint8>(FMath::Max(0, FMath::RoundToInt32(Status.Maintenance - MachineDefinition->WearPerCycle)));
 	SetState(Status.Maintenance == 0 ? EWEMachineState::NeedsMaintenance : EWEMachineState::Idle);
 	ForceNetUpdate();

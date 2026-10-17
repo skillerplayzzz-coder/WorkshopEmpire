@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.16.0] – 2026-10-17 – Phase 16: Balancing und Langzeitmotivation
+
+### Neu
+- Größere Abholtouren für größere Firmen: Elektroschrott-Container (ab Große Werkstatt), Kabel- und Motorenschrott und Großauflösung Bürogebäude (ab Gewerbehalle), Fabrikauflösung (ab Fabrik). Gesperrte Touren zeigen "Benötigt Stufe …". Manchmal ist ein Sammlerstück dabei.
+- Lkw mit Ladekran (12.000 €, nach der Gewerbehalle): 40 Plätze, 3 t, Touren 2,4-mal so schnell.
+- Edelmetall-Rückgewinnung (9.000 €, Fabrikhalle): macht aus Elektronikschrott Edelmetallkonzentrat, aus Keramik-Prozessoren ebenfalls.
+- 14 neue Aufträge: aufbereitete PCs, Netzteile, Elektromotoren, Sammleraufträge für jedes Sammlerstück, Schulausstattung, Kupferdrahtspulen, Aluminiumballen und -barren, Edelmetallkonzentrat, Kabelpaletten, Großprojekte ab Stufe 5.
+- Meilensteine: 31 Ziele für die ganze Firma (Zerlegen, Reparieren, Aufträge, Maschinen, Touren, Umsatz, Stufen, Personal, Sammlerstücke, Firmenwert bis 1 Mio. €) mit Prämie aufs Firmenkonto und Meldung an alle; Fortschritt im Reiter "Unternehmen".
+
+### Balancing
+- Langzeit-Playtest als Simulation über 60 Stunden auf den echten Spieldaten. Vorher blieb das Einkommen ab Stunde 6 bei ~900 €/h stehen; jetzt (allein) Große Werkstatt nach ~10 h, Gewerbehalle ~18 h, Fabrik ~32 h, Industrieunternehmen ~45 h. Zu zweit schneller.
+- Sortiermaschine gewinnt mehr Kupfer und Aluminium aus Elektronik.
+- Transporter 2.000 € (vorher 2.400 €), Werkstatt-Erweiterung 5.000 € (vorher 6.000 €), Fabrikhalle 75.000 € (vorher 90.000 €).
+
+### Behoben
+- Der Firmenwagen stand seit 0.15.0 in der Garage statt vor dem Tor.
+- Stufen-Meilensteine kommen sofort beim Kauf.
+- Fahrzeug zeigt "3000 kg" statt "3,000 kg".
+
+### Technisch
+- `UWEMilestoneComponent` am GameState (Statistik, Meilensteine, repliziert), Katalog `DA_MilestoneCatalog`; Speicherversion 13.
+- Touren mit `MinTier`, Tourposten mit `Chance`; dritte Fahrzeugstufe (`TruckStats`).
+- Test `WorkshopEmpire.Balance.ProgressionCurve` (Simulation, Bericht `Saved/Balance/ProgressionCurve.md`, schlägt fehl, wenn die Kurve die Zielfenster verlässt) und 2 weitere neue Tests (insgesamt 106); Screenshot-Lauf P16. Doku: `Docs/BALANCING.md`.
+
 ## [0.15.0] – 2026-10-17 – Phase 15: Grafik und Atmosphäre
 
 ### Neu

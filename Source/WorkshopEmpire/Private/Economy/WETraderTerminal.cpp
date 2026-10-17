@@ -21,6 +21,7 @@
 #include "WELog.h"
 #include "World/WEPlaceholderVisuals.h"
 #include "World/WESurface.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Progression/WEUpgradeDefinition.h"
 
@@ -362,6 +363,7 @@ EWETradeResult AWETraderTerminal::SellFromInventory(AWECharacter* Character, UWE
 	Company->Deposit(Price, FString::Printf(TEXT("Verkauf: %s an %s"), *What, *Trader->DisplayName.ToString()), PlayerNameOf(Character));
 	Notify(Character, FText::FromString(FString::Printf(TEXT("+%s  für %s"), *Price.ToDisplayString(), *What)));
 	UE_LOG(LogWENet, Log, TEXT("%s sold %s for %s"), *Character->GetName(), *What, *Price.ToDisplayString());
+	if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this)) { Milestones->AddRareFind(Removed.Definition); }
 	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemSold); }
 	return EWETradeResult::Success;
 }
@@ -401,6 +403,7 @@ EWETradeResult AWETraderTerminal::SellHeldItem(AWECharacter* Character, const FG
 	Company->Deposit(Price, FString::Printf(TEXT("Verkauf: %s an %s"), *What, *Trader->DisplayName.ToString()), PlayerNameOf(Character));
 	Notify(Character, FText::FromString(FString::Printf(TEXT("+%s  für %s"), *Price.ToDisplayString(), *What)));
 	UE_LOG(LogWENet, Log, TEXT("%s sold carried %s for %s"), *Character->GetName(), *What, *Price.ToDisplayString());
+	if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this)) { Milestones->AddRareFind(Item.Definition); }
 	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemSold); }
 	return EWETradeResult::Success;
 }

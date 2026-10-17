@@ -32,6 +32,7 @@
 #include "Workshop/WEBuildComponent.h"
 #include "Workshop/WEFurnitureDefinition.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
+#include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Machines/WEMachine.h"
 #include "Machines/WEMachineDefinition.h"
@@ -179,6 +180,10 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("SH") || Role == TEXT("SC"))
 	{
 		RunSteamRole();
+	}
+	else if (ShotName.StartsWith(TEXT("P16")))
+	{
+		RunBalanceShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P15")))
 	{
@@ -2369,6 +2374,93 @@ void UWEDevAutomationComponent::LogExpansion(const TCHAR* Step) const
 		*FString::Join(Buildings, TEXT(" ")), *FString::Join(Books, TEXT(" ")), *FString::Join(Orders, TEXT(" ")),
 		Furnace ? TEXT("placed") : TEXT("-"), Furnace ? *Furnace->GetStatusText().ToString() : TEXT(""),
 		Furnace && Furnace->GetOutputStorage() ? Furnace->GetOutputStorage()->CountItems(UWEItemDefinition::FindById(TEXT("AluminiumIngot"))) : 0);
+}
+
+void UWEDevAutomationComponent::RunBalanceShots()
+{
+	// Phase 16: tiered tours, the truck, the refinery in the factory, new orders and the milestones.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	auto Terminal = [this]() { return const_cast<AWETraderTerminal*>(FindTerminal()); };
+	auto Van = [this]() { TActorIterator<AWEVehicle> It(GetWorld()); return It ? *It : nullptr; };
+	auto SelectTour = [Van](const TCHAR* Id)
+	{
+		AWEVehicle* V = Van();
+		for (int32 i = 0; V && i < 12 && V->GetSelectedTour() != FName(Id); ++i)
+		{
+			V->CycleTour();
+		}
+	};
+	auto LogVan = [Van](const TCHAR* Step)
+	{
+		if (const AWEVehicle* V = Van())
+		{
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("BALANCE %s: %s speed=%.1f slots=%d tour=%s block=\"%s\" at %s hidden=%d"), Step, *V->GetStats().DisplayName.ToString(),
+				V->GetStats().TourSpeed, V->GetStats().CargoSlots, *V->GetSelectedTour().ToString(), *V->GetStartBlockReason().ToString(), *V->GetActorLocation().ToString(), V->IsHidden() ? 1 : 0);
+		}
+	};
+	Schedule(3.0f, [this, PC]() { if (PC) { PC->ServerDevAddMoney(200000); } TeleportToTerminal(0.f); });
+	Schedule(4.0f, [this]() { BuyUpgradeAtTerminal(TEXT("OldVan")); BuyUpgradeAtTerminal(TEXT("WorkshopExtension")); });
+	// The van with the big office clearance selected: still locked at tier 2.
+	Schedule(5.0f, [PC, SelectTour]() { SelectTour(TEXT("PickupOfficeClearance")); if (PC) { PC->ServerDevTeleport(FVector(760.f, -470.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(5.8f, [this, Interaction, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(0.f, 0.f, 110.f)); } if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->ToggleExamine(); } });
+	Schedule(6.8f, [this, LogVan]() { Shot(TEXT("01_Tour_gesperrt")); LogVan(TEXT("tier 2")); });
+	Schedule(7.2f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CloseExamine(); } });
+	// Hall, truck and factory.
+	Schedule(7.5f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(8.5f, [this]() { BuyUpgradeAtTerminal(TEXT("CommercialHall")); BuyUpgradeAtTerminal(TEXT("Truck")); BuyUpgradeAtTerminal(TEXT("FactoryHall")); });
+	Schedule(9.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(760.f, -470.f, 100.f), FRotator(0.f, 90.f, 0.f)); } });
+	Schedule(10.3f, [this, Interaction, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(0.f, 0.f, 110.f)); } if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->ToggleExamine(); } });
+	Schedule(11.3f, [this, LogVan]() { Shot(TEXT("02_Lkw")); LogVan(TEXT("tier 4 with truck")); });
+	Schedule(11.7f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CloseExamine(); } });
+	// The refinery in the factory, fed with electronic scrap.
+	Schedule(12.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(880.f, 1650.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(12.5f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindDoorNear(FVector(990.f, 1650.f, 0.f))); } });
+	Schedule(14.5f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1200.f, 1650.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(15.0f, [this]()
+	{
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			PlaceFurnitureAt(TEXT("Refinery"), 1500.f, 1300.f, 0.f);
+			LogFurniture(TEXT("BALANCE refinery placed"));
+			B->SetBuildMode(false);
+		}
+	});
+	Schedule(16.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(1300.f, 1300.f, 100.f), FRotator::ZeroRotator); PC->ServerDevGiveItem(TEXT("ElectronicScrap"), 40, EWEItemCondition::Used); } });
+	Schedule(17.0f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("ElectronicScrap"), FindMachine(TEXT("Refinery")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Refinery"))); }
+	});
+	Schedule(19.0f, [this, Interaction]() { if (AWEMachine* M = FindMachine(TEXT("Refinery"))) { LookAt(M); } if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->ToggleExamine(); } });
+	Schedule(20.0f, [this]() { Shot(TEXT("03_Edelmetall")); });
+	Schedule(20.5f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->CloseExamine(); } });
+	Schedule(52.0f, [this]()
+	{
+		const AWEMachine* M = FindMachine(TEXT("Refinery"));
+		FString Out;
+		for (const FWEInventorySlotData& Slot : M ? M->GetOutputStorage()->GetAllSlots() : TArray<FWEInventorySlotData>())
+		{
+			Out += FString::Printf(TEXT("%s x%d, "), *Slot.Item.GetDisplayName().ToString(), Slot.Item.Quantity);
+		}
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("BALANCE refinery output: %s"), *Out);
+	});
+	// Orders and milestones at the terminal.
+	Schedule(53.0f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(54.0f, [Interaction, Terminal]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(Terminal()); } });
+	Schedule(54.5f, [PC]() { if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(0); } });
+	Schedule(55.5f, [this]() { Shot(TEXT("04_Auftraege")); });
+	Schedule(56.0f, [PC]() { if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(3); } });
+	Schedule(57.0f, [this]()
+	{
+		Shot(TEXT("05_Meilensteine"));
+		if (const UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this))
+		{
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("BALANCE milestones %d reached, machine cycles %d"), Milestones->GetCompleted().Num(), Milestones->GetStats().MachineCycles);
+		}
+	});
+	Schedule(58.5f, [this]() { Quit(); });
 }
 
 void UWEDevAutomationComponent::RunExpansionShots()

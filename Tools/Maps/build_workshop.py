@@ -85,6 +85,9 @@ ITEMS = [
               (120, 400, 450), (0.25, 0.35, 0.55), storage=("Hochregal", 40, 1000.0), requires="CommercialHall"),
     furniture("BigMaterialStore", "Großes Materiallager", "Gitterboxlager für die Halle: 60 Plätze, 1.500 kg, auch Paletten und Ballen.", 900, P.CRATE,
               (200, 240, 100), (0.30, 0.45, 0.25), storage=("Großes Materiallager", 60, 1500.0), production_storage=True, requires="CommercialHall"),
+    # Phase 16: endgame machine - needs the factory hall (industrial power connection).
+    furniture("Refinery", "Edelmetall-Rückgewinnung", "Schließt Platinenschrott auf: 20 Elektronikschrott → Edelmetallkonzentrat und Kupfergranulat. 12 kW – nur in der Fabrikhalle.", 9000, P.MACHINE,
+              (180, 220, 230), (0.55, 0.50, 0.20), machine="MD_Refinery", requires="FactoryHall"),
 ]
 
 path = f"{FOLDER}/{NAME}"
@@ -130,6 +133,7 @@ VISUALS = {
     "Assembler": (None, 0.0, False, [deco("power_box_01", (0, -85, 110), (0, -90, 0), 0.7)]),
     "Packer": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.8)]),
     "Furnace": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.9), deco("propane_tank", (-70, -110, 0))]),
+    "Refinery": (None, 0.0, False, [deco("power_box_01", (0, -115, 120), (0, -90, 0), 0.8), deco("Barrel_01", (-60, -125, 0))]),
 }
 for f in ITEMS:
     fid = str(f.get_editor_property("id"))
