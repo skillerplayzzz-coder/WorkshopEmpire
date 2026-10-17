@@ -26,6 +26,8 @@
 #include "Items/WEPickupItem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/WEInputConfig.h"
+#include "Player/WEMannequin.h"
+#include "Player/WEFootstepComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 
@@ -57,16 +59,10 @@ AWECharacter::AWECharacter()
 	HoldPoint->SetupAttachment(FirstPersonCamera);
 	HoldPoint->SetRelativeLocation(FVector(75.f, 22.f, -28.f));
 
-	BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
-	BodyMesh->SetupAttachment(GetCapsuleComponent());
-	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	BodyMesh->SetOwnerNoSee(true);
-	BodyMesh->SetRelativeScale3D(FVector(0.65f, 0.65f, 1.76f));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	if (CylinderMesh.Succeeded())
-	{
-		BodyMesh->SetStaticMesh(CylinderMesh.Object);
-	}
+	// Animated body for the other players (Phase 15); the own player sees through the camera only.
+	WEMannequin::Configure(GetMesh(), 88.f);
+	CreateDefaultSubobject<UWEFootstepComponent>(TEXT("Footsteps"));
+	GetMesh()->SetOwnerNoSee(true);
 
 	InteractionComponent = CreateDefaultSubobject<UWEInteractionComponent>(TEXT("InteractionComponent"));
 	BuildComponent = CreateDefaultSubobject<UWEBuildComponent>(TEXT("BuildComponent"));
@@ -94,9 +90,30 @@ void AWECharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AWECharacter, Forklift);
 }
 
+void AWECharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	ApplyPlayerLook();
+}
+
+void AWECharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	ApplyPlayerLook();
+}
+
+void AWECharacter::ApplyPlayerLook()
+{
+	// Player number decides body and clothes colour, the same on every machine.
+	const int32 Index = GetPlayerState() ? GetPlayerState()->GetPlayerId() : 0;
+	WEMannequin::ApplyBody(GetMesh(), Index % 2 == 1);
+	WEMannequin::Tint(GetMesh(), WEMannequin::PlayerColor(Index));
+}
+
 void AWECharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	ApplyPlayerLook();
 	CurrentCameraHeight = BaseEyeHeight;
 	UpdateMovementSpeed();
 }

@@ -1,4 +1,5 @@
 #include "Workshop/WEWorkbench.h"
+#include "Fx/WEFx.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -555,6 +556,11 @@ void AWEWorkbench::OnRep_Work()
 	if (Work.LastEvent == EWEWorkbenchEvent::StepCompleted || Work.LastEvent == EWEWorkbenchEvent::Finished)
 	{
 		FlashUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + WEWorkbenchConst::FlashSeconds : 0.f;
+		// A little dust and a few bits fly when a part comes off (more at the end).
+		const FVector At = WorkPoint->GetComponentLocation() + FVector(0.f, 0.f, 15.f);
+		const float FxScale = Work.LastEvent == EWEWorkbenchEvent::Finished ? 1.f : 0.5f;
+		AWEFx::Burst(this, EWEFxKind::Dust, At, FVector::UpVector, FLinearColor::White, FxScale);
+		AWEFx::Burst(this, EWEFxKind::Chips, At, FVector::UpVector, FLinearColor(0.35f, 0.36f, 0.38f), 0.35f * FxScale);
 	}
 	PlayEventSound(Work.LastEvent);
 }

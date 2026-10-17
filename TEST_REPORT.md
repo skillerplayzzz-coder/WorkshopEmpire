@@ -17,6 +17,53 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 15 – Lauf vom 2026-10-17
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development) | ✅ 0 Warnungen/Fehler im Projektcode |
+| Asset-Download (`download_assets.py`) | ✅ 291,9 MB, 53 Modelle, 14 Texturen, 2 Soundpakete, nichts fehlgeschlagen |
+| Asset-Import (`import_assets.py`) | ✅ 51 Modelle, 14 Oberflächen, 108 Sounds; ❌ `bench_vice_01`, `rusted_wheel_rim_01` (glTF-Import liefert kein Mesh, werden nicht verwendet) |
+| Automation-Suite `WorkshopEmpire` (headless, `-nosteam`) | ✅ **103/103 bestanden, 0 mit Warnungen** (98 alte + 5 neue), Bericht `Saved/TestReports/Phase15_full2/index.json` |
+| ↳ `Visual.ParticleBurstsAndLoops` (Funken-Burst als Instanzen mit Glühmaterial, räumt sich selbst auf; Dauer-Effekt folgt der Maschine, Rauch steigt, blendet beim Ausschalten aus und bleibt für den nächsten Lauf) | ✅ |
+| ↳ `Visual.Surfaces` (Pfad der Oberflächen-Instanz, Platzhalter behält den alten Look) | ✅ |
+| ↳ `Visual.MachineFeedbackData` (Schmelzofen raucht am Kamin und glüht an der Öffnung, Maschinengeräusche werden mit Entfernung leiser, Umgebungsgeräusche laufen in Schleife) | ✅ |
+| ↳ `Visual.AnimatedCharacters` (Spieler: Mannequin mit Lauf-Animation, eigener Körper in der Ego-Sicht unsichtbar, Füße am Boden, Schritte; Mitarbeiter ebenso, Kleidung in der Rollenfarbe) | ✅ |
+| ↳ `Visual.GraphicsQuality` (Stufe setzen, Beschriftung "Grafik: Mittel", Episch → Niedrig, Begrenzung, Namen) | ✅ |
+| Angepasst: `Logistics.VanTours` (Wagen fährt jetzt sichtbar ab: Kollision sofort aus, Sichtbarkeit nach der Fahrt) | ✅ |
+| **Grafik-Durchlauf mit Screenshots** (`-WEShots=P15`, mehrere Durchgänge, jeder Screenshot angesehen) | ✅ Werkstatt, Werkbank, Maschinen, Hof, Blick durchs offene Tor, Mitarbeiter, Effekte, Hauptmenü. Dabei gefunden und behoben: siehe unten |
+| **Leistung** RTX 3060 / Ryzen 9 5900X, 1920×1080, Editor im Spielmodus (`-game`), Werte je Ansicht Werkstatt / Werkbank / Maschinen / Hof / Tor | Episch (volle Auflösung): 30 / 31 / 30 / 33 / 34 fps · **Hoch (neuer Standard, automatische Renderauflösung): 78 / 83 / 81 / 71 / 80 fps** · Mittel: 113–148 fps (ohne Lumen, Innenräume kühler) · Niedrig: 207–295 fps. Vor Phase 15 (ohne Lumen, Platzhalter): 49–58 fps |
+| **Regression** Netzwerktests A/B … W/X (Dedicated), I/J (Listen-Server), 4 Spieler über das Hauptmenü (MH/M1–M3/M5), Spielläufe P5–P14 inkl. P13+P13C gemeinsam | ✅ alle Abläufe wie zuvor (Upgrades, Inventar, Werkbank, Handel mit Doppelanfrage, Reparatur, Auktion, Möbel, Maschinen, Produktionslinie, Personal, Gebäude; Rückkehr mit Inventar, Absturz, Entfernen, 5. Spieler abgelehnt, Host beendet); Spielläufe 0 Fehler im Log |
+
+### Behobene Fehler in Phase 15
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Werkstatt überbelichtet, Decke schwarz | Lumen, Virtual Shadow Maps und erweiterter Belichtungsbereich waren nie aktiv (stehen nur in Epics Vorlagen) | In `DefaultEngine.ini` gesetzt, Licht in physikalischen Einheiten |
+| Oberflächen als graues Schachbrett | `M_WESurface` ließ sich nicht kompilieren: ARM-Parameter mit sRGB-Standardtextur | Lineare weiße Standardtextur, Sampler "Masks" |
+| Decke blieb schwarz, auch mit Licht | Die weltprojizierte Normale zeigt auf nach unten gerichteten Flächen nach oben | Normale im Material zur Flächennormale zurückgedreht; dazu ein schwaches Fülllicht je Röhre |
+| Rolltor stand quer im Tor und ragte offen als Balken in den Raum | Modell hing an der nicht-uniform skalierten Kollisionsplatte; die glTF-Datei enthält zwei Tor-Varianten nebeneinander | Modell an der Wurzel, rollt sich mit der Platte auf; Import übernimmt nur eine Variante |
+| Staubwolken als weiße Kugeln | Zu harte Ränder | Weicher Randverlauf (hoch 3) und Depth Fade |
+| Modelle doppelt benannt (`SM_SM_…`), Absturz beim zweiten Import | Merge setzt das Präfix selbst; Re-Import über geladene Assets | Basisname ohne Präfix; Import überspringt Vorhandenes |
+| Nanite-Warnungen (Feuerlöscher) | Transluzentes Glas auf Nanite-Mesh | Nanite für importierte Kleinteile aus |
+| Hauptmenü-Kulisse überbelichtet | Eigene Belichtungsgrenzen für eine Abendszene zu niedrig | Belichtung automatisch |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Klang angehört | Ich kann Audio nicht hören. Geprüft ist nur, dass Sounds existieren, zugeordnet sind, laufen (Log) und gedämpft werden. Die 19 Maschinen-/Umgebungsgeräusche sind synthetisch erzeugt – **Mikes Praxistest** |
+| Leistung als verpacktes Spiel | Gemessen im Editor-Spielmodus; ein verpacktes Spiel ist meist schneller |
+| Leistung mit allen Gebäuden voller Maschinen und Mitarbeiter | Messung nur in der Startgarage mit 3 Maschinen und einem Mitarbeiter |
+
+### Offene Probleme
+
+Keine Fehler bekannt. Grenzen: Maschinen sind weiter lackierte Blockkörper (es gibt keine passenden freien Modelle für Schredder/Presse), Figuren sind die Epic-Mannequins (keine Arbeitskleidung). Ca. 760 MB Content liegen ohne Git LFS im Repository.
+
+---
+
 ## Phase 13 + 14 – Lauf vom 2026-10-17
 
 ### Ausgeführt

@@ -117,6 +117,15 @@ protected:
 	void RunSteamRole();
 	void RunCoopShots();
 
+	// Phase 15: fixed camera views for the look (-WEShots=P15...).
+	void RunVisualShots();
+	void ShotFrom(float At, const FVector& From, const FVector& LookAt, const TCHAR* Name);
+	double PerfStart = 0.0;
+	uint64 PerfFrameStart = 0;
+	int32 PerfFrames = 0;
+	double PerfSeconds = 0.0;
+	double PerfGpuMs = 0.0;
+
 	// Phase 7: procurement scenarios (-WESmokeRole=M|N on a dedicated server, -WEShots=P7...)
 	void RunSmokeRoleM();
 	void RunSmokeRoleN();

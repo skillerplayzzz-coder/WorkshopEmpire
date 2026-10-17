@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "WEMoney.h"
 #include "World/WEPlaceholderProp.h"
+#include "Engine/StaticMesh.h"
 #include "WEFurnitureDefinition.generated.h"
 
 /** One buyable, placeable piece of workshop furniture (§14 "Werkstatteinrichtung"). */
@@ -66,6 +67,25 @@ struct WORKSHOPEMPIRE_API FWEFurnitureDefinition
 	/** Workbenches: work speed of this bench (1 = standard, a big bench works faster). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture", meta = (ClampMin = "0.1"))
 	float WorkSpeedMultiplier = 1.f;
+
+	/** Phase 15: modelled look instead of the box parts (fitted into Size; collision stays the boxes). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture|Visual")
+	TObjectPtr<UStaticMesh> VisualMesh;
+
+	/** Several copies side by side along the width (racks) instead of one model shrunk to fit. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture|Visual")
+	bool bTileVisual = false;
+
+	/** Extra yaw of the model (models face different ways). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture|Visual")
+	float VisualYaw = 0.f;
+
+	/** Further models placed on it (e.g. a vice on the workbench), relative to the floor centre. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture|Visual")
+	TArray<TObjectPtr<UStaticMesh>> DecoMeshes;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture|Visual")
+	TArray<FTransform> DecoTransforms;
 };
 
 /** All furniture the company can buy and place (one Data Asset: DA_FurnitureCatalog). */

@@ -1,6 +1,12 @@
 #include "Machines/WEMachine.h"
 
+#include "Components/AudioComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/World.h"
+#include "Fx/WEFx.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "TimerManager.h"
 #include "Framework/WEPlayerController.h"
 #include "GameFramework/GameStateBase.h"
 #include "Inventory/WEInventoryComponent.h"
@@ -46,6 +52,7 @@ void AWEMachine::BeginPlay()
 	{
 		Random.Initialize(FMath::Rand());
 	}
+	UpdateFeedback();
 }
 
 void AWEMachine::ApplyFurnitureExtras(const FWEFurnitureDefinition& Definition)
@@ -133,6 +140,124 @@ void AWEMachine::OnRep_Status()
 		LastHandledEvent = Status.EventCounter;
 		LocalSegmentStart = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 	}
+	UpdateFeedback();
+}
+
+void AWEMachine::UpdateFeedback()
+{
+	UWorld* World = GetWorld();
+	if (!World || GetNetMode() == NM_DedicatedServer || !MachineDefinition || !HasActorBegunPlay())
+	{
+		return;
+	}
+	const bool bRunning = Status.State == EWEMachineState::Running;
+	const FTransform& Xf = GetActorTransform();
+	if (!bFeedbackInitialised)
+	{
+		// First look at the state (joined or loaded): no start sound, no old cycle effect.
+		bFeedbackInitialised = true;
+		LastHandledCycle = Status.CycleCounter;
+	}
+	else if (Status.CycleCounter != LastHandledCycle)
+	{
+		LastHandledCycle = Status.CycleCounter;
+		const FVector At = Xf.TransformPosition(MachineDefinition->CycleFxOffset);
+		AWEFx::Burst(this, MachineDefinition->CycleFx, At, Xf.TransformVector(FVector(1.f, 0.f, 0.6f)).GetSafeNormal());
+		if (MachineDefinition->CycleSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, MachineDefinition->CycleSound, At);
+		}
+	}
+	if (bRunning)
+	{
+		World->GetTimerManager().ClearTimer(StopFeedbackTimer);
+		if (!bFeedbackRunning)
+		{
+			SetFeedbackRunning(true);
+		}
+	}
+	else if (bFeedbackRunning && !World->GetTimerManager().IsTimerActive(StopFeedbackTimer))
+	{
+		// Between two cycles the machine is idle for a moment: only stop if it stays that way.
+		World->GetTimerManager().SetTimer(StopFeedbackTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (Status.State != EWEMachineState::Running)
+			{
+				SetFeedbackRunning(false);
+			}
+		}), 0.75f, false);
+	}
+}
+
+void AWEMachine::SetFeedbackRunning(bool bRunning)
+{
+	UWorld* World = GetWorld();
+	if (!World || !MachineDefinition)
+	{
+		return;
+	}
+	bFeedbackRunning = bRunning;
+	if (USoundBase* Edge = bRunning ? MachineDefinition->StartSound.Get() : MachineDefinition->StopSound.Get())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Edge, GetActorLocation() + FVector(0.f, 0.f, 80.f));
+	}
+	if (MachineDefinition->RunningSound && !RunningAudio && bRunning)
+	{
+		RunningAudio = UGameplayStatics::SpawnSoundAttached(MachineDefinition->RunningSound, GetRootComponent(), NAME_None, FVector(0.f, 0.f, 80.f),
+			EAttachLocation::KeepRelativeOffset, true, 1.f, 1.f, 0.f, nullptr, nullptr, false);
+	}
+	if (RunningAudio)
+	{
+		if (bRunning) { RunningAudio->FadeIn(0.4f); } else { RunningAudio->FadeOut(0.6f, 0.f); }
+	}
+	if (bRunning)
+	{
+		if (!RunningFxActor && MachineDefinition->RunningFx != EWEFxKind::None)
+		{
+			RunningFxActor = AWEFx::Loop(GetRootComponent(), MachineDefinition->RunningFx, MachineDefinition->RunningFxOffset);
+		}
+		if (!SecondFxActor && MachineDefinition->SecondRunningFx != EWEFxKind::None)
+		{
+			SecondFxActor = AWEFx::Loop(GetRootComponent(), MachineDefinition->SecondRunningFx, MachineDefinition->SecondRunningFxOffset);
+		}
+	}
+	if (RunningFxActor) { RunningFxActor->SetEmitting(bRunning); }
+	if (SecondFxActor) { SecondFxActor->SetEmitting(bRunning); }
+	// The machine body trembles while it works (visual meshes only, not the collision).
+	if (MachineDefinition->RunningShake > 0.f)
+	{
+		UInstancedStaticMeshComponent* Visual = FindComponentByClass<UInstancedStaticMeshComponent>();
+		if (bRunning && Visual)
+		{
+			ShakeBase = Visual->GetRelativeLocation();
+			World->GetTimerManager().SetTimer(ShakeTimer, this, &AWEMachine::ShakeTick, 1.f / 30.f, true);
+		}
+		else if (!bRunning)
+		{
+			World->GetTimerManager().ClearTimer(ShakeTimer);
+			if (Visual) { Visual->SetRelativeLocation(ShakeBase); }
+		}
+	}
+}
+void AWEMachine::ShakeTick()
+{
+	UInstancedStaticMeshComponent* Visual = FindComponentByClass<UInstancedStaticMeshComponent>();
+	if (!Visual || !MachineDefinition || !GetWorld())
+	{
+		return;
+	}
+	const float T = GetWorld()->GetTimeSeconds();
+	const float A = MachineDefinition->RunningShake;
+	Visual->SetRelativeLocation(ShakeBase + FVector(FMath::Sin(T * 61.f) * A, FMath::Sin(T * 47.f + 1.3f) * A, FMath::Sin(T * 83.f) * A * 0.5f));
+}
+
+void AWEMachine::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Attached effects are separate actors: take them along.
+	if (RunningFxActor) { RunningFxActor->Destroy(); }
+	if (SecondFxActor) { SecondFxActor->Destroy(); }
+	if (GetWorld()) { GetWorld()->GetTimerManager().ClearTimer(ShakeTimer); GetWorld()->GetTimerManager().ClearTimer(StopFeedbackTimer); }
+	Super::EndPlay(EndPlayReason);
 }
 
 float AWEMachine::GetEfficiency() const
@@ -354,6 +479,7 @@ void AWEMachine::CompleteCycle()
 	Processing.Reset();
 	Progress = 0.f;
 	Status.RecipeIndex = INDEX_NONE;
+	++Status.CycleCounter;
 	Status.Maintenance = static_cast<uint8>(FMath::Max(0, FMath::RoundToInt32(Status.Maintenance - MachineDefinition->WearPerCycle)));
 	SetState(Status.Maintenance == 0 ? EWEMachineState::NeedsMaintenance : EWEMachineState::Idle);
 	ForceNetUpdate();

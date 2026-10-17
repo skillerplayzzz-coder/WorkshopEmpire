@@ -62,6 +62,7 @@ protected:
 	UFUNCTION() void HandleShowLoad();
 	UFUNCTION() void HandleShowJoin();
 	UFUNCTION() void HandleQuit();
+	UFUNCTION() void HandleGraphics();
 	UFUNCTION() void HandleBack();
 	UFUNCTION() void HandleSearchSteam();
 	UFUNCTION() void HandleSearchLAN();
@@ -72,6 +73,7 @@ protected:
 
 	UPROPERTY(Transient) TObjectPtr<UWidgetSwitcher> Pages;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ServiceText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> GraphicsText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> StatusText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MessageText;
 	UPROPERTY(Transient) TObjectPtr<UEditableTextBox> NameBox;
@@ -110,6 +112,7 @@ protected:
 	UFUNCTION() void HandleInvite();
 	UFUNCTION() void HandleSave();
 	UFUNCTION() void HandleLeave();
+	UFUNCTION() void HandleGraphics();
 	UFUNCTION() void HandleQuit();
 
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> SessionText;
@@ -118,6 +121,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> InfoText;
 	UPROPERTY(Transient) TObjectPtr<UButton> SaveButton;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> LeaveText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> GraphicsText;
 	FString LastSignature;
 	int32 ListedPlayers = 0;
 };

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "World/WESurface.h"
 #include "WEGarageBuilding.generated.h"
 
 class UInstancedStaticMeshComponent;
@@ -43,6 +44,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UInstancedStaticMeshComponent> RoofMeshes;
 
+	/** Phase 15: thin inner lining of the walls and the ceiling (own material, no collision). */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UInstancedStaticMeshComponent> InteriorMeshes;
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UInstancedStaticMeshComponent> CeilingMeshes;
+
 	UPROPERTY(EditAnywhere, Category = "Garage", meta = (Units = "cm"))
 	float InnerDepth = 800.f;
 
@@ -72,4 +80,13 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Garage")
 	FLinearColor RoofColor = FLinearColor(0.12f, 0.12f, 0.13f);
+
+	// --- Surfaces (Phase 15). Tints multiply the textures (white = as photographed). ---
+	UPROPERTY(EditAnywhere, Category = "Surfaces") EWESurface FloorSurface = EWESurface::ConcreteFloor;
+	UPROPERTY(EditAnywhere, Category = "Surfaces") EWESurface WallSurface = EWESurface::Brick;
+	UPROPERTY(EditAnywhere, Category = "Surfaces") FLinearColor WallTint = FLinearColor::White;
+	UPROPERTY(EditAnywhere, Category = "Surfaces") EWESurface InteriorSurface = EWESurface::PaintedWall;
+	UPROPERTY(EditAnywhere, Category = "Surfaces") FLinearColor InteriorTint = FLinearColor(0.9f, 0.93f, 0.97f);
+	UPROPERTY(EditAnywhere, Category = "Surfaces") EWESurface CeilingSurface = EWESurface::PaintedWall;
+	UPROPERTY(EditAnywhere, Category = "Surfaces") EWESurface RoofSurface = EWESurface::RoofMetal;
 };

@@ -321,7 +321,8 @@ bool FWEStaffVanTest::RunTest(const FString& Parameters)
 	}
 	const int64 Start = F.Company->GetBalance().GetCents();
 	TestTrue(TEXT("Start"), Van->StartTour(F.Player));
-	TestTrue(TEXT("Van away"), Van->IsAway() && Van->IsHidden());
+	// Phase 15: it drives off visibly first (animation), but blocks nobody from the start.
+	TestTrue(TEXT("Van away"), Van->IsAway() && !Van->GetActorEnableCollision());
 	TestEqual(TEXT("Driver on tour"), Driver->GetState(), EWEEmployeeState::Away);
 	TestEqual(TEXT("Fuel paid"), Start - F.Company->GetBalance().GetCents(), SellRun->FuelCost.GetCents());
 	F.Run(SellRun->Minutes * 60.f - 5.f);

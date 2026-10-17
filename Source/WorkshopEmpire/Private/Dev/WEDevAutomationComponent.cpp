@@ -43,6 +43,10 @@
 #include "Logistics/WEVehicle.h"
 #include "Logistics/WEForklift.h"
 #include "World/WEGarageBuilding.h"
+#include "Fx/WEFx.h"
+#include "Engine/GameViewportClient.h"
+#include "RHI.h"
+#include "HAL/PlatformTime.h"
 #include "Framework/WEMenuGameMode.h"
 #include "Framework/WEGameMode.h"
 #include "Online/WESessionSubsystem.h"
@@ -175,6 +179,10 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("SH") || Role == TEXT("SC"))
 	{
 		RunSteamRole();
+	}
+	else if (ShotName.StartsWith(TEXT("P15")))
+	{
+		RunVisualShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P13")))
 	{
@@ -2780,4 +2788,87 @@ void UWEDevAutomationComponent::RunCoopShots()
 		Schedule(10.f, [this]() { Shot(TEXT("07_Pausemenue_Mitspieler")); LogCoop(TEXT("client pause")); });
 		Schedule(10.5f, [PC]() { if (PC) { PC->ClosePauseMenu(); } });
 	}
+}
+
+// --- Phase 15: fixed views for the look -----------------------------------------------------------
+
+void UWEDevAutomationComponent::ShotFrom(float At, const FVector& From, const FVector& Target, const TCHAR* Name)
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const FString ShotLabel(Name);
+	Schedule(At, [PC, From]() { if (PC) { PC->ServerDevTeleport(From, FRotator::ZeroRotator); } });
+	Schedule(At + 0.6f, [this, Target]() { LookAtPoint(Target); });
+	// Give exposure adaptation and Lumen a moment after the teleport; measure frame times meanwhile.
+	Schedule(At + 1.5f, [this]() { PerfFrames = 0; PerfSeconds = 0.0; PerfGpuMs = 0.0; PerfStart = FPlatformTime::Seconds(); PerfFrameStart = GFrameCounter; });
+	Schedule(At + 3.f, [this, ShotLabel]()
+	{
+		const double Seconds = FPlatformTime::Seconds() - PerfStart;
+		const uint64 Frames = GFrameCounter - PerfFrameStart;
+		const double GpuMs = FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles());
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF %s: %.1f fps (%.2f ms/frame), GPU %.2f ms, %d x %d"), *ShotLabel,
+			Frames / FMath::Max(Seconds, 0.001), Seconds * 1000.0 / FMath::Max<uint64>(Frames, 1), GpuMs,
+			GEngine && GEngine->GameViewport ? (int32)GEngine->GameViewport->Viewport->GetSizeXY().X : 0, GEngine && GEngine->GameViewport ? (int32)GEngine->GameViewport->Viewport->GetSizeXY().Y : 0);
+		Shot(ShotLabel);
+	});
+}
+
+void UWEDevAutomationComponent::RunVisualShots()
+{
+	// Furnished workshop with machines, a worker and a second "player" mannequin, then fixed views.
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	Schedule(2.0f, [this, PC]()
+	{
+		if (PC) { PC->ServerDevAddMoney(20000); PC->ServerDevTeleport(FVector(40.f, -60.f, 100.f), FRotator(0.f, 90.f, 0.f)); }
+	});
+	Schedule(3.0f, [this]()
+	{
+		if (UWEBuildComponent* B = GetBuild())
+		{
+			B->SetBuildMode(true);
+			PlaceFurnitureAt(TEXT("Shredder"), -20.f, 210.f, -90.f);
+			PlaceFurnitureAt(TEXT("Press"), 310.f, 200.f, -90.f);
+			PlaceFurnitureAt(TEXT("Conveyor"), 140.f, 205.f, 0.f);
+			B->SetBuildMode(false);
+		}
+	});
+	Schedule(3.5f, [this, PC]()
+	{
+		BuyUpgradeAtTerminal(TEXT("LedLights"));
+		if (PC) { PC->RequestHire(const_cast<AWETraderTerminal*>(FindTerminal()), 0); }
+		if (PC) { PC->ServerDevGiveItem(TEXT("OldComputer"), 1, EWEItemCondition::Defective); }
+	});
+	// Feed the shredder and the press and switch them on (effects, sounds, shaking).
+	auto Interaction = [this]() { AWECharacter* C = GetCharacter(); return C ? C->GetInteractionComponent() : nullptr; };
+	Schedule(4.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(150.f, 80.f, 100.f), FRotator::ZeroRotator); PC->ServerDevGiveItem(TEXT("SteelScrap"), 20, EWEItemCondition::Used); } });
+	Schedule(4.5f, [this, PC]() { TransferToMachine(TEXT("SteelScrap"), FindMachine(TEXT("Press"))); if (PC) { PC->ServerDevGiveItem(TEXT("SteelScrap"), 20, EWEItemCondition::Used); } });
+	Schedule(5.0f, [this, Interaction]()
+	{
+		TransferToMachine(TEXT("SteelScrap"), FindMachine(TEXT("Shredder")));
+		if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(FindMachine(TEXT("Shredder"))); I->RequestAlternativeInteractWith(FindMachine(TEXT("Press"))); }
+	});
+	ShotFrom(5.5f, FVector(330.f, -230.f, 100.f), FVector(-250.f, 120.f, 80.f), TEXT("01_Werkstatt"));
+	ShotFrom(9.f, FVector(-150.f, -60.f, 100.f), FVector(-355.f, 0.f, 95.f), TEXT("02_Werkbank"));
+	ShotFrom(13.f, FVector(120.f, -120.f, 100.f), FVector(150.f, 210.f, 70.f), TEXT("03_Maschinen"));
+	ShotFrom(17.f, FVector(1150.f, -520.f, 120.f), FVector(0.f, 0.f, 120.f), TEXT("04_Hof"));
+	Schedule(15.f, [this]() { if (AWEGarageDoor* Door = Cast<AWEGarageDoor>(FindDoor())) { Door->SetOpen(true); } }); // daylight through the open door
+	ShotFrom(21.f, FVector(-100.f, -150.f, 100.f), FVector(900.f, 0.f, 120.f), TEXT("05_Blick_hinaus"));
+	Schedule(25.f, [this]()
+	{
+		for (TActorIterator<AWEEmployee> It(GetWorld()); It; ++It) { LookAt(*It); break; }
+	});
+	Schedule(26.f, [this]() { Shot(TEXT("06_Mitarbeiter")); });
+	// All effect kinds side by side (one-shot bursts and short loops), photographed right after they start.
+	Schedule(27.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(120.f, -230.f, 100.f), FRotator::ZeroRotator); } });
+	Schedule(28.f, [this]() { LookAtPoint(FVector(120.f, 40.f, 70.f)); });
+	Schedule(29.f, [this]()
+	{
+		const EWEFxKind Kinds[] = { EWEFxKind::Sparks, EWEFxKind::Dust, EWEFxKind::Chips, EWEFxKind::Steam, EWEFxKind::Embers, EWEFxKind::Smoke };
+		for (int32 i = 0; i < 6; ++i)
+		{
+			AWEFx::Burst(this, Kinds[i], FVector(-80.f + i * 45.f, 40.f, 50.f), FVector(0.f, -0.4f, 1.f), FLinearColor::White, 1.f);
+		}
+	});
+	Schedule(29.25f, [this]() { Shot(TEXT("07_Effekte")); });
+	Schedule(29.7f, [this]() { Shot(TEXT("08_Effekte_spaeter")); });
+	Schedule(31.f, [this]() { Quit(); });
 }

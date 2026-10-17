@@ -8,7 +8,7 @@
 class UStaticMeshComponent;
 
 /**
- * Sectional garage door that slides up into the ceiling. Interact with [E] to open/close.
+ * Garage door (roller shutter; the collision panel slides up, the model rolls up). Interact with [E] to open/close.
  *
  * Only bIsOpen is replicated; every machine animates the panel locally with a short timer,
  * so there is no per-frame movement replication and no Tick.
@@ -42,6 +42,11 @@ protected:
 	void OnRep_IsOpen();
 
 	void ApplyTint();
+	/** Phase 15: roller shutter model riding on the (then invisible) collision panel. */
+	void ApplyShutterModel();
+	/** Rolls the shutter model up with the panel (visual only). */
+	void UpdateShutterVisual();
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ShutterVisual;
 	void StartMoving();
 	void StepMovement();
 	float GetTargetHeight() const;

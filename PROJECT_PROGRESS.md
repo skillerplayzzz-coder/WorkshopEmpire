@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 13 – Multiplayer-Integration und Phase 14 – Steam-Integration: abgeschlossen (auf Mikes Wunsch zusammen), warten auf Mikes Praxistest und Freigabe.**
-Phase 15 wurde nicht begonnen.
+**Phase 15 – Grafik und Atmosphäre: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
+Phase 16 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -115,13 +115,24 @@ Phase 15 wurde nicht begonnen.
 - Ohne Steam automatisch LAN/IP; Steam-Fehler werden als Meldung im Hauptmenü gezeigt
 - Entwicklung mit Valves Test-App 480; eigene App ID für die Veröffentlichung nötig
 
+### Phase 15 – Grafik und Atmosphäre (2026-10-17)
+- Beleuchtung neu: Lumen (globale Beleuchtung und Reflexionen), Virtual Shadow Maps, physikalische Lichtwerte (Sonne, Leuchtstoffröhren), Wolken, Dunst mit Lichtstrahlen, Augenanpassung zwischen Hof und Werkstatt
+- 51 kostenlose CC0-Modelle (Poly Haven) für Werkzeuge, Geräte, Regale, Kisten, Werkstattwagen, Rolltor, Hof-Deko; 14 echte Oberflächen (Ziegel, Beton, Putz, Wellblech, Asphalt, Metall, Holz); 108 CC0-Sounds (Kenney)
+- Animierte Figuren für Spieler (Spielerfarbe) und Mitarbeiter (Rollenfarbe) mit Schrittgeräuschen
+- Partikeleffekte: Staub, Späne, Funken, Rauch, Glut, Dampf, Schwebstaub; Maschinen mit Anlauf-/Lauf-/Auslaufgeräusch, Vibration und Effekten je Vorgang
+- Rolltor rollt sich auf, Firmenwagen fährt sichtbar los und zurück, Hauptmenü-Kulisse mit echten Modellen
+- Raumklang in der Werkstatt, draußen Wind und Vögel; Geräusche werden mit Entfernung leiser
+- Grafikqualität im Haupt- und Spielmenü (Niedrig/Mittel/Hoch/Episch), Standard "Hoch": 71–83 fps in 1080p auf RTX 3060
+- Lizenznachweis aller externen Assets in `Docs/ASSET_SOURCES.md`
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 13/14 – vor allem Steam mit einem Freund (Anleitung im Development Report)
+- Mike: Praxistest Phase 15 (Look und Klang, Leistung auf dem eigenen PC) und weiterhin Steam mit einem Freund (Phase 13/14)
 - Mike: eigene Steam App ID vor einer Veröffentlichung (GAME_DESIGN.md §7)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
-- Später: Git LFS vor großen Assets; Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Maschinengeräusche, Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, Fahrzeug sichtbar losfahren lassen, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, Balancing der Gebäudepreise (Phase 16)
+- Git LFS ist nicht installiert; seit Phase 15 liegen ca. 760 MB Content im normalen Git. Vor einem Remote-Repository LFS einrichten
+- Später: Remote-Repository für Backups
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, Balancing der Gebäudepreise (Phase 16); Grafik: eigene Maschinenmodelle statt lackierter Blöcke, Hängelampen in den Hallen, UI-Klickgeräusche und Aufprallgeräusche für Gegenstände (Kenney-Sounds sind schon importiert), Arbeitskleidung statt Mannequin-Optik
 
 ## Bekannte Fehler
 
@@ -129,8 +140,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 15 – Grafik und Atmosphäre (laut Spezifikation), erst nach Mikes Freigabe.
+Phase 16 – Balancing und Langzeitmotivation (laut Spezifikation), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-17 (Phase 13/14): 98/98 Automation-Tests, Netzwerktests A–X (Dedicated) und I/J (Listen-Server), 4 Spieler über das Hauptmenü (Gehen/Wiederkommen, Absturz, Entfernen, volles Spiel, Host beendet), Steam-Lobby und Einladen-Overlay, alle Spielläufe P5–P13 mit Screenshots geprüft.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-17 (Phase 15): 103/103 Automation-Tests, Grafik-Screenshots aller Ansichten geprüft, Leistung je Qualitätsstufe gemessen, Regression Netzwerktests A–X, I/J, 4 Spieler über das Hauptmenü, Spielläufe P5–P14.

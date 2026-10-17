@@ -43,6 +43,8 @@ struct WORKSHOPEMPIRE_API FWEMachineStatus
 	UPROPERTY() uint16 EventCounter = 0;
 	/** Recipe chosen with [T] (Phase 10); INDEX_NONE = automatic (first recipe that has its material). */
 	UPROPERTY() int8 SelectedRecipe = INDEX_NONE;
+	/** Phase 15: +1 per finished cycle (clients play the end-of-cycle effect and sound). */
+	UPROPERTY() uint16 CycleCounter = 0;
 };
 
 /**
@@ -157,6 +159,11 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	/** Local look and sound from the replicated state (no-op on a dedicated server). */
+	void UpdateFeedback();
+	void ShakeTick();
+	void SetFeedbackRunning(bool bRunning);
 	virtual void ApplyFurnitureExtras(const FWEFurnitureDefinition& Definition) override;
 	virtual void RebuildVisuals() override;
 
@@ -191,5 +198,14 @@ private:
 	bool bOutputConnected = false;
 	float OperatorBonus = 1.f;
 	uint16 LastHandledEvent = 0;
+	uint16 LastHandledCycle = 0;
+	bool bFeedbackInitialised = false;
+	bool bFeedbackRunning = false;
+	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> RunningAudio;
+	UPROPERTY(Transient) TObjectPtr<class AWEFx> RunningFxActor;
+	UPROPERTY(Transient) TObjectPtr<class AWEFx> SecondFxActor;
+	FTimerHandle ShakeTimer;
+	FTimerHandle StopFeedbackTimer;
+	FVector ShakeBase = FVector::ZeroVector;
 	FRandomStream Random;
 };

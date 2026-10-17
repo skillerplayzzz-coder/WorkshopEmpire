@@ -34,6 +34,10 @@ AWEGarageBuilding::AWEGarageBuilding()
 	FloorMeshes = MakeISM(TEXT("FloorMeshes"));
 	WallMeshes = MakeISM(TEXT("WallMeshes"));
 	RoofMeshes = MakeISM(TEXT("RoofMeshes"));
+	InteriorMeshes = MakeISM(TEXT("InteriorMeshes"));
+	CeilingMeshes = MakeISM(TEXT("CeilingMeshes"));
+	InteriorMeshes->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CeilingMeshes->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AWEGarageBuilding::AddBox(UInstancedStaticMeshComponent* ISM, const FVector& Center, const FVector& Size) const
@@ -54,6 +58,8 @@ void AWEGarageBuilding::OnConstruction(const FTransform& Transform)
 	FloorMeshes->ClearInstances();
 	WallMeshes->ClearInstances();
 	RoofMeshes->ClearInstances();
+	InteriorMeshes->ClearInstances();
+	CeilingMeshes->ClearInstances();
 
 	const float T = WallThickness;
 	const float HalfD = InnerDepth * 0.5f;
@@ -85,6 +91,23 @@ void AWEGarageBuilding::OnConstruction(const FTransform& Transform)
 	// Flat roof.
 	AddBox(RoofMeshes, FVector(0.f, 0.f, H + T * 0.5f), FVector(OuterD, OuterW, T));
 
+	// Inner lining 1 cm in front of the walls (plaster/paint inside, brick or metal outside) and the ceiling.
+	const float L = 1.f;
+	AddBox(InteriorMeshes, FVector(-HalfD + L * 0.5f, 0.f, H * 0.5f), FVector(L, InnerWidth, H));
+	AddBox(InteriorMeshes, FVector(0.f, -HalfW + L * 0.5f, H * 0.5f), FVector(InnerDepth, L, H));
+	AddBox(InteriorMeshes, FVector(0.f, HalfW - L * 0.5f, H * 0.5f), FVector(InnerDepth, L, H));
+	const float InnerSide = (InnerWidth - DoorW) * 0.5f;
+	if (InnerSide > 1.f)
+	{
+		AddBox(InteriorMeshes, FVector(HalfD - L * 0.5f, -(DoorW * 0.5f + InnerSide * 0.5f), H * 0.5f), FVector(L, InnerSide, H));
+		AddBox(InteriorMeshes, FVector(HalfD - L * 0.5f, DoorW * 0.5f + InnerSide * 0.5f, H * 0.5f), FVector(L, InnerSide, H));
+	}
+	if (H > DoorH)
+	{
+		AddBox(InteriorMeshes, FVector(HalfD - L * 0.5f, 0.f, DoorH + (H - DoorH) * 0.5f), FVector(L, DoorW, H - DoorH));
+	}
+	AddBox(CeilingMeshes, FVector(0.f, 0.f, H - L * 0.5f), FVector(InnerDepth, InnerWidth, L));
+
 	ApplyAllTints();
 }
 
@@ -97,9 +120,12 @@ void AWEGarageBuilding::BeginPlay()
 
 void AWEGarageBuilding::ApplyAllTints()
 {
-	ApplyTint(FloorMeshes, FloorColor);
-	ApplyTint(WallMeshes, WallColor);
-	ApplyTint(RoofMeshes, RoofColor);
+	// Textured surfaces when imported (Phase 15), otherwise the placeholder colours.
+	WESurface::Apply(FloorMeshes, FloorSurface, FloorSurface == EWESurface::Placeholder ? FloorColor : FLinearColor::White, 0.f);
+	WESurface::Apply(WallMeshes, WallSurface, WallSurface == EWESurface::Placeholder ? WallColor : WallTint, 0.6f);
+	WESurface::Apply(RoofMeshes, RoofSurface, RoofSurface == EWESurface::Placeholder ? RoofColor : FLinearColor::White, 0.f);
+	WESurface::Apply(InteriorMeshes, InteriorSurface, InteriorSurface == EWESurface::Placeholder ? WallColor : InteriorTint, 0.8f);
+	WESurface::Apply(CeilingMeshes, CeilingSurface, CeilingSurface == EWESurface::Placeholder ? WallColor : InteriorTint, 0.f);
 }
 
 FTransform AWEGarageBuilding::GetDoorTransform() const

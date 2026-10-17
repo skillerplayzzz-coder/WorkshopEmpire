@@ -11,7 +11,6 @@ MAP_PATH = "/Game/WorkshopEmpire/Maps/L_MainMenu"
 
 les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-CUBE = unreal.load_asset("/Engine/BasicShapes/Cube.Cube")
 PLANE = unreal.load_asset("/Engine/BasicShapes/Plane.Plane")
 
 
@@ -20,13 +19,6 @@ def spawn(cls, loc, rot=(0.0, 0.0, 0.0), label=None):
     if label:
         actor.set_actor_label(label)
     return actor
-
-
-def box(label, loc, size, yaw=0.0):
-    a = spawn(unreal.StaticMeshActor, loc, (0.0, yaw, 0.0), label)
-    a.static_mesh_component.set_static_mesh(CUBE)
-    a.set_actor_scale3d(unreal.Vector(size[0] / 100.0, size[1] / 100.0, size[2] / 100.0))
-    return a
 
 
 if unreal.EditorAssetLibrary.does_asset_exist(MAP_PATH):
@@ -39,7 +31,7 @@ sun = spawn(unreal.DirectionalLight, (0, 0, 1000), (-12.0, 200.0, 0.0), "Sun")
 sun_comp = sun.get_component_by_class(unreal.DirectionalLightComponent)
 sun_comp.set_editor_property("atmosphere_sun_light", True)
 sun_comp.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
-sun_comp.set_intensity(4.0)
+sun_comp.set_intensity(40000.0)
 sun_comp.set_light_color(unreal.LinearColor(1.0, 0.72, 0.5, 1.0))
 sky = spawn(unreal.SkyLight, (0, 0, 800), label="SkyLight")
 sky_comp = sky.get_component_by_class(unreal.SkyLightComponent)
@@ -50,10 +42,11 @@ spawn(unreal.ExponentialHeightFog, (0, 0, -100), label="HeightFog")
 
 ground = spawn(unreal.StaticMeshActor, (0, 0, -2), label="Ground")
 ground.static_mesh_component.set_static_mesh(PLANE)
-ground.static_mesh_component.set_material(0, unreal.load_asset("/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
+asphalt = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEAsphalt"
+ground.static_mesh_component.set_material(0, unreal.load_asset(asphalt if unreal.EditorAssetLibrary.does_asset_exist(asphalt) else "/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
 ground.set_actor_scale3d(unreal.Vector(80.0, 80.0, 1.0))
 
-# The garage with its door, a warm lamp inside and a few crates and pallets in the yard.
+# The garage with its door, a yard lamp and some clutter in the yard.
 spawn(unreal.WEGarageBuilding, (0, 0, 0), label="Garage")
 spawn(unreal.WEGarageDoor, (410, 0, 0), label="GarageDoor")
 lamp = spawn(unreal.PointLight, (520, 0, 300), label="YardLamp")
@@ -62,13 +55,45 @@ lc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
 lc.set_intensity(60.0)
 lc.set_attenuation_radius(1400.0)
 lc.set_light_color(unreal.LinearColor(1.0, 0.82, 0.6, 1.0))
-box("Pallet", (620, 260, 7), (120, 100, 14))
-box("Crate1", (620, 260, 50), (70, 60, 70), 12.0)
-box("Crate2", (690, 330, 35), (60, 50, 50), -20.0)
-box("Barrel", (560, -300, 50), (55, 55, 100))
-box("Scrap1", (760, -260, 20), (90, 70, 40), 30.0)
-box("Scrap2", (790, -180, 15), (50, 40, 30), -10.0)
 
+
+def prop(name, loc, yaw=0.0):
+    """Phase 15: CC0 model if imported, otherwise nothing (the backdrop still works without)."""
+    path = f"/Game/WorkshopEmpire/Art/Models/SM_{name}"
+    if not unreal.EditorAssetLibrary.does_asset_exist(path):
+        return None
+    a = spawn(unreal.StaticMeshActor, loc, (0.0, yaw, 0.0), f"Deco_{name}")
+    a.static_mesh_component.set_static_mesh(unreal.load_asset(path))
+    return a
+
+
+prop("wooden_crate_01", (620, 260, 0), 12.0)
+prop("wooden_crate_01", (690, 340, 0), -20.0)
+prop("cardboard_box_01", (640, 255, 52), 30.0)
+prop("Barrel_01", (560, -300, 0))
+prop("barrel_03", (610, -350, 0), 40.0)
+prop("old_tyre", (780, -240, 30), 0.0)
+prop("old_tyre", (780, -240, 47), 25.0)
+prop("portable_welding_cart", (455, -265, 0), 90.0)
+prop("old_military_compressor", (455, 265, 0), 90.0)
+prop("industrial_wall_lamp", (424, -245, 255))
+prop("industrial_wall_lamp", (424, 245, 255))
+prop("plastic_crate_01", (720, 150, 0), 15.0)
+prop("metal_jerrycan", (600, -400, 0), 0.0)
+# Warm light spilling out of the workshop.
+inside = spawn(unreal.PointLight, (200, 0, 250), label="InsideLamp")
+ic = inside.get_component_by_class(unreal.PointLightComponent)
+ic.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+ic.set_intensity(80.0)
+ic.set_attenuation_radius(900.0)
+ic.set_light_color(unreal.LinearColor(1.0, 0.8, 0.55, 1.0))
+ppv = spawn(unreal.PostProcessVolume, (0, 0, 0), label="PostProcess")
+ppv.set_editor_property("unbound", True)
+pp = ppv.get_editor_property("settings")
+for name, value in (("vignette_intensity", 0.45), ("bloom_intensity", 0.5), ("film_grain_intensity", 0.05)):
+    pp.set_editor_property("override_" + name, True)
+    pp.set_editor_property(name, value)
+ppv.set_editor_property("settings", pp)
 cam = spawn(unreal.CameraActor, (1150, -520, 210), (-6.0, 152.0, 0.0), "MenuCamera")
 cam.camera_component.set_editor_property("field_of_view", 70.0)
 

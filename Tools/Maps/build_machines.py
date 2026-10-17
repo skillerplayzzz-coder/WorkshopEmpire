@@ -116,6 +116,25 @@ MACHINES = {
         ]),
 }
 
+# Phase 15: how a running machine looks and sounds (effects relative to the machine, cm; X = front).
+FX = unreal.WEFxKind
+AUDIO = "/Game/WorkshopEmpire/Audio"
+
+
+def sound(name):
+    return unreal.load_asset(f"{AUDIO}/{name}") if name else None
+
+
+FEEDBACK = {
+    "MD_Shredder": dict(running=(FX.DUST, (0, 0, 155)), cycle=(FX.CHIPS, (60, 0, 80)), loop="SFX_ShredderLoop", cycle_sound="SFX_ShredderCrunch", shake=0.7),
+    "MD_Sorter": dict(cycle=(FX.CHIPS, (55, 0, 70)), loop="SFX_MotorLoop", cycle_sound="SFX_PartRemoved", shake=0.3),
+    "MD_Press": dict(running=(FX.STEAM, (-20, 0, 175)), cycle=(FX.SPARKS, (65, 0, 45)), loop="SFX_PressLoop", cycle_sound="SFX_PressSlam", shake=0.35),
+    "MD_Assembler": dict(cycle=(FX.SPARKS, (65, 0, 85)), loop="SFX_MotorLoop", cycle_sound="SFX_PartRemoved", shake=0.2),
+    "MD_Furnace": dict(running=(FX.SMOKE, (0, 0, 280)), second=(FX.EMBERS, (105, 0, 95)), cycle=(FX.STEAM, (110, 0, 70)),
+                       loop="SFX_FurnaceLoop", cycle_sound="SFX_PourSizzle", shake=0.0),
+    "MD_Packer": dict(cycle=(FX.DUST, (85, 0, 40)), loop="SFX_MotorLoop", cycle_sound="SFX_Strap", shake=0.15),
+}
+
 kit = item("MaintenanceKit")
 for asset_name, spec in MACHINES.items():
     md, path = data_asset(asset_name)
@@ -131,6 +150,17 @@ for asset_name, spec in MACHINES.items():
     md.set_editor_property("worn_threshold", 30.0)
     md.set_editor_property("maintenance_item", kit)
     md.set_editor_property("recipes", spec["recipes"])
+    fb = FEEDBACK.get(asset_name, {})
+    for key, kind_prop, offset_prop in (("running", "running_fx", "running_fx_offset"), ("second", "second_running_fx", "second_running_fx_offset"),
+                                        ("cycle", "cycle_fx", "cycle_fx_offset")):
+        kind, offset = fb.get(key, (FX.NONE, (0, 0, 100)))
+        md.set_editor_property(kind_prop, kind)
+        md.set_editor_property(offset_prop, unreal.Vector(*offset))
+    md.set_editor_property("running_sound", sound(fb.get("loop")))
+    md.set_editor_property("start_sound", sound("SFX_MachineStart"))
+    md.set_editor_property("stop_sound", sound("SFX_MachineStop"))
+    md.set_editor_property("cycle_sound", sound(fb.get("cycle_sound")))
+    md.set_editor_property("running_shake", fb.get("shake", 0.0))
     eal.save_asset(path)
 
 unreal.log(f"WE_MACHINES_BUILT {len(MACHINES)} machines")

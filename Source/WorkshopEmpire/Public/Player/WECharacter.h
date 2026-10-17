@@ -88,6 +88,9 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void OnRep_PlayerState() override;
+	virtual void PossessedBy(AController* NewController) override;
+	void ApplyPlayerLook();
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void NotifyControllerChanged() override;
@@ -135,10 +138,6 @@ protected:
 	/** Where carried items are attached (child of the camera). */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<USceneComponent> HoldPoint;
-
-	/** Placeholder body so other players can see this player. Hidden for the owner. */
-	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<UStaticMeshComponent> BodyMesh;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UWEInteractionComponent> InteractionComponent;

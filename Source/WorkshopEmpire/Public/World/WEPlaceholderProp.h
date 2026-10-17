@@ -137,6 +137,15 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Prop")
 	FName RequiredUpgrade;
 
+	// --- Phase 15: modelled look (fitted into Size; the boxes stay for collision) ---
+	UPROPERTY(EditAnywhere, Category = "Visual") TObjectPtr<UStaticMesh> VisualMesh;
+	UPROPERTY(EditAnywhere, Category = "Visual") float VisualYaw = 0.f;
+	UPROPERTY(EditAnywhere, Category = "Visual") bool bTileVisual = false;
+	UPROPERTY(EditAnywhere, Category = "Visual") TArray<TObjectPtr<UStaticMesh>> DecoMeshes;
+	UPROPERTY(EditAnywhere, Category = "Visual") TArray<FTransform> DecoTransforms;
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> VisualParts;
+	void RebuildModel();
+
 	bool bUnlocked = true;
 	int32 StorageBonusSlots = 0;
 };

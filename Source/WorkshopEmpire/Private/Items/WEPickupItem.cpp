@@ -5,6 +5,7 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "World/WESurface.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
 #include "Inventory/WEInventoryComponent.h"
@@ -96,7 +97,23 @@ void AWEPickupItem::ApplyDefinitionVisuals()
 	}
 	Mesh->SetRelativeScale3D(Def->WorldScale);
 	Mesh->SetMassOverrideInKg(NAME_None, FMath::Max(0.05f, Item.GetTotalWeightKg()), true);
-	WEPlaceholder::ApplyTint(Mesh, PlaceholderMaterial, Def->Tint);
+	// A modelled mesh brings its own textures; the basic placeholder shapes get a surface or the tint.
+	const bool bModelled = Def->WorldMesh && !Def->WorldMesh->GetPathName().StartsWith(TEXT("/Engine/BasicShapes"));
+	if (bModelled)
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); ++i)
+		{
+			Mesh->SetMaterial(i, nullptr); // back to the mesh's own materials
+		}
+	}
+	else if (Def->Surface != EWESurface::Placeholder)
+	{
+		WESurface::Apply(Mesh, Def->Surface, FLinearColor::LerpUsingHSV(Def->Tint, FLinearColor::White, 0.5f), 0.f);
+	}
+	else
+	{
+		WEPlaceholder::ApplyTint(Mesh, PlaceholderMaterial, Def->Tint);
+	}
 }
 
 void AWEPickupItem::SetItem(const FWEItemInstance& NewItem)

@@ -3,6 +3,8 @@
 #include "AIController.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Player/WEMannequin.h"
+#include "Player/WEFootstepComponent.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
@@ -51,8 +53,6 @@ AWEEmployee::AWEEmployee()
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 540.f, 0.f);
 	GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
 
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(WEPlaceholder::MaterialPath);
 	PlaceholderMaterial = Material.Object;
@@ -67,10 +67,10 @@ AWEEmployee::AWEEmployee()
 		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		return Part;
 	};
-	// Placeholder worker: body in work clothes, head, and what he carries in front of him.
-	Body = MakePart(TEXT("Body"), Cylinder.Object, FVector(0.f, 0.f, -20.f), FVector(0.55f, 0.55f, 1.4f));
-	Head = MakePart(TEXT("Head"), Sphere.Object, FVector(0.f, 0.f, 68.f), FVector(0.3f));
-	CarriedMesh = MakePart(TEXT("Carried"), Cube.Object, FVector(45.f, 0.f, 0.f), FVector(0.3f));
+	// Animated worker (mannequin in work clothes of the role colour) and what he carries in front of him.
+	WEMannequin::Configure(GetMesh(), WEEmployeeConst::CapsuleHalfHeight);
+	CreateDefaultSubobject<UWEFootstepComponent>(TEXT("Footsteps"))->VolumeMultiplier = 0.45f;
+	CarriedMesh = MakePart(TEXT("Carried"), Cube.Object, FVector(42.f, 0.f, 8.f), FVector(0.3f));
 	CarriedMesh->SetVisibility(false);
 }
 
@@ -107,8 +107,9 @@ void AWEEmployee::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AWEEmployee::OnRep_Visuals()
 {
-	WEPlaceholder::ApplyTint(Body, PlaceholderMaterial, Tint);
-	WEPlaceholder::ApplyTint(Head, PlaceholderMaterial, FLinearColor(0.85f, 0.68f, 0.55f));
+	// Manny or Quinn by name, so the same person always looks the same on every machine.
+	WEMannequin::ApplyBody(GetMesh(), GetTypeHash(Profile.Name) % 2 == 1);
+	WEMannequin::Tint(GetMesh(), Tint);
 	const UWEItemDefinition* Def = Carried.Definition;
 	CarriedMesh->SetVisibility(Def != nullptr && !bAway);
 	if (Def)

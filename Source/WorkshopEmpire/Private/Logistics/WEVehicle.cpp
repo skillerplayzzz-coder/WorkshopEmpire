@@ -1,4 +1,8 @@
 #include "Logistics/WEVehicle.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "TimerManager.h"
+#include "Components/InstancedStaticMeshComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
@@ -51,6 +55,8 @@ void AWEVehicle::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 void AWEVehicle::BeginPlay()
 {
 	Super::BeginPlay();
+	bVisualAway = bAway;
+	bVisualStateKnown = true;
 	if (HasAuthority() && SelectedTour.IsNone())
 	{
 		const UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
@@ -99,9 +105,54 @@ void AWEVehicle::OnRep_Away()
 
 void AWEVehicle::ApplyVisibility()
 {
-	const bool bVisible = bUnlocked && !bAway;
-	SetActorHiddenInGame(!bVisible);
-	SetActorEnableCollision(bVisible);
+	// Collision follows the gameplay state right away; what you see may still be driving.
+	SetActorEnableCollision(bUnlocked && !bAway);
+	const bool bAnimate = bVisualStateKnown && bUnlocked && bAway != bVisualAway && GetNetMode() != NM_DedicatedServer && GetWorld() && HasActorBegunPlay();
+	if (bAnimate)
+	{
+		StartDriveAnimation(bAway);
+		return;
+	}
+	if (!GetWorld() || !GetWorld()->GetTimerManager().IsTimerActive(DriveTimer))
+	{
+		bVisualAway = bAway;
+		SetActorHiddenInGame(!(bUnlocked && !bAway));
+		if (Boxes) { Boxes->SetRelativeLocation(FVector::ZeroVector); }
+	}
+	bVisualStateKnown = HasActorBegunPlay();
+}
+
+void AWEVehicle::StartDriveAnimation(bool bLeaving)
+{
+	bVisualAway = bLeaving;
+	bDriveLeaving = bLeaving;
+	DriveStart = GetWorld()->GetTimeSeconds();
+	SetActorHiddenInGame(false);
+	if (USoundBase* Engine = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/SFX_VanDrive.SFX_VanDrive")))
+	{
+		UGameplayStatics::SpawnSoundAttached(Engine, Boxes, NAME_None, FVector(80.f, 0.f, 60.f), EAttachLocation::KeepRelativeOffset, true);
+	}
+	GetWorld()->GetTimerManager().SetTimer(DriveTimer, this, &AWEVehicle::DriveTick, 1.f / 60.f, true);
+	DriveTick();
+}
+
+void AWEVehicle::DriveTick()
+{
+	const float T = FMath::Clamp((GetWorld()->GetTimeSeconds() - DriveStart) / DriveSeconds, 0.f, 1.f);
+	// Leaving: speeds up along its nose; arriving: rolls in and brakes.
+	const float Along = bDriveLeaving ? T * T : 1.f - (1.f - T) * (1.f - T);
+	const float Offset = bDriveLeaving ? Along * DriveDistance : (1.f - Along) * DriveDistance;
+	if (Boxes)
+	{
+		Boxes->SetRelativeLocation(FVector(Offset, 0.f, FMath::Sin(T * 40.f) * 0.6f));
+	}
+	if (T >= 1.f)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DriveTimer);
+		if (Boxes) { Boxes->SetRelativeLocation(FVector::ZeroVector); }
+		SetActorHiddenInGame(!(bUnlocked && !bAway));
+		bVisualAway = bAway;
+	}
 }
 
 const FWETourDefinition* AWEVehicle::FindTour(FName Id) const

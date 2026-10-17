@@ -255,6 +255,22 @@ Große Mengen muss niemand selbst tragen: Die neue Tour **"Auslieferung"** des F
 
 **Grenzen:** 2–4 Spieler (Host + 3). Das Spiel pausiert im Koop nicht. Steam läuft bis zur Veröffentlichung mit der Test-App 480 ("Spacewar"), siehe §7.
 
+### 3.11 Look und Klang (Stand Phase 15)
+
+**Stil:** glaubwürdige, leicht abgenutzte Kleinwerkstatt bei Tageslicht – kein Fotorealismus um jeden Preis, aber echte Materialien statt Farbklötzen. Alle externen Assets sind CC0 (Poly Haven, Kenney), Liste in `Docs/ASSET_SOURCES.md`.
+
+**Gebäude:** Garage aus Ziegel mit Rolltor, innen gestrichener Putz und Betonboden mit Flecken; Werkstatt-Erweiterung Ziegel, Gewerbehalle Wellblech/Beton, Fabrikhalle Industriewand/Kalksandstein, Dächer aus Blech. Wände werden zum Boden hin schmutziger. Der Hof ist Asphalt mit Rissen, darauf Kompressor, Schweißwagen, Fässer, Reifen, Zementsäcke, Kanister, Generator.
+
+**Einrichtung und Gegenstände:** Regale sind echte Stahlregale (mehrere nebeneinander je nach Breite), Lagerkisten Kunststoffkisten, der Ablagetisch ein Werkstattwagen; Werkbänke aus Sperrholz mit Werkzeugkiste und Öldose, Werkzeugwand mit hängendem Werkzeug. Werkzeuge, Röhrenmonitor, Sackkarre, Werkzeugkiste usw. sind Modelle; Schrott rostet, Barren und Motoren sind lackiertes Metall, Paletten OSB. Maschinen sind lackierte Stahlkörper mit Schaltkasten.
+
+**Licht:** Sonne und Himmel mit Wolken, leichter Dunst mit Lichtstrahlen durchs Tor; drinnen Leuchtstoffröhren. Das Auge passt sich an, wenn man aus der hellen Einfahrt in die Werkstatt geht. LED-Upgrade macht die Röhren heller.
+
+**Leben:** Spieler und Mitarbeiter sind animierte Figuren (Spielerfarbe bzw. Rollenfarbe). Maschinen zeigen, dass sie arbeiten: Schredder staubt, spuckt Späne und vibriert, die Presse dampft und funkt bei jedem Hub, der Schmelzofen raucht aus dem Kamin und glüht an der Öffnung. Die Werkbank staubt bei jedem fertigen Schritt. Schwebstaub in der Werkstatt, der Firmenwagen fährt sichtbar los und kommt zurück.
+
+**Grafikqualität:** im Hauptmenü und im Menü [Esc] umschaltbar (Niedrig, Mittel, Hoch, Episch), Standard Hoch. Ab Mittel abwärts ohne globale Beleuchtung (Innenräume wirken flacher).
+
+**Klang:** Schritte auf Beton, Maschinen mit Anlauf, Dauerton und Auslauf (Schredder, Presse, Motoren, Ofen) und einem Geräusch je Vorgang, Raumton in der Werkstatt, draußen Wind und Vögel, Motor beim Wegfahren. Geräusche werden mit Entfernung leiser.
+
 ## 4. Wirtschaft
 
 - Währung: Euro, intern ganzzahlige Cent (`FWEMoney`).

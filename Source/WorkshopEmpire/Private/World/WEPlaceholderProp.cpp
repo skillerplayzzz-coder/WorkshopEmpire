@@ -1,4 +1,7 @@
 #include "World/WEPlaceholderProp.h"
+#include "World/WESurface.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Framework/WEPlayerController.h"
@@ -184,6 +187,7 @@ void AWEPlaceholderProp::RebuildVisuals()
 {
 	BuildBoxes(Boxes, PropType, Size);
 	ApplyTint();
+	RebuildModel();
 	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
 }
 
@@ -203,6 +207,11 @@ void AWEPlaceholderProp::ApplyFurniture(const FWEFurnitureDefinition& Definition
 	StorageName = Definition.StorageName.IsEmpty() ? Definition.DisplayName : Definition.StorageName;
 	StorageSlots = Definition.StorageSlots;
 	StorageMaxWeightKg = Definition.StorageMaxWeightKg;
+	VisualMesh = Definition.VisualMesh;
+	VisualYaw = Definition.VisualYaw;
+	bTileVisual = Definition.bTileVisual;
+	DecoMeshes = Definition.DecoMeshes;
+	DecoTransforms = Definition.DecoTransforms;
 	ApplyFurnitureExtras(Definition);
 	RebuildVisuals();
 }
@@ -242,6 +251,10 @@ void AWEPlaceholderProp::BeginPlay()
 	Storage->Configure(StorageName, StorageSlots + StorageBonusSlots, StorageMaxWeightKg);
 	Super::BeginPlay();
 	ApplyTint();
+	if (VisualParts.IsEmpty())
+	{
+		RebuildModel(); // map-placed props: the model parts are transient
+	}
 	if (!RequiredUpgrade.IsNone())
 	{
 		// Locked until the company owns the upgrade (also on clients before the game state arrived).
@@ -288,9 +301,70 @@ bool AWEPlaceholderProp::GetExamineInfo(FWEExamineInfo& OutInfo) const
 	return true;
 }
 
+void AWEPlaceholderProp::RebuildModel()
+{
+	for (UStaticMeshComponent* Part : VisualParts)
+	{
+		if (Part) { Part->DestroyComponent(); }
+	}
+	VisualParts.Reset();
+	// Boxes stay as collision (traces, placement, physics); they are only hidden when a model shows instead.
+	Boxes->SetVisibility(VisualMesh == nullptr);
+	auto MakePart = [this](UStaticMesh* PartMesh, const FTransform& Relative)
+	{
+		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		Part->SetStaticMesh(PartMesh);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetupAttachment(GetRootComponent());
+		Part->SetRelativeTransform(Relative);
+		Part->RegisterComponent();
+		VisualParts.Add(Part);
+	};
+	if (VisualMesh)
+	{
+		// Fit the model into the footprint (X depth, Y width, Z height), standing on the floor, centred.
+		const FBox Bounds = VisualMesh->GetBoundingBox();
+		const FQuat Rotation = FRotator(0.f, VisualYaw, 0.f).Quaternion();
+		const FVector Extent = Rotation.RotateVector(Bounds.GetSize()).GetAbs();
+		float Scale = FMath::Min3(Size.X / FMath::Max(Extent.X, 1.f), Size.Y / FMath::Max(Extent.Y, 1.f), Size.Z / FMath::Max(Extent.Z, 1.f));
+		int32 Copies = 1;
+		if (bTileVisual)
+		{
+			// As big as depth and height allow, then as many side by side as fill the width.
+			Scale = FMath::Min(Size.X / FMath::Max(Extent.X, 1.f), Size.Z / FMath::Max(Extent.Z, 1.f));
+			Copies = FMath::Max(1, FMath::FloorToInt(Size.Y / FMath::Max(Extent.Y * Scale, 1.f) + 0.25f));
+			Scale = FMath::Min(Scale, Size.Y / FMath::Max(Copies * Extent.Y, 1.f));
+		}
+		const FVector Centre = Rotation.RotateVector(Bounds.GetCenter()) * Scale;
+		const float Step = Extent.Y * Scale;
+		for (int32 i = 0; i < Copies; ++i)
+		{
+			const float OffsetY = (i - (Copies - 1) * 0.5f) * Step;
+			MakePart(VisualMesh, FTransform(Rotation, FVector(-Centre.X, -Centre.Y + OffsetY, -Bounds.Min.Z * Scale), FVector(Scale)));
+		}
+	}
+	for (int32 i = 0; i < DecoMeshes.Num(); ++i)
+	{
+		if (DecoMeshes[i])
+		{
+			MakePart(DecoMeshes[i], DecoTransforms.IsValidIndex(i) ? DecoTransforms[i] : FTransform::Identity);
+		}
+	}
+}
+
 void AWEPlaceholderProp::ApplyTint()
 {
-	WEPlaceholder::ApplyTint(Boxes, PlaceholderMaterial, Tint);
+	// Phase 15: real surfaces by kind (painted metal in the furniture colour, wood); the old flat
+	// colour until the textures are imported (WESurface falls back by itself).
+	const FLinearColor Washed = FLinearColor::LerpUsingHSV(Tint, FLinearColor::White, 0.55f);
+	switch (PropType)
+	{
+	case EWEPlaceholderPropType::Workbench: WESurface::Apply(Boxes, EWESurface::Plywood, Washed, 0.2f); break;
+	case EWEPlaceholderPropType::Crate:     WESurface::Apply(Boxes, EWESurface::Osb, Washed, 0.2f); break;
+	case EWEPlaceholderPropType::Machine:   WESurface::Apply(Boxes, EWESurface::PaintedMetal, Tint, 0.55f); break;
+	case EWEPlaceholderPropType::Conveyor:  WESurface::Apply(Boxes, EWESurface::TreadPlate, FLinearColor(0.6f, 0.6f, 0.62f), 0.3f); break;
+	default:                                WESurface::Apply(Boxes, EWESurface::PaintedMetal, Tint, 0.3f); break;
+	}
 }
 
 void AWEPlaceholderProp::SetUnlocked(bool bInUnlocked)

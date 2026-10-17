@@ -31,3 +31,6 @@ Content/Collections/
 *.pdb
 *.tmp
 *.log
+
+# Phase 15: downloaded CC0 source files (re-downloadable with Tools/Assets/download_assets.py)
+SourceArt/

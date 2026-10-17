@@ -32,6 +32,8 @@ class WORKSHOPEMPIRE_API AWEEmployee : public ACharacter, public IWEInteractable
 	GENERATED_BODY()
 
 public:
+	/** Work clothes colour of the role (replicated). */
+	const FLinearColor& GetTint() const { return Tint; }
 	AWEEmployee();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -135,8 +137,6 @@ protected:
 	/** Puts what he carries back into the source (task changed, fired). */
 	void ReturnCarried();
 
-	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> Body;
-	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> Head;
 	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> CarriedMesh;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> PlaceholderMaterial;
 

@@ -47,11 +47,12 @@ if unreal.EditorAssetLibrary.does_asset_exist(MAP_PATH):
 les.new_level(MAP_PATH, False)
 
 # --- Environment & light -----------------------------------------------------------------------
-sun = spawn(unreal.DirectionalLight, (0, 0, 1000), (-38.0, 35.0, 0.0), "Sun", "Lighting")
+# Late-afternoon sun from the yard side, so it shines through the open door into the workshop.
+sun = spawn(unreal.DirectionalLight, (0, 0, 1000), (-32.0, 205.0, 0.0), "Sun", "Lighting")
 sun_comp = sun.get_component_by_class(unreal.DirectionalLightComponent)
 sun_comp.set_editor_property("atmosphere_sun_light", True)
 sun_comp.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
-sun_comp.set_intensity(8.0)
+sun_comp.set_intensity(75000.0)  # physical daylight (lux); exposure adapts between yard and workshop
 
 sky = spawn(unreal.SkyLight, (0, 0, 800), label="SkyLight", folder="Lighting")
 sky_comp = sky.get_component_by_class(unreal.SkyLightComponent)
@@ -59,28 +60,103 @@ sky_comp.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
 sky_comp.set_editor_property("real_time_capture", True)
 
 spawn(unreal.SkyAtmosphere, (0, 0, 0), label="SkyAtmosphere", folder="Lighting")
-spawn(unreal.ExponentialHeightFog, (0, 0, -100), label="HeightFog", folder="Lighting")
+# Phase 15: volumetric clouds and fog (light shafts through the open door).
+spawn(unreal.VolumetricCloud, (0, 0, 0), label="VolumetricCloud", folder="Lighting")
+fog = spawn(unreal.ExponentialHeightFog, (0, 0, -100), label="HeightFog", folder="Lighting")
+fog_comp = fog.get_component_by_class(unreal.ExponentialHeightFogComponent)
+fog_comp.set_editor_property("fog_density", 0.012)
+fog_comp.set_editor_property("fog_height_falloff", 0.35)
+fog_comp.set_volumetric_fog(True)
+fog_comp.set_editor_property("volumetric_fog_scattering_distribution", 0.6)
+fog_comp.set_editor_property("volumetric_fog_extinction_scale", 0.6)
+sun_comp.set_editor_property("volumetric_scattering_intensity", 1.6)
+
+def pp_set(settings, name, value):
+    settings.set_editor_property("override_" + name, True)
+    settings.set_editor_property(name, value)
 
 ppv = spawn(unreal.PostProcessVolume, (0, 0, 0), label="PostProcess", folder="Lighting")
 ppv.set_editor_property("unbound", True)
 pp = ppv.get_editor_property("settings")
-pp.set_editor_property("override_auto_exposure_bias", True)
-pp.set_editor_property("auto_exposure_bias", -0.6)
+# Exposure: the eye adapts between the lamp-lit workshop and the bright yard, but not to extremes.
+pp_set(pp, "auto_exposure_method", unreal.AutoExposureMethod.AEM_HISTOGRAM)
+pp_set(pp, "auto_exposure_min_brightness", 3.0)
+pp_set(pp, "auto_exposure_max_brightness", 15.0)
+pp_set(pp, "auto_exposure_bias", 0.4)
+pp_set(pp, "auto_exposure_speed_up", 2.0)
+pp_set(pp, "auto_exposure_speed_down", 1.5)
+pp_set(pp, "bloom_intensity", 0.35)
+pp_set(pp, "bloom_threshold", 1.0)
+pp_set(pp, "vignette_intensity", 0.32)
+pp_set(pp, "film_grain_intensity", 0.04)
+pp_set(pp, "ambient_occlusion_intensity", 0.65)
+pp_set(pp, "ambient_occlusion_radius", 120.0)
+pp_set(pp, "lumen_scene_lighting_quality", 1.0)
+pp_set(pp, "lumen_final_gather_quality", 1.5)
+pp_set(pp, "white_temp", 6200.0)
+pp_set(pp, "color_contrast", unreal.Vector4(1.04, 1.04, 1.04, 1.0))
+pp_set(pp, "color_saturation", unreal.Vector4(0.95, 0.95, 0.95, 1.0))
+pp_set(pp, "scene_fringe_intensity", 0.0)
+# Local exposure keeps the sunlit floor patches by the door from burning out while the eye is adapted to the workshop.
+pp_set(pp, "local_exposure_highlight_contrast_scale", 0.6)
+pp_set(pp, "local_exposure_shadow_contrast_scale", 0.85)
 ppv.set_editor_property("settings", pp)
 
-for i, x in enumerate((-220.0, 160.0)):
-    lamp = spawn(unreal.PointLight, (x, 0, 270), label=f"CeilingLamp{i + 1}", folder="Lighting")
-    lc = lamp.get_component_by_class(unreal.PointLightComponent)
+# Phase 15: fluorescent fixtures - a glowing tube body and a rect light shining down (realistic lumens).
+EMISSIVE = unreal.load_asset("/Game/WorkshopEmpire/Materials/FX/M_WEEmissive")
+CUBE_MESH = unreal.load_asset("/Engine/BasicShapes/Cube.Cube")
+
+
+def tube_fixture(label, loc, length=130.0, lumens=2200.0, tags=("WE_WorkshopLight",), folder="Lighting"):
+    housing = spawn(unreal.StaticMeshActor, (loc[0], loc[1], loc[2] + 4), label=label + "Housing", folder=folder)
+    housing.static_mesh_component.set_static_mesh(CUBE_MESH)
+    housing.set_actor_scale3d(unreal.Vector(length / 100.0, 0.11, 0.05))
+    metal = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEPaintedMetal"
+    housing.static_mesh_component.set_material(0, unreal.load_asset(metal if unreal.EditorAssetLibrary.does_asset_exist(metal) else "/Game/WorkshopEmpire/Materials/M_WEPlaceholder"))
+    housing.static_mesh_component.set_editor_property("cast_shadow", False)
+    tube = spawn(unreal.StaticMeshActor, (loc[0], loc[1], loc[2] - 1), label=label + "Tube", folder=folder)
+    tube.static_mesh_component.set_static_mesh(CUBE_MESH)
+    tube.set_actor_scale3d(unreal.Vector((length - 10) / 100.0, 0.06, 0.03))
+    tube.static_mesh_component.set_material(0, EMISSIVE)
+    tube.static_mesh_component.set_editor_property("cast_shadow", False)
+    tube.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    housing.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    lamp = spawn(unreal.RectLight, (loc[0], loc[1], loc[2] - 4), (-90.0, 0.0, 0.0), label, folder)
+    lc = lamp.get_component_by_class(unreal.RectLightComponent)
     lc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
-    lc.set_intensity(30.0)
-    lc.set_attenuation_radius(1200.0)
-    lc.set_light_color(unreal.LinearColor(1.0, 0.86, 0.68, 1.0))
-    lamp.set_editor_property("tags", ["WE_WorkshopLight"])  # brightened by the LED upgrade
+    lc.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
+    lc.set_intensity(lumens)
+    lc.set_editor_property("source_width", length - 10)
+    lc.set_editor_property("source_height", 8.0)
+    lc.set_editor_property("barn_door_angle", 88.0)
+    lc.set_attenuation_radius(1400.0)
+    lc.set_light_color(unreal.LinearColor(1.0, 0.92, 0.82, 1.0))
+    lamp.set_editor_property("tags", list(tags))  # brightened by the LED upgrade
+    # A bare tube also shines sideways and up: a weak, shadowless fill keeps the ceiling from going black.
+    up = spawn(unreal.PointLight, (loc[0], loc[1], loc[2] - 2), label=label + "Fill", folder=folder)
+    uc = up.get_component_by_class(unreal.PointLightComponent)
+    uc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+    uc.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
+    uc.set_intensity(lumens * 0.12)
+    uc.set_editor_property("source_length", length - 10)
+    uc.set_editor_property("cast_shadows", False)
+    uc.set_attenuation_radius(700.0)
+    uc.set_light_color(unreal.LinearColor(1.0, 0.92, 0.82, 1.0))
+    up.set_editor_property("tags", list(tags))
+    for part in (housing, tube):
+        part.set_editor_property("tags", [t for t in tags if t != "WE_WorkshopLight"])
+    return lamp
+
+
+for i, x in enumerate((-220.0, 160.0)):
+    tube_fixture(f"CeilingLamp{i + 1}", (x, 0, 292))
 
 # --- Ground --------------------------------------------------------------------------------------
 ground = spawn(unreal.StaticMeshActor, (0, 0, -2), label="Ground", folder="World")
 ground.static_mesh_component.set_static_mesh(PLANE)
-ground.static_mesh_component.set_material(0, unreal.load_asset("/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
+# Phase 15: asphalt yard (falls back to the old flat ground before the textures are imported).
+asphalt = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEAsphalt"
+ground.static_mesh_component.set_material(0, unreal.load_asset(asphalt) if unreal.EditorAssetLibrary.does_asset_exist(asphalt) else unreal.load_asset("/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
 ground.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
 
 # --- Garage --------------------------------------------------------------------------------------
@@ -105,6 +181,18 @@ shelf.set_editor_property("storage_name", unreal.Text("Regal"))
 shelf.set_editor_property("storage_slots", 15)
 shelf.set_editor_property("storage_max_weight_kg", 150.0)
 
+
+def model(name):
+    path = f"/Game/WorkshopEmpire/Art/Models/SM_{name}"
+    return unreal.load_asset(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
+
+
+# Phase 15: real steel racks (two side by side) instead of the box shelves.
+for s_ in (shelf,):
+    s_.set_editor_property("visual_mesh", model("worn_metal_rack"))
+    s_.set_editor_property("visual_yaw", 90.0)
+    s_.set_editor_property("tile_visual", True)
+
 # Second shelf, hidden until the "SecondShelf" upgrade is bought (Phase 5).
 shelf2 = spawn(unreal.WEPlaceholderProp, (150, -272, 0), (0.0, 90.0, 0.0), "Shelf2", "World")
 shelf2.set_editor_property("prop_type", unreal.WEPlaceholderPropType.SHELF)
@@ -115,6 +203,9 @@ shelf2.set_editor_property("storage_name", unreal.Text("Regal 2"))
 shelf2.set_editor_property("storage_slots", 15)
 shelf2.set_editor_property("storage_max_weight_kg", 150.0)
 shelf2.set_editor_property("required_upgrade", "SecondShelf")
+shelf2.set_editor_property("visual_mesh", model("steel_frame_shelves_02"))
+shelf2.set_editor_property("visual_yaw", 90.0)
+shelf2.set_editor_property("tile_visual", True)
 # --- Items (definitions: Tools/Maps/build_item_definitions.py) -----------------------------------
 COND = unreal.WEItemCondition
 # Bulky things to disassemble stand on the floor; the left half of the bench is the work spot.
@@ -154,9 +245,11 @@ spawn(unreal.WEForklift, (-290, -215, 0), label="Forklift", folder="Logistics")
 nav = spawn(unreal.NavMeshBoundsVolume, (1000, 700, 150), label="NavBounds", folder="Staff")
 nav.set_actor_scale3d(unreal.Vector(23.0, 21.0, 4.0))  # garage, yard and all buildings of Phase 12
 # --- Expansion (Phase 12): buildings appear with their upgrade (actors tagged "WEUpgrade.<Id>") ---------
-def building(upgrade_id, label, center, yaw, depth, width, height, door_width, door_height, wall_color, area_half, lamps):
+def building(upgrade_id, label, center, yaw, depth, width, height, door_width, door_height, wall_color, area_half, lamps, surfaces=None):
     tag = f"WEUpgrade.{upgrade_id}"
     b = spawn(unreal.WEGarageBuilding, center, (0.0, yaw, 0.0), label, "Expansion")
+    for prop, kind in (surfaces or {}).items():
+        b.set_editor_property(prop, kind)
     b.set_editor_property("inner_depth", depth)
     b.set_editor_property("inner_width", width)
     b.set_editor_property("inner_height", height)
@@ -177,24 +270,19 @@ def building(upgrade_id, label, center, yaw, depth, width, height, door_width, d
     a.set_editor_property("half_size", unreal.Vector2D(*area_half))
     a.set_editor_property("tags", [tag])
     for i, (lx, ly) in enumerate(lamps):
-        lamp = spawn(unreal.PointLight, (lx, ly, height - 30), label=f"{label}Lamp{i + 1}", folder="Expansion")
-        lc = lamp.get_component_by_class(unreal.PointLightComponent)
-        lc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
-        lc.set_intensity(40.0)
-        lc.set_attenuation_radius(1600.0)
-        lc.set_light_color(unreal.LinearColor(1.0, 0.9, 0.75, 1.0))
-        lamp.set_editor_property("tags", [tag, "WE_WorkshopLight"])
+        # Hall fixtures hang lower than the roof and are brighter (Phase 15).
+        tube_fixture(f"{label}Lamp{i + 1}", (lx, ly, min(height - 8, 420)), length=150.0, lumens=4500.0, tags=(tag, "WE_WorkshopLight"), folder="Expansion")
 
 
 # Werkstatt-Erweiterung: next to the garage (-Y), door to the yard like the garage.
 building("WorkshopExtension", "WorkshopExtension", (0, -760, 0), 0.0, 800.0, 700.0, 320.0, 400.0, 260.0, (0.34, 0.33, 0.30),
-         (395.0, 345.0), [(-200, -760), (200, -760)])
+         (395.0, 345.0), [(-200, -760), (200, -760)], surfaces={"wall_surface": unreal.WESurface.BRICK, "interior_surface": unreal.WESurface.PAINTED_WALL})
 # Gewerbehalle: across the yard, door facing the garage (-X).
 building("CommercialHall", "CommercialHall", (1700, -200, 0), 180.0, 1400.0, 1400.0, 600.0, 500.0, 450.0, (0.30, 0.34, 0.38),
-         (695.0, 695.0), [(1400, -500), (2000, -500), (1400, 100), (2000, 100)])
+         (695.0, 695.0), [(1400, -500), (2000, -500), (1400, 100), (2000, 100)], surfaces={"wall_surface": unreal.WESurface.CORRUGATED, "interior_surface": unreal.WESurface.CONCRETE_WALL, "ceiling_surface": unreal.WESurface.ROOF_METAL})
 # Fabrikhalle: next to the commercial hall (+Y), door to the yard as well.
 building("FactoryHall", "FactoryHall", (1700, 1650, 0), 180.0, 1400.0, 1600.0, 700.0, 600.0, 500.0, (0.32, 0.30, 0.28),
-         (695.0, 795.0), [(1400, 1300), (2000, 1300), (1400, 2000), (2000, 2000)])
+         (695.0, 795.0), [(1400, 1300), (2000, 1300), (1400, 2000), (2000, 2000)], surfaces={"wall_surface": unreal.WESurface.FACTORY_WALL, "interior_surface": unreal.WESurface.BLOCK_WALL, "ceiling_surface": unreal.WESurface.ROOF_METAL})
 # The navmesh itself is built at runtime (RuntimeGeneration=Dynamic); its actor must exist in the level.
 navmesh = spawn(unreal.RecastNavMesh, (0, 0, 0), label="RecastNavMesh-Default", folder="Staff")
 navmesh.set_editor_property("runtime_generation", unreal.RuntimeGenerationType.DYNAMIC)
@@ -202,6 +290,73 @@ navmesh.set_editor_property("agent_radius", 34.0)
 # --- Player starts (in front of the workbench, all items within reach) --------------------------
 for i, y in enumerate((-120.0, -40.0, 40.0, 120.0)):
     spawn(unreal.PlayerStart, (-170, y, 100), (0.0, 180.0, 0.0), f"PlayerStart{i + 1}", "Players")
+
+# --- Decoration (Phase 15, CC0 models): along the walls, out of the way of play ----------------------
+def prop_model(name, loc, yaw=0.0, label=None, folder="Decoration", scale=1.0, collide=True):
+    mesh = model(name)
+    if not mesh:
+        return None
+    a = spawn(unreal.StaticMeshActor, loc, (0.0, yaw, 0.0), label or f"Deco_{name}", folder)
+    a.static_mesh_component.set_static_mesh(mesh)
+    a.set_actor_scale3d(unreal.Vector(scale, scale, scale))
+    a.static_mesh_component.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+    if not collide:
+        a.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    return a
+
+
+# Workshop
+prop_model("korean_fire_extinguisher_01", (385, -285, 0), 180.0)
+prop_model("metal_tool_chest", (-360, 255, 0), 0.0)
+prop_model("plastic_broom", (380, 280, 0), 200.0)
+prop_model("ladder_sectioned_01", (40, 292, 0), 0.0)
+prop_model("metal_stool_01", (-300, 115, 0), 30.0)
+prop_model("power_box_01", (-398, 205, 150), 0.0, collide=False)
+prop_model("utility_box_01", (-398, -150, 0), 0.0)
+prop_model("cardboard_box_01", (-30, -280, 160), 10.0, collide=False)  # on top of the rack
+prop_model("spray_paint_bottles", (-335, -80, 91), 0.0, collide=False)
+# Yard: against the front wall and near the scrap heap, away from the door and the van
+prop_model("old_military_compressor", (455, 265, 0), 90.0)
+prop_model("portable_welding_cart", (460, -268, 0), 90.0)
+prop_model("industrial_wall_lamp", (424, -245, 255), 0.0, collide=False)
+prop_model("industrial_wall_lamp", (424, 245, 255), 0.0, collide=False)
+prop_model("Barrel_01", (600, 380, 0), 0.0)
+prop_model("barrel_03", (655, 400, 0), 40.0)
+prop_model("propane_tank", (560, 395, 0), 0.0)
+prop_model("old_tyre", (860, 420, 30), 0.0)
+prop_model("old_tyre", (860, 420, 47), 30.0)
+prop_model("old_tyre", (930, 400, 30), 70.0)
+prop_model("cement_bag", (560, -380, 0), 15.0)
+prop_model("cement_bag", (560, -380, 18), -10.0)
+prop_model("metal_jerrycan", (600, -395, 0), 0.0)
+prop_model("portable_generator", (980, -420, 0), 120.0)
+prop_model("plastic_crate_01", (650, 330, 0), 25.0)
+prop_model("plastic_crate_01", (650, 330, 26), 10.0)
+prop_model("security_light", (424, 0, 300), 0.0, collide=False)
+
+# --- Atmosphere (Phase 15): dust floating in the workshop light, room tone inside, wind and birds outside ---
+motes = spawn(unreal.WEFxEmitter, (0, 0, 150), label="DustMotes", folder="Atmosphere")
+motes.set_editor_property("kind", unreal.WEFxKind.MOTES)
+motes.set_editor_property("box_half_size", unreal.Vector(360, 260, 120))
+
+
+def ambient(label, sound_name, loc, inner=None, falloff=None):
+    a = spawn(unreal.AmbientSound, loc, label=label, folder="Atmosphere")
+    comp = a.get_component_by_class(unreal.AudioComponent)
+    comp.set_editor_property("sound", unreal.load_asset(f"/Game/WorkshopEmpire/Audio/{sound_name}"))
+    if inner is not None:
+        comp.set_editor_property("override_attenuation", True)
+        att = comp.get_editor_property("attenuation_overrides")
+        att.set_editor_property("attenuate", True)
+        att.set_editor_property("spatialize", False)
+        att.set_editor_property("attenuation_shape_extents", unreal.Vector(inner, 0, 0))
+        att.set_editor_property("falloff_distance", falloff)
+        comp.set_editor_property("attenuation_overrides", att)
+    return a
+
+
+ambient("RoomTone", "SFX_RoomTone", (0, 0, 150))
+ambient("Outdoor", "SFX_Outdoor", (1300, 400, 200), inner=1800.0, falloff=1600.0)
 
 les.save_current_level()
 unreal.log("WE_MAP_BUILT " + MAP_PATH)

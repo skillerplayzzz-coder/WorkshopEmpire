@@ -94,6 +94,16 @@ protected:
 	void OnRep_Away();
 
 	void ApplyVisibility();
+	/** Phase 15: the van drives off / arrives (visual only, on every client) instead of popping. */
+	void StartDriveAnimation(bool bLeaving);
+	void DriveTick();
+	FTimerHandle DriveTimer;
+	float DriveStart = 0.f;
+	bool bDriveLeaving = false;
+	bool bVisualAway = false;
+	bool bVisualStateKnown = false;
+	static constexpr float DriveSeconds = 3.5f;
+	static constexpr float DriveDistance = 1600.f;
 	void Notify(const FText& Message) const;
 
 	UPROPERTY(EditAnywhere, Category = "Vehicle")

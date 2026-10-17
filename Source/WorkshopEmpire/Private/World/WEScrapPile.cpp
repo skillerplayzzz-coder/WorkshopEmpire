@@ -11,6 +11,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "World/WESurface.h"
 
 #define LOCTEXT_NAMESPACE "WEScrapPile"
 
@@ -60,13 +61,13 @@ void AWEScrapPile::OnConstruction(const FTransform& Transform)
 		Heap->AddInstance(FTransform(FRotator(4.f, Yaw, -3.f), Block[0], Block[1] / 100.f));
 		Yaw += 23.f;
 	}
-	WEPlaceholder::ApplyTint(Heap, PlaceholderMaterial, FLinearColor(0.20f, 0.11f, 0.07f));
+	WESurface::Apply(Heap, EWESurface::RustyMetal, FLinearColor(0.75f, 0.6f, 0.5f), 0.5f);
 }
 
 void AWEScrapPile::BeginPlay()
 {
 	Super::BeginPlay();
-	WEPlaceholder::ApplyTint(Heap, PlaceholderMaterial, FLinearColor(0.20f, 0.11f, 0.07f));
+	WESurface::Apply(Heap, EWESurface::RustyMetal, FLinearColor(0.75f, 0.6f, 0.5f), 0.5f);
 	if (HasAuthority())
 	{
 		Random.Initialize(FMath::Rand());

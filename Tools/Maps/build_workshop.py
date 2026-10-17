@@ -94,6 +94,55 @@ else:
     factory = unreal.DataAssetFactory()
     factory.set_editor_property("data_asset_class", unreal.WEFurnitureCatalog)
     catalog = tools.create_asset(NAME, FOLDER, unreal.WEFurnitureCatalog, factory)
+# --- Phase 15: modelled looks (CC0 models from Poly Haven, imported by Tools/Assets/import_assets.py) ---
+MODELS = "/Game/WorkshopEmpire/Art/Models"
+
+
+def model(name):
+    path = f"{MODELS}/SM_{name}"
+    return unreal.load_asset(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
+
+
+def deco(name, loc, rot=(0.0, 0.0, 0.0), scale=1.0):
+    return (model(name), unreal.Transform(unreal.Vector(*loc), unreal.Rotator(roll=rot[2], pitch=rot[0], yaw=rot[1]), unreal.Vector(scale, scale, scale)))
+
+
+VISUALS = {
+    # id: (model, yaw, tile copies along the width, decorations)
+    "HeavyShelf": ("worn_metal_rack", 90.0, True, []),
+    "LargeShelf": ("steel_frame_shelves_02", 90.0, True, []),
+    "HighRack": ("steel_frame_shelves_01", 90.0, True, []),
+    "Crate": ("plastic_crate_01", 90.0, True, []),
+    "Table": ("tool_cart", 90.0, False, []),
+    # Workbenches keep their wooden box shape (items lie on the top); a toolbox on the lower shelf.
+    "Workbench": (None, 0.0, False, [deco("metal_toolbox", (5, -55, 12), (0, 90, 0)), deco("oil_tin", (5, 55, 12))]),
+    "LargeWorkbench": (None, 0.0, False, [deco("metal_toolbox", (5, -80, 12), (0, 90, 0)), deco("metal_tool_chest", (5, 70, 12), (0, 90, 0))]),
+    # Tool wall: real tools hanging on the board.
+    "ToolWall": (None, 0.0, False, [
+        deco("screwdriver", (12, -55, 118)), deco("cross_pein_hammer", (12, -25, 112)), deco("combination_wrench", (12, 5, 125), (0, 90, 90)),
+        deco("ratchet_wrench", (12, 30, 120)), deco("pliers", (12, 50, 118)), deco("adjustable_wrench", (12, 66, 118)),
+        deco("measuring_tape_01", (12, -45, 75), (0, 90, 0)), deco("Drill_01", (14, 15, 70), (0, 90, 0)),
+    ]),
+    # Machines keep their painted-metal bodies; a switch box on the side.
+    "Shredder": (None, 0.0, False, [deco("power_box_01", (0, -60, 110), (0, -90, 0), 0.7)]),
+    "Sorter": (None, 0.0, False, [deco("power_box_01", (0, -95, 105), (0, -90, 0), 0.7)]),
+    "Press": (None, 0.0, False, [deco("power_box_01", (0, -55, 115), (0, -90, 0), 0.7)]),
+    "Assembler": (None, 0.0, False, [deco("power_box_01", (0, -85, 110), (0, -90, 0), 0.7)]),
+    "Packer": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.8)]),
+    "Furnace": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.9), deco("propane_tank", (-70, -110, 0))]),
+}
+for f in ITEMS:
+    fid = str(f.get_editor_property("id"))
+    if fid not in VISUALS:
+        continue
+    mesh_name, yaw, tile, decos = VISUALS[fid]
+    f.set_editor_property("visual_mesh", model(mesh_name) if mesh_name else None)
+    f.set_editor_property("visual_yaw", yaw)
+    f.set_editor_property("tile_visual", tile)
+    decos = [d for d in decos if d[0]]
+    f.set_editor_property("deco_meshes", [d[0] for d in decos])
+    f.set_editor_property("deco_transforms", [d[1] for d in decos])
+
 catalog.set_editor_property("items", ITEMS)
 eal.save_asset(path)
 

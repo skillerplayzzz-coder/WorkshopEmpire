@@ -373,5 +373,35 @@ for suffix, spec in REPAIRS.items():
 for suffix, (da, path) in items.items():
     eal.save_asset(path)
 
+# --- Phase 15: modelled items (CC0 models, Tools/Assets/import_assets.py) and material surfaces -------
+S = unreal.WESurface
+MODEL_ITEMS = {
+    # suffix: (model, longest side in cm)
+    "Screwdriver": ("screwdriver", 21.0), "SideCutter": ("pliers", 18.0), "ProSideCutter": ("pliers", 21.0),
+    "CordlessDrill": ("Drill_01", 22.0), "Multimeter": ("retro_multimeter", 22.0), "DigitalMultimeter": ("retro_multimeter", 17.0),
+    "BitRatchet": ("ratchet_wrench", 22.0), "CrtMonitor": ("Television_01", 42.0), "Toolbox": ("metal_toolbox", 45.0),
+    "HandTruck": ("hand_truck", 120.0), "CableBox": ("cardboard_box_01", 45.0), "MaintenanceKit": ("oil_tin", 22.0),
+    "CleaningKit": ("lubricant_spray", 18.0), "ReturnPalletElectronics": ("wooden_crate_01", 80.0), "ReturnPalletTools": ("wooden_crate_01", 80.0),
+}
+SURFACE_ITEMS = {
+    "OldComputer": S.PAINTED_METAL, "ElectricMotor": S.PAINTED_METAL, "IndustrialMotorLarge": S.PAINTED_METAL, "ServoMotor": S.PAINTED_METAL,
+    "PowerSupply": S.PAINTED_METAL, "SteelScrap": S.RUSTY_METAL, "ShredMetal": S.RUSTY_METAL, "SteelBale": S.RUSTY_METAL,
+    "AluBale": S.TREAD_PLATE, "CopperBale": S.PAINTED_METAL, "AluminiumIngot": S.PAINTED_METAL, "CopperIngot": S.PAINTED_METAL,
+    "AluminiumScrap": S.TREAD_PLATE, "SteelBracketSet": S.TREAD_PLATE, "CopperWireSpool": S.PAINTED_METAL,
+    "PalletBrackets": S.OSB, "PalletCables": S.OSB, "VintageRadio": S.PLYWOOD,
+}
+for suffix, (da, path) in items.items():
+    if suffix in MODEL_ITEMS:
+        name, longest = MODEL_ITEMS[suffix]
+        mesh_path = f"/Game/WorkshopEmpire/Art/Models/SM_{name}"
+        mesh = unreal.load_asset(mesh_path) if unreal.EditorAssetLibrary.does_asset_exist(mesh_path) else None
+        if mesh:
+            b = mesh.get_bounding_box()
+            size = b.max - b.min
+            scale = longest / max(size.x, size.y, size.z, 0.1)
+            da.set_editor_property("world_mesh", mesh)
+            da.set_editor_property("world_scale", unreal.Vector(scale, scale, scale))
+    da.set_editor_property("surface", SURFACE_ITEMS.get(suffix, S.PLACEHOLDER))
+    unreal.EditorAssetLibrary.save_asset(path)
 unreal.log(f"WE_ITEMS_BUILT {len(items)} items, {len(SEQUENCES)} disassembly sequences, {len(REPAIRS)} repair procedures")
 unreal.SystemLibrary.quit_editor()

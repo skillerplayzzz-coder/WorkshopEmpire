@@ -3,9 +3,11 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "Items/WEItemTypes.h"
+#include "Fx/WEFx.h"
 #include "WEMachineDefinition.generated.h"
 
 class UWEItemDefinition;
+class USoundBase;
 
 /** One output of a machine recipe. */
 USTRUCT(BlueprintType)
@@ -134,6 +136,24 @@ public:
 	/** Consumed by [X] "Warten": back to 100 %. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Machine")
 	TObjectPtr<UWEItemDefinition> MaintenanceItem;
+
+	// --- Look and sound (Phase 15), played on every client from the replicated state ------------------
+
+	/** Effects while a cycle runs (offset relative to the machine, cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") EWEFxKind RunningFx = EWEFxKind::None;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") FVector RunningFxOffset = FVector(0.f, 0.f, 100.f);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") EWEFxKind SecondRunningFx = EWEFxKind::None;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") FVector SecondRunningFxOffset = FVector(0.f, 0.f, 100.f);
+	/** One-shot effect when a cycle finishes. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") EWEFxKind CycleFx = EWEFxKind::None;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") FVector CycleFxOffset = FVector(60.f, 0.f, 60.f);
+	/** Loop while running, sounds when switching between running and not running, at the end of a cycle. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") TObjectPtr<USoundBase> RunningSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") TObjectPtr<USoundBase> StartSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") TObjectPtr<USoundBase> StopSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback") TObjectPtr<USoundBase> CycleSound;
+	/** Running: the machine shakes by this much (cm), e.g. a shredder more than a sorter. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Feedback", meta = (ClampMin = "0")) float RunningShake = 0.f;
 
 	/** True if Item can be processed by any recipe (any quantity). */
 	bool AcceptsItem(const UWEItemDefinition* Item) const;

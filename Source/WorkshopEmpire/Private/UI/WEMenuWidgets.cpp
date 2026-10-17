@@ -21,6 +21,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Online/WESessionSubsystem.h"
 #include "Save/WESaveSystem.h"
+#include "UI/WEGraphicsSettings.h"
 #include "SocketSubsystem.h"
 #include "Styling/CoreStyle.h"
 #include "WEMoney.h"
@@ -215,6 +216,9 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	MakeButton(Main, LOCTEXT("HostNew", "Neues Spiel hosten"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleHostNew);
 	MakeButton(Main, LOCTEXT("Load", "Spielstand laden und hosten"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowLoad);
 	MakeButton(Main, LOCTEXT("Join", "Spiel beitreten"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowJoin);
+	UButton* Graphics = MakeButton(Main, WEGraphics::GetButtonLabel());
+	Graphics->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleGraphics);
+	GraphicsText = Cast<UTextBlock>(Graphics->GetContent());
 	MakeButton(Main, LOCTEXT("Quit", "Beenden"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleQuit);
 	UHorizontalBox* LANRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	LANCheck = WidgetTree->ConstructWidget<UCheckBox>();
@@ -321,6 +325,15 @@ void UWEMainMenuWidget::HandleShowJoin()
 	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
 	{
 		Session->FindGames(Session->GetService() != EWEOnlineService::Steam);
+	}
+}
+
+void UWEMainMenuWidget::HandleGraphics()
+{
+	WEGraphics::CycleQuality();
+	if (GraphicsText)
+	{
+		GraphicsText->SetText(WEGraphics::GetButtonLabel());
 	}
 }
 
@@ -510,6 +523,7 @@ void UWEPauseMenuWidget::NativeOnInitialized()
 	SaveButton = AddButton(LOCTEXT("Save", "Speichern"));
 	SaveButton->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleSave);
 	AddButton(LOCTEXT("Leave", "Zum Hauptmenü"), &LeaveText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleLeave);
+	AddButton(WEGraphics::GetButtonLabel(), &GraphicsText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleGraphics);
 	AddButton(LOCTEXT("QuitGame", "Spiel beenden"))->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleQuit);
 
 	InfoText = WEMenuStyle::Text(WidgetTree, 11, WEMenuStyle::Gold);
@@ -658,6 +672,15 @@ void UWEPauseMenuWidget::HandleLeave()
 		return;
 	}
 	PC->RequestLeaveGame();
+}
+
+void UWEPauseMenuWidget::HandleGraphics()
+{
+	WEGraphics::CycleQuality();
+	if (GraphicsText)
+	{
+		GraphicsText->SetText(WEGraphics::GetButtonLabel());
+	}
 }
 
 void UWEPauseMenuWidget::HandleQuit()

@@ -20,6 +20,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "World/WESurface.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Progression/WEUpgradeDefinition.h"
 
@@ -85,14 +86,14 @@ void AWETraderTerminal::OnConstruction(const FTransform& Transform)
 	}
 	WETerminal::AddBox(Screen, FVector(-12.f, 0.f, 105.f), FVector(4.f, 55.f, 34.f));
 	WETerminal::AddBox(Screen, FVector(-14.f, 0.f, 80.f), FVector(10.f, 10.f, 10.f));
-	WEPlaceholder::ApplyTint(Body, PlaceholderMaterial, FLinearColor(0.25f, 0.27f, 0.30f));
+	WESurface::Apply(Body, EWESurface::PaintedMetal, FLinearColor(0.32f, 0.35f, 0.4f), 0.4f);
 	WEPlaceholder::ApplyTint(Screen, PlaceholderMaterial, FLinearColor(0.05f, 0.25f, 0.55f));
 }
 
 void AWETraderTerminal::BeginPlay()
 {
 	Super::BeginPlay();
-	WEPlaceholder::ApplyTint(Body, PlaceholderMaterial, FLinearColor(0.25f, 0.27f, 0.30f));
+	WESurface::Apply(Body, EWESurface::PaintedMetal, FLinearColor(0.32f, 0.35f, 0.4f), 0.4f);
 	WEPlaceholder::ApplyTint(Screen, PlaceholderMaterial, FLinearColor(0.05f, 0.25f, 0.55f));
 
 	if (HasAuthority())
@@ -668,13 +669,13 @@ AWEDeliveryZone::AWEDeliveryZone()
 void AWEDeliveryZone::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	WEPlaceholder::ApplyTint(Pallet, PlaceholderMaterial, FLinearColor(0.55f, 0.42f, 0.25f));
+	WESurface::Apply(Pallet, EWESurface::Osb, FLinearColor(0.85f, 0.75f, 0.6f), 0.f);
 }
 
 void AWEDeliveryZone::BeginPlay()
 {
 	Super::BeginPlay();
-	WEPlaceholder::ApplyTint(Pallet, PlaceholderMaterial, FLinearColor(0.55f, 0.42f, 0.25f));
+	WESurface::Apply(Pallet, EWESurface::Osb, FLinearColor(0.85f, 0.75f, 0.6f), 0.f);
 }
 
 FTransform AWEDeliveryZone::NextDropTransform()

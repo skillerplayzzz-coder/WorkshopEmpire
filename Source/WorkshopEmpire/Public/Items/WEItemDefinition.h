@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "Items/WEItemTypes.h"
 #include "WEMoney.h"
+#include "World/WESurface.h"
 #include "WEItemDefinition.generated.h"
 
 class UStaticMesh;
@@ -121,6 +122,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Visual")
 	FLinearColor Tint = FLinearColor(0.6f, 0.6f, 0.6f);
+
+	/** Phase 15: material of the placeholder shape (metal, wood, ...) while there is no modelled mesh. A modelled WorldMesh keeps its own materials. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Visual")
+	EWESurface Surface = EWESurface::Placeholder;
 
 	/** Inventory icon (Vorschaubild). Optional; the UI shows a coloured tile until icons exist. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Visual")

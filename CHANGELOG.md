@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.15.0] – 2026-10-17 – Phase 15: Grafik und Atmosphäre
+
+### Neu
+- Neue Beleuchtung: globale Beleuchtung und Reflexionen (Lumen), weiche Schatten, Sonne, Wolkenhimmel und leichter Dunst mit Lichtstrahlen durchs Tor; Leuchtstoffröhren in Werkstatt und Hallen; das Auge passt sich zwischen hellem Hof und Werkstatt an.
+- Echte Materialien: Ziegelgarage, verputzte Innenwände, fleckiger Betonboden, Asphalthof, Wellblech- und Industriehallen, Blechdächer, lackiertes und rostiges Metall, Riffelblech, Sperrholz, OSB. Wände werden zum Boden hin schmutziger.
+- 51 Modelle: Werkzeuge, Röhrenmonitor, Sackkarre, Werkzeugkisten, Stahlregale, Kunststoffkisten, Werkstattwagen, Rolltor, Leitern, Feuerlöscher, Kompressor, Schweißwagen, Generator, Fässer, Reifen, Kanister, Zementsäcke, Lampen.
+- Rolltor, das sich beim Öffnen aufrollt.
+- Spieler und Mitarbeiter als animierte Figuren (Spielerfarbe bzw. Rollenfarbe) mit Schrittgeräuschen.
+- Partikeleffekte: Staub und Späne an Werkbank und Schredder, Dampf und Funken an der Presse, Rauch und Glut am Schmelzofen, Schwebstaub in der Werkstatt. Laufende Maschinen vibrieren.
+- Sounddesign: Maschinen mit Anlauf, Dauerton, Auslauf und Geräusch je Vorgang; Raumton in der Werkstatt, draußen Wind und Vögel; der Firmenwagen fährt sichtbar los und kommt zurück. Geräusche werden mit Entfernung leiser.
+- Grafikqualität im Hauptmenü und im Menü [Esc]: Niedrig, Mittel, Hoch (Standard), Episch.
+- Hauptmenü-Kulisse mit echten Modellen.
+
+### Leistung
+- RTX 3060, 1080p: Hoch 71–83 fps, Episch ca. 30 fps, Mittel 113–148 fps (gemessen im Editor-Spielmodus).
+
+### Technisch
+- `AWEFx`/`AWEFxEmitter` (CPU-Partikel als instanziertes Mesh, keine Niagara-Assets), `WESurface` + Master-Material `M_WESurface` (weltprojiziert), `WEMannequin`, `UWEFootstepComponent`, `WEGraphics`; Maschinen-Rückmeldung als Daten in `UWEMachineDefinition`; Möbel mit Modell (`VisualMesh`, `bTileVisual`, Deko).
+- Asset-Pipeline: `Tools/Assets/download_assets.py` (CC0 von Poly Haven und Kenney, nach `SourceArt/`, nicht im Git) und `import_assets.py`; Lizenzen in `Docs/ASSET_SOURCES.md`. UE-Mannequins aus den Engine-Vorlagen.
+- Rendering-Einstellungen in `DefaultEngine.ini` (Lumen, Virtual Shadow Maps, Distance Fields, Belichtung in EV100), Standardqualität in `DefaultGameUserSettings.ini`.
+- 5 neue Automation-Tests (insgesamt 103); Screenshot-Lauf P15 mit FPS-Messung je Ansicht.
+
 ## [0.14.0] – 2026-10-17 – Phase 13: Multiplayer-Integration und Phase 14: Steam-Integration
 
 ### Neu
