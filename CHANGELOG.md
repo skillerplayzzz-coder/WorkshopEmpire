@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.17.0] – 2026-10-18 – Phase 17: Qualitätssicherung
+
+### Behoben
+- Gegenstände konnten durch den Hofboden fallen und verschwanden für Mitspieler. Jetzt mit genauer Kollision, Bodenplatte unter dem Hof, und was trotzdem fällt, landet auf der Lieferpalette.
+- Baumodus-Liste: lange Einträge laufen nicht mehr über den Rand.
+- Marktplatz: lange Wörter laufen nicht mehr in den Preis, Bewerberbeschreibungen nicht mehr in den Lohn, der Titel klebt nicht mehr am ersten Reiter.
+- Spiel-Build schlug bei einzeln kompilierten Dateien fehl (fehlende Includes).
+
+### Leistung
+- Ruhende Gegenstände werden nicht mehr übertragen, bis sich etwas an ihnen ändert.
+- Gemessen: volle Fabrik (28 Maschinen, 20 Mitarbeiter, 400 Gegenstände) 54–68 fps in 1080p; Speichern 11 ms, Laden 134 ms; 30 min ohne Speicheranstieg.
+
+### Qualitätssicherung
+- Multiplayer-Stress mit 4 Clients, schlechter Verbindung und 30 min Dauerlauf: 14.400 Aktionen, 0 Fehler, Konto überall gleich.
+- UI- und Eingabetests bei 1024×768 bis 2560×1440.
+- 5 neue Tests (beschädigte Spielstände, wiederholtes Speichern/Laden, alte Versionen, große Welt, fallende Gegenstände), insgesamt 110.
+
+### Technisch
+- Dev-Läufe `-WEShots=P17` (Leistung, `-WEStressMinutes=N` Dauerlauf), `P17UI_*` (Tasten und Fenstergrößen), `-WESmokeRole=Z` (Zufallsaktionen), Server `-WEServerMonitor` und `-WESpawnItems=N`; Konsolenvariable `we.ItemDormancy`. Doku: `Docs/QA.md`.
+
 ## [0.16.0] – 2026-10-17 – Phase 16: Balancing und Langzeitmotivation
 
 ### Neu

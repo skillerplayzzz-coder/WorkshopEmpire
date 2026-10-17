@@ -84,6 +84,15 @@ protected:
 	TObjectPtr<UWESaveGame> LastLoadedSave;
 
 	FTimerHandle AutosaveTimer;
+#if !UE_BUILD_SHIPPING
+	void LogServerMonitor();
+	FTimerHandle MonitorTimer;
+	double MonitorTime = 0.0;
+	uint64 MonitorFrame = 0;
+	uint32 MonitorInBytes = 0;
+	uint32 MonitorOutBytes = 0;
+	bool bMonitorListItems = true;
+#endif
 	bool bEndingSession = false;
 	FString CurrentSlot = TEXT("Quicksave");
 };

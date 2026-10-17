@@ -158,6 +158,14 @@ ground.static_mesh_component.set_static_mesh(PLANE)
 asphalt = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEAsphalt"
 ground.static_mesh_component.set_material(0, unreal.load_asset(asphalt) if unreal.EditorAssetLibrary.does_asset_exist(asphalt) else unreal.load_asset("/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
 ground.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
+# Phase 17: the plane has no thickness - small items dropped fast could fall through it (seen in the multiplayer
+# stress test). An invisible 1-m slab below catches everything; the world kills nothing it does not have to.
+ground_slab = spawn(unreal.StaticMeshActor, (0, 0, -52), label="GroundCollision", folder="World")
+ground_slab.static_mesh_component.set_static_mesh(CUBE_MESH)
+ground_slab.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
+ground_slab.static_mesh_component.set_visibility(False)
+ground_slab.static_mesh_component.set_editor_property("cast_shadow", False)
+ground_slab.set_actor_hidden_in_game(True)
 
 # --- Garage --------------------------------------------------------------------------------------
 spawn(unreal.WEGarageBuilding, (0, 0, 0), label="Garage", folder="World")
@@ -358,6 +366,9 @@ def ambient(label, sound_name, loc, inner=None, falloff=None):
 ambient("RoomTone", "SFX_RoomTone", (0, 0, 150))
 ambient("Outdoor", "SFX_Outdoor", (1300, 400, 200), inner=1800.0, falloff=1600.0)
 
+# Phase 17: anything still falling below -20 m is out of the world (items are rescued to the delivery pallet).
+world_settings = unreal.EditorLevelLibrary.get_editor_world().get_world_settings()
+world_settings.set_editor_property("kill_z", -2000.0)
 les.save_current_level()
 unreal.log("WE_MAP_BUILT " + MAP_PATH)
 unreal.SystemLibrary.quit_editor()

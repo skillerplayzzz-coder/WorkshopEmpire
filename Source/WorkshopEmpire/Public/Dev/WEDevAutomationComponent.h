@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "InputCoreTypes.h"
 #include "WEDevAutomationComponent.generated.h"
 
 class AWECharacter;
@@ -107,6 +108,29 @@ protected:
 	class AWEGarageDoor* FindDoorNear(const FVector& Point) const;
 	void RunExpansionShots();
 	void RunBalanceShots();
+	/** Phase 17: full late-game factory (performance, save/load at scale; -WEStressMinutes=N for a soak). */
+	void RunStressShots();
+	/** Phase 17: multiplayer stress client (-WESmokeRole=Z, -WEStressMinutes=N). */
+	void RunSmokeRoleZ();
+	/** Phase 17: UI and input test (-WEShots=P17UI, at any resolution). */
+	void RunUiInputShots();
+	void PressKey(const FKey& Key, bool bDown);
+	void PressSlateKey(const FKey& Key);
+	void TapKey(const FKey& Key);
+	void LogUiFit(const TCHAR* Name, class UUserWidget* Widget);
+	void StressAction();
+	void StressMove();
+	FString DescribeStressState() const;
+	FRandomStream StressRandom;
+	FVector StressMoveDirection = FVector::ForwardVector;
+	int32 StressActions = 0;
+	FTimerHandle StressActionTimer;
+	FTimerHandle StressMoveTimer;
+	void LogPerfWindow(const FString& Label, double Seconds, uint64 Frames);
+	FString DescribeWorldCounts() const;
+	FString StressCountsBeforeLoad;
+	double SoakTime = 0.0;
+	uint64 SoakFrame = 0;
 	void RunSmokeRoleW();
 	void RunSmokeRoleX();
 

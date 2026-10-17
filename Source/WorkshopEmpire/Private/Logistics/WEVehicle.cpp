@@ -1,4 +1,5 @@
 #include "Logistics/WEVehicle.h"
+#include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"

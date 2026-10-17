@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "WEMoney.h"
 #include "WEProgressionComponent.generated.h"
 
 class UWEUpgradeCatalog;

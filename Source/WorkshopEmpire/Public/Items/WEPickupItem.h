@@ -65,6 +65,10 @@ public:
 
 	/** Server only. Sets the item data (quantity changes after partial pickup, loading, tests). */
 	void SetItem(const FWEItemInstance& NewItem);
+	/** Phase 17: back from net dormancy before a replicated property changes (server). */
+	void WakeForReplication();
+	virtual void FellOutOfWorld(const class UDamageType& DamageType) override;
+	float FallVelocityAtKill = 0.f;
 
 	const FWEItemInstance& GetItem() const { return Item; }
 	AWECharacter* GetHolder() const { return Holder; }
@@ -78,6 +82,11 @@ public:
 	static FText FormatWeight(float Kg);
 
 protected:
+	UFUNCTION()
+	void HandleBodySleep(UPrimitiveComponent* SleepingComponent, FName BoneName);
+	UFUNCTION()
+	void HandleBodyWake(UPrimitiveComponent* WakingComponent, FName BoneName);
+
 	virtual void BeginPlay() override;
 	virtual void OnRep_AttachmentReplication() override;
 

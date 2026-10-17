@@ -1,4 +1,5 @@
 #include "Framework/WEPlayerController.h"
+#include "GameFramework/PlayerState.h"
 #include "UI/WEMenuWidgets.h"
 #include "Online/WESessionSubsystem.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -423,7 +424,12 @@ void AWEPlayerController::ServerDevTeleport_Implementation(FVector Location, FRo
 #if !UE_BUILD_SHIPPING
 	if (APawn* MyPawn = GetPawn())
 	{
-		MyPawn->TeleportTo(Location, Rotation, false, true);
+		// Phase 17: check for room first (a capsule teleported into loose items shoved them through the floor);
+		// only if there is none, place it anyway as before.
+		if (!MyPawn->TeleportTo(Location, Rotation, false, false))
+		{
+			MyPawn->TeleportTo(Location, Rotation, false, true);
+		}
 		ClientSetRotation(Rotation);
 		UE_LOG(LogWENet, Log, TEXT("%s dev-teleported to %s"), *GetName(), *Location.ToCompactString());
 	}

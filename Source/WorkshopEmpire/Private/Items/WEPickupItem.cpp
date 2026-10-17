@@ -18,7 +18,16 @@
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WEWorkbench.h"
 
+#include "Economy/WETraderTerminal.h"
+#include "HAL/IConsoleManager.h"
+
 #define LOCTEXT_NAMESPACE "WEPickupItem"
+
+namespace WEPickupNet
+{
+	int32 ItemDormancy = 1;
+	FAutoConsoleVariableRef CVarItemDormancy(TEXT("we.ItemDormancy"), ItemDormancy, TEXT("1: resting world items stop replicating until they change (Phase 17). 0: always replicate (for comparison)."));
+}
 
 AWEPickupItem::AWEPickupItem()
 {
@@ -33,7 +42,12 @@ AWEPickupItem::AWEPickupItem()
 	Mesh->SetSimulatePhysics(true);
 	Mesh->SetLinearDamping(0.2f);
 	Mesh->SetAngularDamping(0.5f);
+	// Phase 17: resting items go net-dormant (wake events tell us when physics settles or moves them again).
+	Mesh->BodyInstance.bGenerateWakeEvents = true;
+	// Small, light items pushed hard by a player tunnelled through floors in the multiplayer stress test.
+	Mesh->BodyInstance.bUseCCD = true;
 	RootComponent = Mesh;
+	SetNetDormancy(DORM_Awake);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (CubeMesh.Succeeded())
@@ -74,6 +88,53 @@ void AWEPickupItem::BeginPlay()
 		Item.InstanceId = FGuid::NewGuid();
 	}
 	ApplyDefinitionVisuals();
+	if (HasAuthority())
+	{
+		Mesh->OnComponentSleep.AddDynamic(this, &AWEPickupItem::HandleBodySleep);
+		Mesh->OnComponentWake.AddDynamic(this, &AWEPickupItem::HandleBodyWake);
+	}
+}
+
+void AWEPickupItem::HandleBodySleep(UPrimitiveComponent* SleepingComponent, FName BoneName)
+{
+	// A loose item lying still costs no bandwidth: stop replicating it until something changes.
+	// (Measured in Phase 17: 4 players, 660 loose items -> ~400 KB/s from the server before.)
+	if (HasAuthority() && !Holder && !PlacedOn && !IsActorBeingDestroyed() && WEPickupNet::ItemDormancy != 0)
+	{
+		ForceNetUpdate(); // the final resting place goes out before the actor sleeps
+		SetNetDormancy(DORM_DormantAll);
+	}
+}
+
+void AWEPickupItem::FellOutOfWorld(const UDamageType& DamageType)
+{
+	// Phase 17: an item that fell through the world (below KillZ) is rescued to the delivery pallet instead of vanishing.
+	if (!HasAuthority() || Holder || PlacedOn)
+	{
+		return;
+	}
+	FallVelocityAtKill = Mesh->GetPhysicsLinearVelocity().Size();
+	const AWEDeliveryZone* Pallet = AWEDeliveryZone::Find(GetWorld());
+	const FVector Safe = Pallet ? Pallet->GetActorLocation() + FVector(0.f, 0.f, 120.f) : FVector(300.f, 0.f, 150.f);
+	WakeForReplication();
+	Mesh->SetPhysicsLinearVelocity(FVector::ZeroVector);
+	Mesh->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	SetActorLocation(Safe, false, nullptr, ETeleportType::ResetPhysics);
+	UE_LOG(LogWENet, Warning, TEXT("%s fell out of the world (last seen moving at %.0f cm/s) - put back on the delivery pallet"), *GetDisplayName().ToString(), FallVelocityAtKill);
+}
+
+void AWEPickupItem::HandleBodyWake(UPrimitiveComponent* WakingComponent, FName BoneName)
+{
+	WakeForReplication();
+}
+
+void AWEPickupItem::WakeForReplication()
+{
+	if (HasAuthority() && NetDormancy != DORM_Awake)
+	{
+		FlushNetDormancy();
+		SetNetDormancy(DORM_Awake);
+	}
 }
 
 void AWEPickupItem::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -118,6 +179,7 @@ void AWEPickupItem::ApplyDefinitionVisuals()
 
 void AWEPickupItem::SetItem(const FWEItemInstance& NewItem)
 {
+	WakeForReplication();
 	Item = NewItem;
 	ApplyDefinitionVisuals();
 	ForceNetUpdate();
@@ -307,6 +369,7 @@ void AWEPickupItem::HandlePickedUp(AWECharacter* NewHolder, USceneComponent* Att
 {
 	check(HasAuthority());
 	const float Radius = GetCarryRadius();
+	WakeForReplication();
 	Holder = NewHolder;
 	ApplyHeldState(true);
 	if (AttachTo)
@@ -321,6 +384,7 @@ void AWEPickupItem::HandlePickedUp(AWECharacter* NewHolder, USceneComponent* Att
 void AWEPickupItem::HandleDropped(const FTransform& DropTransform)
 {
 	check(HasAuthority());
+	WakeForReplication();
 	Holder = nullptr;
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	SetActorLocationAndRotation(DropTransform.GetLocation(), DropTransform.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
@@ -433,6 +497,7 @@ TArray<FWEItemInstance> AWEPickupItem::OpenContainer(AWECharacter* By)
 void AWEPickupItem::HandlePlacedOnWorkbench(AWEWorkbench* Bench, USceneComponent* AttachTo)
 {
 	check(HasAuthority());
+	WakeForReplication();
 	Holder = nullptr;
 	PlacedOn = Bench;
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
@@ -450,6 +515,7 @@ void AWEPickupItem::HandlePlacedOnWorkbench(AWEWorkbench* Bench, USceneComponent
 void AWEPickupItem::HandleRemovedFromWorkbench()
 {
 	check(HasAuthority());
+	WakeForReplication();
 	PlacedOn = nullptr;
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	ApplyHeldState(false);

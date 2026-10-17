@@ -2,8 +2,8 @@
 
 ## Aktuelle Phase
 
-**Phase 16 – Balancing und Langzeitmotivation: abgeschlossen, wartet auf Mikes Praxistest und Freigabe.**
-Phase 17 wurde nicht begonnen.
+**Phase 17 – Qualitätssicherung: abgeschlossen, wartet auf Mikes Freigabe.**
+Phase 18 wurde nicht begonnen.
 
 ## Abgeschlossen
 
@@ -134,6 +134,14 @@ Phase 17 wurde nicht begonnen.
 - 31 Meilensteine mit Prämien bis zum Firmenwert von 1 Mio. € (Reiter "Unternehmen"), Speicherversion 13
 - Behoben: Seit Phase 15 stand der Firmenwagen in der Garage statt vor dem Tor
 
+### Phase 17 – Qualitätssicherung (2026-10-18)
+- Leistungsprofil einer vollen Fabrik (28 Maschinen, 20 Mitarbeiter, 400 Gegenstände): 54–68 fps in 1080p; Speichern/Laden 11/134 ms
+- Multiplayer-Stress und Dauerlauf: 4 Spieler 30 min mit Lag, Paketverlust, Umordnung – 14.400 Aktionen, 0 Fehler, Konto immer gleich
+- Speichertests: 131 beschädigte Dateien sauber abgelehnt, 10× speichern/laden identisch, alte Versionen laden, 2.000 Gegenstände in 0,5 s
+- UI- und Eingabetest in 4 Auflösungen über den echten Eingabeweg; Dauerlauf 30 min ohne Speicherwachstum
+- Behoben: Gegenstände konnten durch den Hofboden fallen; 4 Textüberläufe in Menüs; fehlende Includes; Testwerkzeuge (Teleport, Bildrate)
+- Werkzeuge für spätere Prüfungen: `Docs/QA.md`
+
 ## Offene Aufgaben
 
 - Mike: Praxistest Phase 16 (fühlt sich das Tempo richtig an? die Simulation ersetzt keinen echten Spieler) und weiterhin Phase 15 (Klang) sowie Steam mit einem Freund
@@ -149,8 +157,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 17 – Qualitätssicherung (laut Spezifikation), erst nach Mikes Freigabe.
+Phase 18 – Release-Vorbereitung (laut Spezifikation), erst nach Mikes Freigabe.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-17 (Phase 16): 106/106 Automation-Tests inkl. 60-h-Fortschrittssimulation, Spiellauf P16 mit Screenshots, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P15.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-18 (Phase 17): 110/110 Automation-Tests, Leistung, Stress- und Dauerläufe, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.

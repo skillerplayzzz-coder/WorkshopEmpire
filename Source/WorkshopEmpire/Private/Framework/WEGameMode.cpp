@@ -11,6 +11,11 @@
 #include "Player/WECharacter.h"
 #include "Save/WESaveGame.h"
 #include "Save/WESaveSystem.h"
+#include "Engine/NetDriver.h"
+#include "EngineUtils.h"
+#include "HAL/PlatformMemory.h"
+#include "Items/WEItemDefinition.h"
+#include "Items/WEPickupItem.h"
 #include "TimerManager.h"
 #include "WELog.h"
 
@@ -51,6 +56,40 @@ FString AWEGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 	return Error;
 }
 
+#if !UE_BUILD_SHIPPING
+void AWEGameMode::LogServerMonitor()
+{
+	const double Now = FPlatformTime::Seconds();
+	const uint64 Frames = GFrameCounter - MonitorFrame;
+	const double Seconds = FMath::Max(0.001, Now - MonitorTime);
+	MonitorTime = Now;
+	MonitorFrame = GFrameCounter;
+	const UNetDriver* Driver = GetWorld()->GetNetDriver();
+	const uint32 InTotal = Driver ? Driver->InTotalBytes : 0u;
+	const uint32 OutTotal = Driver ? Driver->OutTotalBytes : 0u;
+	const double InRate = (InTotal - MonitorInBytes) / Seconds;
+	const double OutRate = (OutTotal - MonitorOutBytes) / Seconds;
+	MonitorInBytes = InTotal;
+	MonitorOutBytes = OutTotal;
+	int32 Items = 0;
+	FString Names;
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+	{
+		++Items;
+		if (bMonitorListItems) { Names += FString::Printf(TEXT("%s@%s, "), *It->GetItem().GetDisplayName().ToString(), *It->GetActorLocation().ToCompactString()); }
+	}
+	if (bMonitorListItems && GetNumPlayers() > 0)
+	{
+		bMonitorListItems = false;
+		UE_LOG(LogWENet, Display, TEXT("MONITOR items: %s"), *Names);
+	}
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	UE_LOG(LogWENet, Display, TEXT("MONITOR players=%d frame=%.2f ms (%.0f fps) in=%.0f B/s out=%.0f B/s memory=%.0f MB items=%d balance=%s"),
+		GetNumPlayers(), Seconds * 1000.0 / FMath::Max<uint64>(1, Frames), Frames / Seconds, InRate, OutRate,
+		FPlatformMemory::GetStats().UsedPhysical / (1024.0 * 1024.0), Items, Company ? *Company->GetBalance().ToDisplayString() : TEXT("-"));
+}
+#endif
+
 void AWEGameMode::BeginPlay()
 {
 	Super::BeginPlay();
@@ -63,6 +102,25 @@ void AWEGameMode::BeginPlay()
 	if (AutosaveIntervalSeconds > 0.f)
 	{
 		GetWorldTimerManager().SetTimer(AutosaveTimer, this, &AWEGameMode::Autosave, AutosaveIntervalSeconds, true);
+#if !UE_BUILD_SHIPPING
+	// Phase 17 QA: -WEServerMonitor logs server frame time, traffic and memory every 10 s (stress and soak tests).
+	if (FParse::Param(FCommandLine::Get(), TEXT("WEServerMonitor")))
+	{
+		MonitorTime = FPlatformTime::Seconds();
+		MonitorFrame = GFrameCounter;
+		GetWorldTimerManager().SetTimer(MonitorTimer, this, &AWEGameMode::LogServerMonitor, 10.f, true);
+		// -WESpawnItems=N: a yard full of loose items for traffic measurements.
+		int32 SpawnItems = 0;
+		if (FParse::Value(FCommandLine::Get(), TEXT("WESpawnItems="), SpawnItems))
+		{
+			UWEItemDefinition* Scrap = UWEItemDefinition::FindById(TEXT("SteelScrap"));
+			for (int32 i = 0; Scrap && i < SpawnItems; ++i)
+			{
+				AWEPickupItem::SpawnWorldItem(GetWorld(), FWEItemInstance::Make(Scrap, 1), FTransform(FVector(500.f + (i % 20) * 40.f, -400.f + (i / 20) * 40.f, 30.f)));
+			}
+		}
+	}
+#endif
 	}
 }
 

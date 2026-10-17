@@ -28,7 +28,7 @@ public class WorkshopEmpire : ModuleRules
 			"OnlineSubsystemUtils",
 			"EngineSettings",
 			"Sockets",
-			"RHI",
+			"RHI", "RenderCore", "ApplicationCore",
 			"Slate",
 			"SlateCore"
 		});

@@ -32,6 +32,16 @@
 #include "Workshop/WEBuildComponent.h"
 #include "Workshop/WEFurnitureDefinition.h"
 #include "Workshop/WEWorkshopLayoutComponent.h"
+#include "Save/WESaveSystem.h"
+#include "HAL/FileManager.h"
+#include "UI/WEInventoryWidget.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Framework/Application/SlateApplication.h"
+#include "InputKeyEventArgs.h"
+#include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "HAL/IConsoleManager.h"
 #include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 #include "Machines/WEMachine.h"
@@ -84,6 +94,15 @@ void UWEDevAutomationComponent::BeginPlay()
 
 	FParse::Value(FCommandLine::Get(), TEXT("WESmokeRole="), Role);
 	FParse::Value(FCommandLine::Get(), TEXT("WEShots="), ShotName);
+	// Phase 17: headless test clients would run at hundreds of fps and overflow the movement prediction
+	// ("Hit limit of 96 saved moves"); a real player's frame rate is far lower.
+	if (!Role.IsEmpty() && (GUsingNullRHI || !FApp::CanEverRender()))
+	{
+		if (IConsoleVariable* MaxFps = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS")))
+		{
+			MaxFps->Set(120.f);
+		}
+	}
 
 	if (Role == TEXT("A"))
 	{
@@ -181,6 +200,14 @@ void UWEDevAutomationComponent::BeginPlay()
 	{
 		RunSteamRole();
 	}
+	else if (ShotName.StartsWith(TEXT("P17UI")))
+	{
+		RunUiInputShots();
+	}
+	else if (ShotName.StartsWith(TEXT("P17")))
+	{
+		RunStressShots();
+	}
 	else if (ShotName.StartsWith(TEXT("P16")))
 	{
 		RunBalanceShots();
@@ -200,6 +227,10 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("X"))
 	{
 		RunSmokeRoleX();
+	}
+	else if (Role == TEXT("Z"))
+	{
+		RunSmokeRoleZ();
 	}
 	else if (ShotName.StartsWith(TEXT("P12")))
 	{
@@ -2374,6 +2405,490 @@ void UWEDevAutomationComponent::LogExpansion(const TCHAR* Step) const
 		*FString::Join(Buildings, TEXT(" ")), *FString::Join(Books, TEXT(" ")), *FString::Join(Orders, TEXT(" ")),
 		Furnace ? TEXT("placed") : TEXT("-"), Furnace ? *Furnace->GetStatusText().ToString() : TEXT(""),
 		Furnace && Furnace->GetOutputStorage() ? Furnace->GetOutputStorage()->CountItems(UWEItemDefinition::FindById(TEXT("AluminiumIngot"))) : 0);
+}
+
+// --- Phase 17: QA - a full late-game factory for performance, save/load at scale and stability -------
+
+void UWEDevAutomationComponent::LogPerfWindow(const FString& Label, double Seconds, uint64 Frames)
+{
+	const FPlatformMemoryStats Mem = FPlatformMemory::GetStats();
+	int32 Actors = 0;
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		++Actors;
+	}
+	UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF %s: %.1f fps (%.2f ms/frame), game %.2f ms, render %.2f ms, GPU %.2f ms, memory %.0f MB, actors %d, %d x %d"),
+		*Label, Frames / FMath::Max(Seconds, 0.001), Seconds * 1000.0 / FMath::Max<uint64>(Frames, 1),
+		FPlatformTime::ToMilliseconds(GGameThreadTime), FPlatformTime::ToMilliseconds(GRenderThreadTime), FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()),
+		Mem.UsedPhysical / (1024.0 * 1024.0), Actors,
+		GEngine && GEngine->GameViewport ? (int32)GEngine->GameViewport->Viewport->GetSizeXY().X : 0, GEngine && GEngine->GameViewport ? (int32)GEngine->GameViewport->Viewport->GetSizeXY().Y : 0);
+}
+
+FString UWEDevAutomationComponent::DescribeWorldCounts() const
+{
+	int32 Items = 0, Furniture = 0, Machines = 0, Running = 0, Employees = 0;
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It) { ++Items; }
+	for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It) { Furniture += It->GetFurnitureId().IsNone() ? 0 : 1; }
+	for (TActorIterator<AWEMachine> It(GetWorld()); It; ++It) { ++Machines; Running += It->GetStatus().State == EWEMachineState::Running ? 1 : 0; }
+	for (TActorIterator<AWEEmployee> It(GetWorld()); It; ++It) { ++Employees; }
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	return FString::Printf(TEXT("items=%d furniture=%d machines=%d running=%d employees=%d balance=%s"), Items, Furniture, Machines, Running, Employees,
+		Company ? *Company->GetBalance().ToDisplayString() : TEXT("-"));
+}
+
+void UWEDevAutomationComponent::RunStressShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	// -WEStressMinutes=N: stability soak with the factory running N minutes before save/load.
+	int32 Minutes = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("WEStressMinutes="), Minutes);
+	const bool bLong = Minutes > 0;
+	const float RunSeconds = bLong ? Minutes * 60.f : 40.f;
+	// Everything a late-game company has: all buildings, truck, forklift.
+	Schedule(3.0f, [this]()
+	{
+		UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
+		for (const TCHAR* Id : { TEXT("LedLights"), TEXT("HeavyCurrent"), TEXT("Forklift"), TEXT("OldVan"), TEXT("ModernVan"), TEXT("WorkshopExtension"),
+			TEXT("CommercialHall"), TEXT("Truck"), TEXT("FactoryHall") })
+		{
+			if (Progression) { Progression->GrantUpgrade(FName(Id)); }
+		}
+		if (UWECompanyComponent* Company = UWECompanyComponent::Get(this)) { Company->Deposit(FWEMoney::FromEuros(500000), TEXT("QA")); }
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S0 buildings: %s"), *DescribeWorldCounts());
+	});
+	// 28 machines in the hall and the factory, each filled with a batch of its material and switched on.
+	Schedule(4.0f, [this]()
+	{
+		UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this);
+		if (!Layout)
+		{
+			return;
+		}
+		struct FFill { const TCHAR* Machine; const TCHAR* Item; int32 Quantity; EWEItemCondition Condition; };
+		const FFill Fills[] = {
+			{ TEXT("Shredder"), TEXT("CableBox"), 6, EWEItemCondition::Used }, { TEXT("Sorter"), TEXT("ShredElectronics"), 40, EWEItemCondition::Used },
+			{ TEXT("Press"), TEXT("SteelScrap"), 60, EWEItemCondition::Used }, { TEXT("Assembler"), TEXT("CopperGranulate"), 40, EWEItemCondition::Used },
+			{ TEXT("Furnace"), TEXT("AluminiumScrap"), 50, EWEItemCondition::Used }, { TEXT("Refinery"), TEXT("ElectronicScrap"), 60, EWEItemCondition::Used } };
+		auto Place = [&](const FFill& F, float X, float Y)
+		{
+			AWEPlaceholderProp* Prop = Layout->SpawnFurniture(FName(F.Machine), FTransform(FVector(X, Y, 0.f)));
+			AWEMachine* Machine = Cast<AWEMachine>(Prop);
+			const UWEItemDefinition* Def = UWEItemDefinition::FindById(FName(F.Item));
+			if (!Machine || !Def)
+			{
+				return;
+			}
+			int32 Added = 0;
+			for (int32 Left = F.Quantity; Left > 0;)
+			{
+				const int32 Stack = FMath::Min(Left, Def->GetMaxStackSize());
+				Machine->GetStorage()->TryAddItem(FWEItemInstance::Make(const_cast<UWEItemDefinition*>(Def), Stack, F.Condition), Added);
+				Left -= Stack;
+			}
+			Machine->SetPower(true);
+		};
+		for (int32 Row = 0; Row < 3; ++Row)
+		{
+			for (int32 Col = 0; Col < 6; ++Col)
+			{
+				Place(Fills[Col], 1150.f + Col * 210.f, 1050.f + Row * 520.f); // factory
+			}
+		}
+		for (int32 Row = 0; Row < 2; ++Row)
+		{
+			for (int32 Col = 0; Col < 5; ++Col)
+			{
+				Place(Fills[Col], 1150.f + Col * 240.f, -700.f + Row * 560.f); // commercial hall
+			}
+		}
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S1 machines: %s"), *DescribeWorldCounts());
+	});
+	// 20 employees: operators at the machines, the rest walking between them.
+	Schedule(5.0f, [this]()
+	{
+		UWEStaffComponent* Staff = UWEStaffComponent::Get(this);
+		TArray<AWEMachine*> Machines;
+		for (TActorIterator<AWEMachine> It(GetWorld()); It; ++It) { Machines.Add(*It); }
+		for (int32 i = 0; Staff && i < Staff->GetMaxEmployees() && Machines.Num() > 0; ++i)
+		{
+			FWEEmployeeProfile Profile;
+			Profile.Name = FString::Printf(TEXT("QA-Mitarbeiter %d"), i + 1);
+			Profile.Role = i % 2 == 0 ? EWEStaffRole::MachineOperator : EWEStaffRole::WarehouseWorker;
+			Profile.WageCentsPerMinute = 70;
+			AWEMachine* Machine = Machines[i % Machines.Num()];
+			AWEEmployee* Employee = Staff->SpawnEmployee(Profile, FTransform(Machine->GetActorLocation() + FVector(-160.f, 0.f, 100.f)));
+			if (!Employee)
+			{
+				continue;
+			}
+			FWEEmployeeTask Task;
+			Task.Kind = Profile.Role == EWEStaffRole::MachineOperator ? EWETaskKind::OperateMachine : EWETaskKind::Transport;
+			Task.Target = Profile.Role == EWEStaffRole::MachineOperator ? Machine : Machines[(i + 1) % Machines.Num()];
+			Task.Source = Profile.Role == EWEStaffRole::MachineOperator ? nullptr : Machine;
+			Employee->AssignTask(Task);
+		}
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S2 staff: %s"), *DescribeWorldCounts());
+	});
+	// 400 loose items in the yard (physics bodies at rest).
+	Schedule(6.0f, [this]()
+	{
+		const TCHAR* Ids[] = { TEXT("SteelScrap"), TEXT("OldComputer"), TEXT("CrtMonitor"), TEXT("CableBox"), TEXT("ElectricMotor"), TEXT("PowerSupply"), TEXT("CopperCable") };
+		FRandomStream Random(17);
+		for (int32 i = 0; i < 400; ++i)
+		{
+			UWEItemDefinition* Def = UWEItemDefinition::FindById(FName(Ids[i % UE_ARRAY_COUNT(Ids)]));
+			const FVector At(600.f + Random.FRandRange(0.f, 700.f), -500.f + Random.FRandRange(0.f, 1200.f), 60.f + (i % 4) * 40.f);
+			if (Def) { AWEPickupItem::SpawnWorldItem(GetWorld(), FWEItemInstance::Make(Def, 1, EWEItemCondition::Defective), FTransform(At)); }
+		}
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S3 items: %s"), *DescribeWorldCounts());
+	});
+	// Measure from four places while everything runs.
+	struct FView { FVector From; FVector Target; const TCHAR* Name; };
+	const FView Views[] = {
+		{ FVector(-250.f, -150.f, 100.f), FVector(300.f, 100.f, 120.f), TEXT("01_Garage") },
+		{ FVector(900.f, -800.f, 200.f), FVector(1700.f, -300.f, 100.f), TEXT("02_Halle") },
+		{ FVector(900.f, 900.f, 250.f), FVector(1800.f, 1800.f, 100.f), TEXT("03_Fabrik") },
+		{ FVector(-300.f, 1200.f, 500.f), FVector(1200.f, 300.f, 0.f), TEXT("04_Gelaende") } };
+	float T = 8.f;
+	for (const FView& V : Views)
+	{
+		const FString Name(V.Name);
+		const FVector From = V.From;
+		const FVector Target = V.Target;
+		Schedule(T, [PC, From]() { if (PC) { PC->ServerDevTeleport(From, FRotator::ZeroRotator); } });
+		Schedule(T + 0.6f, [this, Target]() { LookAtPoint(Target); });
+		Schedule(T + 1.5f, [this]() { PerfStart = FPlatformTime::Seconds(); PerfFrameStart = GFrameCounter; });
+		Schedule(T + 4.5f, [this, Name]() { LogPerfWindow(Name, FPlatformTime::Seconds() - PerfStart, GFrameCounter - PerfFrameStart); Shot(Name); });
+		T += 5.f;
+	}
+	// Long runs (stability): log every minute.
+	const float RunEnd = T + RunSeconds;
+	Schedule(T, [this]() { SoakTime = FPlatformTime::Seconds(); SoakFrame = GFrameCounter; });
+	for (float At = T + 60.f; bLong && At < RunEnd; At += 60.f)
+	{
+		Schedule(At, [this, At]()
+		{
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS minute %.0f: %s"), At / 60.f, *DescribeWorldCounts());
+			LogPerfWindow(FString::Printf(TEXT("soak_%03.0f"), At / 60.f), FPlatformTime::Seconds() - SoakTime, GFrameCounter - SoakFrame);
+			SoakTime = FPlatformTime::Seconds();
+			SoakFrame = GFrameCounter;
+		});
+	}
+	// Save and load the whole factory, compare.
+	Schedule(RunEnd, [this]()
+	{
+		AWEGameMode* GM = GetWorld()->GetAuthGameMode<AWEGameMode>();
+		const FString Before = DescribeWorldCounts();
+		const double Start = FPlatformTime::Seconds();
+		const bool bSaved = GM && GM->SaveToSlot(TEXT("QAStress"));
+		const double SaveMs = (FPlatformTime::Seconds() - Start) * 1000.0;
+		const int64 Bytes = IFileManager::Get().FileSize(*FWESaveSystem::GetSlotPath(TEXT("QAStress")));
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S4 saved=%d in %.0f ms, %lld bytes: %s"), bSaved ? 1 : 0, SaveMs, Bytes, *Before);
+		StressCountsBeforeLoad = Before;
+	});
+	Schedule(RunEnd + 2.f, [this]()
+	{
+		AWEGameMode* GM = GetWorld()->GetAuthGameMode<AWEGameMode>();
+		const double Start = FPlatformTime::Seconds();
+		const bool bLoaded = GM && GM->LoadFromSlot(TEXT("QAStress"));
+		const double LoadMs = (FPlatformTime::Seconds() - Start) * 1000.0;
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S5 loaded=%d in %.0f ms: %s"), bLoaded ? 1 : 0, LoadMs, *DescribeWorldCounts());
+	});
+	Schedule(RunEnd + 6.f, [this]()
+	{
+		// Items keep moving through the machines between save and load only by the 2 s, so counts must match closely.
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("STRESS S6 after load settle: %s | before save: %s"), *DescribeWorldCounts(), *StressCountsBeforeLoad);
+		PerfStart = FPlatformTime::Seconds();
+		PerfFrameStart = GFrameCounter;
+	});
+	Schedule(RunEnd + 9.f, [this]() { LogPerfWindow(TEXT("05_nach_Laden"), FPlatformTime::Seconds() - PerfStart, GFrameCounter - PerfFrameStart); Shot(TEXT("05_nach_Laden")); });
+	Schedule(RunEnd + 10.f, [this]() { Quit(); });
+}
+
+// --- Phase 17: multiplayer stress - a client doing everything at once, for minutes ---------------------
+
+void UWEDevAutomationComponent::RunSmokeRoleZ()
+{
+	// -WEStressMinutes=N (default 3): random actions twice a second, walking in between.
+	int32 Minutes = 3;
+	FParse::Value(FCommandLine::Get(), TEXT("WEStressMinutes="), Minutes);
+	StressRandom.Initialize(static_cast<int32>(FCrc::StrCrc32(*GetNameSafe(GetOwner())) ^ static_cast<uint32>(FPlatformTime::Cycles())));
+	Schedule(6.f, [this]()
+	{
+		if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner())) { PC->ServerDevAddMoney(2000); }
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[Z] Z0 start: %s"), *DescribeStressState());
+		FString Names;
+		for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It) { Names += FString::Printf(TEXT("%s@%s, "), *It->GetItem().GetDisplayName().ToString(), *It->GetActorLocation().ToCompactString()); }
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[Z] items: %s"), *Names);
+	});
+	Schedule(7.f, [this]()
+	{
+		GetWorld()->GetTimerManager().SetTimer(StressActionTimer, this, &UWEDevAutomationComponent::StressAction, 0.5f, true);
+		GetWorld()->GetTimerManager().SetTimer(StressMoveTimer, this, &UWEDevAutomationComponent::StressMove, 1.f / 30.f, true);
+	});
+	for (int32 M = 1; M <= Minutes; ++M)
+	{
+		Schedule(7.f + M * 60.f, [this, M]() { UE_LOG(LogWENet, Display, TEXT("SMOKE[Z] minute %d: actions=%d %s"), M, StressActions, *DescribeStressState()); });
+	}
+	Schedule(8.f + Minutes * 60.f, [this]()
+	{
+		GetWorld()->GetTimerManager().ClearTimer(StressActionTimer);
+		GetWorld()->GetTimerManager().ClearTimer(StressMoveTimer);
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[Z] Z9 final: actions=%d %s"), StressActions, *DescribeStressState());
+	});
+	Schedule(11.f + Minutes * 60.f, [this]() { Quit(); });
+}
+
+FString UWEDevAutomationComponent::DescribeStressState() const
+{
+	const AWECharacter* C = GetCharacter();
+	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+	int32 WorldItems = 0;
+	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It) { ++WorldItems; }
+	const UWEInventoryComponent* Mine = GetMyInventory();
+	const APlayerState* PS = C ? C->GetPlayerState() : nullptr;
+	return FString::Printf(TEXT("balance=%s worldItems=%d mySlots=%d held=%s ping=%.0fms at=%s"), Company ? *Company->GetBalance().ToDisplayString() : TEXT("-"), WorldItems,
+		Mine ? Mine->GetAllSlots().Num() : -1, C && C->GetHeldItem() ? *C->GetHeldItem()->GetDisplayName().ToString() : TEXT("-"),
+		PS ? PS->GetPingInMilliseconds() : -1.f, C ? *C->GetActorLocation().ToCompactString() : TEXT("-"));
+}
+
+void UWEDevAutomationComponent::StressMove()
+{
+	if (AWECharacter* C = GetCharacter())
+	{
+		C->AddMovementInput(StressMoveDirection, 1.f);
+	}
+}
+
+void UWEDevAutomationComponent::StressAction()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	AWECharacter* C = GetCharacter();
+	UWEInteractionComponent* I = C ? C->GetInteractionComponent() : nullptr;
+	UWEInventoryComponent* Mine = GetMyInventory();
+	if (!PC || !C || !I)
+	{
+		return;
+	}
+	++StressActions;
+	StressMoveDirection = FVector(StressRandom.FRandRange(-1.f, 1.f), StressRandom.FRandRange(-1.f, 1.f), 0.f).GetSafeNormal();
+	switch (StressRandom.RandRange(0, 9))
+	{
+	case 0: // pick up or drop
+		if (C->GetHeldItem())
+		{
+			I->RequestPrimaryInteraction(); // [E] with something in the hands drops it
+		}
+		else
+		{
+			AWEPickupItem* Nearest = nullptr;
+			float Best = 350.f;
+			for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+			{
+				const float D = FVector::Dist(It->GetActorLocation(), C->GetActorLocation());
+				if (D < Best && !It->GetHolder()) { Best = D; Nearest = *It; }
+			}
+			if (Nearest) { I->RequestInteractWith(Nearest); }
+		}
+		break;
+	case 1: // buy something small at the terminal (teleport there first)
+		TeleportToTerminal(StressRandom.FRandRange(-60.f, 60.f));
+		PC->RequestBuy(const_cast<AWETraderTerminal*>(FindTerminal()), StressRandom.RandRange(0, 8), 1);
+		break;
+	case 2: // sell a random slot
+		if (Mine && Mine->GetAllSlots().Num() > 0)
+		{
+			TeleportToTerminal(StressRandom.FRandRange(-60.f, 60.f));
+			const TArray<FWEInventorySlotData> Slots = Mine->GetAllSlots();
+			const FWEInventorySlotData& Slot = Slots[StressRandom.RandRange(0, Slots.Num() - 1)];
+			PC->RequestSell(const_cast<AWETraderTerminal*>(FindTerminal()), Mine, Slot.SlotIndex, 1);
+		}
+		break;
+	case 3: // inventory shuffle and sort
+		if (Mine && Mine->GetAllSlots().Num() > 0)
+		{
+			const FWEInventorySlotData Slot = Mine->GetAllSlots()[0];
+			PC->RequestMoveItem(Mine, Slot.SlotIndex, Mine, StressRandom.RandRange(0, Mine->GetNumSlots() - 1), Slot.Item.Quantity);
+			PC->RequestSort(Mine);
+		}
+		break;
+	case 4: // drop something from the inventory
+		if (Mine && Mine->GetAllSlots().Num() > 2)
+		{
+			PC->RequestDropFromInventory(Mine, Mine->GetAllSlots().Last().SlotIndex, 1);
+		}
+		break;
+	case 5: // the door
+		PC->ServerDevTeleport(FVector(330.f, StressRandom.FRandRange(-150.f, 150.f), 100.f), FRotator::ZeroRotator);
+		I->RequestInteractWith(FindDoor());
+		break;
+	case 6: // a new random place in the garage or the yard
+		PC->ServerDevTeleport(FVector(StressRandom.FRandRange(-300.f, 900.f), StressRandom.FRandRange(-250.f, 250.f), 100.f), FRotator(0.f, StressRandom.FRandRange(0.f, 360.f), 0.f));
+		break;
+	case 7: // something to carry around
+		PC->ServerDevGiveItem(StressRandom.FRand() < 0.5f ? TEXT("SteelScrap") : TEXT("CopperCable"), StressRandom.RandRange(1, 5), EWEItemCondition::Used);
+		break;
+	default: // just walk (direction changed above)
+		break;
+	}
+}
+
+// --- Phase 17: UI and input test - every screen at the current resolution, every key through the real input path ---
+
+void UWEDevAutomationComponent::PressKey(const FKey& Key, bool bDown)
+{
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	if (PC && GEngine && GEngine->GameViewport)
+	{
+		// The same path as a real key: viewport -> PlayerController -> Enhanced Input.
+		PC->InputKey(FInputKeyEventArgs(GEngine->GameViewport->Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(), Key, bDown ? IE_Pressed : IE_Released));
+	}
+}
+
+void UWEDevAutomationComponent::TapKey(const FKey& Key)
+{
+	// Down now, up a few frames later - like a finger (down and up in one frame never triggers an action).
+	PressKey(Key, true);
+	Schedule(0.15f, [this, Key]() { PressKey(Key, false); });
+}
+
+void UWEDevAutomationComponent::PressSlateKey(const FKey& Key)
+{
+	// Keys that open widgets answer through Slate (the widget has the keyboard focus).
+	if (FSlateApplication::IsInitialized())
+	{
+		const FKeyEvent Event(Key, FModifierKeysState(), 0, false, 0, 0);
+		FSlateApplication::Get().ProcessKeyDownEvent(Event);
+		FSlateApplication::Get().ProcessKeyUpEvent(Event);
+	}
+}
+
+void UWEDevAutomationComponent::LogUiFit(const TCHAR* Name, UUserWidget* Widget)
+{
+	if (!Widget || !GEngine || !GEngine->GameViewport)
+	{
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("UI %s: not open"), Name);
+		return;
+	}
+	Widget->ForceLayoutPrepass();
+	const FVector2D Desired = Widget->GetDesiredSize();
+	FVector2D Viewport;
+	GEngine->GameViewport->GetViewportSize(Viewport);
+	const float Scale = UWidgetLayoutLibrary::GetViewportScale(Widget);
+	const FVector2D Needed = Desired * Scale;
+	const bool bFits = Needed.X <= Viewport.X + 1.f && Needed.Y <= Viewport.Y + 1.f;
+	UE_LOG(LogWorkshopEmpire, Display, TEXT("UI %s: needs %.0f x %.0f px (DPI scale %.2f), viewport %.0f x %.0f -> %s"), Name, Needed.X, Needed.Y, Scale,
+		Viewport.X, Viewport.Y, bFits ? TEXT("fits") : TEXT("TOO BIG"));
+}
+
+void UWEDevAutomationComponent::RunUiInputShots()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Character = [this]() { return GetCharacter(); };
+	auto Check = [](const TCHAR* What, bool bOk) { UE_LOG(LogWorkshopEmpire, Display, TEXT("INPUT %s: %s"), What, bOk ? TEXT("ok") : TEXT("FAIL")); };
+	// In the main menu: the menu itself, then done.
+	if (GetWorld()->GetMapName().Contains(TEXT("MainMenu")))
+	{
+		Schedule(3.0f, [this]()
+		{
+			TArray<UUserWidget*> Found;
+			UWidgetBlueprintLibrary::GetAllWidgetsOfClass(this, Found, UUserWidget::StaticClass(), true);
+			for (UUserWidget* W : Found) { LogUiFit(*W->GetClass()->GetName(), W); }
+			Shot(TEXT("00_Hauptmenue"));
+		});
+		Schedule(4.0f, [this]() { Quit(); });
+		return;
+	}
+	Schedule(3.0f, [this, PC]() { if (PC) { PC->ServerDevTeleport(FVector(-170.f, 0.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(4.0f, [this]() { Shot(TEXT("01_HUD")); });
+	// Walking (W), sprinting (Shift), jumping (Space), crouching (Ctrl).
+	Schedule(4.5f, [this, Character]() { StressMoveDirection = Character() ? Character()->GetActorLocation() : FVector::ZeroVector; PressKey(EKeys::W, true); });
+	Schedule(5.5f, [this, Character, Check]()
+	{
+		PressKey(EKeys::W, false);
+		Check(TEXT("W walks forward"), Character() && FVector::Dist2D(Character()->GetActorLocation(), StressMoveDirection) > 100.f);
+	});
+	Schedule(6.0f, [this, Character]() { StressMoveDirection = Character() ? Character()->GetActorLocation() : FVector::ZeroVector; PressKey(EKeys::S, true); PressKey(EKeys::LeftShift, true); });
+	Schedule(6.6f, [this, Character, Check]()
+	{
+		Check(TEXT("S + Shift sprints backwards"), Character() && Character()->GetVelocity().Size2D() > 400.f);
+		PressKey(EKeys::S, false);
+		PressKey(EKeys::LeftShift, false);
+	});
+	Schedule(7.2f, [this]() { PressKey(EKeys::A, true); });
+	Schedule(7.6f, [this, Character, Check]() { Check(TEXT("A strafes"), Character() && Character()->GetVelocity().Size2D() > 100.f); PressKey(EKeys::A, false); });
+	Schedule(7.8f, [this]() { PressKey(EKeys::D, true); });
+	Schedule(8.2f, [this, Character, Check]() { Check(TEXT("D strafes"), Character() && Character()->GetVelocity().Size2D() > 100.f); PressKey(EKeys::D, false); });
+	Schedule(8.6f, [this]() { PressKey(EKeys::SpaceBar, true); });
+	Schedule(8.75f, [this, Character, Check]() { Check(TEXT("Space jumps"), Character() && Character()->GetCharacterMovement()->IsFalling()); PressKey(EKeys::SpaceBar, false); });
+	Schedule(9.6f, [this]() { PressKey(EKeys::LeftControl, true); });
+	Schedule(10.0f, [this, Character, Check]() { Check(TEXT("Ctrl crouches"), Character() && Character()->bIsCrouched); PressKey(EKeys::LeftControl, false); });
+	Schedule(10.6f, [Character, Check]() { Check(TEXT("Ctrl released stands up"), Character() && !Character()->bIsCrouched); });
+	// Inventory (Tab, I), closed again with Tab through the widget.
+	Schedule(11.0f, [this]() { TapKey(EKeys::Tab); });
+	Schedule(11.5f, [this, PC, Check]()
+	{
+		Check(TEXT("Tab opens the inventory"), PC && PC->IsInventoryOpen());
+		TArray<UUserWidget*> Found;
+		UWidgetBlueprintLibrary::GetAllWidgetsOfClass(this, Found, UWEInventoryWidget::StaticClass(), false);
+		LogUiFit(TEXT("Inventar"), Found.Num() > 0 ? Found[0] : nullptr);
+		Shot(TEXT("02_Inventar"));
+	});
+	Schedule(12.2f, [this]() { PressSlateKey(EKeys::Tab); });
+	Schedule(12.6f, [this, PC, Check]()
+	{
+		Check(TEXT("Tab in the inventory closes it"), PC && !PC->IsInventoryOpen());
+		if (PC && PC->IsInventoryOpen()) { PC->CloseInventory(); }
+		TapKey(EKeys::I);
+	});
+	Schedule(13.0f, [PC, Check]() { Check(TEXT("I opens the inventory"), PC && PC->IsInventoryOpen()); if (PC) { PC->CloseInventory(); } });
+	// The market terminal with [E], all four pages, Esc closes.
+	Schedule(13.5f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(14.3f, [this]() { if (AWECharacter* C = GetCharacter()) { if (UWEInteractionComponent* I = C->GetInteractionComponent()) { LookAt(FindTerminal()); I->UpdateFocus(); } } TapKey(EKeys::E); });
+	for (int32 Page = 0; Page < 4; ++Page)
+	{
+		const float At = 15.0f + Page * 1.2f;
+		Schedule(At, [this, PC, Page, Check]()
+		{
+			if (Page == 0) { Check(TEXT("E at the terminal opens the market"), PC && PC->IsTradeOpen()); }
+			if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(Page); }
+		});
+		Schedule(At + 0.8f, [this, PC, Page]()
+		{
+			LogUiFit(*FString::Printf(TEXT("Marktplatz Seite %d"), Page + 1), PC ? PC->GetTradeWidget() : nullptr);
+			Shot(FString::Printf(TEXT("03_Marktplatz_%d"), Page + 1));
+		});
+	}
+	Schedule(20.0f, [this]() { PressSlateKey(EKeys::Escape); });
+	Schedule(20.5f, [PC, Check]() { Check(TEXT("Esc closes the market"), PC && !PC->IsTradeOpen()); if (PC && PC->IsTradeOpen()) { PC->CloseTrade(); } });
+	// Build mode (B), turn (R), leave (B).
+	Schedule(21.0f, [this, PC]() { if (PC) { PC->ServerDevTeleport(FVector(-100.f, 0.f, 100.f), FRotator(0.f, 0.f, 0.f)); } });
+	Schedule(21.6f, [this]() { TapKey(EKeys::B); });
+	Schedule(22.2f, [this, Check]()
+	{
+		Check(TEXT("B starts build mode"), GetBuild() && GetBuild()->IsActive());
+		Shot(TEXT("04_Baumodus"));
+	});
+	Schedule(23.0f, [this]() { TapKey(EKeys::B); });
+	Schedule(23.5f, [this, Check]() { Check(TEXT("B ends build mode"), GetBuild() && !GetBuild()->IsActive()); });
+	// Esc: menu in the game.
+	Schedule(24.0f, [this]() { TapKey(EKeys::Escape); });
+	Schedule(24.6f, [this, PC, Check]()
+	{
+		Check(TEXT("Esc opens the menu"), PC && PC->IsPauseMenuOpen());
+		LogUiFit(TEXT("Menue im Spiel"), PC ? PC->GetPauseMenu() : nullptr);
+		Shot(TEXT("05_Menue"));
+	});
+	Schedule(25.4f, [this]() { PressSlateKey(EKeys::Escape); });
+	Schedule(25.9f, [PC, Check]() { Check(TEXT("Esc in the menu closes it"), PC && !PC->IsPauseMenuOpen()); if (PC && PC->IsPauseMenuOpen()) { PC->ClosePauseMenu(); } });
+	// F5 saves (host).
+	Schedule(26.5f, [this]() { IFileManager::Get().Delete(*FWESaveSystem::GetSlotPath(TEXT("Quicksave")), false, true, true); TapKey(EKeys::F5); });
+	Schedule(27.5f, [Check]() { Check(TEXT("F5 quick-saves"), IFileManager::Get().FileExists(*FWESaveSystem::GetSlotPath(TEXT("Quicksave")))); });
+	// Examine (F) on the workbench.
+	Schedule(28.0f, [this, PC]() { if (PC) { PC->ServerDevTeleport(FVector(-200.f, 0.f, 100.f), FRotator(0.f, 180.f, 0.f)); } });
+	Schedule(28.6f, [this]() { LookAtPoint(FVector(-355.f, 0.f, 90.f)); if (AWECharacter* C = GetCharacter()) { if (UWEInteractionComponent* I = C->GetInteractionComponent()) { I->UpdateFocus(); } } TapKey(EKeys::F); });
+	Schedule(29.3f, [this]() { Shot(TEXT("06_Untersuchen")); });
+	Schedule(30.0f, [this]() { Quit(); });
 }
 
 void UWEDevAutomationComponent::RunBalanceShots()

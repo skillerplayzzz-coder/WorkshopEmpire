@@ -17,6 +17,60 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 17 – Qualitätssicherung, Läufe vom 2026-10-17/18
+
+Werkzeuge und Ablauf: `Docs/QA.md`. Messrechner: RTX 3060, Ryzen 9 5900X, 32 GB. Gespielt wurde im Editor-Spielmodus, nicht als verpacktes Spiel.
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor + Game (Win64 Development), dazu beide Ziele **ohne Unity-Build** (jede Datei einzeln) | ✅ nach Korrektur fehlender Includes (siehe unten), 0 Warnungen |
+| Automation-Suite `WorkshopEmpire` | ✅ **110/110** (106 alte + 4 Speichertests unter Last + 1 Gegenstandstest; 1 erwartete Warnung „fell out of the world“ aus dem Test), Bericht `Saved/TestReports/Phase17_full2` |
+| ↳ `Save.DamagedFilesNeverCrash` | ✅ 131 beschädigte Varianten eines 51-KB-Spielstands (leer, abgeschnitten, 120× Bitfehler, Müll mit gültiger Kennung, angehängter Müll): alle sauber abgelehnt, kein Absturz |
+| ↳ `Save.RepeatedSaveLoadIsStable` | ✅ 10× speichern und laden: Gegenstände, Möbel, Konto, Stufe, Statistik identisch |
+| ↳ `Save.OlderVersionsLoad` | ✅ Versionen 12, 11, 8, 4 laden mit Konto und Gegenständen |
+| ↳ `Save.LargeWorldIsFast` | ✅ 2.000 Gegenstände: speichern 31 ms, laden 491 ms, 2,4 MB |
+| ↳ `Items.RestingItemsSleepAndFallenItemsReturn` | ✅ ruhender Gegenstand wird netzwerk-dormant, Änderung weckt ihn; durch den Boden gefallener Gegenstand landet auf der Lieferpalette, nichts geht verloren |
+| **Leistung volle Fabrik** (`-WEShots=P17`, 1920×1080, Grafik Hoch): alle Gebäude, 28 laufende Maschinen, 20 Mitarbeiter, 400 lose Gegenstände, rund 630 Actors | ✅ Garage 68 fps, Halle 54 fps, Fabrik 64 fps, Gelände 68 fps. Game-Thread 5–6 ms; Render-Thread und GPU begrenzen (13–17 ms); Speicher ca. 3,3 GB (Editor-Prozess) |
+| **Speichern/Laden dieser Fabrik** | ✅ speichern 11 ms, laden 134 ms, 684 KB; nach dem Laden gleiche Gegenstände, Möbel, Maschinen, Mitarbeiter, Konto |
+| **Dauerlauf Fabrik 30 min** (`-WEStressMinutes=30`, 1280×720) | ✅ Speicher über 30 min stabil (3,24–3,28 GB, kein Anstieg), 62–90 fps, 0 Fehler; danach Speichern/Laden mit gleichen Zählwerten |
+| **Multiplayer-Stress 5 min**: dedizierter Server, 4 Clients mit je 2 Zufallsaktionen pro Sekunde (aufheben/ablegen, kaufen/verkaufen, Inventar, Tor, versetzen) + Laufen; Client 3 mit 150 ms Lag und 3 % Verlust, Client 4 mit 10 % Verlust, Umordnung, Duplikaten | ✅ 2.400 Aktionen, 0 Fehler, 0 Verbindungsabbrüche, 0 Positionskorrekturen; Server konstant 30 Bilder/s; Konto bei allen Spielern gleich |
+| **Multiplayer-Dauerlauf 30 min** (gleiche Aufstellung) | ✅ 14.400 Aktionen, 0 Fehler, 0 Abbrüche, Konto am Ende bei allen gleich, Server 30 Bilder/s, Speicher des Servers wächst nur mit der Zahl der liegenden Gegenstände (14 → 660) |
+| **Netzwerkverkehr ruhender Gegenstände** (Server mit 400 Gegenständen, 2 Spieler stehen) | ✅ 2,7 KB/s mit Dormanz, 3,3 KB/s ohne: liegende Dinge kosten kaum etwas. Der hohe Verkehr im Stress (bis 400 KB/s) kam von Gegenständen, die endlos fielen (siehe Fehler) |
+| **UI- und Eingabetest** (`-WEShots=P17UI_*`) bei 1280×720, 1024×768, 1920×1080, 2560×1440 | ✅ je 17/17 Tastenprüfungen ok (W/A/S/D, Shift-Sprint, Leertaste, Strg, Tab, I, E am Marktplatz, B, Esc, F5); alle Fenster passen in jede Auflösung (gemessene Größe gegen Viewport); alle Screenshots angesehen |
+| **Regression** Netzwerktests A/B … W/X (Dedicated), I/J (Listen-Server), 4 Spieler über das Hauptmenü (MH/M1–M3/M5), Spielläufe P5–P12, P13 + P13C gemeinsam, P14, P15, P16 | ✅ alle Abläufe wie in Phase 16; Spielläufe 0 Fehler und beendet; Rückkehr mit Inventar, Entfernen, volles Spiel, Host beendet |
+
+### Gefunden und behoben
+
+| Fehler | Ursache | Behebung |
+|---|---|---|
+| Gegenstände fielen durch den Hofboden und fielen endlos (56 Fälle in 5 min Extrem-Stress); Mitspieler sahen dadurch weniger Gegenstände als der Server, und der fallende Gegenstand wurde dauernd übertragen | Der Hofboden ist eine Ebene ohne Dicke; kleine Teile, die ein Spieler hart anstößt, tunnelten durch | Kontinuierliche Kollisionserkennung (CCD) für Gegenstände, unsichtbare 1-m-Platte unter dem Hof, KillZ −20 m in der Karte, und wer trotzdem fällt, landet auf der Lieferpalette statt zu verschwinden. Danach 5 Fälle in 5 min Extrem-Stress (alle durch Testteleports in Menschentrauben), alle gerettet |
+| Baumodus-Liste: lange Einträge („… (Benötigt: Werkstatt-Erweiterung)“) liefen über den Rand | Feste Breite ohne Umbruch | Breiter und mit Umbruch |
+| Reiter Personal: Beschreibung der Bewerber lief in den Lohn | Umbruchbreite zu groß | Spalte breiter, Umbruch kleiner |
+| Lange Wörter („LED-Werkstattbeleuchtung“) liefen in den Preis | Umbruch nur an Leerzeichen | Umbruch notfalls im Wort |
+| Titel „Online-Marktplatz“ klebte am ersten Reiter | Füllender Platz für den Titel | Feste Größe mit Abstand, freier Platz vor dem Kontostand |
+| Spiel-Build schlug nach Änderungen fehl, wenn eine Datei einzeln kompiliert wurde | Fehlende Includes (`WEMoney.h`, `PlayerState.h`) fielen im Unity-Build nicht auf | Includes ergänzt, beide Ziele ohne Unity-Build geprüft |
+| Viele Warnungen „Hit limit of 96 saved moves“ in Netzwerktests | Kopftest-Clients ohne Grafik liefen mit Hunderten Bildern/s | Testclients auf 120 Bilder/s begrenzt (echte Spieler betrifft das nicht) |
+| Dev-Teleport schob Gegenstände in den Boden | Teleport ohne Platzprüfung | Erst mit Platzprüfung, nur wenn nötig ohne |
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Breitbild 3440×1440 | Bildschirm des Entwicklungs-PCs kleiner, Windows begrenzt das Fenster; die Oberfläche skaliert über die Höhe |
+| Gamepad | Nicht vorgesehen |
+| Verpacktes Spiel (Shipping) | Phase 18 (Release-Vorbereitung) |
+| Steam über zwei Rechner | Braucht ein zweites Steam-Konto – Mikes Test |
+
+### Offene Probleme
+
+Keine bekannten Fehler.
+
+**Hinweis Netzwerkverkehr:** 4 Spieler, die zweimal pro Sekunde etwas tun, erzeugen bei 180 liegenden Gegenständen rund 100 KB/s vom Server. Das ist für einen Host mit DSL-Upload ab 2 Mbit/s unkritisch.
+
+---
+
 ## Phase 16 – Lauf vom 2026-10-17
 
 ### Ausgeführt

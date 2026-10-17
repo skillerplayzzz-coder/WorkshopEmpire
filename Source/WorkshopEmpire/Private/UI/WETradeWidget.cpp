@@ -120,6 +120,9 @@ void UWETradeRowWidget::Configure(UWETradeWidget* InOwner, EWETradeRowKind InKin
 	const float Wrap = WrapOverride > 0.f ? WrapOverride : InKind == EWETradeRowKind::Auction ? 400.f : InKind == EWETradeRowKind::Info ? 270.f : (InButton2.IsEmpty() ? 125.f : 85.f);
 	TitleText->SetWrapTextAt(Wrap);
 	DetailText->SetWrapTextAt(Wrap);
+	// Long German compounds ("Werkstattbeleuchtung") break inside the word instead of running into the price (Phase 17).
+	TitleText->SetWrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping);
+	DetailText->SetWrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping);
 	TitleText->SetText(Title);
 	DetailText->SetText(Detail);
 	PriceText->SetText(Price);
@@ -263,9 +266,11 @@ void UWETradeWidget::NativeOnInitialized()
 		}
 	}
 	BalanceText = WETradeStyle::Text(WidgetTree, 18, WETradeStyle::Green, "Bold");
+	BalanceText->SetJustification(ETextJustify::Right);
 	if (UHorizontalBoxSlot* S = Header->AddChildToHorizontalBox(BalanceText))
 	{
 		S->SetPadding(FMargin(20.f, 0.f, 0.f, 0.f));
+		S->SetSize(FSlateChildSize(ESlateSizeRule::Fill)); // the free space goes between the tabs and the balance
 	}
 	if (UVerticalBoxSlot* S = Outer->AddChildToVerticalBox(Header))
 	{
@@ -297,7 +302,7 @@ void UWETradeWidget::NativeOnInitialized()
 	}
 	// Page 3: staff and logistics (Phase 11).
 	UHorizontalBox* StaffColumns = WidgetTree->ConstructWidget<UHorizontalBox>();
-	UVerticalBox* ApplicantColumn = MakeColumn(LOCTEXT("Applicants", "Bewerber"), ApplicantList, 350.f);
+	UVerticalBox* ApplicantColumn = MakeColumn(LOCTEXT("Applicants", "Bewerber"), ApplicantList, 380.f);
 	UVerticalBox* StaffColumn = MakeColumn(LOCTEXT("Staff", "Mitarbeiter"), StaffList, 420.f);
 	UVerticalBox* LogisticsColumn = MakeColumn(LOCTEXT("Logistics", "Fahrzeuge & Löhne"), LogisticsList, 340.f);
 	for (UVerticalBox* Column : { ApplicantColumn, StaffColumn, LogisticsColumn })
@@ -688,7 +693,7 @@ void UWETradeWidget::RebuildStaff(const FWEMoney& Balance)
 		const FWEEmployeeProfile& A = Applicants[i];
 		UWETradeRowWidget* Row = AddRow(ApplicantList);
 		Row->OfferIndex = i;
-		Row->WrapOverride = 165.f;
+		Row->WrapOverride = 160.f;
 		Row->Configure(this, EWETradeRowKind::Applicant,
 			FText::Format(LOCTEXT("ApplicantTitle", "{0} – {1}"), FText::FromString(A.Name), AWEEmployee::GetRoleText(A.Role)),
 			FText::Format(LOCTEXT("ApplicantDetail", "Erfahrung {0}/3 · {1}"), FText::AsNumber(A.Skill), Staff->GetRoleDescription(A.Role)),

@@ -198,20 +198,22 @@ void UWEHUDWidget::NativeOnInitialized()
 	BuildTitle->SetText(LOCTEXT("BuildTitle", "Baumodus"));
 	BuildBox->AddChildToVerticalBox(BuildTitle);
 	BuildMenuText = MakeText(13, FLinearColor(0.9f, 0.92f, 0.95f), false);
+	BuildMenuText->SetWrapTextAt(480.f);
+	BuildMenuText->SetWrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping); // long lines ("… (Benötigt: Werkstatt-Erweiterung)") stay inside the panel (Phase 17)
 	BuildBox->AddChildToVerticalBox(BuildMenuText);
 	BuildStatusText = MakeText(13, FLinearColor(1.f, 0.88f, 0.6f), false);
-	BuildStatusText->SetWrapTextAt(372.f);
+	BuildStatusText->SetWrapTextAt(480.f);
 	if (UVerticalBoxSlot* S = BuildBox->AddChildToVerticalBox(BuildStatusText))
 	{
 		S->SetPadding(FMargin(0.f, 8.f, 0.f, 4.f));
 	}
 	UTextBlock* BuildHelp = MakeText(11, FLinearColor(0.65f, 0.68f, 0.72f), false);
-	BuildHelp->SetWrapTextAt(372.f);
+	BuildHelp->SetWrapTextAt(480.f);
 	BuildHelp->SetText(LOCTEXT("BuildHelp", "Mausrad: Auswahl · [E] bestätigen · [R] 90° · [Q] 15° drehen · [X] abbauen/abbrechen · [B] Baumodus beenden"));
 	BuildBox->AddChildToVerticalBox(BuildHelp);
 	// Fixed width: the status line changes length all the time; a fixed width keeps the layout stable.
 	USizeBox* BuildWidth = WidgetTree->ConstructWidget<USizeBox>();
-	BuildWidth->SetWidthOverride(372.f);
+	BuildWidth->SetWidthOverride(480.f);
 	BuildWidth->SetContent(BuildBox);
 	BuildPanel->SetContent(BuildWidth);
 	BuildPanel->SetVisibility(ESlateVisibility::Collapsed);
