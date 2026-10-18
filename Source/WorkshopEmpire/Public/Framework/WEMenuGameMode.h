@@ -36,6 +36,7 @@ protected:
 	TObjectPtr<class UWEMainMenuWidget> Menu;
 
 	TWeakObjectPtr<class ACameraActor> MenuCamera;
+	UPROPERTY(Transient) TObjectPtr<class UWEIntroWidget> Intro;
 	FTransform CameraStart;
 	float MenuTime = 0.f;
 };

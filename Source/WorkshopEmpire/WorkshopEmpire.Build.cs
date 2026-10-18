@@ -23,6 +23,7 @@ public class WorkshopEmpire : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"UMG",
+			"MediaAssets",
 			"CoreOnline",
 			"OnlineSubsystem",
 			"OnlineSubsystemUtils",
