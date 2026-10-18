@@ -154,17 +154,18 @@ class Model:
         return m
 
     # --- output ---------------------------------------------------------------------------------------------
-    def save(self, nanite=False):
-        # Origin at the bottom centre, whatever the parts did.
-        bb = unreal.GeometryScript_MeshQueries.get_mesh_bounding_box(self.mesh)
-        unreal.GeometryScript_MeshTransforms.translate_mesh(self.mesh, unreal.Vector(-(bb.min.x + bb.max.x) * 0.5, -(bb.min.y + bb.max.y) * 0.5, -bb.min.z))
+    def save(self, nanite=False, normalize=True, folder=OUT):
+        # Origin at the bottom centre, whatever the parts did (device parts keep the device's space instead).
+        if normalize:
+            bb = unreal.GeometryScript_MeshQueries.get_mesh_bounding_box(self.mesh)
+            unreal.GeometryScript_MeshTransforms.translate_mesh(self.mesh, unreal.Vector(-(bb.min.x + bb.max.x) * 0.5, -(bb.min.y + bb.max.y) * 0.5, -bb.min.z))
         box = unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0), unreal.Vector(100, 100, 100))
         U.set_mesh_u_vs_from_box_projection(self.mesh, 0, box, unreal.GeometryScriptMeshSelection(), 2)
         so = unreal.GeometryScriptSplitNormalsOptions()
         so.set_editor_property("split_by_opening_angle", True)
         so.set_editor_property("opening_angle_deg", 35.0)
         N.compute_split_normals(self.mesh, so, unreal.GeometryScriptCalculateNormalsOptions())
-        path = f"{OUT}/SM_Gen_{self.name}"
+        path = f"{folder}/SM_Gen_{self.name}"
         if eal.does_asset_exist(path):
             eal.delete_asset(path)
         opts = unreal.GeometryScriptCreateNewStaticMeshAssetOptions()
@@ -733,8 +734,9 @@ def street_sign():
 
 BUILDERS = {
     # items
-    "OldComputer": old_computer, "PowerSupply": power_supply, "GraphicsCard": graphics_card,
-    "RareGpu": lambda: graphics_card("RareGpu", "MetalPaintedGreen", "Gold"), "RamModule": ram_module, "Mainboard": mainboard,
+    # Phase 18a: OldComputer, PowerSupply, GraphicsCard, RamModule and Mainboard come from build_pc_assembly.py now
+    # (made from the parts that are really mounted in the PC); the old builders above stay for reference.
+    "RareGpu": lambda: graphics_card("RareGpu", "MetalPaintedGreen", "Gold"),
     "ElectricMotor": electric_motor, "ServoMotor": lambda: electric_motor("ServoMotor", "PlasticBlack", 6.5, 20.0),
     "IndustrialMotorLarge": lambda: electric_motor("IndustrialMotorLarge", "MetalPaintedGreen", 18.0, 48.0),
     "SteelScrap": lambda: scrap_pile("SteelScrap", ["Rust", "RustHeavy", "SteelBrushed"], 5, 10, 34.0),
@@ -751,8 +753,7 @@ BUILDERS = {
     "PreciousConcentrate": bucket,
     # workshop PC
     "PCTower": pc_tower, "Monitor": monitor, "Keyboard": keyboard, "Mouse": mouse,
-    # vans
-    "VanOld": lambda: van("VanOld", "VanOld", True), "VanModern": lambda: van("VanModern", "VanNew", False), "VanWheel": wheel,
+    # vans: Phase 18b builds them in build_van.py (separate doors, interior, cargo bay)
     # neighbourhood
     "Dumpster": dumpster, "ContainerRed": lambda: shipping_container("ContainerRed", "Container"),
     "ContainerBlue": lambda: shipping_container("ContainerBlue", "ContainerBlue"), "ConcreteBarrier": concrete_barrier,
@@ -760,22 +761,30 @@ BUILDERS = {
     "CompanySign": street_sign, "EmptyPallet": lambda: pallet("EmptyPallet"),
 }
 
-only = None
-for arg in sys.argv[1:] + unreal.SystemLibrary.get_command_line().split():
-    if arg.startswith("-WEModels="):
-        only = set(arg.split("=", 1)[1].split(","))
-built, failed = 0, []
-for name, make in BUILDERS.items():
-    if only and name not in only:
-        continue
-    try:
-        model = make()
-        if model.save():
-            built += 1
-        else:
+def main():
+    only = None
+    for arg in sys.argv[1:] + unreal.SystemLibrary.get_command_line().split():
+        if arg.startswith("-WEModels="):
+            only = set(arg.split("=", 1)[1].split(","))
+    built, failed = 0, []
+    for name, make in BUILDERS.items():
+        if only and name not in only:
+            continue
+        try:
+            model = make()
+            if model.save():
+                built += 1
+            else:
+                failed.append(name)
+        except Exception as e:
             failed.append(name)
-    except Exception as e:
-        failed.append(name)
-        unreal.log_error(f"WE_MODEL {name} failed: {e}")
-unreal.log(f"WE_MODELS_BUILT {built} failed={failed}")
-unreal.SystemLibrary.quit_editor()
+            unreal.log_error(f"WE_MODEL {name} failed: {e}")
+    unreal.log(f"WE_MODELS_BUILT {built} failed={failed}")
+    unreal.SystemLibrary.quit_editor()
+
+
+# Other build scripts import this file as a library (they set builtins.WE_MODELS_LIBRARY first).
+import builtins  # noqa: E402
+
+if not getattr(builtins, "WE_MODELS_LIBRARY", False):
+    main()

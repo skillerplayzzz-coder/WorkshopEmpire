@@ -164,7 +164,7 @@ INSTANCES = {
     "Headlight": ((0.8, 0.8, 0.8), 0.05, 0.0, None, 0.0, 1.0, (0.6, 0.6, 0.55)),
     "Taillight": ((0.35, 0.01, 0.01), 0.1, 0.0, None, 0.0, 1.0, (0.4, 0.0, 0.0)),
     "Indicator": ((0.6, 0.3, 0.0), 0.1, 0.0, None, 0.0, 1.0, (0.3, 0.12, 0.0)),
-    "VanOld": ((0.40, 0.36, 0.26), 0.78, 0.05, "rusty_painted_metal", 0.65, 0.6, None),  # faded cream, rust showing through
+    "VanOld": ((0.66, 0.64, 0.58), 0.5, 0.05, "rusty_painted_metal", 0.12, 0.25, None),  # faded white paint, a little grime
     "VanNew": ((0.62, 0.64, 0.66), 0.25, 0.1, None, 0.0, 1.0, None),
     "VanNewAccent": ((0.06, 0.20, 0.42), 0.25, 0.15, None, 0.0, 1.0, None),
     "TrimBlack": ((0.03, 0.03, 0.035), 0.6, 0.0, None, 0.0, 1.0, None),

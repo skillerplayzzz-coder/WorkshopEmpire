@@ -37,6 +37,12 @@ struct WORKSHOPEMPIRE_API FWEWorkTask
 	uint8 Phase = 0;
 	/** Part that comes out / goes in (PullPart, InsertPart) - shown as its model. */
 	const UWEItemDefinition* Part = nullptr;
+
+	/** Phase 18a, devices with a part layout: the task sits on a real fastener / part (device space). */
+	int32 AssemblyPart = INDEX_NONE;
+	/** Fastener index within the part, or INDEX_NONE for taking the part itself out. */
+	int32 Fastener = INDEX_NONE;
+	FVector DevicePosition = FVector::ZeroVector;
 };
 
 /** The hands-on breakdown of one disassembly or repair step. Built the same way on server and clients. */
@@ -63,6 +69,8 @@ namespace WEWorkPlan
 	WORKSHOPEMPIRE_API FWEWorkPlan ForDisassembly(const UWEItemDefinition* Def, int32 StepIndex);
 	/** Plan for a repair action (diagnose: measuring points, remove/install: screws + part, test: power, refurbish: wiping). */
 	WORKSHOPEMPIRE_API FWEWorkPlan ForRepair(const UWEItemDefinition* Def, const FWERepairStepInfo& Info);
+	/** Phase 18a: plan for one part of a device with a part layout: its real fasteners in their order, then the part itself. */
+	WORKSHOPEMPIRE_API FWEWorkPlan ForAssemblyPart(const UWEItemDefinition* Def, int32 Part);
 
 	/** "Schraube lösen", "Stecker ziehen" ... */
 	WORKSHOPEMPIRE_API FText GetTaskText(EWEWorkTaskKind Kind, bool bRepairInstall = false);

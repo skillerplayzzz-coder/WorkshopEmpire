@@ -26,6 +26,8 @@
 #include "Progression/WETutorialComponent.h"
 #include "World/WEPlaceholderVisuals.h"
 #include "Workshop/WEWorkPlan.h"
+#include "Workshop/WEAssemblyDefinition.h"
+#include "Workshop/WEAssemblyView.h"
 
 #define LOCTEXT_NAMESPACE "WEWorkbench"
 
@@ -56,6 +58,9 @@ AWEWorkbench::AWEWorkbench()
 	WorkCamera->SetupAttachment(RootComponent);
 	WorkCamera->SetFieldOfView(52.f);
 	WorkCamera->bConstrainAspectRatio = false;
+	// Phase 18a: the camera orbits and zooms to parts - no motion blur smearing the small details.
+	WorkCamera->PostProcessSettings.bOverride_MotionBlurAmount = true;
+	WorkCamera->PostProcessSettings.MotionBlurAmount = 0.f;
 
 	WorkIndicator = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WorkIndicator"));
 	WorkIndicator->SetupAttachment(RootComponent);
@@ -127,6 +132,11 @@ void AWEWorkbench::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(WorkTimer);
 	GetWorldTimerManager().ClearTimer(IndicatorTimer);
+	if (AssemblyView)
+	{
+		AssemblyView->Destroy();
+		AssemblyView = nullptr;
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -177,6 +187,17 @@ bool AWEWorkbench::PlaceItem(AWEPickupItem* Item)
 	}
 	PlacedItem = Item;
 	Item->HandlePlacedOnWorkbench(this, WorkPoint);
+	if (const UWEAssemblyDefinition* Assembly = GetAssembly())
+	{
+		// Devices with a part layout lie the way one works on them (PC: on its side, open side up), resting on the top.
+		if (const UStaticMesh* DeviceMesh = Item->GetMesh() ? Item->GetMesh()->GetStaticMesh() : nullptr)
+		{
+			const FBox Local = DeviceMesh->GetBoundingBox();
+			const FBox Turned = Local.TransformBy(FTransform(Assembly->BenchRotation, FVector::ZeroVector, Item->GetMesh()->GetRelativeScale3D()));
+			Item->SetActorRelativeRotation(Assembly->BenchRotation);
+			Item->SetActorRelativeLocation(FVector(-Turned.GetCenter().X, -Turned.GetCenter().Y, -Turned.Min.Z + 0.3f));
+		}
+	}
 	RaiseEvent(EWEWorkbenchEvent::Placed);
 	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemPlacedOnBench); }
 	UE_LOG(LogWENet, Log, TEXT("%s: %s placed (step %d/%d)"), *GetName(), *Item->GetDisplayName().ToString(), GetNextStepIndex(), GetNumSteps());
@@ -218,13 +239,34 @@ int32 AWEWorkbench::GetNumSteps() const
 
 int32 AWEWorkbench::GetNextStepIndex() const
 {
-	return PlacedItem ? PlacedItem->GetItem().DisassemblyStep : INDEX_NONE;
+	if (!PlacedItem)
+	{
+		return INDEX_NONE;
+	}
+	const FWEItemInstance& Item = PlacedItem->GetItem();
+	if (const UWEAssemblyDefinition* Assembly = GetAssembly())
+	{
+		// Parts come out in any order; the default (employees, "automatic") is the first one that is free.
+		return Assembly->GetDefaultPart(Item.RemovedParts);
+	}
+	return Item.DisassemblyStep;
 }
 
 const FWEDisassemblyStep* AWEWorkbench::GetNextStep() const
 {
+	return GetStepAt(INDEX_NONE);
+}
+
+const UWEAssemblyDefinition* AWEWorkbench::GetAssembly() const
+{
 	const UWEItemDefinition* Def = PlacedItem ? PlacedItem->GetItem().Definition.Get() : nullptr;
-	return Def && Def->Disassembly ? Def->Disassembly->GetStep(GetNextStepIndex()) : nullptr;
+	return Def && Def->HasAssembly() ? Def->Assembly.Get() : nullptr;
+}
+
+const FWEDisassemblyStep* AWEWorkbench::GetStepAt(int32 Part) const
+{
+	const UWEItemDefinition* Def = PlacedItem ? PlacedItem->GetItem().Definition.Get() : nullptr;
+	return Def && Def->Disassembly ? Def->Disassembly->GetStep(Part == INDEX_NONE ? GetNextStepIndex() : Part) : nullptr;
 }
 
 FText AWEWorkbench::GetNextStepPrompt() const
@@ -263,12 +305,27 @@ float AWEWorkbench::FindToolSpeed(const AWECharacter* Character, EWEToolType Too
 	return Best;
 }
 
-bool AWEWorkbench::CanStartStep(const AWECharacter* Character, FText& OutReason) const
+bool AWEWorkbench::CanStartStep(const AWECharacter* Character, FText& OutReason, int32 Part) const
 {
-	const FWEDisassemblyStep* Step = GetNextStep();
+	const FWEDisassemblyStep* Step = GetStepAt(Part);
 	if (!Character || !Step)
 	{
 		return false;
+	}
+	if (const UWEAssemblyDefinition* Assembly = GetAssembly(); Assembly && Part != INDEX_NONE)
+	{
+		const int32 Removed = PlacedItem->GetItem().RemovedParts;
+		if ((Removed & (1 << Part)) != 0)
+		{
+			OutReason = LOCTEXT("PartOut", "Schon ausgebaut");
+			return false;
+		}
+		const TArray<FText> Blockers = Assembly->GetBlockers(Part, Removed);
+		if (Blockers.Num() > 0)
+		{
+			OutReason = FText::Format(LOCTEXT("PartBlocked", "Erst ausbauen: {0}"), FText::Join(FText::FromString(TEXT(", ")), Blockers));
+			return false;
+		}
 	}
 	if (IsBusy())
 	{
@@ -293,15 +350,16 @@ bool AWEWorkbench::CanStartStep(const AWECharacter* Character, FText& OutReason)
 	return true;
 }
 
-bool AWEWorkbench::TryStartStep(AWECharacter* Character)
+bool AWEWorkbench::TryStartStep(AWECharacter* Character, int32 Part)
 {
 	FText Reason;
-	if (!HasAuthority() || !CanStartStep(Character, Reason))
+	if (!HasAuthority() || !CanStartStep(Character, Reason, Part))
 	{
 		UE_LOG(LogWENet, Log, TEXT("%s: step refused for %s: %s"), *GetName(), *GetNameSafe(Character), *Reason.ToString());
 		return false;
 	}
-	const FWEDisassemblyStep* Step = GetNextStep();
+	const int32 StepIndex = Part != INDEX_NONE ? Part : GetNextStepIndex();
+	const FWEDisassemblyStep* Step = GetStepAt(StepIndex);
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
 	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier;
 
@@ -315,7 +373,7 @@ bool AWEWorkbench::TryStartStep(AWECharacter* Character)
 
 	Work.RepairKind = EWERepairStepKind::None;
 	Work.RepairFault = INDEX_NONE;
-	Work.StepIndex = GetNextStepIndex();
+	Work.StepIndex = StepIndex;
 	Work.Worker = Character;
 	Work.Duration = FMath::Max(0.1f, Step->BaseSeconds / Speed);
 	Work.StartServerTime = GetServerTime();
@@ -368,7 +426,7 @@ void AWEWorkbench::CompleteActiveStep()
 	{
 		Tutorial->NotifyEvent(bRepair ? EWETutorialEvent::RepairStep : EWETutorialEvent::DisassemblyStep);
 	}
-	const FWEDisassemblyStep* Step = GetNextStep();
+	const FWEDisassemblyStep* Step = bRepair ? nullptr : GetStepAt(Work.StepIndex);
 	if (!PlacedItem || (!bRepair && !Step) || !IsValid(Worker) || !UWEInteractionComponent::IsWithinReach(Worker, this, WorkReach))
 	{
 		UE_LOG(LogWENet, Log, TEXT("%s: step cancelled (worker gone or out of reach)"), *GetName());
@@ -388,14 +446,26 @@ void AWEWorkbench::CompleteActiveStep()
 	FWEItemInstance Source = PlacedItem->GetItem();
 	const TArray<FWEItemInstance> Outputs = GenerateOutputs(*Step, Source);
 	const int32 Total = GetNumSteps();
-	Source.DisassemblyStep = static_cast<uint8>(FMath::Min(Work.StepIndex + 1, 255));
+	bool bFinished = false;
+	if (const UWEAssemblyDefinition* Assembly = GetAssembly())
+	{
+		// Part layout: this part is out; the device is used up when the last one (the case) is.
+		Source.RemovedParts |= (1 << Work.StepIndex);
+		Source.DisassemblyStep = static_cast<uint8>(FMath::CountBits(static_cast<uint32>(Source.RemovedParts)));
+		bFinished = Assembly->IsComplete(Source.RemovedParts);
+	}
+	else
+	{
+		Source.DisassemblyStep = static_cast<uint8>(FMath::Min(Work.StepIndex + 1, 255));
+		bFinished = Source.DisassemblyStep >= Total;
+	}
 	UE_LOG(LogWENet, Log, TEXT("%s: step %d/%d done ('%s'), %d output stacks"), *GetName(), Source.DisassemblyStep, Total,
 		*Step->ActionText.ToString(), Outputs.Num());
 
 	Work.StepIndex = INDEX_NONE;
 	Work.Worker = nullptr;
 
-	if (Source.DisassemblyStep >= Total)
+	if (bFinished)
 	{
 		// Fully disassembled: the item is used up.
 		AWEPickupItem* Done = PlacedItem;
@@ -624,8 +694,31 @@ void AWEWorkbench::PlayEventSound(EWEWorkbenchEvent Event) const
 	}
 }
 
+void AWEWorkbench::UpdateAssemblyView()
+{
+	// A device with a part layout on the bench is shown part by part (on every machine that renders).
+	AWEPickupItem* Device = PlacedItem;
+	const bool bWant = Device && Device->GetItem().Definition && Device->GetItem().Definition->HasAssembly();
+	if (AssemblyView && (!bWant || AssemblyView->GetItem() != Device))
+	{
+		AssemblyView->Destroy();
+		AssemblyView = nullptr;
+	}
+	if (bWant && !AssemblyView && GetWorld())
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		AssemblyView = GetWorld()->SpawnActor<AWEAssemblyView>(Device->GetActorLocation(), Device->GetActorRotation(), Params);
+		if (AssemblyView)
+		{
+			AssemblyView->Init(this, Device);
+		}
+	}
+}
+
 void AWEWorkbench::UpdateIndicator()
 {
+	UpdateAssemblyView();
 	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(WorkIndicator->GetMaterial(0));
 	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 	float Fill = 1.f;
@@ -732,7 +825,17 @@ FWERepairStepInfo AWEWorkbench::GetNextRepairStep(FText& OutReason) const
 	{
 		return Info; // not repairable at all: no repair prompt
 	}
-	if (Item.IsPartiallyDisassembled())
+	bool bTakenApart = Item.IsPartiallyDisassembled();
+	if (const UWEAssemblyDefinition* Assembly = Def->HasAssembly() ? Def->Assembly.Get() : nullptr)
+	{
+		// Opening the case (side panel) is service access, not disassembly: a repair is still possible.
+		bTakenApart = false;
+		for (int32 i = 0; i < Assembly->Parts.Num(); ++i)
+		{
+			bTakenApart |= Item.IsPartRemoved(i) && !Assembly->Parts[i].bServiceAccess;
+		}
+	}
+	if (bTakenApart)
 	{
 		OutReason = LOCTEXT("RepairPartly", "Teilweise zerlegt – nicht mehr reparierbar");
 		return Info;
@@ -1104,20 +1207,28 @@ FWEWorkPlan AWEWorkbench::GetWorkPlan(bool bRepair) const
 	}
 	if (!bRepair)
 	{
-		return WEWorkPlan::ForDisassembly(Def, GetNextStepIndex());
+		// The part being worked on, else the default part / next step.
+		const int32 Part = GetActivePart() != INDEX_NONE ? GetActivePart() : GetNextStepIndex();
+		return GetAssembly() ? WEWorkPlan::ForAssemblyPart(Def, Part) : WEWorkPlan::ForDisassembly(Def, Part);
 	}
 	FText Reason;
 	return WEWorkPlan::ForRepair(Def, GetNextRepairStep(Reason));
 }
 
-bool AWEWorkbench::TryStartManualStep(AWECharacter* Character, bool bRepair)
+FWEWorkPlan AWEWorkbench::GetPartPlan(int32 Part) const
+{
+	const UWEItemDefinition* Def = PlacedItem ? PlacedItem->GetItem().Definition.Get() : nullptr;
+	return Def && GetAssembly() ? WEWorkPlan::ForAssemblyPart(Def, Part) : FWEWorkPlan();
+}
+
+bool AWEWorkbench::TryStartManualStep(AWECharacter* Character, bool bRepair, int32 Part)
 {
 	if (!HasAuthority())
 	{
 		return false;
 	}
-	const FWEWorkPlan Plan = GetWorkPlan(bRepair);
-	if (!Plan.IsValid() || !(bRepair ? TryStartRepairStep(Character) : TryStartStep(Character)))
+	const FWEWorkPlan Plan = bRepair ? GetWorkPlan(true) : (GetAssembly() && Part != INDEX_NONE ? GetPartPlan(Part) : GetWorkPlan(false));
+	if (!Plan.IsValid() || !(bRepair ? TryStartRepairStep(Character) : TryStartStep(Character, Part)))
 	{
 		return false;
 	}

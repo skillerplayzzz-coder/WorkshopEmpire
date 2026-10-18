@@ -263,7 +263,7 @@ bool FWEVerticalSliceTest::RunTest(const FString& Parameters)
 		Bench->CompleteActiveStep();
 		++Steps;
 	}
-	TestEqual(TEXT("7 steps"), Steps, 7);
+	TestEqual(TEXT("One step per part of the PC (Phase 18a: 12 parts)"), Steps, UWEItemDefinition::FindById(TEXT("OldComputer"))->Disassembly->NumSteps());
 	TestTrue(TEXT("Parts in the bench storage"), Bench->GetStorage()->GetAllSlots().Num() >= 5);
 
 	// 3) Take everything and sell all parts (keep the tools).

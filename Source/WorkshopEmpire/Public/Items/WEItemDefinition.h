@@ -10,6 +10,7 @@
 class UStaticMesh;
 class UTexture2D;
 class UWEDisassemblyDefinition;
+class UWEAssemblyDefinition;
 class UWERepairDefinition;
 class UWELootTable;
 
@@ -77,6 +78,16 @@ public:
 	TObjectPtr<UWEDisassemblyDefinition> Disassembly;
 
 	bool CanBeDisassembled() const;
+
+	/**
+	 * Phase 18a: real part layout (case, mainboard, cards ...): part i is disassembly step i, but parts come out in any
+	 * order their prerequisites allow, and the workbench shows the device with its parts. Optional.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
+	TObjectPtr<UWEAssemblyDefinition> Assembly;
+
+	/** Assembly is set and matches the disassembly steps one to one. */
+	bool HasAssembly() const;
 
 	/** Repair procedure at the workbench (faults, spare parts, test). Needs bRepairable. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing", meta = (EditCondition = "bRepairable"))

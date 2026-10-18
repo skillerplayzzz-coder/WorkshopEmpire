@@ -5,6 +5,7 @@
 #include "TimerManager.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Engine/StaticMesh.h"
 
 #include "Economy/WECompanyComponent.h"
@@ -24,6 +25,8 @@
 #include "Staff/WEEmployee.h"
 #include "Staff/WEStaffComponent.h"
 #include "WELog.h"
+#include "World/WEPlaceholderVisuals.h"
+#include "Materials/MaterialInterface.h"
 
 #define LOCTEXT_NAMESPACE "WEVehicle"
 
@@ -145,6 +148,13 @@ void AWEVehicle::StartDriveAnimation(bool bLeaving)
 	bVisualAway = bLeaving;
 	bDriveLeaving = bLeaving;
 	DriveStart = GetWorld()->GetTimeSeconds();
+	if (bLeaving)
+	{
+		// Phase 18b: the driver gets in first (door opens and shuts), then the van pulls away.
+		CabOpenUntil = DriveStart + 0.8f;
+		DriveStart += 1.4f;
+		StartDoorTimer();
+	}
 	LastDriveOffset = bLeaving ? 0.f : DriveDistance;
 	SetActorHiddenInGame(false);
 	if (USoundBase* Engine = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/SFX_VanDrive.SFX_VanDrive")))
@@ -184,6 +194,10 @@ void AWEVehicle::DriveTick()
 	{
 		GetWorld()->GetTimerManager().ClearTimer(DriveTimer);
 		if (Boxes) { Boxes->SetRelativeLocation(DriveHome); }
+		if (!bDriveLeaving)
+		{
+			CabOpenUntil = GetWorld()->GetTimeSeconds() + 1.0f; // the driver gets out
+		}
 		SetActorHiddenInGame(!(bUnlocked && !bAway));
 		bVisualAway = bAway;
 	}
@@ -633,6 +647,21 @@ bool AWEVehicle::GetExamineInfo(FWEExamineInfo& OutInfo) const
 	return true;
 }
 
+// --- Van layout (Tools/Assets/build_van.py, van space in cm: nose +X, ground z = 0) ------------------------
+namespace WEVanLayout
+{
+	constexpr float Length = 575.f;                 // bumper to bumper
+	constexpr float FrontAxle = 175.f, RearAxle = -170.f, Track = 86.f, WheelRadius = 38.f;
+	constexpr float CargoFloor = 62.f;
+	// Hinges of driver door, passenger door, rear left, rear right, and how far each opens (yaw).
+	const FVector Hinge[4] = { FVector(146.f, -100.f, 0.f), FVector(146.f, 100.f, 0.f), FVector(-281.f, -98.f, 0.f), FVector(-281.f, 98.f, 0.f) };
+	constexpr float OpenYaw[4] = { 68.f, -68.f, 105.f, -105.f };
+	const TCHAR* DoorSuffix[4] = { TEXT("DoorFL"), TEXT("DoorFR"), TEXT("DoorRL"), TEXT("DoorRR") };
+	// Free floor of the cargo bay (the shelf takes the +Y side).
+	constexpr float CargoMinX = -268.f, CargoMaxX = 30.f, CargoMinY = -90.f, CargoMaxY = 70.f;
+	constexpr float CargoCell = 52.f;
+}
+
 void AWEVehicle::RebuildVanModel()
 {
 	// 0 = old van, 1 = modern van, 2 = truck (the modern body, a size bigger).
@@ -644,22 +673,39 @@ void AWEVehicle::RebuildVanModel()
 	}
 	for (UStaticMeshComponent* Part : VanParts) { if (Part) { Part->DestroyComponent(); } }
 	for (USceneComponent* Pivot : WheelPivots) { if (Pivot) { Pivot->DestroyComponent(); } }
+	for (USceneComponent* Pivot : DoorPivots) { if (Pivot) { Pivot->DestroyComponent(); } }
+	for (UStaticMeshComponent* Cargo : CargoMeshes) { if (Cargo) { Cargo->DestroyComponent(); } }
+	if (CargoLight) { CargoLight->DestroyComponent(); CargoLight = nullptr; }
 	VanParts.Reset();
 	WheelPivots.Reset();
+	DoorPivots.Reset();
+	CargoMeshes.Reset();
+	LastCargoCount = -1;
 	VanModelKind = Kind;
-	UStaticMesh* Body = LoadObject<UStaticMesh>(nullptr, Kind == 0 ? TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_VanOld.SM_Gen_VanOld")
-		: TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_VanModern.SM_Gen_VanModern"), nullptr, LOAD_Quiet | LOAD_NoWarn);
-	UStaticMesh* Wheel = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_VanWheel.SM_Gen_VanWheel"), nullptr, LOAD_Quiet | LOAD_NoWarn);
-	if (!Body || !Wheel)
+	const FString Variant = Kind == 0 ? TEXT("VanOld") : TEXT("VanModern");
+	auto Load = [](const FString& Name)
+	{
+		const FString Path = FString::Printf(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_%s.SM_Gen_%s"), *Name, *Name);
+		return LoadObject<UStaticMesh>(nullptr, *Path, nullptr, LOAD_Quiet | LOAD_NoWarn);
+	};
+	UStaticMesh* Body = Load(Variant + TEXT("_Body"));
+	UStaticMesh* Wheel = Load(TEXT("VanWheel"));
+	UStaticMesh* Doors[4] = {};
+	bool bAllDoors = true;
+	for (int32 d = 0; d < 4; ++d)
+	{
+		Doors[d] = Load(Variant + TEXT("_") + WEVanLayout::DoorSuffix[d]);
+		bAllDoors &= Doors[d] != nullptr;
+	}
+	if (!Body || !Wheel || !bAllDoors)
 	{
 		Boxes->SetVisibility(true); // models not built: the box van stays
 		return;
 	}
 	Boxes->SetVisibility(false);
-	// The model is 540 cm long with its nose at +X; wheel centres 165 cm before/behind the middle, 24 cm above
-	// the body's lowest point; the wheel model (radius 41 cm) stands on its own origin.
-	const float Scale = Size.X / 540.f * (Kind == 2 ? 1.15f : 1.f);
-	WheelRadius = 41.f * Scale;
+	const float Scale = Size.X / WEVanLayout::Length * (Kind == 2 ? 1.15f : 1.f);
+	ModelScale = Scale;
+	WheelRadius = WEVanLayout::WheelRadius * Scale;
 	auto Make = [this](UStaticMesh* Mesh, USceneComponent* Parent, const FTransform& Relative)
 	{
 		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
@@ -671,19 +717,210 @@ void AWEVehicle::RebuildVanModel()
 		VanParts.Add(Part);
 		return Part;
 	};
-	Make(Body, Boxes, FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, (41.f - 24.f) * Scale), FVector(Scale)));
-	for (const float X : { -165.f, 165.f })
+	Make(Body, Boxes, FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(Scale)));
+	for (int32 d = 0; d < 4; ++d)
+	{
+		// Each door turns about its hinge: pivot at the hinge, the door model (in van space) shifted back by it.
+		USceneComponent* Pivot = NewObject<USceneComponent>(this, NAME_None, RF_Transient);
+		Pivot->SetupAttachment(Boxes);
+		Pivot->SetRelativeLocation(WEVanLayout::Hinge[d] * Scale);
+		Pivot->SetRelativeRotation(FRotator(0.f, WEVanLayout::OpenYaw[d] * DoorOpen[d], 0.f));
+		Pivot->RegisterComponent();
+		DoorPivots.Add(Pivot);
+		Make(Doors[d], Pivot, FTransform(FRotator::ZeroRotator, -WEVanLayout::Hinge[d] * Scale, FVector(Scale)));
+	}
+	for (const float X : { WEVanLayout::RearAxle, WEVanLayout::FrontAxle })
 	{
 		for (const float Y : { -1.f, 1.f })
 		{
 			USceneComponent* Pivot = NewObject<USceneComponent>(this, NAME_None, RF_Transient);
 			Pivot->SetupAttachment(Boxes); // moves with the body when it drives
-			Pivot->SetRelativeLocation(FVector(X * Scale, Y * 87.f * Scale, WheelRadius));
+			Pivot->SetRelativeLocation(FVector(X * Scale, Y * WEVanLayout::Track * Scale, WheelRadius));
 			Pivot->RegisterComponent();
 			WheelPivots.Add(Pivot);
-			// Hub cap outwards: the model's cap faces -Y.
-			Make(Wheel, Pivot, FTransform(FRotator(0.f, Y > 0.f ? 180.f : 0.f, 0.f), FVector(0.f, 0.f, -WheelRadius), FVector(Scale)));
+			// Hub cap outwards: the model's cap faces -Y; the model's origin is the wheel centre.
+			Make(Wheel, Pivot, FTransform(FRotator(0.f, Y > 0.f ? 180.f : 0.f, 0.f), FVector::ZeroVector, FVector(Scale)));
 		}
+	}
+	CargoLight = NewObject<UPointLightComponent>(this, NAME_None, RF_Transient);
+	CargoLight->SetupAttachment(Boxes);
+	CargoLight->SetRelativeLocation(FVector(-150.f, 0.f, 195.f) * Scale);
+	CargoLight->SetIntensityUnits(ELightUnits::Candelas);
+	CargoLight->SetIntensity(0.f);
+	CargoLight->SetAttenuationRadius(320.f * Scale);
+	CargoLight->SetLightColor(FLinearColor(1.f, 0.92f, 0.8f));
+	CargoLight->SetCastShadows(false);
+	CargoLight->RegisterComponent();
+	RebuildCargo();
+	StartDoorTimer();
+}
+
+void AWEVehicle::EndPlay(const EEndPlayReason::Type Reason)
+{
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DoorTimer);
+	}
+	if (GetStorage() && CargoChangedHandle.IsValid())
+	{
+		GetStorage()->OnInventoryChanged.Remove(CargoChangedHandle);
+	}
+	Super::EndPlay(Reason);
+}
+
+void AWEVehicle::StartDoorTimer()
+{
+	UWorld* World = GetWorld();
+	if (!World || GetNetMode() == NM_DedicatedServer || !HasDoorModel() || World->GetTimerManager().IsTimerActive(DoorTimer))
+	{
+		return;
+	}
+	if (GetStorage() && !CargoChangedHandle.IsValid())
+	{
+		CargoChangedHandle = GetStorage()->OnInventoryChanged.AddWeakLambda(this, [this](UWEInventoryComponent*)
+		{
+			// Something went in or came out: the rear doors open for a moment, the bay shows the new load.
+			if (GetWorld())
+			{
+				RearOpenUntil = GetWorld()->GetTimeSeconds() + 2.5f;
+				StartDoorTimer();
+			}
+			RebuildCargo();
+		});
+	}
+	World->GetTimerManager().SetTimer(DoorTimer, this, &AWEVehicle::DoorTick, 1.f / 30.f, true);
+}
+
+float AWEVehicle::DoorTarget(int32 Door) const
+{
+	if (DoorHeld[Door])
+	{
+		return 1.f;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Door == static_cast<int32>(EDoor::FrontLeft))
+	{
+		return Now < CabOpenUntil ? 1.f : 0.f;
+	}
+	if (Door == static_cast<int32>(EDoor::FrontRight))
+	{
+		return 0.f;
+	}
+	// Rear doors: open while someone stands behind the van (loading), and for a moment after (un)loading.
+	if (bAway || IsHidden())
+	{
+		return 0.f;
+	}
+	if (Now < RearOpenUntil)
+	{
+		return 1.f;
+	}
+	const FVector Rear = Boxes ? Boxes->GetComponentTransform().TransformPosition(FVector(-300.f, 0.f, 100.f) * ModelScale) : GetActorLocation();
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		const APlayerController* PC = It->Get();
+		if (PC && PC->IsLocalController() && PC->GetPawn() && FVector::Dist2D(PC->GetPawn()->GetActorLocation(), Rear) < 260.f)
+		{
+			return 1.f;
+		}
+	}
+	return 0.f;
+}
+
+void AWEVehicle::PlayDoorSound(int32 Door, bool bOpening) const
+{
+	const TCHAR* Path = bOpening ? TEXT("/Game/WorkshopEmpire/Audio/Kenney/click_005.click_005")
+		: TEXT("/Game/WorkshopEmpire/Audio/Kenney/impactMetal_heavy_001.impactMetal_heavy_001");
+	if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, Path, nullptr, LOAD_Quiet | LOAD_NoWarn); Sound && DoorPivots.IsValidIndex(Door) && DoorPivots[Door])
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Sound, DoorPivots[Door]->GetComponentLocation(), bOpening ? 0.6f : 0.8f);
+	}
+}
+
+void AWEVehicle::DoorTick()
+{
+	if (!HasDoorModel() || !GetWorld())
+	{
+		return;
+	}
+	constexpr float Dt = 1.f / 30.f;
+	for (int32 d = 0; d < 4; ++d)
+	{
+		const float Target = DoorTarget(d);
+		const float Before = DoorOpen[d];
+		// About 0.6 s to swing fully; eased so the door slows down at both ends.
+		DoorOpen[d] = FMath::FInterpConstantTo(DoorOpen[d], Target, Dt, 1.7f);
+		if (Before == DoorOpen[d])
+		{
+			continue;
+		}
+		if (Before == 0.f && DoorOpen[d] > 0.f)
+		{
+			PlayDoorSound(d, true);
+		}
+		else if (Before > 0.f && DoorOpen[d] == 0.f)
+		{
+			PlayDoorSound(d, false);
+		}
+		const float A = DoorOpen[d];
+		const float Eased = A * A * (3.f - 2.f * A);
+		if (DoorPivots[d])
+		{
+			DoorPivots[d]->SetRelativeRotation(FRotator(0.f, WEVanLayout::OpenYaw[d] * Eased, 0.f));
+		}
+	}
+	if (CargoLight)
+	{
+		CargoLight->SetIntensity(18.f * FMath::Max(DoorOpen[2], DoorOpen[3]));
+	}
+}
+
+void AWEVehicle::RebuildCargo()
+{
+	if (!HasDoorModel() || !GetStorage() || GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	const TArray<FWEInventorySlotData> Slots = GetStorage()->GetAllSlots();
+	for (UStaticMeshComponent* Cargo : CargoMeshes) { if (Cargo) { Cargo->DestroyComponent(); } }
+	CargoMeshes.Reset();
+	LastCargoCount = Slots.Num();
+	// One model per stack on the cargo floor, in rows from the bulkhead to the rear doors; big things are
+	// scaled down to their floor cell so the bay never overflows visually.
+	using namespace WEVanLayout;
+	const int32 Cols = FMath::Max(1, FMath::FloorToInt((CargoMaxY - CargoMinY) / CargoCell));
+	const int32 Rows = FMath::Max(1, FMath::FloorToInt((CargoMaxX - CargoMinX) / CargoCell));
+	int32 Cell = 0;
+	for (const FWEInventorySlotData& Slot : Slots)
+	{
+		const UWEItemDefinition* Def = Slot.Item.Definition.Get();
+		if (!Def || !Def->WorldMesh || Cell >= Rows * Cols)
+		{
+			continue;
+		}
+		const int32 Row = Cell / Cols;
+		const int32 Col = Cell % Cols;
+		++Cell;
+		const FBox Bounds = Def->WorldMesh->GetBoundingBox();
+		const FVector Extent = Bounds.GetSize() * Def->WorldScale;
+		const float Fit = FMath::Min3(1.f, (CargoCell - 4.f) / FMath::Max(1.f, static_cast<float>(FMath::Max(Extent.X, Extent.Y))), 90.f / FMath::Max(1.f, static_cast<float>(Extent.Z)));
+		const FVector ItemScale = Def->WorldScale * Fit;
+		// First rows at the rear doors, so what was loaded last is what you see when you open up.
+		const FVector CellCenter(CargoMinX + CargoCell * (Row + 0.5f), CargoMinY + CargoCell * (Col + 0.5f), CargoFloor);
+		// Stand the model on the floor, centred in its cell (scaled with the van).
+		const FVector Pivot = Bounds.GetCenter() * ItemScale;
+		const FVector Local = CellCenter * ModelScale + FVector(-Pivot.X, -Pivot.Y, -Bounds.Min.Z * ItemScale.Z) * ModelScale;
+		UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		Mesh->SetStaticMesh(Def->WorldMesh);
+		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Mesh->SetupAttachment(Boxes);
+		Mesh->SetRelativeTransform(FTransform(FRotator(0.f, (Cell % 3) * 7.f - 7.f, 0.f), Local, ItemScale * ModelScale));
+		Mesh->RegisterComponent();
+		if (Def->WorldMesh->GetPathName().StartsWith(TEXT("/Engine/BasicShapes")))
+		{
+			WEPlaceholder::ApplyTint(Mesh, LoadObject<UMaterialInterface>(nullptr, WEPlaceholder::MaterialPath), Def->Tint);
+		}
+		CargoMeshes.Add(Mesh);
 	}
 }
 #undef LOCTEXT_NAMESPACE

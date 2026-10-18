@@ -48,6 +48,7 @@ public:
 	void HandleRemovedFromWorkbench();
 
 	class AWEWorkbench* GetPlacedOn() const { return PlacedOn; }
+	UStaticMeshComponent* GetMesh() const { return Mesh; }
 
 	/** Server only. Opens a sealed container (return pallet): spawns its contents around it and removes it. Returns the finds. */
 	TArray<FWEItemInstance> OpenContainer(AWECharacter* By);

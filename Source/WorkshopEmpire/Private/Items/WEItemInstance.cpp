@@ -17,7 +17,7 @@ bool FWEItemInstance::CanStackWith(const FWEItemInstance& Other) const
 {
 	// Marks must match: a locked stack never swallows loose goods (and the other way round).
 	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition
-		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair && Marks == Other.Marks;
+		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair && Marks == Other.Marks && RemovedParts == Other.RemovedParts;
 }
 
 bool FWEItemInstance::IsPersonalEquipment() const

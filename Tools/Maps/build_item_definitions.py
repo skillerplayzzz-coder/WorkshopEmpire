@@ -77,20 +77,20 @@ ITEMS = [
      C.RAW_MATERIAL, 0.25, 120, True, 20, True, False, T.NONE, 1.0, CYLINDER, (0.05, 0.05, 0.30), (0.72, 0.38, 0.18),
      [(M.COPPER, 0.2), (M.PLASTIC, 0.05)]),
     ("RamModule", "RamModule", "Arbeitsspeicher (4 GB)",
-     "Ein DDR3-Speicherriegel. Getestet ist er nicht.",
-     C.ELECTRONICS, 0.03, 800, False, 1, True, True, T.NONE, 1.0, CUBE, (0.14, 0.04, 0.02), (0.10, 0.45, 0.20),
+     "Ein alter Speicherriegel. Getestet ist er nicht.",
+     C.ELECTRONICS, 0.03, 600, False, 1, True, True, T.NONE, 1.0, CUBE, (0.14, 0.04, 0.02), (0.10, 0.45, 0.20),
      [(M.ELECTRONICS, 0.025), (M.PRECIOUS_METAL, 0.0005)]),
     ("GraphicsCard", "GraphicsCard", "Grafikkarte (alt)",
      "Eine ältere Grafikkarte mit Lüfter. Für Bastler noch interessant.",
-     C.ELECTRONICS, 0.6, 2500, False, 1, True, True, T.NONE, 1.0, CUBE, (0.25, 0.12, 0.04), (0.20, 0.20, 0.22),
+     C.ELECTRONICS, 0.6, 2200, False, 1, True, True, T.NONE, 1.0, CUBE, (0.25, 0.12, 0.04), (0.20, 0.20, 0.22),
      [(M.ELECTRONICS, 0.3), (M.ALUMINIUM, 0.2), (M.COPPER, 0.05), (M.PRECIOUS_METAL, 0.002)]),
     ("PowerSupply", "PowerSupply", "PC-Netzteil",
      "Ein ATX-Netzteil. Ob es noch läuft, zeigt erst ein Test.",
      C.SPARE_PART, 1.4, 1200, False, 1, True, True, T.NONE, 1.0, CUBE, (0.15, 0.14, 0.09), (0.35, 0.35, 0.38),
      [(M.STEEL, 0.7), (M.COPPER, 0.3), (M.ELECTRONICS, 0.4)]),
     ("Mainboard", "Mainboard", "Mainboard",
-     "Die Hauptplatine des Computers mit Prozessor und Kühler.",
-     C.ELECTRONICS, 0.8, 1500, False, 1, True, True, T.NONE, 1.0, CUBE, (0.30, 0.24, 0.03), (0.10, 0.35, 0.18),
+     "Die Hauptplatine des Computers, ohne Prozessor, Kühler und Speicher.",
+     C.ELECTRONICS, 0.7, 900, False, 1, True, True, T.NONE, 1.0, CUBE, (0.30, 0.24, 0.03), (0.10, 0.35, 0.18),
      [(M.ELECTRONICS, 0.5), (M.COPPER, 0.1), (M.ALUMINIUM, 0.15), (M.PRECIOUS_METAL, 0.003)]),
     ("SteelScrap", "SteelScrap", "Stahlschrott",
      "Blechteile und Schrauben aus Stahl, je Einheit etwa ein Kilogramm.",
@@ -108,7 +108,27 @@ ITEMS = [
      "Platinen und Bauteile, aus denen sich später Edelmetalle gewinnen lassen.",
      C.RAW_MATERIAL, 0.25, 60, True, 50, True, False, T.NONE, 1.0, CUBE, (0.14, 0.10, 0.03), (0.15, 0.40, 0.25),
      [(M.ELECTRONICS, 0.24), (M.PRECIOUS_METAL, 0.001)]),
-    # Phase 6: repair tools, spare parts and consumables.
+    # Phase 18a: further parts that are really mounted in the old PC.
+    ("CpuCooler", "CpuCooler", "CPU-Kühler",
+     "Kühlkörper mit Lüfter vom Prozessor. Etwas Wärmeleitpaste klebt noch dran.",
+     C.SPARE_PART, 0.35, 80, False, 1, True, False, T.NONE, 1.0, CUBE, (0.07, 0.07, 0.05), (0.75, 0.75, 0.78),
+     [(M.ALUMINIUM, 0.25), (M.COPPER, 0.05), (M.PLASTIC, 0.05)]),
+    ("Processor", "Processor", "Prozessor",
+     "Ein älterer Desktop-Prozessor. Bastler suchen so etwas für Retro-PCs.",
+     C.ELECTRONICS, 0.03, 300, False, 1, True, False, T.NONE, 1.0, CUBE, (0.05, 0.05, 0.01), (0.20, 0.45, 0.25),
+     [(M.ELECTRONICS, 0.02), (M.PRECIOUS_METAL, 0.001)]),
+    ("HardDrive", "HardDrive", "Festplatte (HDD)",
+     "Eine 3,5-Zoll-Festplatte. Die Magnete und das Aluminium lohnen sich, falls sie nicht mehr läuft.",
+     C.ELECTRONICS, 0.6, 200, False, 1, True, False, T.NONE, 1.0, CUBE, (0.15, 0.10, 0.03), (0.70, 0.72, 0.75),
+     [(M.ALUMINIUM, 0.4), (M.ELECTRONICS, 0.1), (M.STEEL, 0.1)]),
+    ("SsdDrive", "SsdDrive", "SSD (120 GB)",
+     "Eine kleine SSD, nachgerüstet vom Vorbesitzer. Mit Einbaurahmen.",
+     C.ELECTRONICS, 0.15, 250, False, 1, True, False, T.NONE, 1.0, CUBE, (0.10, 0.07, 0.01), (0.15, 0.15, 0.16),
+     [(M.ELECTRONICS, 0.05), (M.STEEL, 0.1)]),
+    ("CaseFan", "CaseFan", "Gehäuselüfter (80 mm)",
+     "Ein staubiger Gehäuselüfter. Läuft vermutlich noch.",
+     C.SPARE_PART, 0.1, 50, False, 1, True, False, T.NONE, 1.0, CUBE, (0.08, 0.08, 0.025), (0.12, 0.12, 0.12),
+     [(M.PLASTIC, 0.08), (M.COPPER, 0.02)]),    # Phase 6: repair tools, spare parts and consumables.
     ("Multimeter", "Multimeter", "Multimeter",
      "Misst Spannung und Durchgang. Damit findet man heraus, welches Bauteil defekt ist.",
      C.TOOL, 0.3, 1200, False, 1, True, False, T.MULTIMETER, 1.0, CUBE, (0.10, 0.06, 0.03), (0.95, 0.75, 0.10),
@@ -307,14 +327,21 @@ def step(text, tool, seconds, outputs):
 # Disassembly sequences (§9.2). Raw materials do not inherit condition so they stack.
 SEQUENCES = {
     "OldComputer": [
-        step("Gehäuseschrauben lösen", T.SCREWDRIVER, 3.0, [out("SheetMetalScrews", 4, 6)]),
-        step("Seitenabdeckung abnehmen", T.NONE, 1.5, [out("SteelScrap", 1)]),
-        step("Grafikkarte ausbauen", T.SCREWDRIVER, 2.5, [out("GraphicsCard", 1, chance=0.85, inherit=True)]),
-        step("Arbeitsspeicher entfernen", T.NONE, 1.5, [out("RamModule", 1, 2, inherit=True)]),
-        step("Netzteil ausbauen", T.SCREWDRIVER, 3.0, [out("PowerSupply", 1, inherit=True)]),
-        step("Mainboard ausbauen", T.SCREWDRIVER, 3.5, [out("Mainboard", 1, inherit=True), out("SheetMetalScrews", 2, 4)]),
+        # Phase 18a: one step per part that is really mounted in the case (same order as pc_assembly_layout.PARTS).
+        # Every screw you see comes out as a real screw; every part you pull out is a real item.
+        step("Seitenteil abschrauben", T.SCREWDRIVER, 2.5, [out("SheetMetalScrews", 2)]),
+        step("Grafikkarte ausbauen", T.SCREWDRIVER, 2.5, [out("GraphicsCard", 1, inherit=True), out("SheetMetalScrews", 1)]),
+        step("Arbeitsspeicher entnehmen", T.NONE, 1.5, [out("RamModule", 2, inherit=True)]),
+        step("CPU-Kühler abnehmen", T.NONE, 1.5, [out("CpuCooler", 1, inherit=True)]),
+        step("Prozessor entnehmen", T.NONE, 1.0, [out("Processor", 1, inherit=True)]),
+        step("Festplatte ausbauen", T.SCREWDRIVER, 2.0, [out("HardDrive", 1, inherit=True), out("SheetMetalScrews", 2)]),
+        step("SSD ausbauen", T.SCREWDRIVER, 1.5, [out("SsdDrive", 1, inherit=True), out("SheetMetalScrews", 2)]),
+        step("Gehäuselüfter ausbauen", T.SCREWDRIVER, 1.5, [out("CaseFan", 1, inherit=True), out("SheetMetalScrews", 4)]),
+        step("Netzteil ausbauen", T.SCREWDRIVER, 3.0, [out("PowerSupply", 1, inherit=True), out("SheetMetalScrews", 4)]),
+        step("Mainboard ausbauen", T.SCREWDRIVER, 3.0, [out("Mainboard", 1, inherit=True), out("SheetMetalScrews", 6)]),
+        step("CD-Laufwerk ausbauen", T.SCREWDRIVER, 1.5, [out("ElectronicScrap", 1), out("PlasticParts", 1), out("SheetMetalScrews", 2)]),
         step("Kabel abtrennen und Gehäuse verwerten", T.SIDE_CUTTER, 3.0,
-             [out("SteelScrap", 3, 4), out("PlasticParts", 1, 2), out("CopperCable", 1, 2)]),
+             [out("SteelScrap", 4, 5), out("PlasticParts", 1, 2), out("CopperCable", 1, 2)]),
     ],
     "CrtMonitor": [
         step("Rückwand abschrauben", T.SCREWDRIVER, 3.0, [out("SheetMetalScrews", 3, 5), out("PlasticParts", 2, 3)]),
@@ -332,6 +359,55 @@ for suffix, steps in SEQUENCES.items():
     dis.set_editor_property("steps", steps)
     eal.save_asset(dis_path)
     items[suffix][0].set_editor_property("disassembly", dis)
+
+
+# Phase 18a: part layout of the old PC (Tools/Assets/pc_assembly_layout.py, models: build_pc_assembly.py).
+def build_pc_assembly():
+    import os
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Assets"))
+    import pc_assembly_layout as layout
+
+    kinds = {"Screw": unreal.WEFastenerKind.SCREW, "Thumbscrew": unreal.WEFastenerKind.THUMBSCREW,
+             "Clip": unreal.WEFastenerKind.CLIP, "Plug": unreal.WEFastenerKind.PLUG, "Lever": unreal.WEFastenerKind.LEVER}
+    parts = []
+    for spec in layout.PARTS:
+        mesh_path = f"/Game/WorkshopEmpire/Art/Generated/PCA/SM_Gen_PCA_{spec['id']}"
+        if not eal.does_asset_exist(mesh_path):
+            unreal.log_warning(f"WE_ITEMS PC part model missing: {mesh_path} (run Tools/Assets/build_pc_assembly.py)")
+            return
+        part = unreal.WEAssemblyPart()
+        part.set_editor_property("id", spec["id"])
+        part.set_editor_property("display_name", unreal.Text(spec["name"]))
+        part.set_editor_property("mesh", unreal.load_asset(mesh_path))
+        fasteners = []
+        for kind, loc, direction, order, side in spec["fasteners"]:
+            f = unreal.WEFastener()
+            f.set_editor_property("kind", kinds[kind])
+            f.set_editor_property("location", unreal.Vector(*loc))
+            f.set_editor_property("direction", unreal.Vector(*direction))
+            f.set_editor_property("side", unreal.Vector(*side))
+            f.set_editor_property("order", order)
+            fasteners.append(f)
+        part.set_editor_property("fasteners", fasteners)
+        part.set_editor_property("requires", spec["requires"])
+        part.set_editor_property("pull_direction", unreal.Vector(*spec["pull"]))
+        part.set_editor_property("pull_distance", spec["dist"])
+        part.set_editor_property("service_access", spec.get("service", False))
+        part.set_editor_property("lays_beside", spec.get("beside", False))
+        part.set_editor_property("shell", spec.get("shell", False))
+        parts.append(part)
+    asm, asm_path = data_asset("/Game/WorkshopEmpire/Data/Assembly", "ASM_OldComputer", unreal.WEAssemblyDefinition)
+    asm.set_editor_property("parts", parts)
+    asm.set_editor_property("bench_rotation", unreal.Rotator(**layout.BENCH_ROTATION))
+    eal.save_asset(asm_path)
+    if len(parts) != len(SEQUENCES["OldComputer"]):
+        unreal.log_error(f"WE_ITEMS PC parts ({len(parts)}) and disassembly steps ({len(SEQUENCES['OldComputer'])}) differ")
+    items["OldComputer"][0].set_editor_property("assembly", asm)
+    unreal.log(f"WE_ITEMS PC assembly: {len(parts)} parts")
+
+
+build_pc_assembly()
 
 
 def fault(name, remove, install, part, tool, remove_s, install_s, weight, returns_part=True):
@@ -402,6 +478,7 @@ GEN_ITEMS = {
     "ShredMetal", "CopperGranulate", "SteelBale", "AluBale", "CopperBale", "AluminiumIngot", "CopperIngot", "CopperWireSpool",
     "CopperCable", "ExtensionCable", "SteelBracketSet", "SheetMetalScrews", "Capacitors", "GoldCpu", "VintageRadio",
     "SolderingIron", "SolderingStation", "PalletBrackets", "PalletCables", "PreciousConcentrate",
+    "CpuCooler", "Processor", "HardDrive", "SsdDrive", "CaseFan",
 }
 for suffix, (da, path) in items.items():
     gen_path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{suffix}"

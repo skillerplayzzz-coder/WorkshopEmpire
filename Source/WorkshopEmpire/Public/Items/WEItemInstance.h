@@ -82,6 +82,14 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 
 	bool IsPartiallyDisassembled() const { return DisassemblyStep > 0; }
 
+	/**
+	 * Devices with a part layout (UWEAssemblyDefinition, Phase 18a): bit i = part i is out. Parts can come out in any
+	 * order their prerequisites allow; DisassemblyStep then counts the parts that are out.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
+	int32 RemovedParts = 0;
+	bool IsPartRemoved(int32 Part) const { return Part >= 0 && Part < 32 && (RemovedParts & (1 << Part)) != 0; }
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	FWERepairState Repair;
 
@@ -141,6 +149,6 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	{
 		return Definition == Other.Definition && InstanceId == Other.InstanceId && Quantity == Other.Quantity
 			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair
-			&& Marks == Other.Marks;
+			&& Marks == Other.Marks && RemovedParts == Other.RemovedParts;
 	}
 };

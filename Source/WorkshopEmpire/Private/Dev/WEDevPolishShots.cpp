@@ -215,6 +215,7 @@ void UWEDevAutomationComponent::RunWorkViewShots()
 	Schedule(12.6f, [this]() { Shot(TEXT("31_Schraube_loesen")); });
 	Schedule(16.0f, [this]() { Shot(TEXT("32_Schrauben_raus")); });
 	Schedule(24.0f, [this]() { Shot(TEXT("33_Weiter")); });
+	Schedule(29.0f, [this]() { Shot(TEXT("33b_Innenleben")); });
 	Schedule(34.0f, [this, View]() { Shot(TEXT("34_Spaeter")); if (View()) { UE_LOG(LogWENet, Display, TEXT("P175W %s"), *View()->DescribeState()); } LogBenchState(TEXT("W2 later")); });
 	// Wrong tool: hands on a screw gives a hint.
 	Schedule(34.4f, [this, View]()
@@ -224,6 +225,9 @@ void UWEDevAutomationComponent::RunWorkViewShots()
 	});
 	Schedule(35.0f, [this]() { Shot(TEXT("35_Hinweis")); });
 	Schedule(35.5f, [this]() { GetWorld()->GetTimerManager().SetTimer(WorkViewTimer, this, &UWEDevAutomationComponent::WorkViewTick, 0.2f, true); });
+	Schedule(45.0f, [this, View]() { Shot(TEXT("35b_Teile_raus")); if (View()) { UE_LOG(LogWENet, Display, TEXT("P175W %s"), *View()->DescribeState()); } });
+	Schedule(56.0f, [this]() { Shot(TEXT("35c_Mainboard")); });
+	Schedule(64.0f, [this]() { Shot(TEXT("35d_Fast_leer")); });
 	Schedule(70.0f, [this, PC, View]()
 	{
 		GetWorld()->GetTimerManager().ClearTimer(WorkViewTimer);
@@ -299,21 +303,41 @@ void UWEDevAutomationComponent::RunVanShots()
 	});
 	Schedule(9.5f, [ViewVan]() { ViewVan(520.f, -480.f); });
 	Schedule(12.5f, [this]() { Shot(TEXT("51_Transporter_alt_hinten")); });
-	Schedule(13.0f, [this]() { TeleportToTerminal(0.f); });
-	Schedule(14.0f, [this]() { BuyUpgradeAtTerminal(TEXT("ModernVan")); });
-	Schedule(15.0f, [ViewVan]() { ViewVan(-650.f, 380.f); });
-	Schedule(19.0f, [this, Van]()
+	// Phase 18b: goods in the cargo bay, rear and driver doors open, seen from close behind and from the side.
+	Schedule(12.8f, [Van]()
+	{
+		if (AWEVehicle* V = Van())
+		{
+			for (const TCHAR* Id : { TEXT("OldComputer"), TEXT("CableBox"), TEXT("SteelScrap"), TEXT("ElectricMotor"), TEXT("CrtMonitor"), TEXT("CopperCable") })
+			{
+				int32 Added = 0;
+				if (UWEItemDefinition* Def = UWEItemDefinition::FindById(FName(Id))) { V->GetStorage()->TryAddItem(FWEItemInstance::Make(Def, Def->bStackable ? 5 : 1, EWEItemCondition::Used), Added); }
+			}
+			V->SetDoorHeld(AWEVehicle::EDoor::RearLeft, true);
+			V->SetDoorHeld(AWEVehicle::EDoor::RearRight, true);
+			V->SetDoorHeld(AWEVehicle::EDoor::FrontLeft, true);
+			UE_LOG(LogWENet, Display, TEXT("P175V cargo shown=%d doors=%d"), V->GetVisibleCargoCount(), V->HasDoorModel() ? 1 : 0);
+		}
+	});
+	Schedule(13.0f, [ViewVan]() { ViewVan(60.f, -520.f); });
+	Schedule(15.0f, [this]() { Shot(TEXT("51b_Laderaum_offen")); });
+	Schedule(15.3f, [ViewVan]() { ViewVan(-330.f, 150.f); });
+	Schedule(17.3f, [this, Van]() { Shot(TEXT("51c_Fahrertuer")); if (AWEVehicle* V = Van()) { V->SetDoorHeld(AWEVehicle::EDoor::RearLeft, false); V->SetDoorHeld(AWEVehicle::EDoor::RearRight, false); V->SetDoorHeld(AWEVehicle::EDoor::FrontLeft, false); } });
+	Schedule(18.0f, [this]() { TeleportToTerminal(0.f); });
+	Schedule(19.0f, [this]() { BuyUpgradeAtTerminal(TEXT("ModernVan")); });
+	Schedule(20.0f, [ViewVan]() { ViewVan(-650.f, 380.f); });
+	Schedule(23.0f, [this, Van]()
 	{
 		const AWEVehicle* V = Van();
 		UE_LOG(LogWENet, Display, TEXT("P175V van=%s improved=%d"), V ? *V->GetStats().DisplayName.ToString() : TEXT("none"), V && V->IsImproved() ? 1 : 0);
 		Shot(TEXT("52_Lieferwagen_modern"));
 	});
 	// The neighbourhood (Phase 17.5 world): fixed views from the ground.
-	ShotFrom(20.0f, FVector(800.f, -2650.f, 170.f), FVector(450.f, -400.f, 220.f), TEXT("60_Strasse_zum_Tor"));
-	ShotFrom(24.0f, FVector(700.f, -250.f, 170.f), FVector(600.f, -2700.f, 320.f), TEXT("61_Hof_zur_Strasse"));
-	ShotFrom(28.0f, FVector(-1150.f, -1000.f, 170.f), FVector(0.f, 500.f, 150.f), TEXT("62_Hinterhof"));
-	ShotFrom(32.0f, FVector(2600.f, -1650.f, 170.f), FVector(-2000.f, -1900.f, 200.f), TEXT("63_Strasse_West"));
-	ShotFrom(36.0f, FVector(900.f, 100.f, 170.f), FVector(-700.f, 2600.f, 250.f), TEXT("64_Hof_Nord"));
-	Schedule(40.0f, [this]() { Quit(); });
+	ShotFrom(25.0f, FVector(800.f, -2650.f, 170.f), FVector(450.f, -400.f, 220.f), TEXT("60_Strasse_zum_Tor"));
+	ShotFrom(29.0f, FVector(700.f, -250.f, 170.f), FVector(600.f, -2700.f, 320.f), TEXT("61_Hof_zur_Strasse"));
+	ShotFrom(33.0f, FVector(-1150.f, -1000.f, 170.f), FVector(0.f, 500.f, 150.f), TEXT("62_Hinterhof"));
+	ShotFrom(37.0f, FVector(2600.f, -1650.f, 170.f), FVector(-2000.f, -1900.f, 200.f), TEXT("63_Strasse_West"));
+	ShotFrom(41.0f, FVector(900.f, 100.f, 170.f), FVector(-700.f, 2600.f, 250.f), TEXT("64_Hof_Nord"));
+	Schedule(45.0f, [this]() { Quit(); });
 #endif
 }

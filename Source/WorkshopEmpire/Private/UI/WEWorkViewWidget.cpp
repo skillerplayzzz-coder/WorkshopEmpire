@@ -20,6 +20,10 @@
 #include "Workshop/WEWorkbench.h"
 #include "Workshop/WEWorkPlan.h"
 #include "Workshop/WEWorkRig.h"
+#include "Workshop/WEAssemblyView.h"
+#include "Workshop/WEAssemblyDefinition.h"
+#include "Camera/CameraComponent.h"
+#include "Engine/StaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "WEWorkView"
 
@@ -32,7 +36,7 @@ namespace
 	constexpr float MarkerSize = 38.f;
 	constexpr float PickRadius = 30.f;
 
-	UCanvasPanelSlot* Place(UCanvasPanel* Canvas, UWidget* Widget, const FAnchors& Anchors, const FVector2D& Alignment, const FVector2D& Position)
+	UCanvasPanelSlot* WVPlace(UCanvasPanel* Canvas, UWidget* Widget, const FAnchors& Anchors, const FVector2D& Alignment, const FVector2D& Position)
 	{
 		UCanvasPanelSlot* S = Canvas->AddChildToCanvas(Widget);
 		S->SetAnchors(Anchors);
@@ -42,7 +46,7 @@ namespace
 		return S;
 	}
 
-	UBorder* Card(UWidgetTree* Tree, UWidget* Content)
+	UBorder* WVCard(UWidgetTree* Tree, UWidget* Content)
 	{
 		UBorder* B = Box(Tree, Col::WithAlpha(Col::Panel, 0.94f), FMargin(18.f, 14.f), Col::Line, 2.f);
 		B->SetContent(Content);
@@ -104,8 +108,8 @@ void UWEWorkViewWidget::NativeOnInitialized()
 		AddV(V, Divider(WidgetTree));
 		StepList = WidgetTree->ConstructWidget<UVerticalBox>();
 		AddV(V, StepList, FMargin(0.f, 8.f, 0.f, 0.f));
-		LeftCard = Card(WidgetTree, Sized(WidgetTree, V, 400.f));
-		Place(Canvas, LeftCard, FAnchors(0.f, 0.f), FVector2D(0.f, 0.f), FVector2D(28.f, 28.f));
+		LeftCard = WVCard(WidgetTree, Sized(WidgetTree, V, 400.f));
+		WVPlace(Canvas, LeftCard, FAnchors(0.f, 0.f), FVector2D(0.f, 0.f), FVector2D(28.f, 28.f));
 	}
 
 	// Right: the current step, progress, hint, what it yields, buttons.
@@ -133,8 +137,8 @@ void UWEWorkViewWidget::NativeOnInitialized()
 		AddH(Buttons, Auto, FMargin(0.f, 0.f, 8.f, 0.f));
 		AddH(Buttons, Close);
 		AddV(V, Buttons);
-		RightCard = Card(WidgetTree, Sized(WidgetTree, V, 380.f));
-		Place(Canvas, RightCard, FAnchors(1.f, 0.f), FVector2D(1.f, 0.f), FVector2D(-28.f, 28.f));
+		RightCard = WVCard(WidgetTree, Sized(WidgetTree, V, 380.f));
+		WVPlace(Canvas, RightCard, FAnchors(1.f, 0.f), FVector2D(1.f, 0.f), FVector2D(-28.f, 28.f));
 	}
 
 	// Bottom: tool bar.
@@ -169,21 +173,23 @@ void UWEWorkViewWidget::NativeOnInitialized()
 			AddH(Keys, KeyCap(WidgetTree, FText::FromString(Cap), 10), FMargin(0.f, 0.f, 4.f, 0.f));
 			AddH(Keys, Text(WidgetTree, What, 11, Col::TextDim), FMargin(0.f, 0.f, 14.f, 0.f));
 		};
-		Key(TEXT("1-8"), LOCTEXT("KeyTools", "Werkzeug / Mausrad"));
-		Key(TEXT("Maus"), LOCTEXT("KeyHold", "auf Schraube, Stecker, Teil gedrückt halten"));
+		Key(TEXT("1-8"), LOCTEXT("KeyTools", "Werkzeug"));
+		Key(TEXT("Links"), LOCTEXT("KeyHold", "Teil wählen, auf Schraube/Stecker halten"));
+		Key(TEXT("Rechts"), LOCTEXT("KeyOrbit", "drehen"));
+		Key(TEXT("Rad"), LOCTEXT("KeyZoom", "zoomen"));
 		Key(TEXT("Q"), LOCTEXT("KeyAuto", "automatisch"));
 		Key(TEXT("Esc"), LOCTEXT("KeyBack", "zurück"));
 		AddV(V, Keys, FMargin(0.f, 8.f, 0.f, 0.f), HAlign_Center);
 		UBorder* Bar = Box(WidgetTree, Col::WithAlpha(Col::Panel, 0.92f), FMargin(14.f, 10.f), Col::Line, 2.f);
 		Bar->SetContent(V);
-		Place(Canvas, Bar, FAnchors(0.5f, 1.f), FVector2D(0.5f, 1.f), FVector2D(0.f, -24.f));
+		WVPlace(Canvas, Bar, FAnchors(0.5f, 1.f), FVector2D(0.5f, 1.f), FVector2D(0.f, -24.f));
 	}
 
 	CenterText = Text(WidgetTree, FText::GetEmpty(), 26, Col::Text, EFont::Head, 900.f);
 	CenterText->SetJustification(ETextJustify::Center);
 	CenterText->SetShadowOffset(FVector2D(2.f, 2.f));
 	CenterText->SetShadowColorAndOpacity(Col::WithAlpha(FLinearColor::Black, 0.85f));
-	Place(Canvas, CenterText, FAnchors(0.5f, 0.42f), FVector2D(0.5f, 0.5f), FVector2D::ZeroVector);
+	WVPlace(Canvas, CenterText, FAnchors(0.5f, 0.42f), FVector2D(0.5f, 0.5f), FVector2D::ZeroVector);
 
 	CursorIcon = Icon(WidgetTree, TEXT("Hand"), 30.f, Col::Accent);
 	CursorIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
@@ -209,6 +215,9 @@ void UWEWorkViewWidget::Setup(AWEWorkbench* InBench, bool bInRepair)
 	LastStartRequest = -10.f;
 	MarkerSignature = 0;
 	LastInfoSignature.Reset();
+	SelectedPart = INDEX_NONE;
+	OrbitBaseDist = -1.f; // the camera is aimed after Setup: take it over on the first tick
+	bOrbiting = false;
 	if (!Rig && InBench && GetWorld())
 	{
 		FActorSpawnParameters Params;
@@ -232,12 +241,138 @@ void UWEWorkViewWidget::Setup(AWEWorkbench* InBench, bool bInRepair)
 
 void UWEWorkViewWidget::Shutdown()
 {
+	if (AWEAssemblyView* View = GetView())
+	{
+		View->SetHover(INDEX_NONE);
+		View->SetSelected(INDEX_NONE);
+		View->SetActiveTask(INDEX_NONE, INDEX_NONE, 0.f);
+	}
 	if (Rig)
 	{
 		Rig->Destroy();
 		Rig = nullptr;
 	}
 	Bench.Reset();
+}
+
+// --- Part layout and camera (Phase 18a) -------------------------------------------------------------------------
+
+bool UWEWorkViewWidget::IsPartMode() const
+{
+	const AWEWorkbench* B = Bench.Get();
+	return B && B->GetAssembly() && !bRepair;
+}
+
+AWEAssemblyView* UWEWorkViewWidget::GetView() const
+{
+	const AWEWorkbench* B = Bench.Get();
+	return B ? B->GetAssemblyView() : nullptr;
+}
+
+void UWEWorkViewWidget::InitOrbit()
+{
+	AWEWorkbench* B = Bench.Get();
+	UCameraComponent* Cam = B ? B->GetWorkCamera() : nullptr;
+	if (!Cam)
+	{
+		return;
+	}
+	FVector Center = B->GetWorkSpotLocation();
+	if (const AWEAssemblyView* View = GetView())
+	{
+		Center = View->GetDeviceBounds().GetCenter();
+	}
+	else if (const AWEPickupItem* Item = B->GetPlacedItem())
+	{
+		FVector Extent;
+		Item->GetActorBounds(true, Center, Extent);
+	}
+	const FVector Dir = Cam->GetComponentLocation() - Center;
+	const FRotator Rot = Dir.Rotation();
+	OrbitYaw = Rot.Yaw;
+	OrbitPitch = FMath::Clamp(Rot.Pitch, 15.f, 85.f);
+	OrbitDist = OrbitGoalDist = OrbitBaseDist = FMath::Max(Dir.Size(), 20.f);
+	OrbitTarget = OrbitGoal = Center;
+}
+
+void UWEWorkViewWidget::UpdateOrbit(float DeltaTime)
+{
+	AWEWorkbench* B = Bench.Get();
+	UCameraComponent* Cam = B ? B->GetWorkCamera() : nullptr;
+	if (!Cam)
+	{
+		return;
+	}
+	if (OrbitBaseDist <= 0.f)
+	{
+		InitOrbit();
+	}
+	OrbitTarget = FMath::VInterpTo(OrbitTarget, OrbitGoal, DeltaTime, 6.f);
+	OrbitDist = FMath::FInterpTo(OrbitDist, OrbitGoalDist, DeltaTime, 6.f);
+	const FVector Eye = OrbitTarget + FRotator(OrbitPitch, OrbitYaw, 0.f).Vector() * OrbitDist;
+	Cam->SetWorldLocationAndRotation(Eye, (OrbitTarget - Eye).Rotation());
+}
+
+int32 UWEWorkViewWidget::PartUnderMouse() const
+{
+	const AWEAssemblyView* View = GetView();
+	APlayerController* PC = GetOwningPlayer();
+	float X = 0.f, Y = 0.f;
+	FVector Origin, Direction;
+	if (!View || !PC || !PC->GetMousePosition(X, Y) || !PC->DeprojectScreenPositionToWorld(X, Y, Origin, Direction))
+	{
+		return INDEX_NONE;
+	}
+	return View->FindPartUnderRay(Origin, Direction);
+}
+
+void UWEWorkViewWidget::SelectPart(int32 Part)
+{
+	AWEWorkbench* B = Bench.Get();
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
+	AWEAssemblyView* View = GetView();
+	if (!B || !PC)
+	{
+		return;
+	}
+	// Another part picked while working on one: that half-done job is dropped (the part stays in).
+	if (B->IsManualWork() && B->GetWorker() == GetCharacter() && B->GetActivePart() != Part)
+	{
+		PC->RequestWorkCancel(B);
+	}
+	SelectedPart = Part;
+	HoldTask = PendingTask = INDEX_NONE;
+	LastStartRequest = -10.f;
+	LastInfoSignature.Reset();
+	if (Rig)
+	{
+		Rig->SetSelectedPart(Part);
+	}
+	if (View)
+	{
+		View->SetSelected(Part);
+	}
+	if (Part != INDEX_NONE && View)
+	{
+		// Close to the part; the tool its first fastener needs in hand.
+		const UWEAssemblyDefinition* Assembly = B->GetAssembly();
+		const UStaticMesh* Mesh = Assembly && Assembly->Parts.IsValidIndex(Part) ? Assembly->Parts[Part].Mesh.Get() : nullptr;
+		const float Size = Mesh ? Mesh->GetBoundingBox().GetSize().Size() : 20.f;
+		OrbitGoal = View->GetPartCenter(Part);
+		OrbitGoalDist = FMath::Clamp(Size * 2.4f, OrbitBaseDist * 0.35f, OrbitBaseDist);
+		const FWEWorkPlan Plan = B->GetPartPlan(Part);
+		if (Plan.IsValid())
+		{
+			const int32 Wanted = Tools.IndexOfByKey(Plan.Tasks[0].Tool);
+			SelectToolIndex(Wanted != INDEX_NONE ? Wanted : SelectedTool);
+		}
+		Play(this, ESound::Click, 0.45f);
+	}
+	else if (View)
+	{
+		OrbitGoal = View->GetDeviceBounds().GetCenter();
+		OrbitGoalDist = OrbitBaseDist;
+	}
 }
 
 AWECharacter* UWEWorkViewWidget::GetCharacter() const
@@ -440,6 +575,12 @@ void UWEWorkViewWidget::Hint(const FText& Text, bool bError)
 
 FReply UWEWorkViewWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
+	if (InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	{
+		// Turn the camera around the device while the right button is held.
+		bOrbiting = true;
+		return FReply::Handled().CaptureMouse(TakeWidget());
+	}
 	if (InMouseEvent.GetEffectingButton() != EKeys::LeftMouseButton || !Rig)
 	{
 		return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
@@ -447,6 +588,15 @@ FReply UWEWorkViewWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, c
 	const int32 Task = FindTaskAt(MousePosition());
 	if (Task == INDEX_NONE)
 	{
+		// Part layout: a click on a part picks it.
+		if (IsPartMode())
+		{
+			const int32 Part = PartUnderMouse();
+			if (Part != INDEX_NONE && Part != SelectedPart)
+			{
+				SelectPart(Part);
+			}
+		}
 		return FReply::Handled();
 	}
 	DevHoldTask(Task);
@@ -488,6 +638,11 @@ void UWEWorkViewWidget::DevHoldTask(int32 Task)
 
 FReply UWEWorkViewWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
+	if (InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	{
+		bOrbiting = false;
+		return FReply::Handled().ReleaseMouseCapture();
+	}
 	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
 		HoldTask = INDEX_NONE;
@@ -496,12 +651,24 @@ FReply UWEWorkViewWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, con
 	return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
 }
 
+FReply UWEWorkViewWidget::NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	if (bOrbiting)
+	{
+		const FVector2D Delta = InMouseEvent.GetCursorDelta();
+		OrbitYaw += Delta.X * 0.35f;
+		OrbitPitch = FMath::Clamp(OrbitPitch + Delta.Y * 0.25f, 12.f, 86.f);
+		return FReply::Handled();
+	}
+	return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
+}
+
 FReply UWEWorkViewWidget::NativeOnMouseWheel(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
-	if (Tools.Num() > 0)
+	// Zoom (tools: keys 1-8 or the tool bar).
+	if (OrbitBaseDist > 0.f)
 	{
-		const int32 Step = InMouseEvent.GetWheelDelta() > 0.f ? -1 : 1;
-		SelectToolIndex((SelectedTool + Step + Tools.Num()) % Tools.Num());
+		OrbitGoalDist = FMath::Clamp(OrbitGoalDist * (InMouseEvent.GetWheelDelta() > 0.f ? 0.85f : 1.18f), OrbitBaseDist * 0.25f, OrbitBaseDist * 1.6f);
 	}
 	return FReply::Handled();
 }
@@ -544,7 +711,11 @@ void UWEWorkViewWidget::TryStartWork()
 		return;
 	}
 	FText Reason;
-	const bool bCan = bRepair ? B->CanStartRepairStep(Character, Reason) : B->CanStartStep(Character, Reason);
+	if (IsPartMode() && SelectedPart == INDEX_NONE)
+	{
+		return; // the player picks the part first
+	}
+	const bool bCan = bRepair ? B->CanStartRepairStep(Character, Reason) : B->CanStartStep(Character, Reason, IsPartMode() ? SelectedPart : INDEX_NONE);
 	if (!bCan)
 	{
 		if (!Reason.IsEmpty() && HintTime <= 0.f)
@@ -555,7 +726,7 @@ void UWEWorkViewWidget::TryStartWork()
 		return;
 	}
 	LastStartRequest = Now;
-	PC->RequestWorkStart(B, bRepair);
+	PC->RequestWorkStart(B, bRepair, IsPartMode() ? SelectedPart : INDEX_NONE);
 }
 
 void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -586,6 +757,18 @@ void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 		{
 			SetRepairMode(true);
 		}
+	}
+	UpdateOrbit(InDeltaTime);
+	if (AWEAssemblyView* View = GetView())
+	{
+		// Part under the cursor lights up; a picked part that came out is done.
+		const int32 Removed = B->GetPlacedItem() ? B->GetPlacedItem()->GetItem().RemovedParts : 0;
+		if (SelectedPart != INDEX_NONE && (Removed & (1 << SelectedPart)) != 0)
+		{
+			SelectPart(INDEX_NONE);
+		}
+		View->SetHover(IsPartMode() && !bOrbiting && FindTaskAt(MousePosition()) == INDEX_NONE ? PartUnderMouse() : INDEX_NONE);
+		LastRemovedParts = Removed;
 	}
 	TryStartWork();
 
@@ -702,6 +885,8 @@ void UWEWorkViewWidget::RefreshInfo()
 		StepCount->SetText(FText::GetEmpty());
 		DeviceTitle->SetText(LOCTEXT("NoDevice", "Kein Gerät"));
 		DeviceInfo->SetText(FText::GetEmpty());
+		HintText->SetText(LOCTEXT("EmptyHint", "Lege ein neues Gerät auf die Werkbank oder verlasse die Ansicht mit [Esc]."));
+		YieldText->SetText(FText::GetEmpty());
 		StepList->ClearChildren();
 		LastInfoSignature.Reset();
 		return;
@@ -730,6 +915,34 @@ void UWEWorkViewWidget::RefreshInfo()
 		if (Info.Material)
 		{
 			Yield = FText::Format(LOCTEXT("Uses", "Verbraucht: {0}"), Info.Material->DisplayName);
+		}
+	}
+	else if (IsPartMode())
+	{
+		// Part layout: the picked part (or the one being worked on).
+		const UWEAssemblyDefinition* Assembly = B->GetAssembly();
+		const int32 Part = B->GetActivePart() != INDEX_NONE ? B->GetActivePart() : SelectedPart;
+		const FWEDisassemblyStep* Step = Part != INDEX_NONE ? B->GetStepAt(Part) : nullptr;
+		if (!Step || !Assembly->Parts.IsValidIndex(Part))
+		{
+			Title = LOCTEXT("PickPart", "Bauteil anklicken");
+		}
+		else
+		{
+			Title = Step->RequiredTool == EWEToolType::None ? Assembly->Parts[Part].DisplayName
+				: FText::Format(LOCTEXT("PartTool", "{0} ({1})"), Assembly->Parts[Part].DisplayName, WEItems::GetToolText(Step->RequiredTool));
+			TArray<FString> Names;
+			for (const FWEDisassemblyOutput& Out : Step->Outputs)
+			{
+				if (Out.Item)
+				{
+					Names.Add(Out.Item->DisplayName.ToString());
+				}
+			}
+			if (Names.Num() > 0)
+			{
+				Yield = FText::Format(LOCTEXT("PartYields", "Ergibt: {0}"), FText::FromString(FString::Join(Names, TEXT(", "))));
+			}
 		}
 	}
 	else
@@ -768,7 +981,19 @@ void UWEWorkViewWidget::RefreshInfo()
 		{
 			Line = LOCTEXT("TimedLine", "Der Schritt läuft automatisch – du kannst zuschauen oder gehen.");
 		}
-		else
+		else if (IsPartMode() && SelectedPart == INDEX_NONE && B->GetActivePart() == INDEX_NONE)
+		{
+			Line = LOCTEXT("PickPartLine", "Klicke ein Bauteil an, um es auszubauen. Rechte Maustaste: drehen, Mausrad: zoomen.");
+		}
+		else if (IsPartMode() && B->GetActivePart() == INDEX_NONE)
+		{
+			FText Reason;
+			if (!B->CanStartStep(GetCharacter(), Reason, SelectedPart) && !Reason.IsEmpty())
+			{
+				Line = Reason;
+			}
+		}
+		if (Line.IsEmpty() && !bTimed && !(B->IsBusy() && B->GetWorker() != GetCharacter()))
 		{
 			// What to do next: the first available task.
 			FText Ignored;
@@ -788,7 +1013,7 @@ void UWEWorkViewWidget::RefreshInfo()
 	}
 
 	// Step list (rebuilt only when it changes).
-	FString Signature = FString::Printf(TEXT("%d|%d|%d|%s"), bRepair ? 1 : 0, B->GetNextStepIndex(), Instance.Repair.Faults, *Status.ToString());
+	FString Signature = FString::Printf(TEXT("%d|%d|%d|%s|%d|%d"), bRepair ? 1 : 0, B->GetNextStepIndex(), Instance.Repair.Faults, *Status.ToString(), Instance.RemovedParts, SelectedPart);
 	if (Signature == LastInfoSignature)
 	{
 		return;
@@ -803,7 +1028,24 @@ void UWEWorkViewWidget::RefreshInfo()
 		AddH(Row, Text(WidgetTree, Label, 13, State == 0 ? Col::TextMuted : State == 1 ? Col::Text : Col::TextDim, State == 1 ? EFont::Strong : EFont::Body, 340.f), FMargin(), true);
 		AddV(StepList, Row, FMargin(0.f, 0.f, 0.f, 4.f));
 	};
-	if (!bRepair && Def->Disassembly)
+	if (IsPartMode())
+	{
+		// Every part with its state: out, picked, free, or still blocked.
+		const UWEAssemblyDefinition* Assembly = B->GetAssembly();
+		for (int32 i = 0; i < Assembly->Parts.Num(); ++i)
+		{
+			const bool bOut = Instance.IsPartRemoved(i);
+			const bool bFree = Assembly->IsAvailable(i, Instance.RemovedParts);
+			UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+			const FName IconName = bOut ? FName(TEXT("Check")) : i == SelectedPart ? FName(TEXT("Play")) : bFree ? FName(TEXT("Wrench")) : FName(TEXT("Lock"));
+			const FLinearColor Tint = bOut ? Col::Good : i == SelectedPart ? Col::Accent : bFree ? Col::Text : Col::TextMuted;
+			AddH(Row, Icon(WidgetTree, IconName, 14.f, Tint), FMargin(0.f, 0.f, 8.f, 0.f));
+			AddH(Row, Text(WidgetTree, Assembly->Parts[i].DisplayName, 13, bOut ? Col::TextMuted : i == SelectedPart ? Col::Text : bFree ? Col::TextDim : Col::TextMuted,
+				i == SelectedPart ? EFont::Strong : EFont::Body, 340.f), FMargin(), true);
+			AddV(StepList, Row, FMargin(0.f, 0.f, 0.f, 3.f));
+		}
+	}
+	else if (!bRepair && Def->Disassembly)
 	{
 		for (int32 i = 0; i < Def->Disassembly->Steps.Num(); ++i)
 		{
@@ -840,6 +1082,13 @@ int32 UWEWorkViewWidget::DevFindAvailableTask() const
 
 bool UWEWorkViewWidget::DevWorkNext()
 {
+	const AWEWorkbench* B = Bench.Get();
+	if (IsPartMode() && SelectedPart == INDEX_NONE && B && B->GetPlacedItem() && !B->IsBusy())
+	{
+		// Test automation picks the parts in list order.
+		SelectPart(B->GetAssembly()->GetDefaultPart(B->GetPlacedItem()->GetItem().RemovedParts));
+		return false;
+	}
 	const int32 Task = DevFindAvailableTask();
 	if (Task == INDEX_NONE || !DevIsIdle())
 	{

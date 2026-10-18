@@ -44,7 +44,10 @@ MODELS = {
     "fire_hydrant": "1k", "utility_box_02": "1k", "water_manhole_cover": "1k", "rusted_wheel_rim_02": "1k", "trashbag": "1k",
     "metal_office_desk": "2k", "circuit_board": "1k", "security_camera_01": "1k", "barrel_stove": "1k", "overhead_crane": "2k",
     "industrial_pipe_lamp": "1k", "desk_lamp_arm_01": "1k", "clipboard": "1k", "Barrel_02": "1k", "plastic_crate_02": "1k",
-    "plastic_crate_03": "1k", "old_military_crate": "1k", "covered_car": "2k", "metal_jerrycan_green": "1k", "planter_box_01": "1k",
+    "plastic_crate_03": "1k",
+    # Phase 18e: vegetation at the street edges, fences and vacant lots (Nanite, sparse)
+    "shrub_02": "1k", "shrub_03": "1k", "shrub_04": "1k", "weed_plant_02": "1k", "nettle_plant": "1k", "dandelion_01": "1k",
+    "grass_bermuda_01": "1k", "tree_small_02": "2k", "old_military_crate": "1k", "covered_car": "2k", "metal_jerrycan_green": "1k", "planter_box_01": "1k",
     "WetFloorSign_01": "1k", "SchoolChair_01": "1k", "modular_street_seating": "1k", "television_02": "1k", "wooden_crate_02": "1k",
     "industrial_pastic_container": "1k", "CoffeeCart_01": "1k", "standing_chalkboard_01": "1k", "tire_pump": "1k",
 }

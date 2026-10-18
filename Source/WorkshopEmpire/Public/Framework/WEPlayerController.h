@@ -53,7 +53,7 @@ public:
 	class UWEWorkViewWidget* GetWorkView() const { return WorkViewWidget; }
 
 	/** Work view requests (server checks reach, tool, order and time). */
-	void RequestWorkStart(class AWEWorkbench* Bench, bool bRepair);
+	void RequestWorkStart(class AWEWorkbench* Bench, bool bRepair, int32 Part = INDEX_NONE);
 	void RequestWorkTask(class AWEWorkbench* Bench, int32 TaskIndex, EWEToolType Tool);
 	void RequestWorkAuto(class AWEWorkbench* Bench, bool bRepair);
 	void RequestWorkCancel(class AWEWorkbench* Bench);
@@ -245,7 +245,7 @@ protected:
 	void ServerTutorialEvent(uint8 Event);
 
 	UFUNCTION(Server, Reliable)
-	void ServerWorkStart(class AWEWorkbench* Bench, bool bRepair);
+	void ServerWorkStart(class AWEWorkbench* Bench, bool bRepair, int32 Part);
 
 	UFUNCTION(Server, Reliable)
 	void ServerWorkTask(class AWEWorkbench* Bench, uint8 TaskIndex, EWEToolType Tool);

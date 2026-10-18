@@ -126,10 +126,11 @@ public:
 	/** E.g. "Gehäuseschrauben lösen (Schraubendreher)". */
 	FText GetNextStepPrompt() const;
 
-	bool CanStartStep(const AWECharacter* Character, FText& OutReason) const;
+	/** Part = INDEX_NONE: the next step (or, for devices with a part layout, the first part that can come out). */
+	bool CanStartStep(const AWECharacter* Character, FText& OutReason, int32 Part = INDEX_NONE) const;
 
 	/** Server only. Starts the next step for Character. */
-	bool TryStartStep(AWECharacter* Character);
+	bool TryStartStep(AWECharacter* Character, int32 Part = INDEX_NONE);
 
 	/** Server only. Finishes the running step now (timer callback; also used by tests). */
 	void CompleteActiveStep();
@@ -183,12 +184,22 @@ public:
 
 	/** Hands-on plan of the disassembly step (bRepair false) or repair action (true) that runs now or comes next. */
 	FWEWorkPlan GetWorkPlan(bool bRepair) const;
+	/** Hands-on plan for one part of a device with a part layout. */
+	FWEWorkPlan GetPartPlan(int32 Part) const;
+
+	// --- Part layout (Phase 18a) ----------------------------------------------------------------------------
+	/** The placed device has a real part layout (PC: case, mainboard, cards ...). */
+	const class UWEAssemblyDefinition* GetAssembly() const;
+	/** Disassembly step of Part (or the next step for INDEX_NONE). */
+	const FWEDisassemblyStep* GetStepAt(int32 Part) const;
+	/** Part being worked on (disassembly job), or INDEX_NONE. */
+	int32 GetActivePart() const { return IsBusy() && Work.RepairKind == EWERepairStepKind::None ? Work.StepIndex : INDEX_NONE; }
 	bool IsManualWork() const { return Work.bManual; }
 	bool IsRepairJob() const { return Work.RepairKind != EWERepairStepKind::None; }
 	uint32 GetTaskMask() const { return Work.TaskMask; }
 
 	/** Server only. Starts the next step (or repair action) for Character without a timer: it ends when every task is done. */
-	bool TryStartManualStep(AWECharacter* Character, bool bRepair);
+	bool TryStartManualStep(AWECharacter* Character, bool bRepair, int32 Part = INDEX_NONE);
 	/** Server only. One task of the running hands-on step, done with Tool. Checks order, tool and the minimum time. */
 	bool DoManualTask(AWECharacter* Character, int32 TaskIndex, EWEToolType Tool);
 	/** Server only. Character leaves the work view: a half-done hands-on step is dropped (the device keeps its progress). */
@@ -198,6 +209,8 @@ public:
 	UCameraComponent* GetWorkCamera() const { return WorkCamera; }
 	/** Local: puts the work camera above the device on the bench, looking down at it. */
 	void AimWorkCamera();
+	/** Local view of a device with a part layout lying on this bench (every machine), or nullptr. */
+	class AWEAssemblyView* GetAssemblyView() const { return AssemblyView; }
 
 	/** Max distance of the worker from the bench; further away cancels the step on completion. */
 	float GetWorkReach() const { return WorkReach; }
@@ -266,4 +279,6 @@ private:
 	float LastTaskTime = 0.f;
 	FTimerHandle ManualIdleTimer;
 	void ClearManualState();
+	void UpdateAssemblyView();
+	UPROPERTY(Transient) TObjectPtr<class AWEAssemblyView> AssemblyView;
 };

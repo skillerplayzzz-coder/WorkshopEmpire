@@ -37,7 +37,10 @@ public:
 
 	/** UI feedback: task under the cursor and the task being worked on (0..1). */
 	void SetHover(int32 Index) { HoverTask = Index; }
-	void SetActive(int32 Index, float Progress) { ActiveTask = Index; ActiveProgress = Progress; }
+	void SetActive(int32 Index, float Progress);
+	/** Devices with a part layout: the part the player picked (its fasteners become the tasks). */
+	void SetSelectedPart(int32 Part) { SelectedPart = Part; }
+	int32 GetSelectedPart() const { return SelectedPart; }
 
 	/** Plan changed (new step, other mode): the UI rebuilds its markers. */
 	uint32 GetPlanSignature() const { return PlanSignature; }
@@ -65,6 +68,8 @@ protected:
 	bool bRepair = false;
 	int32 HoverTask = INDEX_NONE;
 	int32 ActiveTask = INDEX_NONE;
+	int32 SelectedPart = INDEX_NONE;
+	class AWEAssemblyView* GetView() const;
 	float ActiveProgress = 0.f;
 	uint32 LastMask = 0;
 

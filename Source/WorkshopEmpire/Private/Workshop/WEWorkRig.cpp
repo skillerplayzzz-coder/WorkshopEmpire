@@ -9,6 +9,7 @@
 #include "Sound/SoundBase.h"
 #include "World/WEPlaceholderVisuals.h"
 #include "Workshop/WEWorkbench.h"
+#include "Workshop/WEAssemblyView.h"
 
 namespace WEWorkRigConst
 {
@@ -58,6 +59,8 @@ uint32 AWEWorkRig::ComputeSignature() const
 		return 0;
 	}
 	uint32 Hash = HashCombine(PointerHash(Item), GetTypeHash(B->GetNextStepIndex()));
+	Hash = HashCombine(Hash, HashCombine(GetTypeHash(SelectedPart), GetTypeHash(B->GetActivePart())));
+	Hash = HashCombine(Hash, GetTypeHash(Item->GetItem().RemovedParts));
 	Hash = HashCombine(Hash, GetTypeHash(bRepair));
 	if (bRepair)
 	{
@@ -80,7 +83,12 @@ FVector AWEWorkRig::GetTaskLocation(int32 Index) const
 	{
 		return Center;
 	}
-	const FVector L = Plan.Tasks[Index].Local;
+	const FWEWorkTask& Task = Plan.Tasks[Index];
+	if (const AWEAssemblyView* View = Task.AssemblyPart != INDEX_NONE ? GetView() : nullptr)
+	{
+		return Task.Fastener != INDEX_NONE ? View->GetFastenerLocation(Task.AssemblyPart, Task.Fastener) : View->GetPartCenter(Task.AssemblyPart);
+	}
+	const FVector L = Task.Local;
 	return Center + AxisX * Half.X * L.X + AxisY * Half.Y * L.Y + FVector(0.f, 0.f, Half.Z * (L.Z - 1.f) + 0.4f);
 }
 
@@ -96,7 +104,12 @@ void AWEWorkRig::ComputeFrame()
 	AxisY = B->GetActorRightVector();
 	FVector Origin = B->GetWorkSpotLocation();
 	FVector Extent(12.f, 12.f, 6.f);
-	if (Item)
+	if (const AWEAssemblyView* View = GetView())
+	{
+		// Open device with a part layout: the frame is what is still inside.
+		View->GetDeviceBounds().GetCenterAndExtents(Origin, Extent);
+	}
+	else if (Item)
 	{
 		Item->GetActorBounds(true, Origin, Extent);
 	}
@@ -124,7 +137,15 @@ void AWEWorkRig::RebuildPlan()
 	LastMask = 0;
 	PlanSignature = ComputeSignature();
 	AWEWorkbench* B = Bench.Get();
-	Plan = B && PlanSignature != 0 ? B->GetWorkPlan(bRepair) : FWEWorkPlan();
+	if (B && PlanSignature != 0 && B->GetAssembly() && !bRepair)
+	{
+		// Part layout: the plan belongs to the part being worked on, else to the part the player picked (none: pick one).
+		Plan = B->GetActivePart() != INDEX_NONE ? B->GetWorkPlan(false) : (SelectedPart != INDEX_NONE ? B->GetPartPlan(SelectedPart) : FWEWorkPlan());
+	}
+	else
+	{
+		Plan = B && PlanSignature != 0 ? B->GetWorkPlan(bRepair) : FWEWorkPlan();
+	}
 	ComputeFrame();
 	const AWEPickupItem* Item = B ? B->GetPlacedItem() : nullptr;
 	const FLinearColor DeviceTint = Item && Item->GetItem().Definition ? Item->GetItem().Definition->Tint : FLinearColor(0.5f, 0.5f, 0.5f);
@@ -156,6 +177,10 @@ void AWEWorkRig::RebuildPlan()
 		const FWEWorkTask& Task = Plan.Tasks[i];
 		FPiece& Piece = Pieces.AddDefaulted_GetRef();
 		Piece.Base = GetTaskLocation(i);
+		if (Task.AssemblyPart != INDEX_NONE)
+		{
+			continue; // the real screw / plug / part is shown and moved by the device view
+		}
 		switch (Task.Kind)
 		{
 		case EWEWorkTaskKind::Screw:
@@ -258,7 +283,10 @@ void AWEWorkRig::Tick(float DeltaSeconds)
 		if (bDone && Piece.DoneAt < 0.f)
 		{
 			Piece.DoneAt = Now;
-			PlayTaskSound(Task.Kind);
+			if (Task.AssemblyPart == INDEX_NONE)
+			{
+				PlayTaskSound(Task.Kind);
+			}
 		}
 		else if (!bDone)
 		{
@@ -334,4 +362,28 @@ void AWEWorkRig::Tick(float DeltaSeconds)
 		}
 	}
 	LastMask = Mask;
+}
+
+AWEAssemblyView* AWEWorkRig::GetView() const
+{
+	const AWEWorkbench* B = Bench.Get();
+	return B ? B->GetAssemblyView() : nullptr;
+}
+
+void AWEWorkRig::SetActive(int32 Index, float Progress)
+{
+	ActiveTask = Index;
+	ActiveProgress = Progress;
+	if (AWEAssemblyView* View = GetView())
+	{
+		const FWEWorkTask* Task = Plan.Tasks.IsValidIndex(Index) ? &Plan.Tasks[Index] : nullptr;
+		if (Task && Task->AssemblyPart != INDEX_NONE)
+		{
+			View->SetActiveTask(Task->AssemblyPart, Task->Fastener, Progress);
+		}
+		else
+		{
+			View->SetActiveTask(INDEX_NONE, INDEX_NONE, 0.f);
+		}
+	}
 }

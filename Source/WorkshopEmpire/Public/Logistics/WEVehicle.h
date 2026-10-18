@@ -88,6 +88,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 	virtual void RebuildVisuals() override;
 
 	UFUNCTION()
@@ -116,6 +117,37 @@ protected:
 	float WheelRadius = 41.f;
 	float LastDriveOffset = 0.f;
 	int32 VanModelKind = -1;
+	float ModelScale = 1.f;
+
+public:
+	/** Phase 18b: the four doors (driver, passenger, rear left, rear right). Visual only, on every machine. */
+	enum class EDoor : uint8 { FrontLeft, FrontRight, RearLeft, RearRight, Num };
+	float GetDoorOpen(EDoor Door) const { return DoorOpen[static_cast<int32>(Door)]; }
+	bool HasDoorModel() const { return DoorPivots.Num() == static_cast<int32>(EDoor::Num); }
+	/** Goods shown in the cargo bay (one model per loaded stack, up to the floor space). */
+	int32 GetVisibleCargoCount() const { return CargoMeshes.Num(); }
+	/** Tests / dev shots: hold a door open (or let the automatic behaviour decide again with bOpen = false and bHold = false). */
+	void SetDoorHeld(EDoor Door, bool bHold) { DoorHeld[static_cast<int32>(Door)] = bHold; StartDoorTimer(); }
+
+protected:
+	UPROPERTY(Transient) TArray<TObjectPtr<USceneComponent>> DoorPivots;
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> CargoMeshes;
+	/** Dome light of the cargo bay, on while the rear doors are open. */
+	UPROPERTY(Transient) TObjectPtr<class UPointLightComponent> CargoLight;
+	float DoorOpen[4] = { 0.f, 0.f, 0.f, 0.f };
+	bool DoorHeld[4] = { false, false, false, false };
+	/** Rear doors stay open for a moment after something was loaded or unloaded. */
+	float RearOpenUntil = -1.f;
+	/** Driver door: opened while the driver gets in / out around a tour. */
+	float CabOpenUntil = -1.f;
+	FTimerHandle DoorTimer;
+	void StartDoorTimer();
+	void DoorTick();
+	float DoorTarget(int32 Door) const;
+	void PlayDoorSound(int32 Door, bool bOpening) const;
+	void RebuildCargo();
+	FDelegateHandle CargoChangedHandle;
+	int32 LastCargoCount = -1;
 
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
 	FWEVehicleStats BasicStats;

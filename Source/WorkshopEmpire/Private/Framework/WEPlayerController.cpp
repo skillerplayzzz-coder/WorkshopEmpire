@@ -434,7 +434,7 @@ bool AWEPlayerController::IsWorkViewOpen() const
 	return WorkViewWidget && WorkViewWidget->IsInViewport();
 }
 
-void AWEPlayerController::RequestWorkStart(AWEWorkbench* Bench, bool bRepair) { ServerWorkStart(Bench, bRepair); }
+void AWEPlayerController::RequestWorkStart(AWEWorkbench* Bench, bool bRepair, int32 Part) { ServerWorkStart(Bench, bRepair, Part); }
 void AWEPlayerController::RequestWorkTask(AWEWorkbench* Bench, int32 TaskIndex, EWEToolType Tool) { ServerWorkTask(Bench, static_cast<uint8>(FMath::Clamp(TaskIndex, 0, 255)), Tool); }
 void AWEPlayerController::RequestWorkAuto(AWEWorkbench* Bench, bool bRepair) { ServerWorkAuto(Bench, bRepair); }
 void AWEPlayerController::RequestWorkCancel(AWEWorkbench* Bench) { ServerWorkCancel(Bench); }
@@ -453,11 +453,11 @@ namespace
 	}
 }
 
-void AWEPlayerController::ServerWorkStart_Implementation(AWEWorkbench* Bench, bool bRepair)
+void AWEPlayerController::ServerWorkStart_Implementation(AWEWorkbench* Bench, bool bRepair, int32 Part)
 {
 	if (AWECharacter* Worker = WorkerAt(this, Bench))
 	{
-		Bench->TryStartManualStep(Worker, bRepair);
+		Bench->TryStartManualStep(Worker, bRepair, bRepair ? INDEX_NONE : Part);
 	}
 }
 

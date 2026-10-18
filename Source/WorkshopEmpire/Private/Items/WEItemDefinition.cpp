@@ -1,4 +1,5 @@
 #include "Items/WEItemDefinition.h"
+#include "Workshop/WEAssemblyDefinition.h"
 
 #include "Engine/AssetManager.h"
 #include "UObject/UObjectIterator.h"
@@ -10,6 +11,11 @@ const FPrimaryAssetType UWEItemDefinition::PrimaryAssetType(TEXT("WEItem"));
 bool UWEItemDefinition::CanBeDisassembled() const
 {
 	return Disassembly && Disassembly->NumSteps() > 0;
+}
+
+bool UWEItemDefinition::HasAssembly() const
+{
+	return Assembly && CanBeDisassembled() && Assembly->Parts.Num() == Disassembly->NumSteps() && Assembly->Parts.Num() <= UWEAssemblyDefinition::MaxParts;
 }
 
 bool UWEItemDefinition::CanBeRepaired() const

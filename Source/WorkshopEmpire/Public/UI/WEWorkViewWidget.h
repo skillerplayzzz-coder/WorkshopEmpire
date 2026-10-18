@@ -48,6 +48,9 @@ public:
 	bool DevWorkNext();
 	bool DevIsIdle() const { return HoldTask == INDEX_NONE && PendingTask == INDEX_NONE; }
 	FString DescribeState() const;
+	/** Devices with a part layout: pick a part (as a click on it does). */
+	void DevSelectPart(int32 Part) { SelectPart(Part); }
+	int32 GetSelectedPart() const { return SelectedPart; }
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -56,6 +59,7 @@ protected:
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual FReply NativeOnMouseWheel(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual FReply NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 	UFUNCTION() void HandleClose();
 	UFUNCTION() void HandleAuto();
@@ -80,6 +84,26 @@ protected:
 	bool CanRepair() const;
 	void Hint(const FText& Text, bool bError = false);
 	FVector2D MousePosition() const;
+
+	// Camera around the device (Phase 18a): right mouse button turns, the wheel zooms, a picked part is brought close.
+	void InitOrbit();
+	void UpdateOrbit(float DeltaTime);
+	float OrbitYaw = 0.f;
+	float OrbitPitch = 45.f;
+	float OrbitDist = 80.f;
+	float OrbitGoalDist = 80.f;
+	float OrbitBaseDist = 80.f;
+	FVector OrbitTarget = FVector::ZeroVector;
+	FVector OrbitGoal = FVector::ZeroVector;
+	bool bOrbiting = false;
+
+	// Part layout: the part the player picked.
+	bool IsPartMode() const;
+	class AWEAssemblyView* GetView() const;
+	int32 PartUnderMouse() const;
+	void SelectPart(int32 Part);
+	int32 SelectedPart = INDEX_NONE;
+	int32 LastRemovedParts = 0;
 	class AWECharacter* GetCharacter() const;
 
 	TWeakObjectPtr<AWEWorkbench> Bench;

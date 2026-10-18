@@ -4,6 +4,8 @@
 #include "Items/WEItemDefinition.h"
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WERepairDefinition.h"
+#include "Workshop/WEAssemblyDefinition.h"
+#include "Engine/StaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "WEWorkPlan"
 
@@ -288,7 +290,111 @@ namespace WEWorkPlan
 		default:
 			break;
 		}
+		// Devices with a part layout: taking a broken part out / putting the spare in uses that part's real fasteners.
+		if ((Info.Kind == EWERepairStepKind::Remove || Info.Kind == EWERepairStepKind::Install) && Def->HasAssembly() && Part)
+		{
+			int32 PartIndex = INDEX_NONE;
+			for (int32 i = 0; i < Def->Disassembly->NumSteps() && PartIndex == INDEX_NONE; ++i)
+			{
+				for (const FWEDisassemblyOutput& O : Def->Disassembly->GetStep(i)->Outputs)
+				{
+					PartIndex = O.Item == Part && O.bInheritCondition ? i : PartIndex;
+				}
+			}
+			FWEWorkPlan Real = PartIndex != INDEX_NONE ? ForAssemblyPart(Def, PartIndex) : FWEWorkPlan();
+			if (Real.IsValid())
+			{
+				Real.bRepair = true;
+				Real.StepTool = Tool;
+				uint8 MaxPhase = 0;
+				for (FWEWorkTask& T : Real.Tasks)
+				{
+					// The server accepts only the repair action's own tool (or hands).
+					if (T.Tool != EWEToolType::None)
+					{
+						T.Tool = Tool;
+					}
+					MaxPhase = FMath::Max(MaxPhase, T.Phase);
+				}
+				if (Info.Kind == EWERepairStepKind::Install)
+				{
+					// The other way round: part in first, then plugs and screws.
+					for (FWEWorkTask& T : Real.Tasks)
+					{
+						T.Phase = MaxPhase - T.Phase;
+						if (T.Fastener == INDEX_NONE)
+						{
+							T.Kind = EWEWorkTaskKind::InsertPart;
+						}
+					}
+				}
+				return Real;
+			}
+		}
 		return B.Plan;
+	}
+
+	FWEWorkPlan ForAssemblyPart(const UWEItemDefinition* Def, int32 PartIndex)
+	{
+		FWEWorkPlan Plan;
+		const UWEAssemblyDefinition* Assembly = Def && Def->HasAssembly() ? Def->Assembly.Get() : nullptr;
+		const FWEDisassemblyStep* Step = Assembly ? Def->Disassembly->GetStep(PartIndex) : nullptr;
+		if (!Step || !Assembly->Parts.IsValidIndex(PartIndex))
+		{
+			return Plan;
+		}
+		const FWEAssemblyPart& Part = Assembly->Parts[PartIndex];
+		Plan.StepTool = Step->RequiredTool;
+		uint8 LastOrder = 0;
+		for (int32 i = 0; i < Part.Fasteners.Num() && Plan.Tasks.Num() < MaxTasks - 1; ++i)
+		{
+			const FWEFastener& F = Part.Fasteners[i];
+			FWEWorkTask& T = Plan.Tasks.AddDefaulted_GetRef();
+			T.AssemblyPart = PartIndex;
+			T.Fastener = i;
+			T.DevicePosition = F.Location;
+			T.Phase = F.Order;
+			LastOrder = FMath::Max(LastOrder, F.Order);
+			switch (F.Kind)
+			{
+			case EWEFastenerKind::Screw:
+				// Only the step's tool is accepted by the server; a step without a tool has finger screws.
+				T.Kind = EWEWorkTaskKind::Screw;
+				T.Tool = Step->RequiredTool;
+				T.Weight = 1.f;
+				break;
+			case EWEFastenerKind::Thumbscrew:
+				T.Kind = EWEWorkTaskKind::Screw;
+				T.Weight = 0.7f;
+				break;
+			case EWEFastenerKind::Plug:
+				T.Kind = EWEWorkTaskKind::Unplug;
+				T.Weight = 0.7f;
+				break;
+			case EWEFastenerKind::Clip:
+			case EWEFastenerKind::Lever:
+				T.Kind = EWEWorkTaskKind::Clip;
+				T.Weight = 0.6f;
+				break;
+			}
+		}
+		// Finally the part itself comes out (the side panel is lifted off).
+		const UWEItemDefinition* Out = nullptr;
+		for (const FWEDisassemblyOutput& O : Step->Outputs)
+		{
+			if (O.Item && (O.bInheritCondition || !Out))
+			{
+				Out = O.Item;
+			}
+		}
+		FWEWorkTask& Pull = Plan.Tasks.AddDefaulted_GetRef();
+		Pull.Kind = Part.bServiceAccess || Part.bShell ? EWEWorkTaskKind::Lid : EWEWorkTaskKind::PullPart;
+		Pull.Weight = 1.6f;
+		Pull.Phase = static_cast<uint8>(FMath::Min<int32>(LastOrder + 1, 255));
+		Pull.Part = Out;
+		Pull.AssemblyPart = PartIndex;
+		Pull.DevicePosition = Part.Mesh ? Part.Mesh->GetBoundingBox().GetCenter() : FVector::ZeroVector;
+		return Plan;
 	}
 
 	FText GetTaskText(EWEWorkTaskKind Kind, bool bRepairInstall)
