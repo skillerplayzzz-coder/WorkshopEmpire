@@ -71,6 +71,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Door", meta = (Units = "cm"))
 	float PanelThickness = 8.f;
 
+	/** Navigation link through the opening (enabled while open). */
+	UPROPERTY(VisibleAnywhere, Category = "Door")
+	TObjectPtr<class UNavLinkCustomComponent> DoorLink;
+
 	UPROPERTY(EditAnywhere, Category = "Door", meta = (Units = "CentimetersPerSecond"))
 	float OpenSpeed = 180.f;
 

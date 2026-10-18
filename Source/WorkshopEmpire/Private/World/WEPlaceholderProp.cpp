@@ -320,38 +320,48 @@ void AWEPlaceholderProp::RebuildModel()
 		Part->RegisterComponent();
 		VisualParts.Add(Part);
 	};
-	if (VisualMesh)
+	TArray<TPair<UStaticMesh*, FTransform>> Layout;
+	GetVisualLayout(VisualMesh, VisualYaw, bTileVisual, Size, DecoMeshes, DecoTransforms, Layout);
+	for (const TPair<UStaticMesh*, FTransform>& Entry : Layout)
+	{
+		MakePart(Entry.Key, Entry.Value);
+	}
+}
+
+void AWEPlaceholderProp::GetVisualLayout(UStaticMesh* InMesh, float InYaw, bool bInTile, const FVector& InSize, const TArray<TObjectPtr<UStaticMesh>>& InDeco,
+	const TArray<FTransform>& InDecoTransforms, TArray<TPair<UStaticMesh*, FTransform>>& OutParts)
+{
+	if (InMesh)
 	{
 		// Fit the model into the footprint (X depth, Y width, Z height), standing on the floor, centred.
-		const FBox Bounds = VisualMesh->GetBoundingBox();
-		const FQuat Rotation = FRotator(0.f, VisualYaw, 0.f).Quaternion();
+		const FBox Bounds = InMesh->GetBoundingBox();
+		const FQuat Rotation = FRotator(0.f, InYaw, 0.f).Quaternion();
 		const FVector Extent = Rotation.RotateVector(Bounds.GetSize()).GetAbs();
-		float Scale = FMath::Min3(Size.X / FMath::Max(Extent.X, 1.f), Size.Y / FMath::Max(Extent.Y, 1.f), Size.Z / FMath::Max(Extent.Z, 1.f));
+		float Scale = FMath::Min3(InSize.X / FMath::Max(Extent.X, 1.f), InSize.Y / FMath::Max(Extent.Y, 1.f), InSize.Z / FMath::Max(Extent.Z, 1.f));
 		int32 Copies = 1;
-		if (bTileVisual)
+		if (bInTile)
 		{
 			// As big as depth and height allow, then as many side by side as fill the width.
-			Scale = FMath::Min(Size.X / FMath::Max(Extent.X, 1.f), Size.Z / FMath::Max(Extent.Z, 1.f));
-			Copies = FMath::Max(1, FMath::FloorToInt(Size.Y / FMath::Max(Extent.Y * Scale, 1.f) + 0.25f));
-			Scale = FMath::Min(Scale, Size.Y / FMath::Max(Copies * Extent.Y, 1.f));
+			Scale = FMath::Min(InSize.X / FMath::Max(Extent.X, 1.f), InSize.Z / FMath::Max(Extent.Z, 1.f));
+			Copies = FMath::Max(1, FMath::FloorToInt(InSize.Y / FMath::Max(Extent.Y * Scale, 1.f) + 0.25f));
+			Scale = FMath::Min(Scale, InSize.Y / FMath::Max(Copies * Extent.Y, 1.f));
 		}
 		const FVector Centre = Rotation.RotateVector(Bounds.GetCenter()) * Scale;
 		const float Step = Extent.Y * Scale;
 		for (int32 i = 0; i < Copies; ++i)
 		{
 			const float OffsetY = (i - (Copies - 1) * 0.5f) * Step;
-			MakePart(VisualMesh, FTransform(Rotation, FVector(-Centre.X, -Centre.Y + OffsetY, -Bounds.Min.Z * Scale), FVector(Scale)));
+			OutParts.Emplace(InMesh, FTransform(Rotation, FVector(-Centre.X, -Centre.Y + OffsetY, -Bounds.Min.Z * Scale), FVector(Scale)));
 		}
 	}
-	for (int32 i = 0; i < DecoMeshes.Num(); ++i)
+	for (int32 i = 0; i < InDeco.Num(); ++i)
 	{
-		if (DecoMeshes[i])
+		if (InDeco[i])
 		{
-			MakePart(DecoMeshes[i], DecoTransforms.IsValidIndex(i) ? DecoTransforms[i] : FTransform::Identity);
+			OutParts.Emplace(InDeco[i], InDecoTransforms.IsValidIndex(i) ? InDecoTransforms[i] : FTransform::Identity);
 		}
 	}
 }
-
 void AWEPlaceholderProp::ApplyTint()
 {
 	// Phase 15: real surfaces by kind (painted metal in the furniture colour, wood); the old flat

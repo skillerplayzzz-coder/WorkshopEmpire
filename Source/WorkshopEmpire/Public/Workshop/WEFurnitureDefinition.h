@@ -7,6 +7,17 @@
 #include "Engine/StaticMesh.h"
 #include "WEFurnitureDefinition.generated.h"
 
+/** Phase 18d: sections of the build menu. */
+UENUM(BlueprintType)
+enum class EWEFurnitureCategory : uint8
+{
+	Workbenches,
+	Storage,
+	Machines,
+	Equipment,   // conveyors, material stores (production lines)
+	Decoration
+};
+
 /** One buyable, placeable piece of workshop furniture (§14 "Werkstatteinrichtung"). */
 USTRUCT(BlueprintType)
 struct WORKSHOPEMPIRE_API FWEFurnitureDefinition
@@ -87,6 +98,16 @@ struct WORKSHOPEMPIRE_API FWEFurnitureDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Furniture|Visual")
 	TArray<FTransform> DecoTransforms;
 };
+
+namespace WEFurniture
+{
+	constexpr int32 NumCategories = 5;
+	/** Derived from what the piece is (bench, machine, conveyor, storage, decoration). */
+	WORKSHOPEMPIRE_API EWEFurnitureCategory GetCategory(const FWEFurnitureDefinition& Definition);
+	WORKSHOPEMPIRE_API FText GetCategoryName(EWEFurnitureCategory Category);
+	/** Icon of the category in the UI kit (WEUI::Icon). */
+	WORKSHOPEMPIRE_API FName GetCategoryIcon(EWEFurnitureCategory Category);
+}
 
 /** All furniture the company can buy and place (one Data Asset: DA_FurnitureCatalog). */
 UCLASS(BlueprintType)

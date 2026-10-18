@@ -6,6 +6,7 @@
 #include "Progression/WEMilestoneComponent.h"
 #include "Staff/WEStaffTypes.h"
 #include "Workshop/WEWorkshopStyleComponent.h"
+#include "Player/WECharacterLook.h"
 #include "WESaveGame.generated.h"
 
 /** Item reference by stable ItemId (not by asset path), so assets can move without breaking saves. */
@@ -243,6 +244,9 @@ struct WORKSHOPEMPIRE_API FWESavedPlayer
 	UPROPERTY() TArray<FWESavedSlot> Inventory;
 	/** Version 12: display name, to recognise a rejoining LAN player whose net id changed. */
 	UPROPERTY() FString PlayerName;
+	/** Version 15: the look from the character creator. */
+	UPROPERTY() bool bHasLook = false;
+	UPROPERTY() FWECharacterLook Look;
 };
 
 /**

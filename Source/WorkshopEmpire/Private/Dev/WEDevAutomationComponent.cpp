@@ -2277,7 +2277,15 @@ void UWEDevAutomationComponent::RunStaffShots()
 	// Van: load a box, the driver takes it on a sell run.
 	Schedule(28.0f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(490.f, 30.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("CableBox"), 1, EWEItemCondition::Used); } });
 	Schedule(29.0f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Kabel"))); } });
-	Schedule(30.0f, [this, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(-120.f, 0.f, 110.f)); } });
+	Schedule(29.6f, [this, PC, Van]()
+	{
+		if (AWEVehicle* V = Van(); V && PC && GetCharacter())
+		{
+			const FVector Dir = (V->GetActorLocation() - GetCharacter()->GetActorLocation()).GetSafeNormal2D();
+			PC->ServerDevTeleport(V->GetActorLocation() - Dir * 190.f + FVector(0.f, 0.f, 100.f), Dir.Rotation());
+		}
+	});
+	Schedule(30.0f, [this, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(0.f, 0.f, 100.f)); } });
 	Schedule(31.0f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
 	Schedule(36.0f, [this, Van]() { LogStaff(TEXT("S5 van loaded")); if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(-120.f, 0.f, 110.f)); } });
 	Schedule(37.0f, [this]() { Shot(TEXT("06_Tour_starten")); });
@@ -2325,7 +2333,17 @@ void UWEDevAutomationComponent::RunSmokeRoleU()
 	Schedule(14.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindDoor()); } });
 	Schedule(15.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(560.f, -40.f, 100.f), FRotator(0.f, -90.f, 0.f)); PC->ServerDevGiveItem(TEXT("CableBox"), 1, EWEItemCondition::Used); } });
 	Schedule(16.f, [this, Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->RequestInteractWith(FindNearestItem(TEXT("Kabel"))); } });
-	Schedule(17.f, [this, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(-120.f, 0.f, 110.f)); } });
+	// The van parks nose to the street since Phase 17.5: step up to its side and aim at its middle.
+	Schedule(16.6f, [this, PC, Van]()
+	{
+		if (AWEVehicle* V = Van(); V && PC && GetCharacter())
+		{
+			const FVector Dir = (V->GetActorLocation() - GetCharacter()->GetActorLocation()).GetSafeNormal2D();
+			const FVector At = V->GetActorLocation() - Dir * 190.f + FVector(0.f, 0.f, 100.f);
+			PC->ServerDevTeleport(At, Dir.Rotation());
+		}
+	});
+	Schedule(17.f, [this, Van]() { if (AWEVehicle* V = Van()) { LookAtPoint(V->GetActorLocation() + FVector(0.f, 0.f, 100.f)); } });
 	Schedule(18.f, [Interaction]() { if (UWEInteractionComponent* I = Interaction()) { I->UpdateFocus(); I->RequestPrimaryInteraction(); } });
 	Schedule(25.f, [this, Interaction, Van]() { LogStaff(TEXT("U1 van loaded, driver walking")); if (UWEInteractionComponent* I = Interaction()) { I->RequestAlternativeInteractWith(Van()); } });
 	Schedule(27.f, [this]() { LogStaff(TEXT("U2 van started")); });

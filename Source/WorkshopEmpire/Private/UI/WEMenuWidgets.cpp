@@ -19,6 +19,9 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Components/WidgetSwitcher.h"
+#include "Camera/CameraActor.h"
+#include "Framework/WEMenuGameMode.h"
+#include "Player/WEAvatarPreview.h"
 #include "Framework/WEGameMode.h"
 #include "Framework/WEPlayerController.h"
 #include "Framework/WEPlayerState.h"
@@ -168,6 +171,17 @@ void UWESettingRow::Setup(UWESettingsPanel* InOwner, int32 InIndex, const FText&
 	}
 }
 
+void UWESettingRow::SetupCallback(TFunction<void(int32 Direction)> InOnStep, const FText& Label, FName IconName)
+{
+	OnStep = MoveTemp(InOnStep);
+	LabelText->SetText(Label);
+	if (UTexture2D* Tex = IconTexture(IconName))
+	{
+		RowIcon->SetBrushFromTexture(Tex);
+		RowIcon->SetDesiredSizeOverride(FVector2D(18.f, 18.f));
+	}
+}
+
 void UWESettingRow::SetValue(const FText& Value)
 {
 	ValueText->SetText(Upper(Value));
@@ -175,7 +189,11 @@ void UWESettingRow::SetValue(const FText& Value)
 
 void UWESettingRow::HandleLeft()
 {
-	if (Owner)
+	if (OnStep)
+	{
+		OnStep(-1);
+	}
+	else if (Owner)
 	{
 		Owner->Step(Index, -1);
 	}
@@ -183,7 +201,11 @@ void UWESettingRow::HandleLeft()
 
 void UWESettingRow::HandleRight()
 {
-	if (Owner)
+	if (OnStep)
+	{
+		OnStep(1);
+	}
+	else if (Owner)
 	{
 		Owner->Step(Index, 1);
 	}
@@ -455,7 +477,10 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	AddH(HostRow, HostNew, FMargin(0.f, 0.f, 6.f, 0.f));
 	UButton* HostLoad = Button(WidgetTree, LOCTEXT("HostLoad", "Spielstand hosten"), EButton::Secondary, TEXT("Folder"), 12);
 	HostLoad->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowLoad);
-	AddH(HostRow, HostLoad);
+	AddH(HostRow, HostLoad, FMargin(0.f, 0.f, 6.f, 0.f));
+	UButton* EditLookButton = Button(WidgetTree, LOCTEXT("EditLook", "Aussehen ändern"), EButton::Secondary, TEXT("Person"), 12);
+	EditLookButton->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleEditLook);
+	AddH(HostRow, EditLookButton);
 	AddV(Join, HostRow);
 	LANCheck = WEMenuStyle::Check(WidgetTree, Join, LOCTEXT("LANOnly", "Im LAN / per IP hosten statt über Steam (Freunde einladen geht nur über Steam)"),
 		!Session || Session->GetService() != EWEOnlineService::Steam);
@@ -489,8 +514,8 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	AddV(New, CompanyBox);
 	AddV(New, Text(WidgetTree, LOCTEXT("CompanyRule", "Wird auch der Name des Spielstands (Buchstaben, Ziffern, - und _)."), 10, Col::TextMuted), FMargin(0.f, 4.f, 0.f, 0.f));
 	TutorialCheck = WEMenuStyle::Check(WidgetTree, New, LOCTEXT("TutorialOpt", "Tutorial spielen (empfohlen) – kurze Hinweise direkt in der Werkstatt, jederzeit überspringbar"), true, 16.f);
-	UButton* Start = Button(WidgetTree, LOCTEXT("StartNew", "Unternehmen gründen"), EButton::Primary, TEXT("Play"), 15);
-	Start->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleStartNew);
+	UButton* Start = Button(WidgetTree, LOCTEXT("ToCreator", "Weiter: Charakter erstellen"), EButton::Primary, TEXT("Person"), 15);
+	Start->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowCreator);
 	AddV(New, Start, FMargin(0.f, 22.f, 0.f, 0.f), HAlign_Left);
 	Pages->AddChild(New);
 
@@ -499,6 +524,49 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	UScrollBox* SettingsScroll = WidgetTree->ConstructWidget<UScrollBox>();
 	SettingsScroll->AddChild(Settings);
 	Pages->AddChild(SettingsScroll);
+
+	// Page 5 (Phase 18c): character creator - one row per part of the look, the figure in 3D beside the card.
+	UVerticalBox* Creator = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddV(Creator, Text(WidgetTree, LOCTEXT("CreatorHint", "So siehst du für deine Mitspieler aus. Die Figur steht links daneben und lässt sich drehen."), 12, Col::TextDim, EFont::Body, 600.f),
+		FMargin(0.f, 0.f, 0.f, 8.f));
+	// The rows scroll; the buttons below stay in view.
+	UScrollBox* LookScroll = WidgetTree->ConstructWidget<UScrollBox>();
+	UVerticalBox* LookList = WidgetTree->ConstructWidget<UVerticalBox>();
+	LookScroll->AddChild(LookList);
+	AddV(Creator, Sized(WidgetTree, LookScroll, 0.f, 380.f));
+	static const FName LookIcons[] = { TEXT("Person"), TEXT("Person"), TEXT("Paint"), TEXT("Star"), TEXT("Paint"), TEXT("Tag"), TEXT("Paint"), TEXT("Box"), TEXT("Star"), TEXT("Search") };
+	for (int32 f = 0; f < static_cast<int32>(EWELookField::Num); ++f)
+	{
+		UWESettingRow* Row = CreateWidget<UWESettingRow>(GetOwningPlayer(), UWESettingRow::StaticClass());
+		Row->SetupCallback([this, f](int32 Direction) { StepLook(f, Direction); }, WELook::GetFieldName(static_cast<EWELookField>(f)), LookIcons[f]);
+		AddV(LookList, Row, FMargin(0.f, 0.f, 0.f, 2.f));
+		LookRows.Add(Row);
+	}
+	UWESettingRow* TurnRow = CreateWidget<UWESettingRow>(GetOwningPlayer(), UWESettingRow::StaticClass());
+	TurnRow->SetupCallback([this](int32 Direction) { TurnPreview(Direction * 45.f); }, LOCTEXT("Turn", "Figur drehen"), TEXT("Roller"));
+	TurnRow->SetValue(LOCTEXT("TurnValue", "45°"));
+	AddV(LookList, TurnRow, FMargin(0.f, 6.f, 0.f, 2.f));
+	UHorizontalBox* CreatorButtons = WidgetTree->ConstructWidget<UHorizontalBox>();
+	UButton* Random = Button(WidgetTree, LOCTEXT("RandomLook", "Zufällig"), EButton::Secondary, TEXT("Star"), 12);
+	Random->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleRandomLook);
+	AddH(CreatorButtons, Random, FMargin(0.f, 0.f, 6.f, 0.f));
+	UButton* Close = Button(WidgetTree, LOCTEXT("CloseUp", "Gesicht / Ganzkörper"), EButton::Secondary, TEXT("Search"), 12);
+	Close->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleCloseUp);
+	AddH(CreatorButtons, Close, FMargin(0.f, 0.f, 6.f, 0.f));
+	CreatorStatus = Text(WidgetTree, FText::GetEmpty(), 11, Col::Good, EFont::Strong);
+	AddH(CreatorButtons, CreatorStatus, FMargin(), true);
+	AddV(Creator, CreatorButtons, FMargin(0.f, 10.f, 0.f, 0.f));
+	UHorizontalBox* Confirm = WidgetTree->ConstructWidget<UHorizontalBox>();
+	UButton* SaveLook = Button(WidgetTree, LOCTEXT("SaveLook", "Aussehen speichern"), EButton::Primary, TEXT("Check"), 13);
+	SaveLook->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleSaveLook);
+	AddH(Confirm, SaveLook, FMargin(0.f, 0.f, 6.f, 0.f));
+	CreatorSaveButton = SaveLook;
+	UButton* Found = Button(WidgetTree, LOCTEXT("StartNew", "Unternehmen gründen"), EButton::Primary, TEXT("Play"), 15);
+	Found->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleStartNew);
+	AddH(Confirm, Found);
+	CreatorStartButton = Found;
+	AddV(Creator, Confirm, FMargin(0.f, 12.f, 0.f, 0.f), HAlign_Left);
+	Pages->AddChild(Creator);
 
 	UBorder* Card = Box(WidgetTree, Col::Hex(0x121519, 0.95f), FMargin(26.f, 22.f), Col::WithAlpha(Col::LineStrong, 0.8f), 3.f);
 	Card->SetContent(Sized(WidgetTree, CardBox, 660.f, 600.f));
@@ -526,7 +594,16 @@ void UWEMainMenuWidget::ShowPage(int32 Page)
 		PageCard->SetVisibility(Page == 0 ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 		CardAnim.Start();
 	}
-	static const FText Titles[] = { FText::GetEmpty(), LOCTEXT("PLoad", "Spiel fortsetzen"), LOCTEXT("PMulti", "Multiplayer"), LOCTEXT("PNew", "Neues Spiel"), LOCTEXT("PSettings", "Einstellungen") };
+	static const FText Titles[] = { FText::GetEmpty(), LOCTEXT("PLoad", "Spiel fortsetzen"), LOCTEXT("PMulti", "Multiplayer"), LOCTEXT("PNew", "Neues Spiel"), LOCTEXT("PSettings", "Einstellungen"),
+		LOCTEXT("PCreator", "Charakter erstellen") };
+	if (Page == 5)
+	{
+		OpenPreview();
+	}
+	else
+	{
+		ClosePreview();
+	}
 	if (PageTitle && Page >= 0 && Page < UE_ARRAY_COUNT(Titles))
 	{
 		PageTitle->SetText(Upper(Titles[Page]));
@@ -569,8 +646,131 @@ void UWEMainMenuWidget::HandleShowNew()
 	ShowPage(3);
 }
 
+// --- Character creator (Phase 18c) ---------------------------------------------------------------------------
+
+void UWEMainMenuWidget::HandleShowCreator()
+{
+	bCreatorForNewGame = true;
+	ShowPage(5);
+}
+
+void UWEMainMenuWidget::HandleEditLook()
+{
+	bCreatorForNewGame = false;
+	ShowPage(5);
+}
+
+void UWEMainMenuWidget::OpenPreview()
+{
+	bool bFound = false;
+	EditLook = WELook::LoadProfileLook(&bFound);
+	if (!bFound)
+	{
+		EditLook = WELook::Random(FMath::Rand());
+	}
+	CreatorStartButton->SetVisibility(bCreatorForNewGame ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	CreatorSaveButton->SetVisibility(bCreatorForNewGame ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
+	CreatorStatus->SetText(FText::GetEmpty());
+	APlayerController* PC = GetOwningPlayer();
+	if (!Preview.IsValid() && PC && GetWorld())
+	{
+		// On the yard in front of the garage, daylight; it brings its own camera and lights.
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Preview = GetWorld()->SpawnActor<AWEAvatarPreview>(AWEAvatarPreview::StaticClass(), FTransform(FRotator(0.f, 0.f, 0.f), FVector(850.f, -700.f, 0.f)), Params);
+	}
+	if (AWEAvatarPreview* P = Preview.Get())
+	{
+		P->SetYaw(-20.f);
+		P->SetCloseUp(bCloseUp = false);
+		if (PC)
+		{
+			PC->SetViewTargetWithBlend(P, 0.5f, VTBlend_EaseInOut, 2.f);
+		}
+	}
+	RefreshLook();
+}
+
+void UWEMainMenuWidget::ClosePreview()
+{
+	if (AWEAvatarPreview* P = Preview.Get())
+	{
+		if (APlayerController* PC = GetOwningPlayer())
+		{
+			if (AWEMenuPlayerController* Menu = Cast<AWEMenuPlayerController>(PC); Menu && Menu->GetMenuCamera())
+			{
+				PC->SetViewTargetWithBlend(Menu->GetMenuCamera(), 0.4f);
+			}
+		}
+		P->Destroy();
+	}
+	Preview.Reset();
+}
+
+void UWEMainMenuWidget::StepLook(int32 Field, int32 Direction)
+{
+	WELook::Step(EditLook, static_cast<EWELookField>(Field), Direction);
+	Play(this, ESound::Toggle, 0.4f);
+	// Face and hair are easier to judge close up.
+	const EWELookField F = static_cast<EWELookField>(Field);
+	if (AWEAvatarPreview* P = Preview.Get())
+	{
+		P->SetCloseUp(bCloseUp = F == EWELookField::Face || F == EWELookField::Hair || F == EWELookField::HairColor || F == EWELookField::Glasses || F == EWELookField::Headwear);
+	}
+	CreatorStatus->SetText(FText::GetEmpty());
+	RefreshLook();
+}
+
+void UWEMainMenuWidget::TurnPreview(float Degrees)
+{
+	if (AWEAvatarPreview* P = Preview.Get())
+	{
+		P->Turn(Degrees);
+	}
+}
+
+void UWEMainMenuWidget::RefreshLook()
+{
+	for (int32 f = 0; f < LookRows.Num(); ++f)
+	{
+		const EWELookField Field = static_cast<EWELookField>(f);
+		LookRows[f]->SetValue(WELook::GetOptionName(Field, EditLook.Get(Field)));
+	}
+	if (AWEAvatarPreview* P = Preview.Get())
+	{
+		P->SetLook(EditLook);
+	}
+}
+
+void UWEMainMenuWidget::HandleRandomLook()
+{
+	EditLook = WELook::Random(FMath::Rand());
+	RefreshLook();
+	Play(this, ESound::Toggle, 0.5f);
+}
+
+void UWEMainMenuWidget::HandleCloseUp()
+{
+	if (AWEAvatarPreview* P = Preview.Get())
+	{
+		P->SetCloseUp(bCloseUp = !bCloseUp);
+	}
+}
+
+void UWEMainMenuWidget::HandleSaveLook()
+{
+	WELook::SaveProfileLook(EditLook);
+	CreatorStatus->SetText(LOCTEXT("LookSaved", "Gespeichert – gilt ab dem nächsten Spiel"));
+	Play(this, ESound::Confirm, 0.5f);
+}
+
 void UWEMainMenuWidget::HandleStartNew()
 {
+	// The character from the creator goes into the profile; the game sends it when the player spawns.
+	if (bCreatorForNewGame)
+	{
+		WELook::SaveProfileLook(EditLook);
+	}
 	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
 	{
 		Session->HostNewGame(CompanyBox ? CompanyBox->GetText().ToString() : FString(), !TutorialCheck || TutorialCheck->IsChecked(), WantsLAN());
@@ -834,6 +1034,7 @@ void UWEPauseMenuWidget::NativeOnInitialized()
 	UScrollBox* SettingsScroll = WidgetTree->ConstructWidget<UScrollBox>();
 	SettingsScroll->AddChild(Settings);
 	Pages->AddChild(SettingsScroll);
+
 	AddH(Columns, Sized(WidgetTree, Pages, 520.f, 560.f), FMargin(), false, VAlign_Top);
 
 	UBorder* Frame = Box(WidgetTree, Col::Panel, FMargin(30.f, 26.f), Col::WithAlpha(Col::LineStrong, 0.8f), 3.f);

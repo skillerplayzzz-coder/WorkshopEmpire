@@ -18,15 +18,30 @@ class WORKSHOPEMPIRE_API AWEBuildGhost : public AActor
 
 public:
 	AWEBuildGhost();
-	void SetShape(EWEPlaceholderPropType Type, const FVector& Size);
+	/** Phase 18d: the real model (Parts, see AWEPlaceholderProp::GetVisualLayout) see-through; boxes only without a model. */
+	void SetShape(EWEPlaceholderPropType Type, const FVector& Size, const TArray<TPair<UStaticMesh*, FTransform>>& Parts = {});
 	void SetValid(bool bValid);
+	int32 GetModelPartCount() const { return ModelParts.Num(); }
 
 protected:
+	void ApplyGhostMaterial();
+
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UInstancedStaticMeshComponent> Boxes;
 
+	/** Footprint on the floor in the preview colour. */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> Footprint;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> ModelParts;
+
 	UPROPERTY()
 	TObjectPtr<UMaterialInterface> Material;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> GhostMaterial;
+	TArray<UStaticMesh*> ShapeMeshes;
 
 	EWEPlaceholderPropType ShapeType = EWEPlaceholderPropType::Shelf;
 	FVector ShapeSize = FVector::ZeroVector;
@@ -55,6 +70,12 @@ public:
 
 	/** Wheel: -1 / +1 through "Bearbeiten" (index -1) and the catalog. */
 	void CycleSelection(int32 Direction);
+	/** [T]: first piece of the next / previous build-menu category. */
+	void CycleCategory(int32 Direction);
+	/** Catalog indices in build-menu order (grouped by category). */
+	TArray<int32> GetMenuOrder() const;
+	/** EWEFurnitureCategory of the selection as int, INDEX_NONE in edit mode. */
+	int32 GetSelectedCategory() const;
 	void SelectIndex(int32 Index);
 	void Rotate(float Degrees);
 	/** Absolute rotation of the preview (automation, tests). */

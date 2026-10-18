@@ -17,6 +17,45 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 18 – PC-System, Transporter, Charaktereditor, UI, Stadt (Läufe vom 2026-10-18)
+
+Geprüft im Editor-Spielmodus und im gepackten Spiel (Development, `Builds/P18_Dev`).
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor (Win64 Development) | ✅ ohne Fehler |
+| Automation-Suite `WorkshopEmpire` | ✅ **121/121** (116 alte + 6 neue, 1 alter Test angepasst; 1 erwartete Warnung „fell out of the world“), Bericht `Saved/TestReports/P18_all2` |
+| ↳ `Workshop.Assembly.PcLayout` | ✅ 12 Teile = 12 Zerlegeschritte, jedes Teil mit Modell, Voraussetzungen gültig; geschlossen nur das Seitenteil erreichbar, CPU erst nach dem Kühler, Mainboard erst wenn alles darauf draußen ist; Plan der Grafikkarte: Stecker → Halteschraube → PCIe-Riegel → Karte |
+| ↳ `Workshop.Assembly.FreeOrderAndRealParts` | ✅ Festplatte vor der Grafikkarte möglich, gesperrte Teile mit Begründung abgelehnt, Teil nicht doppelt; nach dem letzten Teil ist der PC verbraucht; alle Teile als echte Gegenstände (GPU, 2× RAM, Kühler, CPU, SSD, Lüfter, Netzteil, Mainboard); jede sichtbare Schraube kommt als Blechschraube heraus |
+| ↳ `Workshop.Assembly.SaveKeepsRemovedParts` | ✅ ausgebaute Teile trennen Stapel, Speicherstand Version 15 |
+| ↳ `Character.LookOptions` | ✅ alle Felder mit Namen, Wechsel läuft rundum, Frauen ohne Bart, Zufall reproduzierbar |
+| ↳ `Character.LookOnCharacterAndSave` | ✅ Aussehen am Charakter, Spielstand hat Vorrang vor dem Profil, Speicherdatensatz enthält das Aussehen |
+| ↳ `Character.AvatarFollowsMannequin` | ✅ Quaternius-Körper wird gebaut, ≥ 40 Knochen vom Mannequin gesteuert, Wechsel auf den weiblichen Körper |
+| ↳ `Economy.Balance*`, `Balance.ProgressionCurve` | ✅ grün mit den neuen Teile-Werten (GPU 22 €, RAM 6 €, Mainboard 9 €, neue Teile 0,50–3 €) |
+| **Arbeitsansicht** `-WEShots=P175W` | ✅ ganzer PC Teil für Teil von Hand zerlegt (54 Handgriffe), Orbit-Kamera, Hervorhebung, Seitenteil liegt neben dem Gerät, danach Reparatur über [Q] |
+| **Transporter und Stadt** `-WEShots=P175V` | ✅ Türen offen/zu, Ladung im Laderaum (6 Stapel sichtbar), Innenlicht; 7 Ansichten der Stadt (Kreuzung, Tankstelle, Sperrung Ost/West, Parkplatz, Querstraße, Brachfläche, Autowerkstatt) |
+| **Hauptmenü und Spiel** `-WEShots=P175` | ✅ Charaktereditor mit 5 Ansichten, eigene Figur von hinten ([V]), Baumenü in 4 Kategorien mit grüner und roter Vorschau |
+| **Gepacktes Spiel** mit P175, P175W, P175V | ✅ 34 / 16 / 17 Bilder, 0 Fehler, alle Läufe beendet; Figur, Kleidung, PC-Teile, Türen, Stadt erscheinen wie im Editor |
+| **Regression** Netzwerktests A/B … W/X, I/J, 4 Spieler, Spielläufe P5–P16, P13 + P13C, UI-Test in 4 Auflösungen | ✅ siehe unten; der Lauf U/V deckte einen alten Fehler auf (behoben) |
+
+### Gefunden und behoben
+
+- **Mitarbeiter kamen nicht aus der Garage** (Fahrer blieb mit „kein Weg frei (Tor zu?)“ stehen, auch bei offenem Tor): Das Navigationsnetz verband innen und außen unter der Torschwelle nicht. Der Fehler steckte schon im gepackten Build von Phase 17.5 (dort geprüft) und war in den Ablaufprotokollen übersehen worden. Behoben: eine Navigationsverbindung durch jedes Tor, aktiv nur bei offenem Tor. Danach erreicht der Fahrer den Wagen und die Tour startet (Netzwerktest U/V, Spiellauf P11).
+- Testskripte zielten beim Beladen auf eine Stelle neben dem Wagen (der Wagen parkt seit 17.5 längs zur Straße).
+- Kleidung: Schultern blieben frei, Schuhe zu flach, Frauen bekamen einen Bart, das Körpermaterial ließ sich nicht übersetzen (Position vor dem Skinning nur im Vertex-Shader) – alles behoben.
+- Bewegungsunschärfe in der Arbeitsansicht beim Kamerafahren; Arbeitsansicht zeigte nach dem letzten Teil noch den alten Hinweis.
+
+### Nicht ausgeführt / offen
+
+| Test | Grund |
+|---|---|
+| Koop-Test der neuen Teile-Arbeitsansicht von Hand über das Netz | Server-Prüfungen sind durch Unit-Tests abgedeckt; gehört zu Mikes Praxistest |
+| Shipping-Build | weiterhin offen (Release-Phase) |
+
+---
+
 ## Phase 17.5 – Visual Overhaul, Gameplay Polish & Immersion, Läufe vom 2026-10-18
 
 Messrechner wie Phase 17 (RTX 3060, Ryzen 9 5900X). Geprüft im Editor-Spielmodus **und** im gepackten Spiel (Development, `Builds/P175_Dev`).

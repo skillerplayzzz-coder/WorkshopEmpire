@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Workshop/WEFurnitureDefinition.h"
 #include "WEIconBaker.generated.h"
 
 class AWEPickupItem;
@@ -43,6 +44,8 @@ protected:
 	/** -WEBakeMeshes=<asset paths>: previews of static meshes (Saved/MeshPreviews) instead of item icons. */
 	UPROPERTY() TArray<TObjectPtr<class UStaticMesh>> MeshQueue;
 	bool bMeshMode = false;
+	/** Phase 18d: pictures of the furniture for the build menu (Saved/ItemIcons/T_Furn_<Id>.png). */
+	UPROPERTY() TArray<FWEFurnitureDefinition> FurnQueue;
 
 	int32 Index = -1;
 	int32 Written = 0;

@@ -9,6 +9,10 @@
 #include "Items/WEItemDefinition.h"
 #include "Online/WESessionSubsystem.h"
 #include "Player/WECharacter.h"
+#include "Player/WECharacterLook.h"
+#include "Player/WEAvatarComponent.h"
+#include "Components/PoseableMeshComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "Progression/WETutorialComponent.h"
 #include "UI/WEInventoryWidget.h"
 #include "UI/WEMenuWidgets.h"
@@ -22,6 +26,13 @@
 #include "Workshop/WEWorkshopStyleComponent.h"
 #include "Logistics/WEVehicle.h"
 #include "EngineUtils.h"
+#include "NavigationSystem.h"
+#include "AI/NavDataGenerator.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "NavigationOctree.h"
+#include "Engine/OverlapResult.h"
+#include "NavigationPath.h"
+#include "World/WEGarageDoor.h"
 #include "WELog.h"
 
 int32 UWEDevAutomationComponent::FindMySlot(const TCHAR* ItemId) const
@@ -66,7 +77,19 @@ void UWEDevAutomationComponent::RunPolishShots()
 	Schedule(7.5f, [this]() { Shot(TEXT("03_Fortsetzen")); });
 	Schedule(8.0f, [Menu]() { if (Menu()) { Menu()->ShowPage(2); } });
 	Schedule(9.0f, [this]() { Shot(TEXT("04_Multiplayer")); });
-	Schedule(9.5f, [this]()
+	// Phase 18c: character creator - preview in the scene, a few looks, close-up of the face.
+	Schedule(9.3f, [Menu]() { if (Menu()) { Menu()->ShowPage(5); } });
+	Schedule(11.0f, [this]() { Shot(TEXT("05_Charakter")); });
+	Schedule(11.3f, [Menu]() { if (Menu()) { Menu()->StepLook(static_cast<int32>(EWELookField::Outfit), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Outfit), 1); Menu()->StepLook(static_cast<int32>(EWELookField::OutfitColor), 1); } });
+	Schedule(12.6f, [this]() { Shot(TEXT("05b_Hoodie")); });
+	Schedule(12.9f, [Menu]() { if (Menu()) { Menu()->StepLook(static_cast<int32>(EWELookField::Body), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Hair), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Hair), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Hair), 1); } });
+	Schedule(14.4f, [this]() { Shot(TEXT("05c_Frau_Gesicht")); });
+	Schedule(14.7f, [Menu]() { if (Menu()) { Menu()->StepLook(static_cast<int32>(EWELookField::Headwear), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Glasses), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Skin), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Skin), 1); } });
+	Schedule(16.2f, [this]() { Shot(TEXT("05d_Cap_Brille")); });
+	Schedule(16.5f, [Menu]() { if (Menu()) { Menu()->StepLook(static_cast<int32>(EWELookField::Shoes), 1); Menu()->StepLook(static_cast<int32>(EWELookField::Outfit), 1); Menu()->TurnPreview(135.f); } });
+	Schedule(18.2f, [this]() { Shot(TEXT("05e_Gedreht")); });
+	Schedule(18.5f, [Menu]() { if (Menu()) { Menu()->ShowPage(0); } });
+	Schedule(19.5f, [this]()
 	{
 		if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
 		{
@@ -88,6 +111,20 @@ void UWEDevAutomationComponent::RunPolishGameShots()
 	};
 	Schedule(2.0f, [this, Log]() { Log(TEXT("start")); LookAt(FindBench()); });
 	Schedule(3.0f, [this]() { Shot(TEXT("10_Tutorial_HUD")); });
+	// Phase 18c: the own character from behind ([V]).
+	Schedule(3.3f, [this]() { if (AWECharacter* C = GetCharacter()) { C->SetThirdPerson(true); } LookYawPitch(150.f, -8.f); });
+	Schedule(4.6f, [this]() { Shot(TEXT("10b_Dritte_Person")); if (AWECharacter* C = GetCharacter()) { UE_LOG(LogWENet, Display, TEXT("P175 look=%s has=%d"), *C->GetLook().ToString(), C->HasLook() ? 1 : 0);
+		if (UPoseableMeshComponent* B = C->GetAvatar() ? C->GetAvatar()->GetBody() : nullptr)
+		{
+			for (int32 i = 0; i < B->GetNumMaterials(); ++i)
+			{
+				float Blend = -1.f;
+				if (UMaterialInterface* Mi = B->GetMaterial(i)) { Mi->GetScalarParameterValue(FHashedMaterialParameterInfo(TEXT("SkinBlend")), Blend); }
+				UE_LOG(LogWENet, Display, TEXT("P175 avatar slot %d: %s blend=%.2f visible=%d hidden=%d"), i, *GetNameSafe(B->GetMaterial(i)), Blend, B->IsVisible() ? 1 : 0, B->bHiddenInGame ? 1 : 0);
+			}
+		}
+		UE_LOG(LogWENet, Display, TEXT("P175 driver hidden=%d visible=%d"), C->GetMesh()->bHiddenInGame ? 1 : 0, C->GetMesh()->IsVisible() ? 1 : 0); } });
+	Schedule(5.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->SetThirdPerson(false); } });
 	Schedule(3.5f, [PC]()
 	{
 		if (!PC)
@@ -177,9 +214,17 @@ void UWEDevAutomationComponent::RunPolishGameShots()
 	Schedule(At + 8.0f, [this]() { Shot(TEXT("28_Pause_Einstellungen")); });
 	Schedule(At + 8.4f, [PC]() { if (PC) { PC->ClosePauseMenu(); } });
 	Schedule(At + 9.0f, [this]() { if (GetBuild()) { GetBuild()->SetBuildMode(true); } LookYawPitch(200.f, -20.f); });
+	Schedule(At + 9.6f, [this]() { if (GetBuild()) { GetBuild()->CycleCategory(1); } });
 	Schedule(At + 10.0f, [this]() { Shot(TEXT("29_Baumodus")); });
-	Schedule(At + 10.4f, [this, Log]() { if (GetBuild()) { GetBuild()->SetBuildMode(false); } Log(TEXT("end")); });
-	Schedule(At + 11.5f, [this]() { Quit(); });
+	// Phase 18d: categories, the see-through preview green where it fits and red where it does not.
+	Schedule(At + 10.4f, [this]() { if (GetBuild()) { GetBuild()->CycleCategory(1); GetBuild()->CycleCategory(1); } });
+	Schedule(At + 11.0f, [this]() { Shot(TEXT("29b_Baumodus_Maschinen")); });
+	Schedule(At + 11.3f, [this]() { if (GetBuild()) { GetBuild()->CycleCategory(1); GetBuild()->CycleCategory(1); } LookYawPitch(0.f, -25.f); });
+	Schedule(At + 12.0f, [this]() { Shot(TEXT("29c_Baumodus_Deko")); });
+	Schedule(At + 12.3f, [this]() { if (GetBuild()) { GetBuild()->CycleCategory(1); GetBuild()->CycleCategory(1); } LookYawPitch(100.f, -30.f); });
+	Schedule(At + 13.0f, [this]() { Shot(TEXT("29d_Baumodus_Platz")); UE_LOG(LogWENet, Display, TEXT("P175 build valid=%d"), GetBuild() && GetBuild()->IsPreviewValid() ? 1 : 0); });
+	Schedule(At + 13.4f, [this, Log]() { if (GetBuild()) { GetBuild()->SetBuildMode(false); } Log(TEXT("end")); });
+	Schedule(At + 14.5f, [this]() { Quit(); });
 #endif
 }
 
@@ -338,6 +383,14 @@ void UWEDevAutomationComponent::RunVanShots()
 	ShotFrom(33.0f, FVector(-1150.f, -1000.f, 170.f), FVector(0.f, 500.f, 150.f), TEXT("62_Hinterhof"));
 	ShotFrom(37.0f, FVector(2600.f, -1650.f, 170.f), FVector(-2000.f, -1900.f, 200.f), TEXT("63_Strasse_West"));
 	ShotFrom(41.0f, FVector(900.f, 100.f, 170.f), FVector(-700.f, 2600.f, 250.f), TEXT("64_Hof_Nord"));
-	Schedule(45.0f, [this]() { Quit(); });
+	// Phase 18e: the town - intersections, gas station, parking lot, road closures instead of the world edge, skyline.
+	ShotFrom(45.0f, FVector(5000.f, -1750.f, 170.f), FVector(7500.f, -600.f, 250.f), TEXT("65_Kreuzung_Tankstelle"));
+	ShotFrom(49.0f, FVector(7000.f, -1700.f, 170.f), FVector(12000.f, -1850.f, 250.f), TEXT("66_Sperrung_Ost"));
+	ShotFrom(53.0f, FVector(-3600.f, -1750.f, 170.f), FVector(-4500.f, 700.f, 120.f), TEXT("67_Parkplatz"));
+	ShotFrom(57.0f, FVector(-5300.f, -500.f, 170.f), FVector(-5600.f, 6000.f, 300.f), TEXT("68_Querstrasse_Nord"));
+	ShotFrom(61.0f, FVector(-4200.f, -1850.f, 170.f), FVector(-9000.f, -1850.f, 250.f), TEXT("69_Strasse_West_Sperrung"));
+	ShotFrom(65.0f, FVector(-3000.f, 2300.f, 170.f), FVector(-3300.f, 5000.f, 250.f), TEXT("70_Brachflaeche"));
+	ShotFrom(69.0f, FVector(6000.f, -2300.f, 170.f), FVector(7400.f, -3000.f, 250.f), TEXT("71_Autowerkstatt"));
+	Schedule(74.0f, [this]() { Quit(); });
 #endif
 }

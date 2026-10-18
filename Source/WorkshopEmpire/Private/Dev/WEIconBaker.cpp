@@ -11,6 +11,7 @@
 #include "IImageWrapperModule.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
+#include "World/WEPlaceholderProp.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -129,10 +130,15 @@ void AWEIconBaker::BeginPlay()
 			Queue.Add(Def);
 		}
 	}
+	if (const UWEFurnitureCatalog* Furniture = LoadObject<UWEFurnitureCatalog>(nullptr, TEXT("/Game/WorkshopEmpire/Data/Workshop/DA_FurnitureCatalog.DA_FurnitureCatalog")))
+	{
+		FurnQueue = Furniture->Items;
+	}
 	FString Only;
 	if (FParse::Value(FCommandLine::Get(), TEXT("WEBakeOnly="), Only))
 	{
 		Queue.RemoveAll([&Only](const UWEItemDefinition* D) { return !Only.Contains(D->ItemId.ToString()); });
+		FurnQueue.RemoveAll([&Only](const FWEFurnitureDefinition& D) { return !Only.Contains(D.Id.ToString()); });
 	}
 	FString Meshes;
 	if (FParse::Value(FCommandLine::Get(), TEXT("WEBakeMeshes="), Meshes, false))
@@ -164,7 +170,7 @@ void AWEIconBaker::Next()
 		Current = nullptr;
 	}
 	++Index;
-	if (bMeshMode ? !MeshQueue.IsValidIndex(Index) : !Queue.IsValidIndex(Index))
+	if (bMeshMode ? !MeshQueue.IsValidIndex(Index) : !Queue.IsValidIndex(Index) && !FurnQueue.IsValidIndex(Index - Queue.Num()))
 	{
 		UE_LOG(LogWorkshopEmpire, Display, TEXT("ICONBAKE done: %d icons written"), Written);
 		UKismetSystemLibrary::QuitGame(this, nullptr, EQuitPreference::Quit, false);
@@ -181,9 +187,20 @@ void AWEIconBaker::Next()
 		Holder->SetActorLocation(WEIconBake::Studio);
 		Current = Holder;
 	}
-	else
+	else if (Queue.IsValidIndex(Index))
 	{
 		Current = AWEPickupItem::SpawnWorldItem(GetWorld(), FWEItemInstance::Make(Queue[Index], 1, EWEItemCondition::Used, 60), FTransform(WEIconBake::Studio));
+	}
+	else
+	{
+		// Furniture: the same look the placed piece has (model or block-out boxes), seen from the front-left.
+		AWEPlaceholderProp* Prop = GetWorld()->SpawnActor<AWEPlaceholderProp>(AWEPlaceholderProp::StaticClass(), FTransform(FRotator(0.f, 180.f, 0.f), WEIconBake::Studio));
+		if (Prop)
+		{
+			Prop->ApplyFurniture(FurnQueue[Index - Queue.Num()]);
+			Prop->SetActorEnableCollision(false);
+		}
+		Current = Prop;
 	}
 	if (!Current)
 	{
@@ -232,6 +249,10 @@ void AWEIconBaker::Capture()
 	else if (Queue.IsValidIndex(Index))
 	{
 		SaveIcon(Queue[Index]->ItemId.ToString());
+	}
+	else if (FurnQueue.IsValidIndex(Index - Queue.Num()))
+	{
+		SaveIcon(TEXT("FURN:") + FurnQueue[Index - Queue.Num()].Id.ToString());
 	}
 	GetWorldTimerManager().SetTimer(StepTimer, this, &AWEIconBaker::Next, 0.05f, false);
 }
@@ -336,6 +357,7 @@ void AWEIconBaker::SaveIcon(const FString& ItemId)
 	{
 		const FString Path = ItemId.StartsWith(TEXT("MESH:"))
 			? FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("MeshPreviews"), ItemId.RightChop(5) + TEXT(".png"))
+			: ItemId.StartsWith(TEXT("FURN:")) ? FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("ItemIcons"), FString::Printf(TEXT("T_Furn_%s.png"), *ItemId.RightChop(5)))
 			: FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("ItemIcons"), FString::Printf(TEXT("T_Item_%s.png"), *ItemId));
 		if (FFileHelper::SaveArrayToFile(Png->GetCompressed(), *Path))
 		{

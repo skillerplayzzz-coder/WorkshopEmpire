@@ -238,6 +238,66 @@ def wheel():
     return m
 
 
+def wheel_into(m, c, r, side, rim="SteelBrushed"):
+    """A simple wheel baked into a parked car (side = -1 left, +1 right; the face points outwards)."""
+    x, y, z = c
+    k = r / 38.0
+    m.revolve("TireRubber", [(25 * k, -10 * k), (34 * k, -10.5 * k), (37.6 * k, -7 * k), (37.6 * k, 7 * k), (34 * k, 10.5 * k), (25 * k, 10 * k)],
+              c=(x, y, z), rot=(90, 0, 0), steps=28)
+    m.cyl(rim, (x, y, z), 25 * k, 17 * k, rot=(90, 0, 0), segs=24)
+    m.cyl("Chrome", (x, y + side * 8.6 * k, z), 9 * k, 1.5 * k, rot=(90, 0, 0), segs=16)
+
+
+def parked_car(name, paint, kind="sedan"):
+    """Parked cars of the neighbourhood (one mesh each, wheels included; nose +X, ground z = 0)."""
+    m = Model(name)
+    hw = 90.0 if kind == "sedan" else 100.0
+    r = 32.0 if kind == "sedan" else 38.0
+    axles = (145.0, -140.0) if kind == "sedan" else (170.0, -160.0)
+    nose, tail = (242.0, -240.0) if kind == "sedan" else (268.0, -262.0)
+    belt = 92.0 if kind == "sedan" else 112.0
+    low = [(tail, 28), (tail, belt - 8), (tail + 30, belt), (nose - 120, belt), (nose - 10, belt - 14), (nose, belt - 30), (nose, 28)]
+    panel(m, paint, low, hw, 2 * hw, bevel=4.0,
+          cuts=[Model.cut_cyl((x, 0, r), r + 6, 2 * hw + 20, rot=(90, 0, 0), segs=28) for x in axles])
+    if kind == "sedan":
+        green = [(-150, belt), (-98, 136), (42, 138), (96, belt)]
+        panel(m, "Glass", green, hw - 8, 2 * hw - 16)
+        m.box(paint, (-28, 0, 138.5), (140, 2 * hw - 20, 4), bevel=1.5)
+        for y in (-hw + 9, hw - 9):
+            beam(m, paint, (96, y, belt), (42, y, 138), 6, 5)        # A pillar
+            beam(m, paint, (-150, y, belt), (-98, y, 136), 12, 5)    # C pillar
+            m.box(paint, (-25, y, 115), (6, 3, 44))                   # B pillar
+    else:
+        cab = [(-40, belt), (-40, 178), (60, 180), (120, belt)]
+        panel(m, "Glass", cab, hw - 8, 2 * hw - 16)
+        m.box(paint, (10, 0, 180), (104, 2 * hw - 20, 4), bevel=1.5)
+        m.box(paint, (-41, 0, 145), (4, 2 * hw - 16, 66))
+        for y in (-hw + 9, hw - 9):
+            beam(m, paint, (120, y, belt), (60, y, 180), 7, 5)
+            m.box(paint, (-38, y, 145), (8, 4, 66))
+            m.box(paint, (-150, y, belt + 18), (220, 4, 36))         # bed sides
+        m.box(paint, (-259, 0, belt + 18), (4, 2 * hw - 8, 36))      # tailgate
+        m.box("TrimBlack", (-150, 0, belt - 4), (220, 2 * hw - 12, 3))  # bed floor
+    for y in (-hw + 26, hw - 26):
+        m.box("Headlight", (nose + 0.5, y, belt - 26), (2, 30, 12), bevel=0.5)
+        m.box("Taillight", (tail - 0.5, y, belt - 18), (2, 24, 14), bevel=0.5)
+    m.box("TrimBlack", (nose + 1, 0, belt - 26), (2, 2 * hw - 90, 12))   # grille
+    m.box("Chrome" if kind == "pickup" else "TrimBlack", (nose + 4, 0, 42), (8, 2 * hw + 4, 14), bevel=2.0)
+    m.box("Chrome" if kind == "pickup" else "TrimBlack", (tail - 4, 0, 42), (8, 2 * hw + 4, 14), bevel=2.0)
+    for y in (-hw - 6, hw + 6):
+        m.box("TrimBlack", ((96 if kind == "sedan" else 118), y, belt + 14), (6, 10, 10), bevel=1.0)   # mirrors
+    for x in axles:
+        for side in (-1, 1):
+            wheel_into(m, (x, side * (hw - 10), r), r, side)
+    m.box("TrimBlack", (0, 0, 24), ((nose - tail) - 60, 2 * hw - 40, 8))
+    return m
+
+
+CARS = {
+    "CarSedanRed": ("PlasticRed", "sedan"), "CarSedanBlue": ("VanNewAccent", "sedan"), "CarSedanGrey": ("MetalPaintedGrey", "sedan"),
+    "CarSedanBeige": ("PlasticBeige", "sedan"), "CarPickupGreen": ("MetalPaintedGreen", "pickup"), "CarPickupWhite": ("VanNew", "pickup"),
+}
+
 VARIANTS = {"VanOld": ("VanOld", True), "VanModern": ("VanNew", False)}
 
 
@@ -252,7 +312,15 @@ def main():
             (f"{variant}_DoorRL", lambda v=variant, p=paint: door_rear(f"{v}_DoorRL", p, -1)),
             (f"{variant}_DoorRR", lambda v=variant, p=paint: door_rear(f"{v}_DoorRR", p, 1)),
         ]
+    for car, (paint, kind) in CARS.items():
+        jobs.append((car, lambda c=car, p=paint, k=kind: parked_car(c, p, k)))
+    only = None
+    for arg in unreal.SystemLibrary.get_command_line().split():
+        if arg.startswith("-WEModels="):
+            only = set(arg.split("=", 1)[1].split(","))
     for name, make in jobs:
+        if only and name not in only:
+            continue
         try:
             if make().save(normalize=False):
                 built += 1

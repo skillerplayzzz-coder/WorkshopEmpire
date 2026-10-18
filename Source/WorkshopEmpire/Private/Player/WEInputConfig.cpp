@@ -49,6 +49,7 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Config->QuickSaveAction = WEInput::MakeAction(Config, TEXT("IA_QuickSave"), EInputActionValueType::Boolean);
 	Config->QuickLoadAction = WEInput::MakeAction(Config, TEXT("IA_QuickLoad"), EInputActionValueType::Boolean);
 	Config->PauseAction = WEInput::MakeAction(Config, TEXT("IA_Pause"), EInputActionValueType::Boolean);
+	Config->ViewAction = WEInput::MakeAction(Config, TEXT("IA_View"), EInputActionValueType::Boolean);
 
 	UInputMappingContext* Context = NewObject<UInputMappingContext>(Config, TEXT("IMC_Default"));
 	Config->MappingContext = Context;
@@ -77,6 +78,7 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Context->MapKey(Config->QuickSaveAction, EKeys::F5);
 	Context->MapKey(Config->QuickLoadAction, EKeys::F9);
 	Context->MapKey(Config->PauseAction, EKeys::Escape);
+	Context->MapKey(Config->ViewAction, EKeys::V);
 
 	return Config;
 }

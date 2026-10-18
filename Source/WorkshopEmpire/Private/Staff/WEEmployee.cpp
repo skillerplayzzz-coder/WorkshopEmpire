@@ -548,6 +548,7 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 		const bool bNavPath = Path.Num() > 0;
 		if (bHasNavData && !bNavPath)
 		{
+			UE_LOG(LogWENet, Verbose, TEXT("%s: no path from %s to %s (%s)"), *GetName(), *GetActorLocation().ToCompactString(), *Goal.ToCompactString(), *GetNameSafe(Actor));
 			// There is a navmesh but no way there: wait instead of walking through walls.
 			SetState(EWEEmployeeState::Waiting, LOCTEXT("NoWay", "kein Weg frei (Tor zu?)"));
 			NoPathUntil = Now + RetrySeconds;

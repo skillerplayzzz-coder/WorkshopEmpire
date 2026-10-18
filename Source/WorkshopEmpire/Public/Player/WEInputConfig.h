@@ -85,4 +85,8 @@ public:
 	/** [Esc]: in-game menu with players, invite, save, leave (Phase 13). */
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> PauseAction;
+
+	/** Phase 18c: [V] first / third person. */
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> ViewAction;
 };

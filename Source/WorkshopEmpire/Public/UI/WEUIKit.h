@@ -110,6 +110,8 @@ namespace WEUI
 	WORKSHOPEMPIRE_API UImage* Icon(UWidgetTree* Tree, FName Name, float Size, const FLinearColor& Tint = Col::Text);
 	/** Rendered picture of the item (baked from its model), or nullptr. */
 	WORKSHOPEMPIRE_API UTexture2D* ItemIcon(const UWEItemDefinition* Definition);
+	/** Phase 18d: picture of a piece of furniture (baked with -WEBakeIcons: UI/ItemIcons/T_Furn_<Id>), or null. */
+	WORKSHOPEMPIRE_API UTexture2D* FurnitureIcon(FName FurnitureId);
 	/** UI texture by name below /Game/WorkshopEmpire/UI (T_HazardStripe, T_FerritLogo, ...). */
 	WORKSHOPEMPIRE_API UTexture2D* UITexture(const TCHAR* Name);
 	/** Line icon standing for an item category (fallback picture). */

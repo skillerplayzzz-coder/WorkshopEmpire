@@ -290,6 +290,22 @@ namespace WEUI
 		return Tex;
 	}
 
+	UTexture2D* FurnitureIcon(FName FurnitureId)
+	{
+		static TMap<FName, TWeakObjectPtr<UTexture2D>> Cache;
+		if (const TWeakObjectPtr<UTexture2D>* Found = Cache.Find(FurnitureId); Found && Found->IsValid())
+		{
+			return Found->Get();
+		}
+		const FString Asset = FString::Printf(TEXT("T_Furn_%s"), *FurnitureId.ToString());
+		UTexture2D* Tex = LoadQuiet<UTexture2D>(FString::Printf(TEXT("/Game/WorkshopEmpire/UI/ItemIcons/%s.%s"), *Asset, *Asset));
+		if (Tex)
+		{
+			Cache.Add(FurnitureId, Tex);
+		}
+		return Tex;
+	}
+
 	UTexture2D* ItemIcon(const UWEItemDefinition* Definition)
 	{
 		if (!Definition)

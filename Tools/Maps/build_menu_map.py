@@ -44,7 +44,7 @@ ground = spawn(unreal.StaticMeshActor, (0, 0, -2), label="Ground")
 ground.static_mesh_component.set_static_mesh(PLANE)
 asphalt = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEAsphalt"
 ground.static_mesh_component.set_material(0, unreal.load_asset(asphalt if unreal.EditorAssetLibrary.does_asset_exist(asphalt) else "/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
-ground.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
+ground.set_actor_scale3d(unreal.Vector(900.0, 900.0, 1.0))
 
 # The garage with its door, a yard lamp and some clutter in the yard.
 spawn(unreal.WEGarageBuilding, (0, 0, 0), label="Garage")

@@ -26,6 +26,7 @@ class WORKSHOPEMPIRE_API AWEMenuPlayerController : public APlayerController
 
 public:
 	class UWEMainMenuWidget* GetMenu() const { return Menu; }
+	class ACameraActor* GetMenuCamera() const { return MenuCamera.Get(); }
 
 protected:
 	virtual void BeginPlay() override;

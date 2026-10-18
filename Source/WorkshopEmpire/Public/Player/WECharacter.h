@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Player/WECharacterLook.h"
 #include "WECharacter.generated.h"
 
 class UCameraComponent;
@@ -86,6 +87,15 @@ public:
 	/** [X] while driving: get off (asks the server). */
 	void RequestExitForklift();
 
+	// --- Phase 18c: character look -------------------------------------------------------------------------
+	const FWECharacterLook& GetLook() const { return Look; }
+	bool HasLook() const { return Look.Revision > 0; }
+	/** Server: the look from the save game (wins over what the client sends from its profile). */
+	void ApplySavedLook(const FWECharacterLook& Saved);
+	/** Server: set the look (the local player sends its profile look when it takes control). */
+	void SetLookAuthority(const FWECharacterLook& NewLook);
+	class UWEAvatarComponent* GetAvatar() const { return Avatar; }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnRep_PlayerState() override;
@@ -113,12 +123,34 @@ protected:
 	void Input_QuickSave();
 	void Input_QuickLoad();
 	void Input_Pause();
+	void Input_View();
+public:
+	/** Phase 18c: [V] third person (see your own character) / first person. */
+	void SetThirdPerson(bool bOn);
+	bool IsThirdPerson() const { return bThirdPerson; }
+protected:
+	bool bThirdPerson = false;
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<class USpringArmComponent> ThirdPersonBoom;
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UCameraComponent> ThirdPersonCamera;
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetSprinting(bool bNewSprinting);
 
 	UFUNCTION(Server, Reliable)
 	void ServerExitForklift();
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetLook(const FWECharacterLook& NewLook);
+
+	UFUNCTION()
+	void OnRep_Look();
+
+	/** Owning client: sends the look of the local profile once. */
+	void SendProfileLook();
+	bool bProfileLookSent = false;
+	bool bLookFromSave = false;
 
 	UFUNCTION()
 	void OnRep_Forklift();
@@ -181,6 +213,12 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Forklift)
 	TObjectPtr<class AWEForklift> Forklift;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Look)
+	FWECharacterLook Look;
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<class UWEAvatarComponent> Avatar;
 
 private:
 	float CurrentCameraHeight = 0.f;

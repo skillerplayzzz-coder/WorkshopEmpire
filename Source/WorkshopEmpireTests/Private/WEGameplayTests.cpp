@@ -198,7 +198,7 @@ bool FWEInputConfigTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Build mode on B"), Config->GetKeyForAction(Config->BuildAction), EKeys::B);
 	TestEqual(TEXT("Remove on X"), Config->GetKeyForAction(Config->RemoveAction), EKeys::X);
 	TestEqual(TEXT("Setting on T"), Config->GetKeyForAction(Config->SettingAction), EKeys::T);
-	TestEqual(TEXT("Mapping count"), Config->MappingContext->GetMappings().Num(), 22);
+	TestEqual(TEXT("Mapping count (Phase 18c: + [V] view)"), Config->MappingContext->GetMappings().Num(), 23);
 	return true;
 }
 

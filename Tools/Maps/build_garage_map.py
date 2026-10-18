@@ -157,12 +157,12 @@ ground.static_mesh_component.set_static_mesh(PLANE)
 # Phase 15: asphalt yard (falls back to the old flat ground before the textures are imported).
 asphalt = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEAsphalt"
 ground.static_mesh_component.set_material(0, unreal.load_asset(asphalt) if unreal.EditorAssetLibrary.does_asset_exist(asphalt) else unreal.load_asset("/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
-ground.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
+ground.set_actor_scale3d(unreal.Vector(900.0, 900.0, 1.0))
 # Phase 17: the plane has no thickness - small items dropped fast could fall through it (seen in the multiplayer
 # stress test). An invisible 1-m slab below catches everything; the world kills nothing it does not have to.
 ground_slab = spawn(unreal.StaticMeshActor, (0, 0, -52), label="GroundCollision", folder="World")
 ground_slab.static_mesh_component.set_static_mesh(CUBE_MESH)
-ground_slab.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
+ground_slab.set_actor_scale3d(unreal.Vector(900.0, 900.0, 1.0))
 ground_slab.static_mesh_component.set_visibility(False)
 ground_slab.static_mesh_component.set_editor_property("cast_shadow", False)
 ground_slab.set_actor_hidden_in_game(True)

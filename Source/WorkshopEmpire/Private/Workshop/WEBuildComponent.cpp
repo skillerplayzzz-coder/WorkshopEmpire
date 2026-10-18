@@ -1,4 +1,6 @@
 #include "Workshop/WEBuildComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Components/StaticMeshComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -39,18 +41,65 @@ AWEBuildGhost::AWEBuildGhost()
 		Boxes->SetStaticMesh(CubeMesh.Object);
 	}
 	Material = PlaceholderMat.Object;
+	Footprint = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Footprint"));
+	Footprint->SetupAttachment(RootComponent);
+	Footprint->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Footprint->SetCastShadow(false);
+	if (CubeMesh.Succeeded())
+	{
+		Footprint->SetStaticMesh(CubeMesh.Object);
+	}
 }
 
-void AWEBuildGhost::SetShape(EWEPlaceholderPropType Type, const FVector& Size)
+void AWEBuildGhost::SetShape(EWEPlaceholderPropType Type, const FVector& Size, const TArray<TPair<UStaticMesh*, FTransform>>& Parts)
 {
-	if (Type == ShapeType && Size.Equals(ShapeSize))
+	TArray<UStaticMesh*> Meshes;
+	for (const TPair<UStaticMesh*, FTransform>& P : Parts) { Meshes.Add(P.Key); }
+	if (Type == ShapeType && Size.Equals(ShapeSize) && Meshes == ShapeMeshes)
 	{
 		return;
 	}
 	ShapeType = Type;
 	ShapeSize = Size;
+	ShapeMeshes = Meshes;
 	AWEPlaceholderProp::BuildBoxes(Boxes, Type, Size);
+	for (UStaticMeshComponent* Part : ModelParts) { if (Part) { Part->DestroyComponent(); } }
+	ModelParts.Reset();
+	for (const TPair<UStaticMesh*, FTransform>& P : Parts)
+	{
+		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		Part->SetStaticMesh(P.Key);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetCastShadow(false);
+		Part->SetMobility(EComponentMobility::Movable);
+		Part->SetupAttachment(RootComponent);
+		Part->SetRelativeTransform(P.Value);
+		Part->RegisterComponent();
+		ModelParts.Add(Part);
+	}
+	// With a model the boxes only stand in for collision: hidden; the footprint shows the space it takes.
+	Boxes->SetVisibility(ModelParts.Num() == 0);
+	Footprint->SetRelativeTransform(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, 0.6f), FVector(Size.X / 100.f, Size.Y / 100.f, 0.01f)));
 	ValidState = -1;
+}
+
+void AWEBuildGhost::ApplyGhostMaterial()
+{
+	if (!GhostMaterial)
+	{
+		UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorkshopEmpire/Materials/FX/M_WEGhost.M_WEGhost"), nullptr, LOAD_Quiet | LOAD_NoWarn);
+		GhostMaterial = UMaterialInstanceDynamic::Create(Base ? Base : Material.Get(), this);
+	}
+	auto Paint = [this](UMeshComponent* Mesh)
+	{
+		for (int32 i = 0; Mesh && i < FMath::Max(1, Mesh->GetNumMaterials()); ++i)
+		{
+			Mesh->SetMaterial(i, GhostMaterial);
+		}
+	};
+	Paint(Boxes);
+	Paint(Footprint);
+	for (UStaticMeshComponent* Part : ModelParts) { Paint(Part); }
 }
 
 void AWEBuildGhost::SetValid(bool bValid)
@@ -58,7 +107,13 @@ void AWEBuildGhost::SetValid(bool bValid)
 	if (ValidState != (bValid ? 1 : 0))
 	{
 		ValidState = bValid ? 1 : 0;
-		WEPlaceholder::ApplyTint(Boxes, Material, bValid ? FLinearColor(0.2f, 0.85f, 0.3f) : FLinearColor(0.9f, 0.15f, 0.1f));
+		ApplyGhostMaterial();
+		const FLinearColor Color = bValid ? FLinearColor(0.15f, 0.9f, 0.3f) : FLinearColor(0.95f, 0.12f, 0.08f);
+		if (GhostMaterial)
+		{
+			GhostMaterial->SetVectorParameterValue(TEXT("Color"), Color);
+			GhostMaterial->SetScalarParameterValue(TEXT("Opacity"), 0.38f);
+		}
 	}
 }
 
@@ -139,12 +194,64 @@ void UWEBuildComponent::DestroyGhost()
 	}
 }
 
+TArray<int32> UWEBuildComponent::GetMenuOrder() const
+{
+	// Catalog indices grouped by build-menu category (catalog order inside a category).
+	TArray<int32> Order;
+	const UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this);
+	if (const UWEFurnitureCatalog* Catalog = Layout ? Layout->GetCatalog() : nullptr)
+	{
+		for (int32 c = 0; c < WEFurniture::NumCategories; ++c)
+		{
+			for (int32 i = 0; i < Catalog->Items.Num(); ++i)
+			{
+				if (static_cast<int32>(WEFurniture::GetCategory(Catalog->Items[i])) == c)
+				{
+					Order.Add(i);
+				}
+			}
+		}
+	}
+	return Order;
+}
+
+int32 UWEBuildComponent::GetSelectedCategory() const
+{
+	const FWEFurnitureDefinition* Definition = GetSelectedDefinition();
+	return Definition ? static_cast<int32>(WEFurniture::GetCategory(*Definition)) : INDEX_NONE;
+}
+
 void UWEBuildComponent::CycleSelection(int32 Direction)
 {
+	// "Bearbeiten" (-1) first, then the catalog in menu order.
+	TArray<int32> Order = GetMenuOrder();
+	Order.Insert(INDEX_NONE, 0);
+	const int32 At = FMath::Max(0, Order.IndexOfByKey(SelectedIndex));
+	SelectIndex(Order[(At + (Direction >= 0 ? 1 : -1) + Order.Num()) % Order.Num()]);
+}
+
+void UWEBuildComponent::CycleCategory(int32 Direction)
+{
 	const UWEWorkshopLayoutComponent* Layout = UWEWorkshopLayoutComponent::Get(this);
-	const int32 Count = Layout && Layout->GetCatalog() ? Layout->GetCatalog()->Items.Num() : 0;
-	// -1 = "Bearbeiten", 0..Count-1 = catalog.
-	SelectIndex(((SelectedIndex + 1 + (Direction >= 0 ? 1 : -1) + Count + 1) % (Count + 1)) - 1);
+	const UWEFurnitureCatalog* Catalog = Layout ? Layout->GetCatalog() : nullptr;
+	if (!Catalog)
+	{
+		return;
+	}
+	// First piece of the next category that has any (from "Bearbeiten" the first category).
+	const int32 Current = GetSelectedCategory();
+	for (int32 Step = 1; Step <= WEFurniture::NumCategories; ++Step)
+	{
+		const int32 Wanted = ((Current == INDEX_NONE ? (Direction >= 0 ? -1 : 0) : Current) + Step * (Direction >= 0 ? 1 : -1) + WEFurniture::NumCategories * 2) % WEFurniture::NumCategories;
+		for (const int32 i : GetMenuOrder())
+		{
+			if (static_cast<int32>(WEFurniture::GetCategory(Catalog->Items[i])) == Wanted)
+			{
+				SelectIndex(i);
+				return;
+			}
+		}
+	}
 }
 
 void UWEBuildComponent::SelectIndex(int32 Index)
@@ -266,7 +373,17 @@ void UWEBuildComponent::UpdatePreview()
 	}
 	if (Ghost)
 	{
-		Ghost->SetShape(Type, Size);
+		TArray<TPair<UStaticMesh*, FTransform>> Parts;
+		if (Moving)
+		{
+			Moving->GetVisualParts(Parts);
+		}
+		else
+		{
+			AWEPlaceholderProp::GetVisualLayout(Definition->VisualMesh, Definition->VisualYaw, Definition->bTileVisual, Definition->Size,
+				Definition->DecoMeshes, Definition->DecoTransforms, Parts);
+		}
+		Ghost->SetShape(Type, Size, Parts);
 		Ghost->SetValid(bPreviewValid);
 		Ghost->SetActorTransform(PreviewTransform + FTransform(FVector(0.f, 0.f, 0.5f)));
 		Ghost->SetActorHiddenInGame(false);

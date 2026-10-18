@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "UI/WESettings.h"
 #include "UI/WEUIKit.h"
+#include "Player/WECharacterLook.h"
 #include "WEMenuWidgets.generated.h"
 
 class UButton;
@@ -48,6 +49,8 @@ class WORKSHOPEMPIRE_API UWESettingRow : public UUserWidget
 
 public:
 	void Setup(UWESettingsPanel* InOwner, int32 InIndex, const FText& Label, FName IconName);
+	/** Phase 18c: rows outside the settings page (character creator) call this instead of the panel. */
+	void SetupCallback(TFunction<void(int32 Direction)> InOnStep, const FText& Label, FName IconName);
 	void SetValue(const FText& Value);
 
 protected:
@@ -56,6 +59,7 @@ protected:
 	UFUNCTION() void HandleRight();
 
 	UPROPERTY(Transient) TObjectPtr<UWESettingsPanel> Owner;
+	TFunction<void(int32)> OnStep;
 	UPROPERTY(Transient) TObjectPtr<class UImage> RowIcon;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> LabelText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ValueText;
@@ -102,8 +106,13 @@ class WORKSHOPEMPIRE_API UWEMainMenuWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	/** 0 = home, 1 = load a save, 2 = multiplayer (join), 3 = new game, 4 = settings. */
+	/** 0 = home, 1 = load a save, 2 = multiplayer (join), 3 = new game, 4 = settings, 5 = character creator. */
 	void ShowPage(int32 Page);
+	/** Phase 18c character creator (also used by the dev shots). */
+	void StepLook(int32 Field, int32 Direction);
+	const FWECharacterLook& GetEditLook() const { return EditLook; }
+	class AWEAvatarPreview* GetPreview() const { return Preview.Get(); }
+	void TurnPreview(float Degrees);
 	void ShowMessage(const FText& Message);
 	/** Text of what the lists show (tests, change detection). */
 	FString BuildSignature() const;
@@ -129,6 +138,14 @@ protected:
 	UFUNCTION() void HandleSearchLAN();
 	UFUNCTION() void HandleJoinAddress();
 	UFUNCTION() void HandleNameCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+	UFUNCTION() void HandleShowCreator();
+	UFUNCTION() void HandleEditLook();
+	UFUNCTION() void HandleRandomLook();
+	UFUNCTION() void HandleSaveLook();
+	UFUNCTION() void HandleCloseUp();
+	void RefreshLook();
+	void OpenPreview();
+	void ClosePreview();
 
 	bool WantsLAN() const;
 
@@ -154,6 +171,15 @@ protected:
 	WEUI::FOpenAnim CardAnim;
 	WEUI::FOpenAnim IntroAnim;
 	UPROPERTY(Transient) TObjectPtr<UWidget> LeftColumn;
+	// Character creator.
+	UPROPERTY(Transient) TArray<TObjectPtr<UWESettingRow>> LookRows;
+	UPROPERTY(Transient) TObjectPtr<UWidget> CreatorStartButton;
+	UPROPERTY(Transient) TObjectPtr<UWidget> CreatorSaveButton;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> CreatorStatus;
+	TWeakObjectPtr<class AWEAvatarPreview> Preview;
+	FWECharacterLook EditLook;
+	bool bCreatorForNewGame = false;
+	bool bCloseUp = false;
 };
 
 /**

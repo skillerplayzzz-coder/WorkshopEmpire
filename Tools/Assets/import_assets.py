@@ -41,6 +41,7 @@ def import_file(path, dest, name=None):
 # --- Models ------------------------------------------------------------------------------------------
 # Some glTF files hold several variants side by side; only one is kept (parts whose name contains the text are dropped).
 DROP_PARTS = {"rollershutter_door": "graffiti", "metal_trash_can": "rust"}
+VEGETATION = {"shrub_02", "shrub_03", "shrub_04", "weed_plant_02", "nettle_plant", "dandelion_01", "grass_bermuda_01", "tree_small_02"}
 les.new_level("/Temp/WEMergeTemp", False)  # scratch world for merging (in /Temp, never saved)
 models_dir = os.path.join(SRC, "PolyHaven", "models")
 done, failed = 0, []
@@ -92,11 +93,13 @@ for mid in sorted(os.listdir(models_dir)) if os.path.isdir(models_dir) else []:
         continue
     # Simple box collision (items are physics objects; furniture models use their box parts instead).
     # Small props: no Nanite (some have translucent glass, which Nanite cannot draw).
+    # Phase 18e: vegetation is dense (the tree has millions of triangles): Nanite on, no collision for small plants.
     nanite = mesh.get_editor_property("nanite_settings")
-    nanite.set_editor_property("enabled", False)
+    nanite.set_editor_property("enabled", mid in VEGETATION)
     mesh.set_editor_property("nanite_settings", nanite)
     sme.remove_collisions(mesh)
-    sme.add_simple_collisions(mesh, unreal.ScriptCollisionShapeType.BOX)
+    if mid not in VEGETATION or mid.startswith("tree"):
+        sme.add_simple_collisions(mesh, unreal.ScriptCollisionShapeType.BOX)
     eal.save_asset(final)
     b = mesh.get_bounding_box()
     size = b.max - b.min

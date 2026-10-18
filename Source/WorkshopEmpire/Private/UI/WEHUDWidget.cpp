@@ -205,17 +205,19 @@ void UWEHUDWidget::BuildStatusCard()
 void UWEHUDWidget::BuildObjectiveCard()
 {
 	UVerticalBox* Box = WidgetTree->ConstructWidget<UVerticalBox>();
-	ObjectiveLabel = Heading(WidgetTree, FText::GetEmpty(), 11, Col::Accent);
+	// Phase 18d: compact - small label, the task in one or two lines, a thin progress line.
+	ObjectiveLabel = Heading(WidgetTree, FText::GetEmpty(), 9, Col::Accent);
 	AddV(Box, ObjectiveLabel);
-	ObjectiveText = Text(WidgetTree, FText::GetEmpty(), 15, Col::Text, EFont::Body, 360.f);
-	AddV(Box, ObjectiveText, FMargin(0.f, 3.f, 0.f, 0.f));
+	ObjectiveText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Text, EFont::Body, 270.f);
+	AddV(Box, ObjectiveText, FMargin(0.f, 2.f, 0.f, 0.f));
 	ObjectiveProgress = WidgetTree->ConstructWidget<UProgressBar>();
 	ObjectiveProgress->SetWidgetStyle(BarStyle(Col::Accent));
-	AddV(Box, Sized(WidgetTree, ObjectiveProgress, 0.f, 3.f), FMargin(0.f, 8.f, 0.f, 0.f));
-	ObjectiveHint = Text(WidgetTree, FText::GetEmpty(), 10, Col::TextMuted, EFont::Body);
-	AddV(Box, ObjectiveHint, FMargin(0.f, 5.f, 0.f, 0.f));
-	ObjectiveCard = Card(WidgetTree, Box);
-	Place(Canvas, Sized(WidgetTree, ObjectiveCard, 400.f), FAnchors(0.f, 0.f), FVector2D(0.f, 0.f), FVector2D(22.f, 18.f));
+	AddV(Box, Sized(WidgetTree, ObjectiveProgress, 0.f, 2.f), FMargin(0.f, 6.f, 0.f, 0.f));
+	ObjectiveHint = Text(WidgetTree, FText::GetEmpty(), 9, Col::TextMuted, EFont::Body);
+	AddV(Box, ObjectiveHint, FMargin(0.f, 4.f, 0.f, 0.f));
+	ObjectiveCard = Card(WidgetTree, Box, Col::Accent, FMargin(10.f, 7.f));
+	ObjectiveCard->SetRenderOpacity(0.92f);
+	Place(Canvas, Sized(WidgetTree, ObjectiveCard, 296.f), FAnchors(0.f, 0.f), FVector2D(0.f, 0.f), FVector2D(18.f, 14.f));
 }
 
 void UWEHUDWidget::BuildBottom()
@@ -274,26 +276,60 @@ void UWEHUDWidget::BuildExamineCard()
 
 void UWEHUDWidget::BuildBuildPanel()
 {
+	// Phase 18d: compact build menu - category tabs, the pieces of the chosen category with picture, price and a
+	// one-line description, then the status of the preview and the keys.
 	UVerticalBox* Box = WidgetTree->ConstructWidget<UVerticalBox>();
-	AddV(Box, SectionHeader(WidgetTree, LOCTEXT("BuildTitle", "Baumodus"), TEXT("Building")));
+	AddV(Box, SectionHeader(WidgetTree, LOCTEXT("BuildTitle", "Baumodus"), TEXT("Building"), nullptr, 13));
+	UHorizontalBox* Tabs = WidgetTree->ConstructWidget<UHorizontalBox>();
+	for (int32 c = 0; c < WEFurniture::NumCategories; ++c)
+	{
+		UImage* CatIcon = Icon(WidgetTree, WEFurniture::GetCategoryIcon(static_cast<EWEFurnitureCategory>(c)), 18.f, Col::TextDim);
+		UBorder* Tab = WEUI::Box(WidgetTree, Col::WithAlpha(Col::PanelDark, 0.7f), FMargin(10.f, 6.f), Col::Line, 3.f);
+		Tab->SetContent(CatIcon);
+		Tab->SetHorizontalAlignment(HAlign_Center);
+		AddH(Tabs, Tab, FMargin(0.f, 0.f, 4.f, 0.f), true);
+		BuildCatFrames.Add(Tab);
+		BuildCatIcons.Add(CatIcon);
+	}
+	AddV(Box, Tabs, FMargin(0.f, 10.f, 0.f, 0.f));
+	UHorizontalBox* CatLine = WidgetTree->ConstructWidget<UHorizontalBox>();
+	BuildCategoryLabel = Text(WidgetTree, FText::GetEmpty(), 12, Col::Accent, EFont::Strong);
+	AddH(CatLine, BuildCategoryLabel, FMargin(), true);
+	AddH(CatLine, KeyCap(WidgetTree, FText::FromString(TEXT("T")), 10), FMargin(6.f, 0.f, 4.f, 0.f));
+	AddH(CatLine, Text(WidgetTree, LOCTEXT("NextCat", "nächste Kategorie"), 10, Col::TextMuted));
+	AddV(Box, CatLine, FMargin(2.f, 8.f, 0.f, 4.f));
 	BuildList = WidgetTree->ConstructWidget<UVerticalBox>();
-	AddV(Box, BuildList, FMargin(0.f, 10.f, 0.f, 0.f));
+	AddV(Box, BuildList, FMargin(0.f, 2.f, 0.f, 0.f));
 	for (int32 i = 0; i < BuildRows; ++i)
 	{
 		UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
-		UTextBlock* Name = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Body, 300.f);
-		AddH(Row, Name, FMargin(), true);
+		UImage* Picture = WidgetTree->ConstructWidget<UImage>();
+		Picture->SetDesiredSizeOverride(FVector2D(40.f, 40.f));
+		UBorder* PictureFrame = WEUI::Box(WidgetTree, Col::WithAlpha(Col::PanelDark, 0.85f), FMargin(2.f), Col::Line, 3.f);
+		PictureFrame->SetContent(Sized(WidgetTree, Picture, 40.f, 40.f));
+		AddH(Row, PictureFrame, FMargin(0.f, 0.f, 10.f, 0.f));
+		UVerticalBox* Lines = WidgetTree->ConstructWidget<UVerticalBox>();
+		UTextBlock* Name = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong);
+		AddV(Lines, Name);
+		UTextBlock* Desc = Text(WidgetTree, FText::GetEmpty(), 10, Col::TextMuted, EFont::Body);
+		Desc->SetClipping(EWidgetClipping::ClipToBounds);
+		AddV(Lines, Sized(WidgetTree, Desc, 230.f), FMargin(0.f, 1.f, 0.f, 0.f));
+		AddH(Row, Lines, FMargin(), true);
 		UTextBlock* Price = Text(WidgetTree, FText::GetEmpty(), 12, Col::Money, EFont::Strong);
-		AddH(Row, Price, FMargin(10.f, 0.f, 0.f, 0.f));
-		UBorder* Frame = WEUI::Box(WidgetTree, FLinearColor::Transparent, FMargin(8.f, 3.f), FLinearColor::Transparent, 2.f);
+		AddH(Row, Price, FMargin(8.f, 0.f, 0.f, 0.f));
+		UBorder* Frame = WEUI::Box(WidgetTree, FLinearColor::Transparent, FMargin(6.f, 4.f), FLinearColor::Transparent, 3.f);
 		Frame->SetContent(Row);
-		AddV(BuildList, Frame, FMargin(0.f, 0.f, 0.f, 1.f));
+		AddV(BuildList, Frame, FMargin(0.f, 0.f, 0.f, 2.f));
 		BuildRowFrames.Add(Frame);
 		BuildRowNames.Add(Name);
 		BuildRowPrices.Add(Price);
+		BuildRowImages.Add(Picture);
+		BuildRowDescs.Add(Desc);
 	}
-	BuildStatusText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Accent, EFont::Strong, 410.f);
-	AddV(Box, BuildStatusText, FMargin(0.f, 10.f, 0.f, 6.f));
+	BuildMoreText = Text(WidgetTree, FText::GetEmpty(), 10, Col::TextMuted);
+	AddV(Box, BuildMoreText, FMargin(6.f, 0.f, 0.f, 0.f));
+	BuildStatusText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Accent, EFont::Strong, 340.f);
+	AddV(Box, BuildStatusText, FMargin(0.f, 8.f, 0.f, 6.f));
 	AddV(Box, Divider(WidgetTree));
 	// Key hints wrap onto a second line instead of running out of the card.
 	UWrapBox* Keys = WidgetTree->ConstructWidget<UWrapBox>();
@@ -302,7 +338,7 @@ void UWEHUDWidget::BuildBuildPanel()
 	{
 		UHorizontalBox* Pair = WidgetTree->ConstructWidget<UHorizontalBox>();
 		AddH(Pair, KeyCap(WidgetTree, FText::FromString(Cap), 10), FMargin(0.f, 0.f, 4.f, 0.f));
-		AddH(Pair, Text(WidgetTree, What, 10, Col::TextDim), FMargin(0.f, 0.f, 12.f, 0.f));
+		AddH(Pair, Text(WidgetTree, What, 10, Col::TextDim), FMargin(0.f, 0.f, 10.f, 0.f));
 		Keys->AddChildToWrapBox(Pair);
 	};
 	Key(TEXT("Rad"), LOCTEXT("KeyWheel", "Auswahl"));
@@ -312,11 +348,10 @@ void UWEHUDWidget::BuildBuildPanel()
 	Key(TEXT("X"), LOCTEXT("KeyRemove", "Abbauen"));
 	Key(TEXT("B"), LOCTEXT("KeyLeave", "Beenden"));
 	AddV(Box, Keys, FMargin(0.f, 8.f, 0.f, 0.f));
-	BuildCard = Card(WidgetTree, Sized(WidgetTree, Box, 430.f), Col::Accent, FMargin(14.f, 12.f));
+	BuildCard = Card(WidgetTree, Sized(WidgetTree, Box, 360.f), Col::Accent, FMargin(12.f, 10.f));
 	BuildCard->SetVisibility(ESlateVisibility::Collapsed);
-	Place(Canvas, BuildCard, FAnchors(0.f, 0.5f), FVector2D(0.f, 0.5f), FVector2D(22.f, 30.f));
+	Place(Canvas, BuildCard, FAnchors(0.f, 0.5f), FVector2D(0.f, 0.5f), FVector2D(18.f, 30.f));
 }
-
 // --- Messages -----------------------------------------------------------------------------------------------
 
 void UWEHUDWidget::ShowMessage(const FText& Message, float Seconds)
@@ -555,7 +590,7 @@ void UWEHUDWidget::UpdateObjective()
 		ObjectiveText->SetText(FText::Format(LOCTEXT("TutText", "{0}  [{1}]"), Step->Text, Step->Key));
 		ObjectiveProgress->SetPercent(static_cast<float>(Tutorial->GetStep()) / UWETutorialComponent::NumSteps());
 		ObjectiveProgress->SetVisibility(ESlateVisibility::HitTestInvisible);
-		ObjectiveHint->SetText(LOCTEXT("TutSkip", "Überspringen: Menü [Esc] → Tutorial überspringen"));
+		ObjectiveHint->SetText(LOCTEXT("TutSkip", "[Esc] → Tutorial überspringen"));
 		ObjectiveHint->SetVisibility(ESlateVisibility::HitTestInvisible);
 		TArray<FVector> Locations;
 		Tutorial->GetMarkerLocations(Locations);
@@ -720,38 +755,78 @@ void UWEHUDWidget::UpdateBuildPanel()
 	}
 	BuildCard->SetVisibility(ESlateVisibility::HitTestInvisible);
 	BuildStatusText->SetText(Build->GetStatusText());
-	// Row 0 = "Bearbeiten", then the catalog; a window of rows around the selection.
 	const int32 Selected = Build->GetSelectedIndex(); // INDEX_NONE = edit
-	const int32 Total = Catalog->Items.Num() + 1;
-	const int32 SelectedRow = Selected + 1;
-	const int32 First = FMath::Clamp(SelectedRow - BuildRows / 2, 0, FMath::Max(0, Total - BuildRows));
+	const int32 Category = Build->GetSelectedCategory();
+	for (int32 c = 0; c < BuildCatFrames.Num(); ++c)
+	{
+		const bool bOn = c == Category;
+		BuildCatFrames[c]->SetBrush(Brush(bOn ? Col::WithAlpha(Col::Accent, 0.22f) : Col::WithAlpha(Col::PanelDark, 0.7f), bOn ? Col::Accent : Col::Line, 1.f, 3.f));
+		BuildCatIcons[c]->SetColorAndOpacity(bOn ? Col::Accent : Col::TextDim);
+	}
+	BuildCategoryLabel->SetText(Category == INDEX_NONE ? LOCTEXT("EditCat", "Bearbeiten") : WEFurniture::GetCategoryName(static_cast<EWEFurnitureCategory>(Category)));
+
+	// Rows: "Bearbeiten" alone in edit mode, otherwise the pieces of the selected category (scrolled to the selection).
+	TArray<int32> Rows;
+	if (Category == INDEX_NONE)
+	{
+		Rows.Add(INDEX_NONE);
+	}
+	else
+	{
+		for (const int32 i : Build->GetMenuOrder())
+		{
+			if (static_cast<int32>(WEFurniture::GetCategory(Catalog->Items[i])) == Category)
+			{
+				Rows.Add(i);
+			}
+		}
+	}
+	const int32 SelectedRow = FMath::Max(0, Rows.IndexOfByKey(Selected));
+	const int32 First = FMath::Clamp(SelectedRow - BuildRows / 2, 0, FMath::Max(0, Rows.Num() - BuildRows));
 	for (int32 r = 0; r < BuildRows; ++r)
 	{
-		const int32 Row = First + r;
-		if (Row >= Total)
+		const int32 RowIndex = First + r;
+		if (!Rows.IsValidIndex(RowIndex))
 		{
 			BuildRowFrames[r]->SetVisibility(ESlateVisibility::Collapsed);
 			continue;
 		}
 		BuildRowFrames[r]->SetVisibility(ESlateVisibility::HitTestInvisible);
-		const bool bSel = Row == SelectedRow;
-		BuildRowFrames[r]->SetBrush(Brush(bSel ? Col::WithAlpha(Col::Accent, 0.18f) : FLinearColor::Transparent, bSel ? Col::Accent : FLinearColor::Transparent, 1.f, 2.f));
-		if (Row == 0)
+		const int32 Index = Rows[RowIndex];
+		const bool bSel = Index == Selected;
+		BuildRowFrames[r]->SetBrush(Brush(bSel ? Col::WithAlpha(Col::Accent, 0.16f) : Col::WithAlpha(Col::Raised, 0.35f), bSel ? Col::Accent : FLinearColor::Transparent, 1.f, 3.f));
+		if (Index == INDEX_NONE)
 		{
-			BuildRowNames[r]->SetText(LOCTEXT("EditRow", "Bearbeiten: verschieben / abbauen"));
-			BuildRowNames[r]->SetColorAndOpacity(FSlateColor(bSel ? Col::Text : Col::TextDim));
+			BuildRowNames[r]->SetText(LOCTEXT("EditRow", "Bearbeiten"));
+			BuildRowDescs[r]->SetText(LOCTEXT("EditDesc", "Möbel anvisieren: [E] verschieben, [X] abbauen"));
 			BuildRowPrices[r]->SetText(FText::GetEmpty());
+			BuildRowImages[r]->SetBrushFromTexture(IconTexture(TEXT("Wrench")));
+			BuildRowImages[r]->SetColorAndOpacity(Col::TextDim);
 			continue;
 		}
-		const FWEFurnitureDefinition& D = Catalog->Items[Row - 1];
+		const FWEFurnitureDefinition& D = Catalog->Items[Index];
 		const FText Lock = Layout->GetLockReason(D);
-		BuildRowNames[r]->SetText(Lock.IsEmpty() ? D.DisplayName : FText::Format(LOCTEXT("LockedRow", "{0}  ·  {1}"), D.DisplayName, Lock));
+		BuildRowNames[r]->SetText(D.DisplayName);
 		BuildRowNames[r]->SetColorAndOpacity(FSlateColor(!Lock.IsEmpty() ? Col::TextMuted : bSel ? Col::Text : Col::TextDim));
+		BuildRowDescs[r]->SetText(Lock.IsEmpty() ? D.Description : Lock);
+		BuildRowDescs[r]->SetColorAndOpacity(FSlateColor(Lock.IsEmpty() ? Col::TextMuted : Col::Bad));
 		BuildRowPrices[r]->SetText(MoneyText(D.Cost));
 		BuildRowPrices[r]->SetColorAndOpacity(FSlateColor(Lock.IsEmpty() ? Col::Money : Col::TextMuted));
+		if (UTexture2D* Picture = FurnitureIcon(D.Id))
+		{
+			BuildRowImages[r]->SetBrushFromTexture(Picture);
+			BuildRowImages[r]->SetColorAndOpacity(Lock.IsEmpty() ? FLinearColor::White : FLinearColor(1.f, 1.f, 1.f, 0.4f));
+		}
+		else
+		{
+			BuildRowImages[r]->SetBrushFromTexture(IconTexture(WEFurniture::GetCategoryIcon(WEFurniture::GetCategory(D))));
+			BuildRowImages[r]->SetColorAndOpacity(Col::TextDim);
+		}
 	}
+	const int32 Hidden = Rows.Num() - BuildRows;
+	BuildMoreText->SetText(Hidden > 0 ? FText::Format(LOCTEXT("More", "{0} / {1} – mit dem Mausrad weiter"), FText::AsNumber(SelectedRow + 1), FText::AsNumber(Rows.Num())) : FText::GetEmpty());
+	BuildMoreText->SetVisibility(Hidden > 0 ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 }
-
 void UWEHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);

@@ -51,6 +51,19 @@ Mike hat die Liste am 2026-10-18 freigegeben. Download 329 MB, dieselben Quellen
 
 24 Texturen: `road_damaged`, `worn_asphalt`, `asphalt_03`, `concrete_pavement`, `red_bricks_04`, `painted_worn_brick`, `dark_brick_wall`, `rusty_corrugated_iron`, `worn_corrugated_iron`, `rusted_shutter`, `painted_metal_shutter`, `rubber_tiles`, `painted_concrete`, `anti_slip_concrete`, `wood_floor_worn`, `old_linoleum_flooring_01`, `floor_tiles_06`, `plastered_wall_04`, `whitewashed_brick`, `metal_plate_02`, `green_metal_rust`, `gravel_floor`, `box_profile_metal_sheet`, `concrete_panels`.
 
+## Phase 18 – Nachgeladen (2026-10-18)
+
+| Quelle | Lizenz | Was | Wie |
+|---|---|---|---|
+| Poly Haven | CC0 1.0 | Pflanzen: `shrub_02`, `shrub_03`, `shrub_04`, `weed_plant_02`, `nettle_plant`, `dandelion_01`, `grass_bermuda_01`, `tree_small_02` (130 MB; Mike hat den Download am 2026-10-18 freigegeben) | `download_assets.py`, `import_assets.py` (Nanite an, kleine Pflanzen ohne Kollision); im Spiel werden die Einzelteile aus `Art/Import/<id>/` verwendet |
+| Quaternius „Universal Base Characters“ (Standard-Version, quaternius.com / itch.io) | CC0 1.0 | 2 Grundkörper (männlich, weiblich), 6 Frisuren, Bart, 2 Augenbrauen, Haut hell/dunkel | Mike hat die ZIP selbst geladen (itch.io verlangt eine Bot-Prüfung); entpackt nach `SourceArt/Quaternius/UBC`, Import mit `Tools/Assets/import_characters.py` nach `Content/Characters/Quaternius` |
+
+Kleidung, Schuhe, Kappe, Mütze und Sonnenbrille sind eigen: Die Kleidung wird im Material `M_WEAvatar` nach Körperbereichen auf den Körper gemalt, Kappe, Mütze und Brille sind Geometry-Script-Modelle (`Accessories/SM_Gen_*`).
+
+### Eigene Modelle (Phase 18)
+
+`Tools/Assets/build_pc_assembly.py` (PC-Gehäuse und 11 Einbauteile, Schrauben, Stecker, Clips, Hebel, die neuen PC-Teile als Gegenstände), `Tools/Assets/build_van.py` (Transporter mit 4 Türen, Innenraum und Laderaum, 6 geparkte Autos), `Tools/Assets/build_fx_overlays.py` (durchsichtige Bauvorschau).
+
 ### Eigene Modelle (Phase 17.5)
 
 52 Modelle unter `Content/WorkshopEmpire/Art/Generated/SM_Gen_*` sind im Projekt selbst erzeugt (`Tools/Assets/build_models.py`, Geometry Scripting): die Gegenstände ohne passendes Fremdmodell (PC-Tower, Netzteil, Mainboard, Grafikkarten, Motoren, Barren, Ballen, Spulen, Paletten …), Monitor, Tastatur und Maus des Werkstatt-PCs, beide Transporter mit Rädern, Container, Müllcontainer, Betonsperren, Leitkegel, Fasspaletten, Zählerkasten und das Firmenschild. Materialien: `Materials/Props/MI_Prop_*` (eigene Instanzen mit Poly-Haven-Texturen). Item-Bilder werden im Spiel aus den Modellen gerendert (`-WEBakeIcons`). Die 65 Linien-Icons der Oberfläche, der Gefahrenstreifen, das „Ferrit“-Logo und das Desktop-Hintergrundbild erzeugt `Tools/UI/make_icons.py` (eigen, keine Fremdschrift).

@@ -151,7 +151,18 @@ Phase 18 wurde nicht begonnen.
 - Spielbarer Build (Development) gepackt und getestet; 116/116 Tests; Regression grün
 - Behoben: Absturz im gepackten Spiel (Firmenstufen-Text), fehlende Inhalte im Build, durchsichtiges Rolltor, Zaun unsichtbar im Build
 
+### Phase 18 – PC-System, Transporter, Charaktereditor, UI und Stadt (2026-10-18, auf Mikes Wunsch)
+- Alter PC als echte Baugruppe: Gehäuse, Seitenteil, Mainboard, Grafikkarte, 2× RAM, CPU-Kühler, Prozessor, HDD, SSD, Gehäuselüfter, Netzteil, CD-Laufwerk an echten Einbauplätzen; jedes Teil mit eigenen Schrauben, Steckern, Clips oder Hebel; Bauteil anklicken, Befestigungen lösen, Teil wird herausgezogen; freie Reihenfolge nach Voraussetzungen; Orbit-Kamera, Hervorhebung; alle Teile und Schrauben als echte Gegenstände; neue Gegenstände CPU-Kühler, Prozessor, Festplatte, SSD, Gehäuselüfter; Speicherstand Version 15
+- Transporter neu: US-Kastenwagen mit langer Haube, Kühlergrill, Scheinwerfern, Felgen, Spiegeln, Griffen, Innenraum (Sitze, Armaturenbrett, Lenkrad), Laderaum mit Regal; Fahrer-, Beifahrer- und Hecktüren mit Animation und Ton; Ladung im Laderaum sichtbar
+- Charaktereditor beim neuen Spiel (und im Multiplayer-Menü): Mann/Frau, Gesicht, 5 Hauttöne, 6 Frisuren, 6 Haarfarben, 5 Outfits in 5 Farben, 3 Schuhe, Cap/Mütze, Sonnenbrille; 3D-Vorschau zum Drehen; im Profil und im Spielstand; Mitspieler sehen die Figur, [V] zeigt die eigene von hinten
+- Baumenü mit 5 Kategorien, Bildern, Preisen und Kurzbeschreibung; Vorschau zeigt das echte Modell durchsichtig grün/rot; Tutorial-Karte kleiner
+- Stadt: zwei Kreuzungen mit Ampeln und Zebrastreifen, Tankstelle, Parkplatz, Autowerkstatt, Imbiss, Brachfläche mit Plakatwand, geparkte Autos, Pflanzen; Straßen laufen weiter, Baustellen sperren sie am Rand des Spielbereichs; Gebäude dahinter, Skyline
+- Behoben: Mitarbeiter fanden den Weg aus der Garage nicht (seit 17.5)
+
 ## Offene Aufgaben
+
+- Mike: Praxistest Phase 18 (PC zerlegen von Hand, Charaktereditor, Transporter-Türen, Stadt, Baumenü)
+- Noch nicht umgesetzt (Phase 18 Wunschliste): PC wieder zusammenbauen und testen; ausgebaute Teile wieder einbauen; Spiegel in der Werkstatt; echte Kleidungsmodelle (die Kleidung ist auf den Körper gemalt, kein eigenes Kleidungsnetz, keine Kapuze); nur ein Gesicht je Geschlecht (Varianten über Brauen, Bart, Hautton); Ladung wird nicht einzeln hinein-/herausgetragen animiert (Türen öffnen sich, die Ladung erscheint); geparkte Autos sind einfache Modelle; Werkbanklager (12 Plätze) ist für einen ganz zerlegten PC zu klein – der Rest fällt neben die Werkbank
 
 - Mike: Praxistest Phase 17.5 (Arbeitsansicht – fühlt sich das Schrauben gut an? Ferrit OS, Gestaltung, Tutorial, Koop an einer Werkbank)
 - Mike: Praxistest Phase 16 (fühlt sich das Tempo richtig an? die Simulation ersetzt keinen echten Spieler) und weiterhin Phase 15 (Klang) sowie Steam mit einem Freund

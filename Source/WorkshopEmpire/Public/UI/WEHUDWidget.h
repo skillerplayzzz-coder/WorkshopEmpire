@@ -73,7 +73,7 @@ protected:
 	static constexpr int32 MaxPromptLines = 6;
 	static constexpr int32 MaxToasts = 4;
 	static constexpr int32 MaxMarkers = 3;
-	static constexpr int32 BuildRows = 12;
+	static constexpr int32 BuildRows = 7;
 
 	UPROPERTY(Transient) TObjectPtr<UCanvasPanel> Canvas;
 	UPROPERTY(Transient) TObjectPtr<UImage> Crosshair;
@@ -122,6 +122,13 @@ protected:
 	UPROPERTY(Transient) TArray<TObjectPtr<UBorder>> BuildRowFrames;
 	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> BuildRowNames;
 	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> BuildRowPrices;
+	// Phase 18d: category tabs, pictures and one-line descriptions.
+	UPROPERTY(Transient) TArray<TObjectPtr<UBorder>> BuildCatFrames;
+	UPROPERTY(Transient) TArray<TObjectPtr<UImage>> BuildCatIcons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> BuildCategoryLabel;
+	UPROPERTY(Transient) TArray<TObjectPtr<UImage>> BuildRowImages;
+	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> BuildRowDescs;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> BuildMoreText;
 
 	// Notifications
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> ToastBox;

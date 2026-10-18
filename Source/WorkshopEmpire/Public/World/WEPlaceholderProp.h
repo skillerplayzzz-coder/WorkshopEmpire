@@ -50,6 +50,10 @@ public:
 
 	/** Server: turns this actor into the given catalog furniture (spawned by the build system). */
 	void ApplyFurniture(const FWEFurnitureDefinition& Definition);
+	/** Phase 18d: where the furniture model (and its decorations) sits inside the footprint - shared with the build preview. */
+	static void GetVisualLayout(UStaticMesh* InMesh, float InYaw, bool bInTile, const FVector& InSize, const TArray<TObjectPtr<UStaticMesh>>& InDeco,
+		const TArray<FTransform>& InDecoTransforms, TArray<TPair<UStaticMesh*, FTransform>>& OutParts);
+	void GetVisualParts(TArray<TPair<UStaticMesh*, FTransform>>& OutParts) const { GetVisualLayout(VisualMesh, VisualYaw, bTileVisual, Size, DecoMeshes, DecoTransforms, OutParts); }
 
 	/** Catalog id of bought furniture; None = part of the map (can be moved, not sold). */
 	FName GetFurnitureId() const { return FurnitureId; }

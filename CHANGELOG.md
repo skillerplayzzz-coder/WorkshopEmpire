@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.18.0] – 2026-10-18 – Phase 18: PC-System, Transporter, Charaktereditor, UI und Stadt
+
+### Neu
+- **PC zerlegen wie in echt**: Der alte PC liegt auf der Seite auf der Werkbank, das Seitenteil ist verschraubt. Darin sitzen Mainboard, Grafikkarte, zwei Speicherriegel, CPU-Kühler, Prozessor, Festplatte, SSD, Gehäuselüfter, Netzteil und CD-Laufwerk an ihren Plätzen. Teil anklicken, Stecker ziehen, Schrauben lösen, Clips und Hebel öffnen, dann wird das Teil herausgezogen. Die Reihenfolge ist frei, solange nichts im Weg ist (der Prozessor erst nach dem Kühler, das Mainboard erst wenn alles darauf ausgebaut ist). Kamera mit rechter Maustaste drehen, Mausrad zoomt, das gewählte Teil wird hervorgehoben. Jede Schraube und jedes Teil landet als Gegenstand im Werkbanklager.
+- **Neue Gegenstände**: CPU-Kühler, Prozessor, Festplatte, SSD, Gehäuselüfter; Grafikkarte, Arbeitsspeicher, Netzteil und Mainboard haben neue Modelle.
+- **Neuer Transporter**: amerikanischer Kastenwagen mit langer Haube, Grill, Scheinwerfern, Stahlfelgen, großen Spiegeln, Türgriffen, Innenraum und Laderaum mit Regal. Die Hecktüren öffnen sich, wenn man hinter dem Wagen steht oder etwas ein- und auslädt, die Fahrertür, wenn der Fahrer einsteigt. Die Ladung steht sichtbar im Laderaum.
+- **Charaktereditor** beim neuen Spiel und im Multiplayer-Menü („Aussehen ändern“): Mann oder Frau, Gesicht, Hautton, Frisur, Haarfarbe, Kleidung (Arbeitsoverall, Polo und Chino, Hoodie und Jeans, T-Shirt und Arbeitshose, Jacke und Hose) in fünf Farben, Schuhe, Cap oder Mütze, Sonnenbrille. Die Figur steht drehbar im Menü. Mitspieler sehen sie im Spiel, mit [V] siehst du sie selbst von hinten.
+- **Baumenü** mit Kategorien (Werkbänke, Lagerung, Maschinen, Werkstattausstattung, Dekoration, [T] wechselt), Bild, Preis und Kurzbeschreibung je Möbel; die Vorschau zeigt das Möbel durchsichtig in Grün (passt) oder Rot (passt nicht).
+- **Stadt statt Weltende**: zwei Kreuzungen mit Ampeln und Zebrastreifen, Tankstelle, Parkplatz, Autowerkstatt, Imbiss, Brachfläche mit Plakatwand, geparkte Autos, Sträucher, Unkraut und Bäume. Die Straßen laufen weiter bis zum Horizont; am Rand des Spielbereichs sperren Baustellen die Fahrbahn, dazwischen stehen Blechzäune. Dahinter Gebäude und eine Skyline.
+- Tutorial-Karte kleiner und dezenter.
+
+### Geändert
+- Teile-Werte: Grafikkarte 22 €, Arbeitsspeicher 6 €, Mainboard (ohne CPU und Kühler) 9 €. Ein ganz zerlegter PC bringt etwas mehr Teile, dauert aber auch länger.
+- Speicherstand Version 15 (ausgebaute Teile, Aussehen); ältere Spielstände werden übernommen.
+
+### Behoben
+- Mitarbeiter fanden den Weg aus der Garage nicht (der Fahrer blieb vor dem offenen Tor stehen).
+
 ## [0.17.5] – 2026-10-18 – Phase 17.5: Visual Overhaul, Gameplay Polish & Immersion
 
 ### Neu

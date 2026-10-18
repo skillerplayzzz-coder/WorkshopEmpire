@@ -184,6 +184,8 @@ FWESavedPlayer FWESaveSystem::CapturePlayer(APlayerController* PC)
 	Player.PlayerName = PC->PlayerState ? PC->PlayerState->GetPlayerName() : FString();
 	Player.PawnTransform = Character->GetActorTransform();
 	Player.ControlRotation = PC->GetControlRotation();
+	Player.bHasLook = Character->HasLook();
+	Player.Look = Character->GetLook();
 	if (const UWEInventoryComponent* Inventory = Character->GetPlayerInventory())
 	{
 		Player.Inventory = ToSavedSlots(Inventory->GetAllSlots());
@@ -851,6 +853,10 @@ void FWESaveSystem::ApplySavedPlayer(APlayerController* PC, const FWESavedPlayer
 	}
 	Character->TeleportTo(Saved.PawnTransform.GetLocation(), Saved.PawnTransform.Rotator(), false, true);
 	PC->ClientSetRotation(Saved.ControlRotation);
+	if (Saved.bHasLook)
+	{
+		Character->ApplySavedLook(Saved.Look);
+	}
 	if (UWEInventoryComponent* Inventory = Character->GetPlayerInventory())
 	{
 		Inventory->SetAllSlots(FromSavedSlots(Saved.Inventory));

@@ -107,18 +107,34 @@ def _pack_part(pack, name, target, yaw, pivot, folder="Neighbourhood", tags=None
 
 
 # --- Street ---------------------------------------------------------------------------------------------
-def street(length=12000.0):
+def _split(x0, x1, gaps):
+    """[x0, x1] without the gap ranges (intersections)."""
+    parts, start = [], x0
+    for g0, g1 in sorted(gaps):
+        if g1 <= start or g0 >= x1:
+            continue
+        if g0 > start:
+            parts.append((start, g0))
+        start = max(start, g1)
+    if start < x1:
+        parts.append((start, x1))
+    return parts
+
+
+def street(length=12000.0, gaps=()):
+    """Main street along X; gaps = x ranges of crossing streets (no kerb, sidewalk or centre line there)."""
     road = surface("WornAsphalt") or surface("Asphalt")
     flat("Street", (0.0, STREET_Y), (length, STREET_HALF * 2.0), road, z=0.6)
     yellow = prop_material("PlasticYellow")
     for i in range(int(length / 600.0)):
         x = -length * 0.5 + 300.0 + i * 600.0
+        if any(g0 - 150.0 < x < g1 + 150.0 for g0, g1 in gaps):
+            continue
         flat(f"StreetLine{i}", (x, STREET_Y), (300.0, 12.0), yellow, z=1.2)
     walk = surface("Sidewalk") or surface("ConcreteFloor")
-    kerb = surface("ConcreteWall")
     for side, y in (("N", STREET_Y + STREET_HALF + WALK * 0.5), ("S", STREET_Y - STREET_HALF - WALK * 0.5)):
         # Raised sidewalk with a concrete kerb along the road edge; lowered in front of the lot gate.
-        segments = [(-length * 0.5, GATE[0]), (GATE[1], length * 0.5)] if side == "N" else [(-length * 0.5, length * 0.5)]
+        segments = _split(-length * 0.5, length * 0.5, list(gaps) + ([GATE] if side == "N" else []))
         for j, (x0, x1) in enumerate(segments):
             block(f"Sidewalk{side}{j}", ((x0 + x1) * 0.5, y, 0.0), (x1 - x0, WALK, 12.0), "Sidewalk" if walk else "ConcreteFloor")
             ky = y - WALK * 0.5 if side == "N" else y + WALK * 0.5
@@ -378,7 +394,8 @@ def growth_props():
 
 
 def build_all(menu=False):
-    street()
+    import world_city
+    street(world_city.MAIN_LENGTH, world_city.main_street_gaps())
     xs = [-4000.0, -2400.0, -800.0, 1500.0, 3000.0, 4500.0]  # none in front of the gate (the van drives out there)
     power_lines(xs, garage_drop=(-800.0, (-424.0, -300.0, 300.0)))
     street_lamps([-3200.0, -1600.0, 0.0, 1600.0, 3200.0], lights=True)
@@ -387,5 +404,8 @@ def build_all(menu=False):
     lot_clutter()
     if not menu:
         growth_props()
+    import os
+    if not os.environ.get("WE_NO_CITY"):
+        world_city.build_city(menu)
     unreal.log(f"WE_NEIGHBOURHOOD actors={_count['actors']}")
     return _count["actors"]

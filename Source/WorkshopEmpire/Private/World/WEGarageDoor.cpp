@@ -12,6 +12,9 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 
+#include "NavigationSystem.h"
+#include "NavLinkCustomComponent.h"
+
 #define LOCTEXT_NAMESPACE "WEGarageDoor"
 
 namespace WEGarageDoor
@@ -40,6 +43,11 @@ AWEGarageDoor::AWEGarageDoor()
 	{
 		Panel->SetStaticMesh(CubeMesh.Object);
 	}
+	// Phase 18: a link through the opening joins the navmesh inside and outside (it did not reliably bridge the
+	// threshold under the wall, so employees could not leave the garage). Enabled only while the door is open.
+	DoorLink = CreateDefaultSubobject<UNavLinkCustomComponent>(TEXT("DoorLink"));
+	DoorLink->SetLinkData(FVector(-90.f, 0.f, 0.f), FVector(90.f, 0.f, 0.f), ENavLinkDirection::BothWays);
+	DoorLink->SetEnabled(false);
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> PlaceholderMat(WEPlaceholder::MaterialPath);
 	PlaceholderMaterial = PlaceholderMat.Object;
 }
@@ -60,6 +68,7 @@ void AWEGarageDoor::BeginPlay()
 	Panel->SetRelativeLocation(FVector(0.f, 0.f, GetTargetHeight() + DoorHeight * 0.5f));
 	ApplyTint(); // transient tint is not saved with the map
 	ApplyShutterModel();
+	DoorLink->SetEnabled(bIsOpen);
 	if (UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(this))
 	{
 		Style->ApplyAll();
@@ -217,6 +226,12 @@ void AWEGarageDoor::StepMovement()
 	if (FMath::IsNearlyEqual(Location.Z, TargetZ, 0.1f))
 	{
 		GetWorldTimerManager().ClearTimer(MoveTimer);
+		// The panel moved by setting its location: tell the (dynamic) navmesh, and open/close the link through the door.
+		DoorLink->SetEnabled(bIsOpen);
+		if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))
+		{
+			Nav->UpdateComponentInNavOctree(*Panel);
+		}
 	}
 }
 

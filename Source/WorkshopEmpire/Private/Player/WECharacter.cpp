@@ -27,6 +27,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Player/WEInputConfig.h"
 #include "Player/WEMannequin.h"
+#include "Player/WEAvatarComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "Player/WEFootstepComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
@@ -68,6 +70,19 @@ AWECharacter::AWECharacter()
 	WEMannequin::Configure(GetMesh(), 88.f);
 	CreateDefaultSubobject<UWEFootstepComponent>(TEXT("Footsteps"));
 	GetMesh()->SetOwnerNoSee(true);
+	// Phase 18c: the visible body from the character creator; the mannequin above only drives its animation.
+	Avatar = CreateDefaultSubobject<UWEAvatarComponent>(TEXT("Avatar"));
+	Avatar->SetupAttachment(GetCapsuleComponent());
+	ThirdPersonBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("ThirdPersonBoom"));
+	ThirdPersonBoom->SetupAttachment(GetCapsuleComponent());
+	ThirdPersonBoom->SetRelativeLocation(FVector(0.f, 0.f, 55.f));
+	ThirdPersonBoom->TargetArmLength = 260.f;
+	ThirdPersonBoom->SocketOffset = FVector(0.f, 55.f, 15.f);
+	ThirdPersonBoom->bUsePawnControlRotation = true;
+	ThirdPersonBoom->ProbeSize = 14.f;
+	ThirdPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("ThirdPersonCamera"));
+	ThirdPersonCamera->SetupAttachment(ThirdPersonBoom);
+	ThirdPersonCamera->SetAutoActivate(false);
 
 	InteractionComponent = CreateDefaultSubobject<UWEInteractionComponent>(TEXT("InteractionComponent"));
 	BuildComponent = CreateDefaultSubobject<UWEBuildComponent>(TEXT("BuildComponent"));
@@ -93,6 +108,7 @@ void AWECharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME_CONDITION(AWECharacter, bIsSprinting, COND_SkipOwner);
 	DOREPLIFETIME(AWECharacter, HeldItem);
 	DOREPLIFETIME(AWECharacter, Forklift);
+	DOREPLIFETIME(AWECharacter, Look);
 }
 
 void AWECharacter::OnRep_PlayerState()
@@ -111,8 +127,75 @@ void AWECharacter::ApplyPlayerLook()
 {
 	// Player number decides body and clothes colour, the same on every machine.
 	const int32 Index = GetPlayerState() ? GetPlayerState()->GetPlayerId() : 0;
-	WEMannequin::ApplyBody(GetMesh(), Index % 2 == 1);
+	WEMannequin::ApplyBody(GetMesh(), HasLook() ? Look.Body == 1 : Index % 2 == 1);
 	WEMannequin::Tint(GetMesh(), WEMannequin::PlayerColor(Index));
+	// Phase 18c: with a chosen look the Quaternius body shows (driven by the mannequin), not on a dedicated server.
+	if (HasLook() && Avatar && GetNetMode() != NM_DedicatedServer)
+	{
+		Avatar->SetDriver(GetMesh());
+		Avatar->SetOwnerNoSee(!bThirdPerson);
+		Avatar->ApplyLook(Look);
+	}
+	SendProfileLook();
+}
+
+void AWECharacter::SendProfileLook()
+{
+	if (bProfileLookSent || !IsLocallyControlled() || !Controller || !Controller->IsPlayerController())
+	{
+		return;
+	}
+	bProfileLookSent = true;
+	bool bFound = false;
+	FWECharacterLook Profile = WELook::LoadProfileLook(&bFound);
+	if (!bFound)
+	{
+		// No character created on this computer yet: a random one (the creator can change it any time).
+		Profile = WELook::Random(GetTypeHash(GetPlayerState() ? GetPlayerState()->GetPlayerName() : GetName()));
+	}
+	if (HasAuthority())
+	{
+		SetLookAuthority(Profile);
+	}
+	else
+	{
+		ServerSetLook(Profile);
+	}
+}
+
+void AWECharacter::ServerSetLook_Implementation(const FWECharacterLook& NewLook)
+{
+	SetLookAuthority(NewLook);
+}
+
+void AWECharacter::SetLookAuthority(const FWECharacterLook& NewLook)
+{
+	if (!HasAuthority() || bLookFromSave)
+	{
+		return; // a loaded game keeps the look stored in it
+	}
+	const uint8 Revision = Look.Revision;
+	Look = NewLook;
+	Look.Clamp();
+	Look.Revision = static_cast<uint8>(FMath::Max(1, (Revision + 1) % 256));
+	OnRep_Look();
+	ForceNetUpdate();
+}
+
+void AWECharacter::ApplySavedLook(const FWECharacterLook& Saved)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	bLookFromSave = false;
+	SetLookAuthority(Saved);
+	bLookFromSave = true;
+}
+
+void AWECharacter::OnRep_Look()
+{
+	ApplyPlayerLook();
 }
 
 void AWECharacter::BeginPlay()
@@ -202,6 +285,10 @@ void AWECharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(InputConfig->QuickSaveAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickSave);
 	Input->BindAction(InputConfig->QuickLoadAction, ETriggerEvent::Started, this, &AWECharacter::Input_QuickLoad);
 	Input->BindAction(InputConfig->PauseAction, ETriggerEvent::Started, this, &AWECharacter::Input_Pause);
+	if (InputConfig->ViewAction)
+	{
+		Input->BindAction(InputConfig->ViewAction, ETriggerEvent::Started, this, &AWECharacter::Input_View);
+	}
 
 	AddInputMappingContext();
 }
@@ -210,6 +297,7 @@ void AWECharacter::NotifyControllerChanged()
 {
 	Super::NotifyControllerChanged();
 	AddInputMappingContext();
+	SendProfileLook();
 }
 
 void AWECharacter::AddInputMappingContext()
@@ -298,10 +386,12 @@ void AWECharacter::Input_Remove()
 
 void AWECharacter::Input_Setting()
 {
-	if (!BuildComponent->IsActive())
+	if (BuildComponent->IsActive())
 	{
-		InteractionComponent->RequestSettingInteraction();
+		BuildComponent->CycleCategory(1); // [T] in build mode: next category of the build menu
+		return;
 	}
+	InteractionComponent->RequestSettingInteraction();
 }
 
 void AWECharacter::Input_Cycle(const FInputActionValue& Value)
@@ -402,6 +492,28 @@ void AWECharacter::Input_Inventory()
 	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetController()))
 	{
 		PC->ToggleInventory();
+	}
+}
+
+void AWECharacter::Input_View()
+{
+	SetThirdPerson(!bThirdPerson);
+}
+
+void AWECharacter::SetThirdPerson(bool bOn)
+{
+	bThirdPerson = bOn;
+	FirstPersonCamera->SetActive(!bOn);
+	ThirdPersonCamera->SetFieldOfView(FirstPersonCamera->FieldOfView);
+	ThirdPersonCamera->SetActive(bOn);
+	// The own body: hidden in first person (the camera sits in the head), visible from behind.
+	if (Avatar && Avatar->HasBody())
+	{
+		Avatar->SetOwnerNoSee(!bOn);
+	}
+	else
+	{
+		GetMesh()->SetOwnerNoSee(!bOn);
 	}
 }
 
