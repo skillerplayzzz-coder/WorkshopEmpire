@@ -134,6 +134,17 @@ protected:
 	void RunSmokeRoleW();
 	void RunSmokeRoleX();
 
+	/** Phase 17.5: main menu, tutorial HUD, inventory, Ferrit OS apps, workshop look, pause menu (-WEShots=P175...). */
+	void RunPolishShots();
+	void RunPolishGameShots();
+	int32 FindMySlot(const TCHAR* ItemId) const;
+	/** Phase 17.5: hands-on disassembly in the work view (-WEShots=P175W on L_Garage). */
+	void RunWorkViewShots();
+	void RunVanShots();
+	void WorkViewTick();
+	FTimerHandle WorkViewTimer;
+	int32 WorkViewTasks = 0;
+
 	// Phase 13/14: sessions through the real menu (-WESmokeRole=MH|M1|M2|M3|M5 listen server + LAN, SH|SC Steam; -WEShots=P13 / P13C)
 	bool IsInMenu() const;
 	void LogCoop(const TCHAR* Step) const;

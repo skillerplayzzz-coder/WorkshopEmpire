@@ -1,4 +1,5 @@
 #include "Economy/WEContractComponent.h"
+#include "Progression/WETutorialComponent.h"
 #include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
 
@@ -96,8 +97,10 @@ bool UWEContractComponent::IsRepairedCustomerItem(const FWEContract& Contract, c
 bool UWEContractComponent::Matches(const FWEContract& Contract, const FWEItemInstance& Item)
 {
 	// Lower enum value = better condition. A device with an open repair (faults) does not count.
+	// Phase 17.5: locked, favourite and unreleased personal equipment never goes to a customer.
 	return Item.Definition == Contract.Item && Item.Condition <= Contract.MinCondition && Item.Quality >= Contract.MinQuality
-		&& !Item.IsPartiallyDisassembled() && !Item.IsCustomerItem() && (!Item.Repair.IsInProgress() || !Item.IsBroken());
+		&& !Item.IsPartiallyDisassembled() && !Item.IsCustomerItem() && (!Item.Repair.IsInProgress() || !Item.IsBroken())
+		&& !Item.IsSaleProtected();
 }
 
 int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const AWECharacter* Character)
@@ -281,6 +284,7 @@ EWEContractResult UWEContractComponent::Accept(const FGuid& Id, const FString& P
 	Contract->AcceptedBy = PlayerName;
 	Contract->ExpiresAt = GetServerTime() + Contract->DeliverySeconds;
 	UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' accepted by %s"), *Contract->Title.ToString(), *PlayerName);
+	if (UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this)) { Tutorial->NotifyEvent(EWETutorialEvent::ContractAccepted); }
 	OnRep_Contracts();
 	return EWEContractResult::Success;
 }

@@ -88,7 +88,20 @@ ITEMS = [
     # Phase 16: endgame machine - needs the factory hall (industrial power connection).
     furniture("Refinery", "Edelmetall-Rückgewinnung", "Schließt Platinenschrott auf: 20 Elektronikschrott → Edelmetallkonzentrat und Kupfergranulat. 12 kW – nur in der Fabrikhalle.", 9000, P.MACHINE,
               (180, 220, 230), (0.55, 0.50, 0.20), machine="MD_Refinery", requires="FactoryHall"),
-]
+    # Phase 17.5: decoration - makes the workshop yours (no storage; bought and placed like furniture, saved and synced the same way).
+    furniture("DecoPlant", "Deko: Pflanzkübel", "Ein bisschen Grün zwischen Öl und Metall.", 25, P.CRATE, (45, 95, 45), (0.3, 0.4, 0.25)),
+    furniture("DecoChalkboard", "Deko: Kreidetafel", "Für Aufträge, Notizen und Sprüche.", 35, P.CRATE, (45, 80, 150), (0.2, 0.2, 0.2)),
+    furniture("DecoTV", "Deko: Alter Fernseher", "Läuft immer, keiner schaut hin.", 45, P.CRATE, (50, 60, 50), (0.2, 0.2, 0.2)),
+    furniture("DecoChair", "Deko: Stuhl", "Für die Pause zwischendurch.", 20, P.CRATE, (55, 50, 85), (0.2, 0.3, 0.5)),
+    furniture("DecoBarrelStove", "Deko: Fassofen", "Ein alter Ölfass-Ofen für kalte Wintertage.", 60, P.CRATE, (65, 65, 90), (0.3, 0.25, 0.2)),
+    furniture("DecoWetFloor", "Deko: Warnschild", "Vorsicht, Rutschgefahr!", 10, P.CRATE, (35, 35, 65), (0.8, 0.7, 0.1)),
+    furniture("DecoExtinguisher", "Deko: Feuerlöscher", "Sicherheit zuerst.", 30, P.CRATE, (25, 25, 60), (0.7, 0.1, 0.1)),
+    furniture("DecoCompressor", "Deko: Kompressor", "Ein alter Kompressor, der in jede Werkstatt gehört.", 120, P.CRATE, (60, 110, 80), (0.3, 0.35, 0.3)),
+    furniture("DecoDrillPress", "Deko: Standbohrmaschine", "Schwer, alt, schön.", 180, P.CRATE, (60, 60, 170), (0.3, 0.35, 0.3)),
+    furniture("DecoCrates", "Deko: Getränkekisten", "Gestapelte Kisten mit leeren Flaschen.", 15, P.CRATE, (40, 60, 60), (0.6, 0.1, 0.1)),
+    furniture("DecoHangingLamp", "Deko: Industrielampe", "Eine Hängelampe über dem Arbeitsplatz.", 40, P.CRATE, (40, 40, 60), (0.2, 0.2, 0.2)),
+    furniture("DecoCoffee", "Deko: Kaffeewagen", "Ohne Kaffee läuft nichts – für die größere Werkstatt.", 150, P.CRATE, (60, 120, 100), (0.5, 0.3, 0.2), requires="WorkshopExtension"),
+    furniture("DecoCar", "Deko: Abgedecktes Auto", "Ein Projektwagen unter der Plane – für die Halle.", 400, P.CRATE, (180, 440, 145), (0.4, 0.4, 0.4), requires="CommercialHall"),]
 
 path = f"{FOLDER}/{NAME}"
 if eal.does_asset_exist(path):
@@ -134,6 +147,20 @@ VISUALS = {
     "Packer": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.8)]),
     "Furnace": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.9), deco("propane_tank", (-70, -110, 0))]),
     "Refinery": (None, 0.0, False, [deco("power_box_01", (0, -115, 120), (0, -90, 0), 0.8), deco("Barrel_01", (-60, -125, 0))]),
+    # Phase 17.5 decoration models.
+    "DecoPlant": ("planter_box_01", 90.0, False, []),
+    "DecoChalkboard": ("standing_chalkboard_01", 90.0, False, []),
+    "DecoTV": ("Television_01", 90.0, False, []),
+    "DecoChair": ("SchoolChair_01", 90.0, False, []),
+    "DecoBarrelStove": ("barrel_stove", 0.0, False, []),
+    "DecoWetFloor": ("WetFloorSign_01", 90.0, False, []),
+    "DecoExtinguisher": ("korean_fire_extinguisher_01", 0.0, False, []),
+    "DecoCompressor": ("old_military_compressor", 90.0, False, []),
+    "DecoDrillPress": ("old_drill_press", 90.0, False, []),
+    "DecoCrates": ("plastic_crate_02", 90.0, False, []),
+    "DecoHangingLamp": ("caged_hanging_light", 0.0, False, []),
+    "DecoCoffee": ("CoffeeCart_01", 90.0, False, []),
+    "DecoCar": ("covered_car", 0.0, False, []),
 }
 for f in ITEMS:
     fid = str(f.get_editor_property("id"))

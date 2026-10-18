@@ -17,6 +17,49 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## Phase 17.5 – Visual Overhaul, Gameplay Polish & Immersion, Läufe vom 2026-10-18
+
+Messrechner wie Phase 17 (RTX 3060, Ryzen 9 5900X). Geprüft im Editor-Spielmodus **und** im gepackten Spiel (Development, `Builds/P175_Dev`).
+
+### Ausgeführt
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor (Win64 Development) | ✅ 0 Warnungen/Fehler |
+| Automation-Suite `WorkshopEmpire` | ✅ **116/116** (110 alte + 6 neue; 1 erwartete Warnung „fell out of the world“ aus einem alten Test), Bericht `Saved/TestReports/P175Full` |
+| ↳ `Items.SaleProtection` | ✅ Werkzeug ohne Freigabe, Favorit, Gesperrt: Verkauf abgelehnt, kein Geld gebucht; nach Freigabe verkauft; gesperrte Ware zählt nicht für Aufträge; Markierungen trennen Stapel und überleben das Speichern; getragener Favorit wird abgelehnt |
+| ↳ `Expansion.SellOldBuilding` | ✅ größtes Gebäude unverkäuflich; Gegenstand im Gebäude blockiert, „Räumen“ trägt ihn hinaus; Verkauf bringt genau 35 %, Gebäude verschwindet, Personalplätze und Strom sinken, Stufe bleibt, wieder kaufbar |
+| ↳ `Workshop.WorkView.HandsOnSteps` | ✅ Plan auf Server und Client gleich; fremder Spieler, Abdeckung vor den Schrauben, falsches Werkzeug, zu schnell, doppelt: abgelehnt; Abbrechen lässt den Fortschritt am Gerät; Schritt von Hand liefert dieselben Teile wie der Timer; ohne Seitenschneider kein Schritt; „Automatisch“ läuft weiter |
+| ↳ `Workshop.Style.ApplyAndSave` | ✅ zu wenig Geld, gleiche Wahl, fremdes Gebäude, höhere Stufe: abgelehnt; Preis genau abgebucht (Buchung „Ausstattung“); Gestaltung und Tutorial überleben Speichern/Laden (Version 14) |
+| ↳ `Progression.Tutorial.Flow` | ✅ aus bis zum Start; nur das erwartete Ereignis schaltet weiter; alle 11 Schritte, „abgeschlossen“, Neustart, Überspringen |
+| **Screenshot-Läufe** `-WEShots=P175` (Hauptmenü, alle Menüseiten, neues Spiel mit Tutorial, Inventar mit Kontextmenü, Werkstatt-PC mit allen 8 Programmen, Rückfrage, Gestaltung, Pause, Einstellungen, Baumodus) bei 1280×720 und 1024×768 | ✅ je 25 Bilder, 0 Fehler, alle angesehen; dabei gefundene Fehler behoben (siehe unten) |
+| **Arbeitsansicht** `-WEShots=P175W`: ganzer alter Computer von Hand zerlegt (7 Schritte, 24–31 Handgriffe je nach Gerät), falsches Werkzeug zeigt Hinweis, danach defekter PC über [Q] repariert (Diagnose „Netzteil defekt“, Ausbau läuft) | ✅ 0 Ablehnungen durch den Server, alle Teile im Werkbanklager wie beim Timer |
+| **Transporter und Welt** `-WEShots=P175V`: alter und moderner Transporter, 5 Ansichten der Nachbarschaft | ✅ 105–112 fps bei 1280×720 im Editor-Spiel (GPU 8–11 ms), Nachbarschaft mit rund 590 Actors |
+| **Gepacktes Spiel** (Development, gecookt) mit P175, P175W, P175V | ✅ nach Korrektur (siehe unten) alle Läufe ohne Fehler: 25 / 12 / 8 Bilder, Arbeitsansicht 27 Handgriffe, 75–110 fps |
+| **UI- und Eingabetest** `P17UI_*` bei 1280×720, 1024×768, 1920×1080, 2560×1440 | ✅ je 17/17 Tastenprüfungen, alle Fenster passen |
+| **Regression** Netzwerktests A/B … W/X (Dedicated), I/J (Listen), 4 Spieler über das Hauptmenü (MH/M1–M3/M5), Spielläufe P5–P16, P13 + P13C | ✅ alle Schritte wie in Phase 17 (Abläufe Zeile für Zeile verglichen), Spielläufe 0 Fehler und beendet |
+
+### Gefunden und behoben
+
+- **Absturz im gepackten Spiel** beim Öffnen von „Unternehmen“: `GetNextTierText` merkte sich einen Zeiger in eine temporäre Kopie des Ausbaukatalogs (seit Phase 12; im Editor zufällig harmlos). Behoben.
+- Gepacktes Spiel: Garage-Karte und per Pfad geladene Inhalte (Icons, Modelle, Klänge) fehlten im Build → `MapsToCook` und `DirectoriesToAlwaysCook`.
+- Zaun-Draht war im gepackten Spiel unsichtbar (durchsichtiges Material auf Nanite) → Nanite für Zaun- und Mastteile aus.
+- Rolltor von innen durchsichtig (einseitiges Modell) → zweite, gedrehte Seite.
+- Lackiertes Tor spiegelte rosa → Lack ist nicht metallisch; Epoxid-Boden weniger spiegelnd.
+- Titelleisten und Zustandsstreifen zu dunkel bzw. unsichtbar (`SetBrushColor` multipliziert die Pinselfarbe).
+- Item-Bilder in den Inventarfeldern zu klein; Bilder werden jetzt auf das Objekt zugeschnitten.
+- Ferrit-OS-Fenster bei 4:3 über den Rand; Hauptmenü bei 4:3 mit schwarzen Balken; F5 schaltete im Entwicklungs-Build zusätzlich die Shader-Ansicht ein.
+
+### Nicht ausgeführt
+
+| Test | Grund |
+|---|---|
+| Shipping-Build | gehört zu Phase 18 |
+| Echtes Steam-Spiel mit zwei Konten | braucht ein zweites Steam-Konto (wie Phase 14) |
+| Handarbeit an der Werkbank im Koop über das Netz automatisiert | die Netzwerk-Rauchtests nutzen weiter den Timer-Weg; die Server-Prüfungen der Handgriffe sind durch den Unit-Test abgedeckt, ein Koop-Test von Hand gehört zu Mikes Praxistest |
+
+---
+
 ## Phase 17 – Qualitätssicherung, Läufe vom 2026-10-17/18
 
 Werkzeuge und Ablauf: `Docs/QA.md`. Messrechner: RTX 3060, Ryzen 9 5900X, 32 GB. Gespielt wurde im Editor-Spielmodus, nicht als verpacktes Spiel.

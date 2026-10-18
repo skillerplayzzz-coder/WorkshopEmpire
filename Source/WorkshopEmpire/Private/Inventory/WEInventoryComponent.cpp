@@ -442,6 +442,27 @@ void UWEInventoryComponent::SortItems()
 	NotifyChanged();
 }
 
+EWEInventoryResult UWEInventoryComponent::SetSlotMarks(int32 Slot, uint8 Mask, bool bSet)
+{
+	if (!HasAuthorityToModify())
+	{
+		return EWEInventoryResult::NotAllowed;
+	}
+	const FWEItemInstance* Item = GetItemInSlot(Slot);
+	if (!Item)
+	{
+		return EWEInventoryResult::InvalidSlot;
+	}
+	FWEItemInstance Changed = *Item;
+	Changed.Marks = bSet ? (Changed.Marks | Mask) : (Changed.Marks & ~Mask);
+	if (Changed.Marks != Item->Marks)
+	{
+		SetSlot(Slot, Changed);
+		NotifyChanged();
+	}
+	return EWEInventoryResult::Success;
+}
+
 void UWEInventoryComponent::SetAllSlots(const TArray<FWEInventorySlotData>& Slots)
 {
 	if (!HasAuthorityToModify())

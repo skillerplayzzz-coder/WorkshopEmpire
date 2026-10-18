@@ -37,3 +37,20 @@ Zusammen 14 Texturen.
 ### Kenney – Sounds (Ogg, CC0)
 
 `kenney_impact-sounds.zip` (130 Sounds: Metall, Holz, Plastik, Schritte), `kenney_interface-sounds.zip` (100 UI-Sounds), zusammen **ca. 5–10 MB**.
+
+## Phase 17.5 – Nachgeladen (2026-10-18)
+
+Mike hat die Liste am 2026-10-18 freigegeben. Download 329 MB, dieselben Quellen und Lizenzen wie oben (Poly Haven CC0).
+
+| Verwendung im Spiel | Asset-IDs |
+|---|---|
+| Straße und Nachbarschaft | `modular_chainlink_fence` (Zaunfelder und Pfosten einzeln verwendet), `modular_electricity_poles` (komplette Holzmasten aus den Vorlagen 1 und 2), `fire_hydrant`, `water_manhole_cover`, `utility_box_02`, `trashbag`, `covered_car`, `barrel_stove`, `security_camera_01`, `planter_box_01`, `wooden_crate_02` |
+| Werkstatt-PC | `metal_office_desk`, `desk_lamp_arm_01`, `SchoolChair_01`, `clipboard` |
+| Deko-Möbel (Baumodus) | `standing_chalkboard_01`, `WetFloorSign_01`, `CoffeeCart_01`, `plastic_crate_02`, `planter_box_01`, `SchoolChair_01`, `barrel_stove`, `covered_car` (dazu ältere: `Television_01`, `korean_fire_extinguisher_01`, `old_military_compressor`, `old_drill_press`, `caged_hanging_light`) |
+| Geladen, (noch) nicht verwendet | `street_lamp_01`, `street_lamp_02` (europäische Laternen – die US-Straßenlampen sind aus Grundformen gebaut), `television_02`, `plastic_crate_03`, `industrial_pastic_container`, `tire_pump`, `industrial_pipe_lamp`, `overhead_crane`, `Barrel_02`, `metal_jerrycan_green`, `circuit_board`, `old_military_crate`, `modular_street_seating`, `rusted_wheel_rim_02` (glTF-Import fehlgeschlagen) |
+
+24 Texturen: `road_damaged`, `worn_asphalt`, `asphalt_03`, `concrete_pavement`, `red_bricks_04`, `painted_worn_brick`, `dark_brick_wall`, `rusty_corrugated_iron`, `worn_corrugated_iron`, `rusted_shutter`, `painted_metal_shutter`, `rubber_tiles`, `painted_concrete`, `anti_slip_concrete`, `wood_floor_worn`, `old_linoleum_flooring_01`, `floor_tiles_06`, `plastered_wall_04`, `whitewashed_brick`, `metal_plate_02`, `green_metal_rust`, `gravel_floor`, `box_profile_metal_sheet`, `concrete_panels`.
+
+### Eigene Modelle (Phase 17.5)
+
+52 Modelle unter `Content/WorkshopEmpire/Art/Generated/SM_Gen_*` sind im Projekt selbst erzeugt (`Tools/Assets/build_models.py`, Geometry Scripting): die Gegenstände ohne passendes Fremdmodell (PC-Tower, Netzteil, Mainboard, Grafikkarten, Motoren, Barren, Ballen, Spulen, Paletten …), Monitor, Tastatur und Maus des Werkstatt-PCs, beide Transporter mit Rädern, Container, Müllcontainer, Betonsperren, Leitkegel, Fasspaletten, Zählerkasten und das Firmenschild. Materialien: `Materials/Props/MI_Prop_*` (eigene Instanzen mit Poly-Haven-Texturen). Item-Bilder werden im Spiel aus den Modellen gerendert (`-WEBakeIcons`). Die 65 Linien-Icons der Oberfläche, der Gefahrenstreifen, das „Ferrit“-Logo und das Desktop-Hintergrundbild erzeugt `Tools/UI/make_icons.py` (eigen, keine Fremdschrift).

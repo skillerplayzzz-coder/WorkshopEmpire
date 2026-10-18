@@ -187,6 +187,22 @@ FText UWESessionSubsystem::ConsumePendingMessage()
 
 // --- Host -------------------------------------------------------------------------------------------
 
+void UWESessionSubsystem::HostNewGame(const FString& CompanyName, bool bTutorial, bool bLAN)
+{
+	// The company name becomes the save slot (letters, digits, - and _ only).
+	FString SlotName;
+	for (const TCHAR C : CompanyName.Left(32))
+	{
+		SlotName.AppendChar(FChar::IsAlnum(C) || C == TEXT('-') || C == TEXT('_') ? C : TEXT('_'));
+	}
+	PendingNewGameOptions = FString::Printf(TEXT("?WETutorial=%d"), bTutorial ? 1 : 0);
+	if (!SlotName.IsEmpty())
+	{
+		PendingNewGameOptions += FString::Printf(TEXT("?WESlot=%s"), *SlotName);
+	}
+	HostGame(FString(), bLAN);
+}
+
 void UWESessionSubsystem::HostGame(const FString& Slot, bool bLAN)
 {
 	PendingSlot = Slot;
@@ -255,6 +271,11 @@ void UWESessionSubsystem::OpenGarage(const FString& Slot, bool bLAN)
 	{
 		Options += FString::Printf(TEXT("?WELoad=%s"), *Slot);
 	}
+	else
+	{
+		Options += PendingNewGameOptions; // Phase 17.5: company name (save slot) and tutorial
+	}
+	PendingNewGameOptions.Reset();
 	if (GetService() != EWEOnlineService::Steam)
 	{
 		// With Steam the engine already uses the Steam name.

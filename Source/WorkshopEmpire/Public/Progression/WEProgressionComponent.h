@@ -86,6 +86,34 @@ public:
 	/** Re-applies all effects to the world (furniture, storages, inventories, lights). Any machine. */
 	void ApplyEffects();
 
+	// --- Selling old buildings (Phase 17.5) -----------------------------------------------------------
+
+	/** Share of the purchase price paid back when a building is sold (a clear loss). */
+	static constexpr float BuildingResaleFactor = 0.35f;
+
+	/** An owned building upgrade while a bigger building is owned too (the garage itself is the company's seat). */
+	bool CanOfferBuildingSale(FName Id) const;
+	FWEMoney GetBuildingSalePrice(FName Id) const;
+
+	/** What stops the sale right now: items, furniture/machines or employees inside, power or staff limits. Empty = can be sold. */
+	TArray<FText> GetBuildingSaleBlockers(FName Id) const;
+
+	/** What changes: power capacity, staff places, storage places, company tier. */
+	TArray<FText> GetBuildingSaleEffects(FName Id) const;
+
+	/** True if Location lies inside the (bought) building of the upgrade Id. */
+	bool IsInsideBuilding(FName Id, const FVector& Location) const;
+
+	/**
+	 * Server only: clears what can be moved automatically - loose items go to the delivery pallet, employees
+	 * working there lose that task and wait in the yard. Furniture and machines must be moved by the players.
+	 * Returns the number of things moved.
+	 */
+	int32 ClearBuildingForSale(FName Id);
+
+	/** Server only: gives a building upgrade back (payment by the caller). Fails while blockers exist. */
+	bool RevokeBuilding(FName Id);
+
 	// --- Guide ------------------------------------------------------------------------------------
 
 	static constexpr int32 NumGuideSteps = 6;

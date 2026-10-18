@@ -44,8 +44,22 @@ public:
 	void CloseTrade();
 	bool IsTradeOpen() const;
 
-	/** Any full-screen menu (inventory, trade, pause) open. */
-	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen() || IsPauseMenuOpen(); }
+	// --- Work view at the workbench (Phase 17.5, local) ------------------------------------------
+
+	/** Close-up of the device on Bench; tools and hands-on tasks. bRepair: start in repair mode. */
+	void OpenWorkView(class AWEWorkbench* Bench, bool bRepair);
+	void CloseWorkView();
+	bool IsWorkViewOpen() const;
+	class UWEWorkViewWidget* GetWorkView() const { return WorkViewWidget; }
+
+	/** Work view requests (server checks reach, tool, order and time). */
+	void RequestWorkStart(class AWEWorkbench* Bench, bool bRepair);
+	void RequestWorkTask(class AWEWorkbench* Bench, int32 TaskIndex, EWEToolType Tool);
+	void RequestWorkAuto(class AWEWorkbench* Bench, bool bRepair);
+	void RequestWorkCancel(class AWEWorkbench* Bench);
+
+	/** Any full-screen menu (inventory, trade, pause, work view) open. */
+	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen() || IsPauseMenuOpen() || IsWorkViewOpen(); }
 
 	// --- Pause menu and session (Phase 13) ----------------------------------------------------------
 
@@ -82,6 +96,15 @@ public:
 	void RequestAcceptContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
 	void RequestBuyUpgrade(class AWETraderTerminal* Terminal, FName UpgradeId);
 	void RequestBid(class AWETraderTerminal* Terminal, const FGuid& LotId);
+	/** Phase 17.5: sell an old building / move its loose items and employees out first. */
+	void RequestSellBuilding(class AWETraderTerminal* Terminal, FName UpgradeId);
+	void RequestClearBuilding(class AWETraderTerminal* Terminal, FName UpgradeId);
+	/** Phase 17.5: personalise a building (paint, floor, lighting, door) from the workshop PC. */
+	void RequestApplyStyle(class AWETraderTerminal* Terminal, FName Zone, uint8 Category, int32 Option);
+	/** Phase 17.5 tutorial: 0 = start / restart, 1 = skip. */
+	void RequestTutorial(uint8 Action);
+	/** Phase 17.5 tutorial: things only the client sees (inventory opened, work view, PC). */
+	void NotifyTutorial(uint8 Event);
 
 	// Staff (Phase 11).
 	void RequestHire(class AWETraderTerminal* Terminal, int32 ApplicantIndex);
@@ -110,6 +133,7 @@ public:
 	void ServerDevEndAuctions();
 
 	class UWETradeWidget* GetTradeWidget() const { return TradeWidget; }
+	UWEInventoryWidget* GetInventoryWidget() const { return InventoryWidget; }
 
 	/** Development builds only: adds a customer order offer from a fixed template (test automation). */
 	UFUNCTION(Server, Reliable)
@@ -133,6 +157,9 @@ public:
 	void RequestQuickTransfer(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To);
 	void RequestDropFromInventory(UWEInventoryComponent* From, int32 Slot, int32 Quantity);
 	void RequestSort(UWEInventoryComponent* Inventory);
+	/** Phase 17.5: favourite / lock / release-for-sale marks on a stack (FWEItemInstance::EMarks). */
+	void RequestSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet);
+	bool ExecuteSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet);
 
 	// --- Save / load (host only) ---------------------------------------------------------------
 
@@ -169,6 +196,9 @@ protected:
 	void ServerSortInventory(UWEInventoryComponent* Inventory);
 
 	UFUNCTION(Server, Reliable)
+	void ServerSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet);
+
+	UFUNCTION(Server, Reliable)
 	void ServerSell(class AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity, FGuid RequestId);
 
 	UFUNCTION(Server, Reliable)
@@ -194,6 +224,40 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerBid(class AWETraderTerminal* Terminal, FGuid LotId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSellBuilding(class AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerClearBuilding(class AWETraderTerminal* Terminal, FName UpgradeId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerApplyStyle(class AWETraderTerminal* Terminal, FName Zone, uint8 Category, int32 Option, FGuid RequestId);
+
+	UFUNCTION(Server, Reliable)
+	void ServerTutorial(uint8 Action);
+
+	/** Phase 17.5: left the workshop PC (the monitor stops showing this player's name). */
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveComputer(class AWETraderTerminal* Terminal);
+
+	UFUNCTION(Server, Reliable)
+	void ServerTutorialEvent(uint8 Event);
+
+	UFUNCTION(Server, Reliable)
+	void ServerWorkStart(class AWEWorkbench* Bench, bool bRepair);
+
+	UFUNCTION(Server, Reliable)
+	void ServerWorkTask(class AWEWorkbench* Bench, uint8 TaskIndex, EWEToolType Tool);
+
+	UFUNCTION(Server, Reliable)
+	void ServerWorkAuto(class AWEWorkbench* Bench, bool bRepair);
+
+	UFUNCTION(Server, Reliable)
+	void ServerWorkCancel(class AWEWorkbench* Bench);
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UWEWorkViewWidget> WorkViewWidget;
 
 public:
 	// --- Build mode (Phase 8): the client sends the snapped transform, the server checks everything again.
@@ -221,6 +285,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class UWETradeWidget> TradeWidget;
+
+	/** Phase 17.5: the workshop PC this player is sitting at (view on its monitor). */
+	TWeakObjectPtr<class AWETraderTerminal> ComputerTerminal;
 
 	void ShowLocalMessage(const FText& Message);
 

@@ -5,7 +5,23 @@
 #include "EngineUtils.h"
 #include "Online/WESessionSubsystem.h"
 #include "UI/WEMenuWidgets.h"
+#include "UI/WESettings.h"
 #include "WELog.h"
+
+void AWEMenuPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+	// Phase 17.5: the camera drifts slowly over the workshop scene (a living background, no cuts).
+	if (ACameraActor* Camera = MenuCamera.Get())
+	{
+		MenuTime += DeltaTime;
+		const float S = FMath::Sin(MenuTime * 0.07f);
+		const float C = FMath::Cos(MenuTime * 0.05f);
+		const FVector Offset = CameraStart.GetRotation().GetRightVector() * (S * 70.f) + FVector(0.f, 0.f, C * 12.f);
+		Camera->SetActorLocation(CameraStart.GetLocation() + Offset);
+		Camera->SetActorRotation(CameraStart.Rotator() + FRotator(C * 0.8f, S * -3.f, 0.f));
+	}
+}
 
 AWEMenuGameMode::AWEMenuGameMode()
 {
@@ -23,7 +39,10 @@ void AWEMenuPlayerController::BeginPlay()
 	if (TActorIterator<ACameraActor> Camera(GetWorld()); Camera)
 	{
 		SetViewTarget(*Camera);
+		MenuCamera = *Camera;
+		CameraStart = Camera->GetActorTransform();
 	}
+	WESettings::ApplyGameValues(WESettings::Load());
 	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
 	if (Session)
 	{

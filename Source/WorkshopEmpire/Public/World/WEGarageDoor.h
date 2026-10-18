@@ -35,6 +35,9 @@ public:
 	/** Server only. */
 	void SetOpen(bool bOpen);
 
+	/** Phase 17.5: painted door (nullptr = original galvanised look). */
+	void ApplyStyle(const struct FWEStyleOption* Paint);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -47,6 +50,8 @@ protected:
 	/** Rolls the shutter model up with the panel (visual only). */
 	void UpdateShutterVisual();
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ShutterVisual;
+	/** Phase 17.5: the same shutter turned round, so the door is solid from inside too (the model is one-sided). */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ShutterBack;
 	void StartMoving();
 	void StepMovement();
 	float GetTargetHeight() const;

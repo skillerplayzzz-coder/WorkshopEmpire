@@ -247,7 +247,8 @@ spawn(unreal.WEScrapPile, (760, 260, 0), label="ScrapPile", folder="World")
 staff_spawn = spawn(unreal.TargetPoint, (300, 60, 100), label="StaffSpawn", folder="Staff")
 staff_spawn.set_editor_property("tags", ["WE_StaffSpawn"])
 # Company van outside the door, forklift in the corner by the bench (both hidden until bought).
-spawn(unreal.WEVehicle, (760, -200, 0), label="CompanyVan", folder="Logistics")
+# Phase 17.5: the van parks nose to the street, so it drives out through the lot gate.
+spawn(unreal.WEVehicle, (780, -560, 0), (0.0, -90.0, 0.0), label="CompanyVan", folder="Logistics")
 spawn(unreal.WEForklift, (-290, -215, 0), label="Forklift", folder="Logistics")
 # Navigation for employees (rebuilt at runtime when furniture moves, see DefaultEngine.ini).
 nav = spawn(unreal.NavMeshBoundsVolume, (1000, 700, 150), label="NavBounds", folder="Staff")
@@ -341,6 +342,12 @@ prop_model("portable_generator", (980, -420, 0), 120.0)
 prop_model("plastic_crate_01", (650, 330, 0), 25.0)
 prop_model("plastic_crate_01", (650, 330, 26), 10.0)
 prop_model("security_light", (424, 0, 300), 0.0, collide=False)
+
+# --- Neighbourhood (Phase 17.5): street, power lines, fence, neighbours, clutter, props that come with growth ---
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import world_neighbourhood
+world_neighbourhood.build_all(menu=False)
 
 # --- Atmosphere (Phase 15): dust floating in the workshop light, room tone inside, wind and birds outside ---
 motes = spawn(unreal.WEFxEmitter, (0, 0, 150), label="DustMotes", folder="Atmosphere")

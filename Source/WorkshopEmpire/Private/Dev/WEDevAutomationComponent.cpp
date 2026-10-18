@@ -94,6 +94,14 @@ void UWEDevAutomationComponent::BeginPlay()
 
 	FParse::Value(FCommandLine::Get(), TEXT("WESmokeRole="), Role);
 	FParse::Value(FCommandLine::Get(), TEXT("WEShots="), ShotName);
+	// Phase 17.5: the older scripts press [E] at the bench for timed steps; only the P175 runs use the work view.
+	if ((!Role.IsEmpty() || !ShotName.IsEmpty()) && !ShotName.StartsWith(TEXT("P175")))
+	{
+		if (IConsoleVariable* WorkView = IConsoleManager::Get().FindConsoleVariable(TEXT("we.WorkView")))
+		{
+			WorkView->Set(0);
+		}
+	}
 	// Phase 17: headless test clients would run at hundreds of fps and overflow the movement prediction
 	// ("Hit limit of 96 saved moves"); a real player's frame rate is far lower.
 	if (!Role.IsEmpty() && (GUsingNullRHI || !FApp::CanEverRender()))
@@ -199,6 +207,10 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (Role == TEXT("SH") || Role == TEXT("SC"))
 	{
 		RunSteamRole();
+	}
+	else if (ShotName.StartsWith(TEXT("P175")))
+	{
+		RunPolishShots();
 	}
 	else if (ShotName.StartsWith(TEXT("P17UI")))
 	{
@@ -2741,7 +2753,7 @@ void UWEDevAutomationComponent::PressKey(const FKey& Key, bool bDown)
 	if (PC && GEngine && GEngine->GameViewport)
 	{
 		// The same path as a real key: viewport -> PlayerController -> Enhanced Input.
-		PC->InputKey(FInputKeyEventArgs(GEngine->GameViewport->Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(), Key, bDown ? IE_Pressed : IE_Released));
+		PC->InputKey(FInputKeyEventArgs(GEngine->GameViewport->Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(), Key, bDown ? IE_Pressed : IE_Released, FPlatformTime::Cycles64()));
 	}
 }
 

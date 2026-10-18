@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.17.5] – 2026-10-18 – Phase 17.5: Visual Overhaul, Gameplay Polish & Immersion
+
+### Neu
+- **Neue Oberfläche** in einem Werkstatt-Stil (Stahl, Signalgelb, kantige Formen, eigene Icons, Klickgeräusche, kurze Einblendungen): HUD mit Auftragskarte, Statuskarte, Tastenhinweisen und Meldungen mit Symbol; Inventar mit Bildern, Zustandsstreifen, Detailkarte und Rechtsklick-Menü; Pausemenü.
+- **Item-Bilder**: jeder Gegenstand hat ein Bild, gerendert aus seinem Modell.
+- **Einstellungen**: Grafikqualität, Auflösung, Fenstermodus, VSync, Bildrate, UI-Skalierung, Mausempfindlichkeit, Maus invertieren, Sichtfeld, Lautstärke – im Hauptmenü und im Spiel.
+- **Hauptmenü** neu: Spiel fortsetzen (neuester Spielstand), Neues Spiel (Firmenname, Tutorial ja/nein), Multiplayer, Einstellungen, Beenden; dahinter die Werkstatt im Industriegebiet.
+- **Werkstatt-PC** statt Marktterminal: Schreibtisch mit Monitor, Tastatur, Maus, Lampe und Stuhl. [E] setzt sich davor, die Ansicht fährt auf den Bildschirm, und „Ferrit OS“ startet: Desktop, Taskleiste, Fenster zum Verschieben und Minimieren, Programme Marktplatz, Aufträge, Auktionen, Personal & Logistik, Finanzen, Unternehmen, Gestaltung, Hilfe. Andere Spieler sehen auf dem Monitor, wer gerade daran sitzt.
+- **Arbeitsansicht an der Werkbank**: [E] (Zerlegen) oder [Q] (Reparieren) auf ein Gerät zeigt es von oben. Werkzeug wählen (1–8, Mausrad), dann auf jeder Schraube, Klammer, jedem Stecker, der Abdeckung und den Teilen die Maustaste halten – in der richtigen Reihenfolge. Reparieren: Messpunkte prüfen, defektes Teil ausbauen, Ersatzteil einsetzen, einschalten, reinigen. Schrauben drehen sich heraus, Teile wandern in die Ablage, jedes Werkzeug klingt anders. Was ein Schritt verlangt, ergibt sich aus den Gerätedaten, deshalb ist jedes Gerät anders. „Automatisch [Q]“ macht den Schritt wie bisher; Mitarbeiter arbeiten weiter so.
+- **Industriegebiet**: Straße mit Gehwegen, Gullydeckeln und Hydrant, Holzmasten mit Leitungen (eine führt zur Garage), Straßenlampen, Maschendrahtzaun mit Tor zur Straße, Nachbarhäuser aus Backstein und Beton, Wellblechhalle, Containerlager, Müllcontainer, abgedecktes Auto, Paletten, Fässer, Absperrungen, Firmenschild. Mit den Ausbaustufen kommen Palettenstapel, Container, ein zweites Schild und mehr dazu.
+- **Werkstatt gestalten** (Programm „Gestaltung“): pro Gebäude Wandfarbe (11), Boden (8), Licht (5) und Tor (7); manche erst ab einer höheren Stufe. Gespeichert und für alle Mitspieler gleich.
+- **13 Deko-Möbel** im Baumodus (Pflanzkübel, Kreidetafel, Fernseher, Stuhl, Fassofen, Warnschild, Feuerlöscher, Kompressor, Standbohrmaschine, Getränkekisten, Industrielampe, Kaffeewagen, abgedecktes Auto).
+- **Verkaufsschutz**: Werkzeuge und Tragehilfen sind persönliche Ausrüstung und werden ohne Freigabe nie verkauft; Gegenstände lassen sich als Favorit markieren oder sperren (Rechtsklick im Inventar); seltene und wertvolle Stücke fragen vor dem Verkauf nach. Händler, Aufträge und Verkaufstouren halten sich daran. Der Marktplatz trennt Verkaufsware und geschützte Teile.
+- **Alte Gebäude verkaufen** (Programm „Unternehmen“): 35 % des Kaufpreises zurück, mit Rückfrage; nur wenn ein größeres Gebäude da ist und nichts mehr darin steht – „Räumen“ bringt lose Gegenstände zur Lieferpalette und Mitarbeiter hinaus. Strom und Personalplätze sinken entsprechend.
+- **Tutorial** (beim neuen Spiel angeboten, jederzeit überspringbar, im Pausemenü neu startbar): 11 kurze Schritte von Laufen über Inventar, Zerlegen, Werkstatt-PC, Verkaufen, Auftrag und Reparieren bis Speichern, mit Markierungen in der Welt; der Fortschritt wird gespeichert.
+- **Transporter**: alter, verbrauchter Transporter mit Dachträger und Rost, moderner Lieferwagen mit Zierstreifen; Räder drehen sich beim Fahren; der Wagen parkt mit der Nase zur Straße und fährt durchs Tor.
+
+### Behoben
+- Absturz im gepackten Spiel beim Anzeigen der nächsten Firmenstufe (seit 0.12.0, im Editor nicht sichtbar).
+- Rolltor war von innen durchsichtig.
+- F5 schaltete im Entwicklungs-Build zusätzlich eine Shader-Ansicht ein.
+
+### Technisch
+- Spielstand-Version 14 (Gestaltung, Tutorial, Markierungen an Gegenständen); ältere Spielstände laden weiter.
+- Gepacktes Spiel: beide Karten und alle per Pfad geladenen Inhalte werden mitgekocht.
+- Neue Inhalte aus CC0-Quellen und eigene Modelle, siehe `Docs/ASSET_SOURCES.md`; Nachbarschaft: `Tools/Maps/world_neighbourhood.py`.
+- Dev-Läufe `-WEShots=P175` (Menüs und Oberfläche), `P175W` (Arbeitsansicht), `P175V` (Transporter und Welt); Konsolenvariable `we.WorkView`.
+- 6 neue Tests, insgesamt 116.
+
 ## [0.17.0] – 2026-10-18 – Phase 17: Qualitätssicherung
 
 ### Behoben

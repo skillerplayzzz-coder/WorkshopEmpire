@@ -9,6 +9,7 @@
 
 class AWECharacter;
 class UInstancedStaticMeshComponent;
+class UStaticMeshComponent;
 class UWEInventoryComponent;
 class UWETraderDefinition;
 struct FWETraderStockEntry;
@@ -23,7 +24,9 @@ enum class EWETradeResult : uint8
 	NoBuyer,
 	NotEnoughMoney,
 	OutOfStock,
-	ContractFailed
+	ContractFailed,
+	/** Phase 17.5: locked/favourite item or personal equipment not released for sale. */
+	Protected
 };
 
 /** One offer currently in stock (rolled at each restock from the traders' stock entries). */
@@ -104,6 +107,10 @@ public:
 	EWETradeResult Buy(AWECharacter* Character, int32 OfferIndex, int32 Quantity, const FGuid& RequestId);
 	/** Buys a workshop upgrade for the company (spec §5.5). */
 	EWETradeResult BuyUpgrade(AWECharacter* Character, FName UpgradeId, const FGuid& RequestId);
+	/** Phase 17.5: sells an old building (35 % of its price) once nothing is left inside. */
+	EWETradeResult SellBuilding(AWECharacter* Character, FName UpgradeId, const FGuid& RequestId);
+	/** Phase 17.5: moves loose items and employees out of a building that is to be sold. */
+	EWETradeResult ClearBuilding(AWECharacter* Character, FName UpgradeId);
 
 	EWETradeResult AcceptContract(AWECharacter* Character, const FGuid& ContractId, const FGuid& RequestId);
 
@@ -124,6 +131,8 @@ public:
 	void SetRandomSeed(int32 Seed) { StockRandom.Initialize(Seed); }
 
 	static FText ResultText(EWETradeResult Result);
+	/** Why a protected item cannot be sold (locked, favourite, equipment). */
+	static FText ProtectedText(const FWEItemInstance& Item);
 
 protected:
 	virtual void BeginPlay() override;
@@ -138,11 +147,47 @@ protected:
 	/** Small items go into the buyer's inventory, the rest onto the delivery pallet. */
 	void DeliverPurchase(AWECharacter* Character, const FWEItemInstance& Item);
 
+	/** Phase 17.5: meshes of the workshop PC set, screen widget and camera. */
+	void SetupModel();
+
+public:
+	/** Phase 17.5: the camera in front of the monitor (view while using the PC). */
+	class UCameraComponent* GetScreenCamera() const { return ScreenCamera; }
+
+protected:
+
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UInstancedStaticMeshComponent> Body;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UInstancedStaticMeshComponent> Screen;
+
+	// --- Phase 17.5: the workshop PC (desk, tower, monitor with Ferrit OS, keyboard, mouse) ----------------
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> DeskMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> TowerMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> MonitorMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> KeyboardMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> MouseMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> LampMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> ChairMesh;
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> ClipboardMesh;
+	/** The monitor shows the Ferrit OS desktop to everybody in the room. */
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<class UWidgetComponent> ScreenWidget;
+	/** The view while somebody uses the PC: straight at the monitor. */
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<class UCameraComponent> ScreenCamera;
+
+	/** True when the modelled PC set is there (otherwise the old box desk is shown). */
+	bool bModelled = false;
+
+public:
+	/** Phase 17.5: who is sitting at the PC (shown on the monitor for everybody). */
+	UPROPERTY(Replicated)
+	FString UserName;
+
+	/** Local player at the PC: the monitor in the world shows "in use". Also tells the server (name for others). */
+	void SetLocalUser(AWECharacter* Character, bool bUsing);
+
+protected:
 
 	UPROPERTY(EditAnywhere, Category = "Trade")
 	TArray<TObjectPtr<UWETraderDefinition>> Traders;

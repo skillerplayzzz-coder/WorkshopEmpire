@@ -7,7 +7,9 @@
 
 class AWECharacter;
 class AWEPickupItem;
+class UCameraComponent;
 class USoundBase;
+struct FWEWorkPlan;
 class UStaticMeshComponent;
 struct FWEDisassemblyStep;
 
@@ -20,7 +22,9 @@ enum class EWEWorkbenchEvent : uint8
 	StepStarted,
 	StepCompleted,
 	StepCancelled,
-	Finished
+	Finished,
+	/** Phase 17.5 work view: one hands-on task (screw, plug, part ...) done. */
+	TaskDone
 };
 
 /** Kind of repair work (§9.5). None = the running job is a disassembly step. */
@@ -62,6 +66,11 @@ struct WORKSHOPEMPIRE_API FWEWorkbenchWork
 	/** Repair job kind (None = disassembly step) and the fault it works on. */
 	UPROPERTY() EWERepairStepKind RepairKind = EWERepairStepKind::None;
 	UPROPERTY() int8 RepairFault = INDEX_NONE;
+
+	/** Phase 17.5: hands-on step in the work view - finished task by task (bit per task of FWEWorkPlan), no timer. */
+	UPROPERTY() bool bManual = false;
+	UPROPERTY() uint8 TaskCount = 0;
+	UPROPERTY() uint32 TaskMask = 0;
 
 	/** Incremented on every event so clients react even to repeated events (sounds, effects). */
 	UPROPERTY() uint16 EventCounter = 0;
@@ -170,6 +179,26 @@ public:
 	/** Deterministic outputs for tests. */
 	void SetRandomSeed(int32 Seed) { Random.Initialize(Seed); }
 
+	// --- Work view (Phase 17.5): the same steps by hand - screws, plugs, cover, parts -------------------
+
+	/** Hands-on plan of the disassembly step (bRepair false) or repair action (true) that runs now or comes next. */
+	FWEWorkPlan GetWorkPlan(bool bRepair) const;
+	bool IsManualWork() const { return Work.bManual; }
+	bool IsRepairJob() const { return Work.RepairKind != EWERepairStepKind::None; }
+	uint32 GetTaskMask() const { return Work.TaskMask; }
+
+	/** Server only. Starts the next step (or repair action) for Character without a timer: it ends when every task is done. */
+	bool TryStartManualStep(AWECharacter* Character, bool bRepair);
+	/** Server only. One task of the running hands-on step, done with Tool. Checks order, tool and the minimum time. */
+	bool DoManualTask(AWECharacter* Character, int32 TaskIndex, EWEToolType Tool);
+	/** Server only. Character leaves the work view: a half-done hands-on step is dropped (the device keeps its progress). */
+	void CancelManualStep(AWECharacter* Character);
+
+	/** Close-up camera over the work spot (view target of the work view). */
+	UCameraComponent* GetWorkCamera() const { return WorkCamera; }
+	/** Local: puts the work camera above the device on the bench, looking down at it. */
+	void AimWorkCamera();
+
 	/** Max distance of the worker from the bench; further away cancels the step on completion. */
 	float GetWorkReach() const { return WorkReach; }
 
@@ -204,6 +233,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<USceneComponent> WorkPoint;
 
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UCameraComponent> WorkCamera;
+
 	/** Thin bar on the front edge: shows progress (orange) and flashes green when a step is done. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> WorkIndicator;
@@ -230,4 +262,8 @@ private:
 	float FlashUntil = 0.f;
 	float LocalStepStartTime = 0.f;
 	uint16 LastHandledEvent = 0;
+	/** Server: when the last hands-on task was done (minimum time per task). */
+	float LastTaskTime = 0.f;
+	FTimerHandle ManualIdleTimer;
+	void ClearManualState();
 };

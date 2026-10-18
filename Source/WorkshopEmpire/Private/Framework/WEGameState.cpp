@@ -9,6 +9,8 @@
 #include "Workshop/WEWorkshopLayoutComponent.h"
 #include "Machines/WEPowerGridComponent.h"
 #include "Staff/WEStaffComponent.h"
+#include "Progression/WETutorialComponent.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
 
 AWEGameState::AWEGameState()
 {
@@ -21,4 +23,6 @@ AWEGameState::AWEGameState()
 	PowerGrid = CreateDefaultSubobject<UWEPowerGridComponent>(TEXT("PowerGrid"));
 	Staff = CreateDefaultSubobject<UWEStaffComponent>(TEXT("Staff"));
 	Milestones = CreateDefaultSubobject<UWEMilestoneComponent>(TEXT("Milestones"));
+	Tutorial = CreateDefaultSubobject<UWETutorialComponent>(TEXT("Tutorial"));
+	WorkshopStyle = CreateDefaultSubobject<UWEWorkshopStyleComponent>(TEXT("WorkshopStyle"));
 }

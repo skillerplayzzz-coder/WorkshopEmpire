@@ -38,6 +38,8 @@ public:
 
 	/** [E]: drop the held item, otherwise interact with the focused object. */
 	void RequestPrimaryInteraction();
+	/** Phase 17.5: [E]/[Q] on a device on a workbench opens the work view locally. False = normal interaction. */
+	bool TryOpenWorkView(AActor* Target, bool bRepair);
 
 	/** Sends an interaction request for a specific target (used by input and by test automation). */
 	void RequestInteractWith(AActor* Target);

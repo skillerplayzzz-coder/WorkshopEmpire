@@ -5,6 +5,7 @@
 #include "Items/WEItemTypes.h"
 #include "Progression/WEMilestoneComponent.h"
 #include "Staff/WEStaffTypes.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
 #include "WESaveGame.generated.h"
 
 /** Item reference by stable ItemId (not by asset path), so assets can move without breaking saves. */
@@ -25,6 +26,8 @@ struct WORKSHOPEMPIRE_API FWESavedItem
 	UPROPERTY() uint8 RepairRemoved = 0;
 	UPROPERTY() uint8 RepairReplaced = 0;
 	UPROPERTY() uint8 RepairFlags = 0;
+	/** Since save version 14: favourite / locked / released for sale (FWEItemInstance::EMarks). */
+	UPROPERTY() uint8 Marks = 0;
 };
 
 USTRUCT()
@@ -250,8 +253,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). 13: Phase 16 (company statistics, milestones). */
-	static constexpr int32 CurrentVersion = 13;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). 13: Phase 16 (company statistics, milestones). 14: Phase 17.5 (item marks, workshop look, tutorial, sold buildings via upgrades). */
+	static constexpr int32 CurrentVersion = 14;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -302,4 +305,10 @@ public:
 	UPROPERTY() bool bHasMilestones = false;
 	UPROPERTY() FWECompanyStats CompanyStats;
 	UPROPERTY() TArray<FName> CompletedMilestones;
+
+	// Since version 14 (Phase 17.5). Older saves: original look, no tutorial (state Off).
+	UPROPERTY() bool bHasStyle = false;
+	UPROPERTY() TArray<FWEZoneStyle> ZoneStyles;
+	UPROPERTY() uint8 TutorialState = 0;
+	UPROPERTY() int32 TutorialStep = 0;
 };

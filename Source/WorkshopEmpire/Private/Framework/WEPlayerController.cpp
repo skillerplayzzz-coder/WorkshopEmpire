@@ -13,6 +13,13 @@
 #include "Economy/WECompanyComponent.h"
 #include "Staff/WEEmployee.h"
 #include "Staff/WEStaffComponent.h"
+#include "Progression/WETutorialComponent.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
+#include "UI/WESettings.h"
+#include "UI/WEUIKit.h"
+#include "UI/WEWorkViewWidget.h"
+#include "Interaction/WEInteractionComponent.h"
+#include "Workshop/WEWorkbench.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Dev/WEDevAutomationComponent.h"
@@ -57,6 +64,7 @@ void AWEPlayerController::BeginPlay()
 	{
 		SetInputMode(FInputModeGameOnly());
 		SetShowMouseCursor(false);
+		WESettings::ApplyGameValues(WESettings::Load()); // UI scale, mouse, field of view, volume
 
 		if (HUDWidgetClass)
 		{
@@ -118,6 +126,7 @@ void AWEPlayerController::OpenInventory(UWEInventoryComponent* Container)
 	}
 
 	EnterMenuInputMode(InventoryWidget);
+	NotifyTutorial(static_cast<uint8>(EWETutorialEvent::InventoryOpened));
 }
 
 void AWEPlayerController::CloseInventory()
@@ -177,6 +186,21 @@ void AWEPlayerController::OpenTrade(AWETraderTerminal* Terminal)
 		TradeWidget->AddToViewport(10);
 	}
 	EnterMenuInputMode(TradeWidget);
+	// Phase 17.5: sit down at the PC - the view moves to the monitor, the desktop fades in on it.
+	if (ComputerTerminal != Terminal)
+	{
+		ComputerTerminal = Terminal;
+		if (Terminal->GetScreenCamera())
+		{
+			SetViewTargetWithBlend(Terminal, 0.45f, VTBlend_Cubic);
+		}
+		Terminal->SetLocalUser(GetPawn<AWECharacter>(), true);
+		if (HUDWidget)
+		{
+			HUDWidget->SetFocusMode(true);
+		}
+		NotifyTutorial(static_cast<uint8>(EWETutorialEvent::ComputerOpened));
+	}
 }
 
 void AWEPlayerController::CloseTrade()
@@ -185,7 +209,22 @@ void AWEPlayerController::CloseTrade()
 	{
 		TradeWidget->RemoveFromParent();
 	}
-	if (!IsInventoryOpen() && !IsPauseMenuOpen())
+	if (AWETraderTerminal* Terminal = ComputerTerminal.Get())
+	{
+		// Stand up again: the view goes back to the eyes.
+		ComputerTerminal.Reset();
+		if (GetPawn())
+		{
+			SetViewTargetWithBlend(GetPawn(), 0.35f, VTBlend_Cubic);
+		}
+		Terminal->SetLocalUser(GetPawn<AWECharacter>(), false);
+		ServerLeaveComputer(Terminal);
+		if (HUDWidget)
+		{
+			HUDWidget->SetFocusMode(false);
+		}
+	}
+	if (!IsInventoryOpen() && !IsPauseMenuOpen() && !IsWorkViewOpen())
 	{
 		SetInputMode(FInputModeGameOnly());
 		SetShowMouseCursor(false);
@@ -229,6 +268,229 @@ void AWEPlayerController::RequestBuyUpgrade(AWETraderTerminal* Terminal, FName U
 void AWEPlayerController::RequestBid(AWETraderTerminal* Terminal, const FGuid& LotId)
 {
 	ServerBid(Terminal, LotId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestSellBuilding(AWETraderTerminal* Terminal, FName UpgradeId)
+{
+	ServerSellBuilding(Terminal, UpgradeId, FGuid::NewGuid());
+}
+
+void AWEPlayerController::RequestClearBuilding(AWETraderTerminal* Terminal, FName UpgradeId)
+{
+	ServerClearBuilding(Terminal, UpgradeId);
+}
+
+void AWEPlayerController::ServerSellBuilding_Implementation(AWETraderTerminal* Terminal, FName UpgradeId, FGuid RequestId)
+{
+	if (Terminal)
+	{
+		Terminal->SellBuilding(GetPawn<AWECharacter>(), UpgradeId, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerClearBuilding_Implementation(AWETraderTerminal* Terminal, FName UpgradeId)
+{
+	if (Terminal)
+	{
+		Terminal->ClearBuilding(GetPawn<AWECharacter>(), UpgradeId);
+	}
+}
+
+void AWEPlayerController::RequestApplyStyle(AWETraderTerminal* Terminal, FName Zone, uint8 Category, int32 Option)
+{
+	ServerApplyStyle(Terminal, Zone, Category, Option, FGuid::NewGuid());
+}
+
+void AWEPlayerController::ServerApplyStyle_Implementation(AWETraderTerminal* Terminal, FName Zone, uint8 Category, int32 Option, FGuid RequestId)
+{
+	AWECharacter* Me = GetPawn<AWECharacter>();
+	UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(this);
+	if (Style && Terminal && Terminal->IsWithinUseRange(Me) && Category <= static_cast<uint8>(EWEStyleCategory::Door))
+	{
+		Style->Apply(Me, Zone, static_cast<EWEStyleCategory>(Category), Option, RequestId);
+	}
+}
+
+void AWEPlayerController::ServerLeaveComputer_Implementation(AWETraderTerminal* Terminal)
+{
+	const APlayerState* PS = PlayerState;
+	if (Terminal && PS && Terminal->UserName == PS->GetPlayerName())
+	{
+		Terminal->UserName.Reset();
+		Terminal->ForceNetUpdate();
+	}
+}
+
+void AWEPlayerController::RequestTutorial(uint8 Action)
+{
+	ServerTutorial(Action);
+}
+
+void AWEPlayerController::ServerTutorial_Implementation(uint8 Action)
+{
+	if (UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this))
+	{
+		if (Action == 0)
+		{
+			Tutorial->Start();
+		}
+		else
+		{
+			Tutorial->Skip();
+		}
+	}
+}
+
+void AWEPlayerController::NotifyTutorial(uint8 Event)
+{
+	// Only bother the server while the tutorial waits for exactly this.
+	const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
+	const FWETutorialStep* Step = Tutorial ? Tutorial->GetCurrentStep() : nullptr;
+	if (Step && static_cast<uint8>(Step->Event) == Event)
+	{
+		ServerTutorialEvent(Event);
+	}
+}
+
+void AWEPlayerController::ServerTutorialEvent_Implementation(uint8 Event)
+{
+	// Clients may only report what only they can see.
+	const EWETutorialEvent Kind = static_cast<EWETutorialEvent>(Event);
+	if (Kind != EWETutorialEvent::InventoryOpened && Kind != EWETutorialEvent::WorkViewOpened && Kind != EWETutorialEvent::ComputerOpened)
+	{
+		return;
+	}
+	if (UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this))
+	{
+		Tutorial->NotifyEvent(Kind);
+	}
+}
+
+// --- Work view (Phase 17.5) ------------------------------------------------------------------------
+
+void AWEPlayerController::OpenWorkView(AWEWorkbench* Bench, bool bRepair)
+{
+	if (!IsLocalController() || !Bench || !Bench->GetPlacedItem())
+	{
+		return;
+	}
+	CloseInventory();
+	if (!WorkViewWidget)
+	{
+		WorkViewWidget = CreateWidget<UWEWorkViewWidget>(this, UWEWorkViewWidget::StaticClass());
+	}
+	if (!WorkViewWidget)
+	{
+		return;
+	}
+	if (!WorkViewWidget->IsInViewport())
+	{
+		WorkViewWidget->AddToViewport(9);
+	}
+	WorkViewWidget->Setup(Bench, bRepair);
+	EnterMenuInputMode(WorkViewWidget);
+	Bench->AimWorkCamera();
+	SetViewTargetWithBlend(Bench, 0.4f, VTBlend_Cubic);
+	if (HUDWidget)
+	{
+		HUDWidget->SetFocusMode(true);
+	}
+	NotifyTutorial(static_cast<uint8>(EWETutorialEvent::WorkViewOpened));
+}
+
+void AWEPlayerController::CloseWorkView()
+{
+	if (!WorkViewWidget || !WorkViewWidget->IsInViewport())
+	{
+		return;
+	}
+	AWEWorkbench* Bench = WorkViewWidget->GetBench();
+	if (Bench && Bench->IsManualWork() && Bench->GetWorker() == GetPawn())
+	{
+		RequestWorkCancel(Bench);
+	}
+	WorkViewWidget->Shutdown();
+	WorkViewWidget->RemoveFromParent();
+	if (GetPawn())
+	{
+		SetViewTargetWithBlend(GetPawn(), 0.35f, VTBlend_Cubic);
+	}
+	if (HUDWidget)
+	{
+		HUDWidget->SetFocusMode(false);
+	}
+	WEUI::Play(this, WEUI::ESound::Close, 0.4f);
+	if (!IsInventoryOpen() && !IsPauseMenuOpen() && !IsTradeOpen())
+	{
+		SetInputMode(FInputModeGameOnly());
+		SetShowMouseCursor(false);
+		ResetIgnoreLookInput();
+		ResetIgnoreMoveInput();
+	}
+}
+
+bool AWEPlayerController::IsWorkViewOpen() const
+{
+	return WorkViewWidget && WorkViewWidget->IsInViewport();
+}
+
+void AWEPlayerController::RequestWorkStart(AWEWorkbench* Bench, bool bRepair) { ServerWorkStart(Bench, bRepair); }
+void AWEPlayerController::RequestWorkTask(AWEWorkbench* Bench, int32 TaskIndex, EWEToolType Tool) { ServerWorkTask(Bench, static_cast<uint8>(FMath::Clamp(TaskIndex, 0, 255)), Tool); }
+void AWEPlayerController::RequestWorkAuto(AWEWorkbench* Bench, bool bRepair) { ServerWorkAuto(Bench, bRepair); }
+void AWEPlayerController::RequestWorkCancel(AWEWorkbench* Bench) { ServerWorkCancel(Bench); }
+
+namespace
+{
+	/** The pawn may work at Bench (alive, close enough). */
+	AWECharacter* WorkerAt(AWEPlayerController* PC, AWEWorkbench* Bench)
+	{
+		AWECharacter* Character = PC ? PC->GetPawn<AWECharacter>() : nullptr;
+		if (!Character || !IsValid(Bench) || !UWEInteractionComponent::IsWithinReach(Character, Bench, Bench->GetWorkReach()))
+		{
+			return nullptr;
+		}
+		return Character;
+	}
+}
+
+void AWEPlayerController::ServerWorkStart_Implementation(AWEWorkbench* Bench, bool bRepair)
+{
+	if (AWECharacter* Worker = WorkerAt(this, Bench))
+	{
+		Bench->TryStartManualStep(Worker, bRepair);
+	}
+}
+
+void AWEPlayerController::ServerWorkTask_Implementation(AWEWorkbench* Bench, uint8 TaskIndex, EWEToolType Tool)
+{
+	if (AWECharacter* Worker = WorkerAt(this, Bench))
+	{
+		Bench->DoManualTask(Worker, TaskIndex, Tool);
+	}
+}
+
+void AWEPlayerController::ServerWorkAuto_Implementation(AWEWorkbench* Bench, bool bRepair)
+{
+	if (AWECharacter* Worker = WorkerAt(this, Bench))
+	{
+		Bench->CancelManualStep(Worker);
+		if (bRepair)
+		{
+			Bench->TryStartRepairStep(Worker);
+		}
+		else
+		{
+			Bench->TryStartStep(Worker);
+		}
+	}
+}
+
+void AWEPlayerController::ServerWorkCancel_Implementation(AWEWorkbench* Bench)
+{
+	if (IsValid(Bench))
+	{
+		Bench->CancelManualStep(GetPawn<AWECharacter>());
+	}
 }
 
 void AWEPlayerController::RequestHire(AWETraderTerminal* Terminal, int32 ApplicantIndex)
@@ -571,6 +833,50 @@ void AWEPlayerController::ServerSortInventory_Implementation(UWEInventoryCompone
 	}
 }
 
+void AWEPlayerController::RequestSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet)
+{
+	ServerSetItemMarks(Inventory, Slot, Mask, bSet);
+}
+
+void AWEPlayerController::ServerSetItemMarks_Implementation(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet)
+{
+	ExecuteSetItemMarks(Inventory, Slot, Mask, bSet);
+}
+
+bool AWEPlayerController::ExecuteSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet)
+{
+	constexpr uint8 Allowed = FWEItemInstance::Favorite | FWEItemInstance::Locked | FWEItemInstance::ReleasedForSale;
+	if (!HasAuthority() || (Mask & ~Allowed) != 0 || !CanUseInventory(Inventory))
+	{
+		return false;
+	}
+	const FWEItemInstance* Item = Inventory->GetItemInSlot(Slot);
+	if (!Item)
+	{
+		return false;
+	}
+	const FText Name = Item->GetDisplayName();
+	if (Inventory->SetSlotMarks(Slot, Mask, bSet) != EWEInventoryResult::Success)
+	{
+		return false;
+	}
+	FText Message;
+	if (Mask & FWEItemInstance::Locked)
+	{
+		Message = bSet ? FText::Format(LOCTEXT("MarkLocked", "{0} gesperrt – wird nicht verkauft"), Name) : FText::Format(LOCTEXT("MarkUnlocked", "{0} entsperrt"), Name);
+	}
+	else if (Mask & FWEItemInstance::Favorite)
+	{
+		Message = bSet ? FText::Format(LOCTEXT("MarkFav", "{0} als Favorit markiert"), Name) : FText::Format(LOCTEXT("MarkUnfav", "{0}: Favorit entfernt"), Name);
+	}
+	else
+	{
+		Message = bSet ? FText::Format(LOCTEXT("MarkRelease", "{0} zum Verkauf freigegeben"), Name) : FText::Format(LOCTEXT("MarkKeep", "{0} wieder als Ausrüstung geschützt"), Name);
+	}
+	ClientShowMessage(Message);
+	return true;
+}
+
 bool AWEPlayerController::CanUseInventory(const UWEInventoryComponent* Inventory) const
 {
 	const AWECharacter* WECharacter = GetPawn<AWECharacter>();
@@ -725,6 +1031,7 @@ void AWEPlayerController::OpenPauseMenu()
 	}
 	CloseInventory();
 	CloseTrade();
+	CloseWorkView();
 	if (!PauseMenuWidget)
 	{
 		PauseMenuWidget = CreateWidget<UWEPauseMenuWidget>(this, UWEPauseMenuWidget::StaticClass());

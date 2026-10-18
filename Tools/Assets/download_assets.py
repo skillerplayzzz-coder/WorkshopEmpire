@@ -39,12 +39,25 @@ MODELS = {
     "rollershutter_door": "2k", "Barrel_01": "1k", "barrel_03": "1k", "cardboard_box_01": "1k", "cement_bag": "1k",
     "korean_fire_extinguisher_01": "1k", "metal_trash_can": "1k", "plastic_broom": "1k", "ladder_sectioned_01": "1k",
     "metal_stool_01": "1k", "spray_paint_bottles": "1k", "rusted_wheel_rim_01": "1k",
+    # Phase 17.5: industrial neighbourhood, office corner and decoration
+    "modular_chainlink_fence": "1k", "modular_electricity_poles": "1k", "street_lamp_01": "1k", "street_lamp_02": "1k",
+    "fire_hydrant": "1k", "utility_box_02": "1k", "water_manhole_cover": "1k", "rusted_wheel_rim_02": "1k", "trashbag": "1k",
+    "metal_office_desk": "2k", "circuit_board": "1k", "security_camera_01": "1k", "barrel_stove": "1k", "overhead_crane": "2k",
+    "industrial_pipe_lamp": "1k", "desk_lamp_arm_01": "1k", "clipboard": "1k", "Barrel_02": "1k", "plastic_crate_02": "1k",
+    "plastic_crate_03": "1k", "old_military_crate": "1k", "covered_car": "2k", "metal_jerrycan_green": "1k", "planter_box_01": "1k",
+    "WetFloorSign_01": "1k", "SchoolChair_01": "1k", "modular_street_seating": "1k", "television_02": "1k", "wooden_crate_02": "1k",
+    "industrial_pastic_container": "1k", "CoffeeCart_01": "1k", "standing_chalkboard_01": "1k", "tire_pump": "1k",
 }
 
 TEXTURES = [
     "garage_floor", "concrete_floor_worn_001", "asphalt_02", "concrete_wall_008", "beige_wall_001", "factory_wall",
     "corrugated_iron_02", "brick_wall_005", "concrete_block_wall", "metal_plate", "rusty_painted_metal",
     "blue_metal_plate", "plywood", "oriented_strand_board",
+    # Phase 17.5: streets, neighbouring buildings and floor coverings
+    "road_damaged", "worn_asphalt", "asphalt_03", "concrete_pavement", "red_bricks_04", "painted_worn_brick", "dark_brick_wall",
+    "rusty_corrugated_iron", "worn_corrugated_iron", "rusted_shutter", "painted_metal_shutter", "rubber_tiles", "painted_concrete",
+    "anti_slip_concrete", "wood_floor_worn", "old_linoleum_flooring_01", "floor_tiles_06", "plastered_wall_04", "whitewashed_brick",
+    "metal_plate_02", "green_metal_rust", "gravel_floor", "box_profile_metal_sheet", "concrete_panels",
 ]
 TEXTURE_MAPS = {"Diffuse": "diff", "nor_gl": "nor_gl", "arm": "arm"}
 

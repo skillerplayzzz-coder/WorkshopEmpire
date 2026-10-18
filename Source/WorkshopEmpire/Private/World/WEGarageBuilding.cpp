@@ -5,6 +5,7 @@
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
 
 AWEGarageBuilding::AWEGarageBuilding()
 {
@@ -116,6 +117,11 @@ void AWEGarageBuilding::BeginPlay()
 	Super::BeginPlay();
 	// Tint instances are transient (not saved with the map), so rebuild them at runtime.
 	ApplyAllTints();
+	// The company's chosen look (the style component may have applied it before this actor started).
+	if (UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(this))
+	{
+		Style->ApplyAll();
+	}
 }
 
 void AWEGarageBuilding::ApplyAllTints()
@@ -126,6 +132,19 @@ void AWEGarageBuilding::ApplyAllTints()
 	WESurface::Apply(RoofMeshes, RoofSurface, RoofSurface == EWESurface::Placeholder ? RoofColor : FLinearColor::White, 0.f);
 	WESurface::Apply(InteriorMeshes, InteriorSurface, InteriorSurface == EWESurface::Placeholder ? WallColor : InteriorTint, 0.8f);
 	WESurface::Apply(CeilingMeshes, CeilingSurface, CeilingSurface == EWESurface::Placeholder ? WallColor : InteriorTint, 0.f);
+}
+
+void AWEGarageBuilding::ApplyStyle(const FWEStyleOption* Wall, const FWEStyleOption* Floor)
+{
+	ApplyAllTints();
+	if (Wall && Wall->Surface != EWESurface::Placeholder)
+	{
+		WESurface::ApplyEx(InteriorMeshes, Wall->Surface, Wall->Tint, Wall->Surface == EWESurface::PaintedWall ? 0.5f : 0.7f, Wall->Desaturation, Wall->Roughness);
+	}
+	if (Floor && Floor->Surface != EWESurface::Placeholder)
+	{
+		WESurface::ApplyEx(FloorMeshes, Floor->Surface, Floor->Tint, 0.f, Floor->Desaturation, Floor->Roughness);
+	}
 }
 
 FTransform AWEGarageBuilding::GetDoorTransform() const

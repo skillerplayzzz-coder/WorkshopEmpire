@@ -29,7 +29,12 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void PlayerTick(float DeltaTime) override;
 
 	UPROPERTY(Transient)
 	TObjectPtr<class UWEMainMenuWidget> Menu;
+
+	TWeakObjectPtr<class ACameraActor> MenuCamera;
+	FTransform CameraStart;
+	float MenuTime = 0.f;
 };

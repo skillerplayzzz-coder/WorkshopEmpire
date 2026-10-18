@@ -109,6 +109,14 @@ protected:
 	static constexpr float DriveDistance = 1600.f;
 	void Notify(const FText& Message) const;
 
+	/** Phase 17.5: modelled van (old / modern) with four wheels that turn while it drives; the boxes stay as collision. */
+	void RebuildVanModel();
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> VanParts;
+	UPROPERTY(Transient) TArray<TObjectPtr<USceneComponent>> WheelPivots;
+	float WheelRadius = 41.f;
+	float LastDriveOffset = 0.f;
+	int32 VanModelKind = -1;
+
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
 	FWEVehicleStats BasicStats;
 

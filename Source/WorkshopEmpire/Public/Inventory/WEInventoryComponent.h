@@ -144,6 +144,9 @@ public:
 	/** Merges stacks and orders by category, name, condition. */
 	void SortItems();
 
+	/** Phase 17.5: sets or clears protection marks (FWEItemInstance::EMarks) on the stack in Slot. Server only. */
+	EWEInventoryResult SetSlotMarks(int32 Slot, uint8 Mask, bool bSet);
+
 	/** Replaces all content (loading). Invalid entries are skipped. */
 	void SetAllSlots(const TArray<FWEInventorySlotData>& Slots);
 	void ClearAll();

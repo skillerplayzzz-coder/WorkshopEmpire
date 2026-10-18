@@ -41,6 +41,11 @@ static TAutoConsoleVariable<bool> CVarWEInvertY(
 	TEXT("Invert vertical mouse look."),
 	ECVF_Default);
 
+static TAutoConsoleVariable<float> CVarWEFieldOfView(
+	TEXT("we.FieldOfView"), 90.f,
+	TEXT("First-person field of view (settings page, Phase 17.5)."),
+	ECVF_Default);
+
 AWECharacter::AWECharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -116,6 +121,7 @@ void AWECharacter::BeginPlay()
 	ApplyPlayerLook();
 	CurrentCameraHeight = BaseEyeHeight;
 	UpdateMovementSpeed();
+	FirstPersonCamera->SetFieldOfView(FMath::Clamp(CVarWEFieldOfView.GetValueOnGameThread(), 70.f, 110.f));
 }
 
 void AWECharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)

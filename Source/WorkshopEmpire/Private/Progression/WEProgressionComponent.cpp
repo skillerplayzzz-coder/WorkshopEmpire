@@ -18,6 +18,15 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "Workshop/WEWorkbench.h"
+#include "Economy/WETraderTerminal.h"
+#include "Items/WEPickupItem.h"
+#include "Machines/WEPowerGridComponent.h"
+#include "Player/WECharacter.h"
+#include "Staff/WEEmployee.h"
+#include "Staff/WEStaffComponent.h"
+#include "World/WEBuildArea.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
+#include "Progression/WETutorialComponent.h"
 
 #define LOCTEXT_NAMESPACE "WEProgression"
 
@@ -253,7 +262,13 @@ FText UWEProgressionComponent::GetNextTierText() const
 	}
 	// The cheapest building upgrade that lifts to the next tier.
 	const FWEUpgradeDefinition* Next = nullptr;
-	for (const FWEUpgradeDefinition& U : Catalog ? Catalog->Upgrades : TArray<FWEUpgradeDefinition>())
+	// Iterate the catalog itself: "Catalog ? Catalog->Upgrades : TArray()" made a temporary copy, and Next pointed into it
+	// after the loop (use after free; harmless in the editor, a hang/crash in the packaged game).
+	if (!Catalog)
+	{
+		return FText::GetEmpty();
+	}
+	for (const FWEUpgradeDefinition& U : Catalog->Upgrades)
 	{
 		if (U.CompanyTier == Tier + 1 && (!Next || U.Cost < Next->Cost))
 		{
@@ -311,7 +326,9 @@ void UWEProgressionComponent::ApplyEffects()
 	}
 
 	// Workshop lights (tagged in the map). The original brightness is cached so repeated calls never compound.
+	// Phase 17.5: the lighting chosen per building (Gestaltung) multiplies in and sets the light colour.
 	const float LightFactor = GetLightMultiplier();
+	const UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(this);
 	for (TActorIterator<ALight> It(World); It; ++It)
 	{
 		ULightComponent* Light = It->GetLightComponent();
@@ -320,8 +337,225 @@ void UWEProgressionComponent::ApplyEffects()
 			continue;
 		}
 		const float Base = BaseLightIntensity.FindOrAdd(Light, Light->Intensity);
-		Light->SetIntensity(Base * LightFactor);
+		float StyleFactor = 1.f;
+		FLinearColor StyleColor(1.f, 0.92f, 0.82f);
+		if (Style)
+		{
+			Style->GetLighting(UWEWorkshopStyleComponent::GetZoneOf(*It), StyleFactor, StyleColor);
+		}
+		Light->SetIntensity(Base * LightFactor * StyleFactor);
+		Light->SetLightColor(StyleColor);
 	}
+}
+
+// --- Selling old buildings (Phase 17.5) ----------------------------------------------------------------
+
+bool UWEProgressionComponent::CanOfferBuildingSale(FName Id) const
+{
+	const FWEUpgradeDefinition* Building = Catalog ? Catalog->Find(Id) : nullptr;
+	if (!Building || Building->CompanyTier <= 0 || !HasUpgrade(Id))
+	{
+		return false;
+	}
+	// Only once something bigger is there: the old building is then no longer needed.
+	for (const FName& Owned : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* Other = Catalog->Find(Owned);
+		if (Other && Other->CompanyTier > Building->CompanyTier)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+FWEMoney UWEProgressionComponent::GetBuildingSalePrice(FName Id) const
+{
+	const FWEUpgradeDefinition* Building = Catalog ? Catalog->Find(Id) : nullptr;
+	return Building ? FWEMoney::FromCents(FMath::RoundToInt64(Building->Cost.GetCents() * BuildingResaleFactor)) : FWEMoney();
+}
+
+bool UWEProgressionComponent::IsInsideBuilding(FName Id, const FVector& Location) const
+{
+	const FName Tag = MakeUpgradeTag(Id);
+	for (TActorIterator<AWEBuildArea> It(GetWorld()); It; ++It)
+	{
+		if (It->Tags.Contains(Tag) && It->ContainsPoint2D(Location))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+TArray<FText> UWEProgressionComponent::GetBuildingSaleBlockers(FName Id) const
+{
+	TArray<FText> Blockers;
+	const FWEUpgradeDefinition* Building = Catalog ? Catalog->Find(Id) : nullptr;
+	UWorld* World = GetWorld();
+	if (!Building || !World || !CanOfferBuildingSale(Id))
+	{
+		Blockers.Add(LOCTEXT("SaleNotPossible", "Dieses Gebäude kann nicht verkauft werden"));
+		return Blockers;
+	}
+	int32 Items = 0;
+	for (TActorIterator<AWEPickupItem> It(World); It; ++It)
+	{
+		Items += !It->GetHolder() && IsInsideBuilding(Id, It->GetActorLocation()) ? 1 : 0;
+	}
+	int32 Furniture = 0;
+	int32 FilledStorages = 0;
+	for (TActorIterator<AWEPlaceholderProp> It(World); It; ++It)
+	{
+		if (!IsInsideBuilding(Id, It->GetActorLocation()))
+		{
+			continue;
+		}
+		if (It->IsPlayerPlaced())
+		{
+			++Furniture;
+		}
+		else if (const UWEInventoryComponent* Storage = It->FindComponentByClass<UWEInventoryComponent>(); Storage && Storage->GetAllSlots().Num() > 0)
+		{
+			++FilledStorages;
+		}
+	}
+	int32 Workers = 0;
+	if (const UWEStaffComponent* Staff = UWEStaffComponent::Get(this))
+	{
+		for (const AWEEmployee* Employee : Staff->GetEmployees())
+		{
+			const FWEEmployeeTask& Task = Employee->GetTask();
+			Workers += IsInsideBuilding(Id, Employee->GetActorLocation())
+				|| (Task.Source && IsInsideBuilding(Id, Task.Source->GetActorLocation()))
+				|| (Task.Target && IsInsideBuilding(Id, Task.Target->GetActorLocation())) ? 1 : 0;
+		}
+		if (Staff->GetEmployees().Num() > Staff->GetMaxEmployees() - Building->StaffSlots)
+		{
+			Blockers.Add(FText::Format(LOCTEXT("SaleStaffCap", "Zu viele Mitarbeiter: ohne das Gebäude sind nur {0} erlaubt"),
+				FText::AsNumber(FMath::Max(0, Staff->GetMaxEmployees() - Building->StaffSlots))));
+		}
+	}
+	if (Items > 0)
+	{
+		Blockers.Add(FText::Format(LOCTEXT("SaleItems", "{0} Gegenstände liegen noch darin"), FText::AsNumber(Items)));
+	}
+	if (Furniture > 0)
+	{
+		Blockers.Add(FText::Format(LOCTEXT("SaleFurniture", "{0} Einrichtung/Maschinen stehen noch darin – im Baumodus umstellen oder verkaufen"), FText::AsNumber(Furniture)));
+	}
+	if (FilledStorages > 0)
+	{
+		Blockers.Add(FText::Format(LOCTEXT("SaleStorages", "{0} Lager darin sind nicht leer"), FText::AsNumber(FilledStorages)));
+	}
+	if (Workers > 0)
+	{
+		Blockers.Add(FText::Format(LOCTEXT("SaleWorkers", "{0} Mitarbeiter arbeiten noch darin"), FText::AsNumber(Workers)));
+	}
+	if (const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this); Grid && Building->PowerCapacityKw > 0.f
+		&& Grid->GetLoadKw() > Grid->GetCapacityKw() - Building->PowerCapacityKw + KINDA_SMALL_NUMBER)
+	{
+		Blockers.Add(FText::Format(LOCTEXT("SalePower", "Zu viel Strom belegt: ohne das Gebäude {0} kW, belegt {1} kW"),
+			FText::AsNumber(FMath::RoundToInt(Grid->GetCapacityKw() - Building->PowerCapacityKw)), FText::AsNumber(FMath::RoundToInt(Grid->GetLoadKw() * 10.f) / 10.f)));
+	}
+	return Blockers;
+}
+
+TArray<FText> UWEProgressionComponent::GetBuildingSaleEffects(FName Id) const
+{
+	TArray<FText> Effects;
+	const FWEUpgradeDefinition* Building = Catalog ? Catalog->Find(Id) : nullptr;
+	if (!Building)
+	{
+		return Effects;
+	}
+	Effects.Add(FText::Format(LOCTEXT("EffPrice", "Erlös {0} (gekauft für {1})"), FText::FromString(GetBuildingSalePrice(Id).ToDisplayString()),
+		FText::FromString(Building->Cost.ToDisplayString())));
+	if (Building->PowerCapacityKw > 0.f)
+	{
+		Effects.Add(FText::Format(LOCTEXT("EffPower", "Stromanschluss −{0} kW"), FText::AsNumber(FMath::RoundToInt(Building->PowerCapacityKw))));
+	}
+	if (Building->StaffSlots > 0)
+	{
+		Effects.Add(FText::Format(LOCTEXT("EffStaff", "Mitarbeiterplätze −{0}"), FText::AsNumber(Building->StaffSlots)));
+	}
+	int32 StorageSlots = 0;
+	for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsPlayerPlaced() && IsInsideBuilding(Id, It->GetActorLocation()))
+		{
+			if (const UWEInventoryComponent* Storage = It->FindComponentByClass<UWEInventoryComponent>())
+			{
+				StorageSlots += Storage->GetNumSlots();
+			}
+		}
+	}
+	if (StorageSlots > 0)
+	{
+		Effects.Add(FText::Format(LOCTEXT("EffStorage", "Lagerplätze −{0}"), FText::AsNumber(StorageSlots)));
+	}
+	Effects.Add(LOCTEXT("EffArea", "Die Fläche steht danach nicht mehr zum Einrichten zur Verfügung"));
+	return Effects;
+}
+
+int32 UWEProgressionComponent::ClearBuildingForSale(FName Id)
+{
+	UWorld* World = GetWorld();
+	if (!World || !GetOwner()->HasAuthority() || !CanOfferBuildingSale(Id))
+	{
+		return 0;
+	}
+	int32 Moved = 0;
+	// Loose items: onto the delivery pallet (nothing is ever lost).
+	TArray<AWEPickupItem*> Loose;
+	for (TActorIterator<AWEPickupItem> It(World); It; ++It)
+	{
+		if (!It->GetHolder() && !It->GetPlacedOn() && IsInsideBuilding(Id, It->GetActorLocation()))
+		{
+			Loose.Add(*It);
+		}
+	}
+	AWEDeliveryZone* Zone = AWEDeliveryZone::Find(World);
+	for (AWEPickupItem* Item : Loose)
+	{
+		const FTransform Drop = Zone ? Zone->NextDropTransform() : FTransform(FVector(320.f, -220.f, 80.f));
+		Item->TeleportTo(Drop.GetLocation(), Drop.Rotator(), false, true);
+		Item->WakeForReplication();
+		++Moved;
+	}
+	// Employees working there: task off, wait in the yard in front of the garage.
+	if (UWEStaffComponent* Staff = UWEStaffComponent::Get(this))
+	{
+		int32 Index = 0;
+		for (AWEEmployee* Employee : Staff->GetEmployees())
+		{
+			const FWEEmployeeTask& Task = Employee->GetTask();
+			const bool bInside = IsInsideBuilding(Id, Employee->GetActorLocation());
+			if (bInside || (Task.Source && IsInsideBuilding(Id, Task.Source->GetActorLocation())) || (Task.Target && IsInsideBuilding(Id, Task.Target->GetActorLocation())))
+			{
+				Employee->ClearTask();
+				if (bInside)
+				{
+					Employee->TeleportTo(FVector(560.f, -60.f + 70.f * Index++, 100.f), FRotator(0.f, 180.f, 0.f), false, true);
+				}
+				++Moved;
+			}
+		}
+	}
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Building %s cleared for sale: %d things moved"), *Id.ToString(), Moved);
+	return Moved;
+}
+
+bool UWEProgressionComponent::RevokeBuilding(FName Id)
+{
+	if (!GetOwner()->HasAuthority() || GetBuildingSaleBlockers(Id).Num() > 0)
+	{
+		return false;
+	}
+	OwnedUpgrades.Remove(Id);
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Building sold: %s"), *Id.ToString());
+	OnRep_Progression();
+	return true;
 }
 
 // --- Guide ----------------------------------------------------------------------------------------
@@ -367,6 +601,18 @@ FText UWEProgressionComponent::GetGuideText() const
 
 void UWEProgressionComponent::NotifyEvent(EWEProgressEvent Event)
 {
+	// Phase 17.5: the tutorial listens to the same gameplay events.
+	if (UWETutorialComponent* Tutorial = GetOwner()->HasAuthority() ? UWETutorialComponent::Get(this) : nullptr)
+	{
+		switch (Event)
+		{
+		case EWEProgressEvent::ToolStored:        Tutorial->NotifyEvent(EWETutorialEvent::ToolStored); break;
+		case EWEProgressEvent::ItemPlacedOnBench: Tutorial->NotifyEvent(EWETutorialEvent::ItemPlacedOnBench); break;
+		case EWEProgressEvent::ItemSold:          Tutorial->NotifyEvent(EWETutorialEvent::ItemSold); break;
+		case EWEProgressEvent::GameSaved:         Tutorial->NotifyEvent(EWETutorialEvent::GameSaved); break;
+		default: break;
+		}
+	}
 	if (!GetOwner()->HasAuthority() || IsGuideFinished())
 	{
 		return;

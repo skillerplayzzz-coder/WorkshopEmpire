@@ -16,6 +16,11 @@ namespace WESurface
 
 	void Apply(UMeshComponent* Mesh, EWESurface Kind, const FLinearColor& Tint, float Grime)
 	{
+		ApplyEx(Mesh, Kind, Tint, Grime, -1.f, -1.f);
+	}
+
+	void ApplyEx(UMeshComponent* Mesh, EWESurface Kind, const FLinearColor& Tint, float Grime, float Desaturation, float Roughness, float Metallic)
+	{
 		if (!Mesh)
 		{
 			return;
@@ -36,6 +41,18 @@ namespace WESurface
 		if (Grime >= 0.f)
 		{
 			MID->SetScalarParameterValue(TEXT("Grime"), Grime);
+		}
+		if (Desaturation >= 0.f)
+		{
+			MID->SetScalarParameterValue(TEXT("Desaturation"), Desaturation);
+		}
+		if (Roughness >= 0.f)
+		{
+			MID->SetScalarParameterValue(TEXT("RoughnessScale"), Roughness);
+		}
+		if (Metallic >= 0.f)
+		{
+			MID->SetScalarParameterValue(TEXT("MetallicScale"), Metallic);
 		}
 		for (int32 i = 0; i < FMath::Max(1, Mesh->GetNumMaterials()); ++i)
 		{

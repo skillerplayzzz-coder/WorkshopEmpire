@@ -36,8 +36,17 @@ public:
 	UWEPowerGridComponent* GetPowerGrid() const { return PowerGrid; }
 	UWEStaffComponent* GetStaff() const { return Staff; }
 	UWEMilestoneComponent* GetMilestones() const { return Milestones; }
+	class UWETutorialComponent* GetTutorial() const { return Tutorial; }
+	class UWEWorkshopStyleComponent* GetWorkshopStyle() const { return WorkshopStyle; }
 
 protected:
+	/** Phase 17.5: tutorial and personalised look of the buildings. */
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<class UWETutorialComponent> Tutorial;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<class UWEWorkshopStyleComponent> WorkshopStyle;
+
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWECompanyComponent> Company;
 

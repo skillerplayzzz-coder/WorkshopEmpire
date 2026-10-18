@@ -2,7 +2,7 @@
 
 ## Aktuelle Phase
 
-**Phase 17 – Qualitätssicherung: abgeschlossen, wartet auf Mikes Freigabe.**
+**Phase 17.5 – Visual Overhaul, Gameplay Polish & Immersion: abgeschlossen, wartet auf Mikes Freigabe.**
 Phase 18 wurde nicht begonnen.
 
 ## Abgeschlossen
@@ -142,14 +142,24 @@ Phase 18 wurde nicht begonnen.
 - Behoben: Gegenstände konnten durch den Hofboden fallen; 4 Textüberläufe in Menüs; fehlende Includes; Testwerkzeuge (Teleport, Bildrate)
 - Werkzeuge für spätere Prüfungen: `Docs/QA.md`
 
+### Phase 17.5 – Visual Overhaul, Gameplay Polish & Immersion (2026-10-18)
+- Neue Oberfläche in einem Industrie-Stil (HUD, Inventar mit Bildern und Kontextmenü, Hauptmenü, Pausemenü, Einstellungen mit Auflösung, Fenstermodus, UI-Skalierung, Maus, Sichtfeld, Lautstärke); 65 eigene Icons, Item-Bilder aus den Modellen gerendert
+- Werkstatt-PC am Schreibtisch mit eigenem Betriebssystem „Ferrit OS“ und 8 Programmen statt des Marktterminals
+- Arbeitsansicht an der Werkbank: Zerlegen und Reparieren von Hand mit Werkzeugwahl, Schrauben, Klammern, Steckern, Abdeckung, Teilen, Messpunkten, Funktionstest; vom Server geprüft
+- Industriegebiet: Straße, Holzmasten mit Leitungen, Straßenlampen, Maschendrahtzaun mit Tor, Nachbargebäude, Container, Kram; wächst mit der Firma; auch hinter dem Hauptmenü
+- Werkstatt gestalten (Wandfarbe, Boden, Licht, Tor pro Gebäude) und 13 Deko-Möbel; Verkaufsschutz (Ausrüstung, Favorit, Sperren); alte Gebäude verkaufen (35 %); Tutorial mit 11 Schritten; neue Transporter-Modelle
+- Spielbarer Build (Development) gepackt und getestet; 116/116 Tests; Regression grün
+- Behoben: Absturz im gepackten Spiel (Firmenstufen-Text), fehlende Inhalte im Build, durchsichtiges Rolltor, Zaun unsichtbar im Build
+
 ## Offene Aufgaben
 
+- Mike: Praxistest Phase 17.5 (Arbeitsansicht – fühlt sich das Schrauben gut an? Ferrit OS, Gestaltung, Tutorial, Koop an einer Werkbank)
 - Mike: Praxistest Phase 16 (fühlt sich das Tempo richtig an? die Simulation ersetzt keinen echten Spieler) und weiterhin Phase 15 (Klang) sowie Steam mit einem Freund
 - Mike: eigene Steam App ID vor einer Veröffentlichung (GAME_DESIGN.md §7)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
 - Git LFS ist nicht installiert; seit Phase 15 liegen ca. 760 MB Content im normalen Git. Vor einem Remote-Repository LFS einrichten
 - Später: Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Item-Icons; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, mehrere Standorte; Grafik: eigene Maschinenmodelle statt lackierter Blöcke, Hängelampen in den Hallen, UI-Klickgeräusche und Aufprallgeräusche für Gegenstände (Kenney-Sounds sind schon importiert), Arbeitskleidung statt Mannequin-Optik
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, mehrere Standorte; Grafik: eigene Maschinenmodelle statt lackierter Blöcke, Hängelampen in den Hallen, UI-Klickgeräusche und Aufprallgeräusche für Gegenstände (Kenney-Sounds sind schon importiert), Arbeitskleidung statt Mannequin-Optik
 
 ## Bekannte Fehler
 
@@ -161,4 +171,4 @@ Phase 18 – Release-Vorbereitung (laut Spezifikation), erst nach Mikes Freigabe
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-18 (Phase 17): 110/110 Automation-Tests, Leistung, Stress- und Dauerläufe, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-18 (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.

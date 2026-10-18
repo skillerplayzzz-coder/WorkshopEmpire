@@ -9,6 +9,7 @@
 #include "TimerManager.h"
 #include "WELog.h"
 #include "Workshop/WEWorkbench.h"
+#include "Workshop/WEWorkPlan.h"
 #include "Machines/WEMachine.h"
 #include "Machines/WEConveyor.h"
 #include "Staff/WEEmployee.h"
@@ -128,8 +129,37 @@ void UWEInteractionComponent::RequestPrimaryInteraction()
 	}
 	if (AActor* Target = FocusedActor.Get())
 	{
+		if (TryOpenWorkView(Target, false))
+		{
+			return;
+		}
 		RequestInteractWith(Target);
 	}
+}
+
+bool UWEInteractionComponent::TryOpenWorkView(AActor* Target, bool bRepair)
+{
+	// Phase 17.5: a device on the workbench opens the hands-on work view instead of a timed step.
+	const AWEPickupItem* Item = Cast<AWEPickupItem>(Target);
+	AWEWorkbench* Bench = Item ? Item->GetPlacedOn() : nullptr;
+	AWECharacter* Character = GetCharacter();
+	AWEPlayerController* PC = Character ? Cast<AWEPlayerController>(Character->GetController()) : nullptr;
+	if (!Bench || !PC || !PC->IsLocalController() || !WEWorkPlan::IsWorkViewEnabled())
+	{
+		return false;
+	}
+	if (Bench->IsBusy() && Bench->GetWorker() != Character)
+	{
+		return false; // someone else works there: the prompt says so
+	}
+	FText Reason;
+	const bool bCanRepair = Bench->GetNextRepairStep(Reason).Kind != EWERepairStepKind::None;
+	if (!Bench->GetNextStep() && !bCanRepair)
+	{
+		return false;
+	}
+	PC->OpenWorkView(Bench, bRepair);
+	return true;
 }
 
 // --- Assignment (local picks, one server request at the end) ---------------------------------------
@@ -375,6 +405,10 @@ void UWEInteractionComponent::RequestAlternativeInteraction()
 	const AWECharacter* Character = GetCharacter();
 	if (Character && !Character->GetHeldItem())
 	{
+		if (TryOpenWorkView(FocusedActor.Get(), true))
+		{
+			return;
+		}
 		RequestAlternativeInteractWith(FocusedActor.Get());
 	}
 }

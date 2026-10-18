@@ -85,6 +85,34 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	FWERepairState Repair;
 
+	/** Phase 17.5: player marks against accidental sale (EMarks). Kept when the item moves; part of the save. */
+	enum EMarks : uint8
+	{
+		Favorite    = 1 << 0,
+		Locked      = 1 << 1,
+		/** Personal equipment (tools) deliberately released for sale. */
+		ReleasedForSale = 1 << 2
+	};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item")
+	uint8 Marks = 0;
+
+	bool HasMark(EMarks Mark) const { return (Marks & Mark) != 0; }
+	bool IsFavorite() const { return HasMark(Favorite); }
+	bool IsLocked() const { return HasMark(Locked); }
+
+	/** Tools and carrying aids: the player's own equipment, not goods. */
+	bool IsPersonalEquipment() const;
+
+	/**
+	 * Never sold or handed to a customer without a deliberate step: locked or favourite items, and
+	 * personal equipment that was not released for sale. Customer items are protected separately.
+	 */
+	bool IsSaleProtected() const { return IsLocked() || IsFavorite() || (IsPersonalEquipment() && !HasMark(ReleasedForSale)); }
+
+	/** Rare or valuable: the UI asks before selling it. */
+	bool NeedsSaleConfirmation() const;
+
 	/** Condition "Beschädigt" or worse: needs a repair before it works. */
 	bool IsBroken() const { return Condition >= EWEItemCondition::Damaged; }
 
@@ -112,6 +140,7 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	bool operator==(const FWEItemInstance& Other) const
 	{
 		return Definition == Other.Definition && InstanceId == Other.InstanceId && Quantity == Other.Quantity
-			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair;
+			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair
+			&& Marks == Other.Marks;
 	}
 };

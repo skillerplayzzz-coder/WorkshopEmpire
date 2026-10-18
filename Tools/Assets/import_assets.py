@@ -103,6 +103,17 @@ for mid in sorted(os.listdir(models_dir)) if os.path.isdir(models_dir) else []:
     unreal.log(f"WE_MODEL {mid} parts={len(parts)} size=({size.x:.1f},{size.y:.1f},{size.z:.1f}) min_z={b.min.z:.1f}")
     done += 1
 
+# Phase 17.5: the fence and pole packs are used part by part (world_neighbourhood.py). Their wire material is
+# translucent, which Nanite cannot draw: the parts are plain meshes.
+for pack in ("modular_chainlink_fence", "modular_electricity_poles"):
+    for p in eal.list_assets(f"{ART}/Import/{pack}/{pack}/StaticMeshes", False):
+        part = eal.load_asset(p)
+        if isinstance(part, unreal.StaticMesh) and part.get_editor_property("nanite_settings").enabled:
+            s = part.get_editor_property("nanite_settings")
+            s.set_editor_property("enabled", False)
+            part.set_editor_property("nanite_settings", s)
+            eal.save_asset(p)
+
 # --- Surface textures --------------------------------------------------------------------------------
 TEX = {
     # Kind: (texture id, tile size cm, desaturation, brightness, metallic scale, roughness scale)
@@ -120,6 +131,30 @@ TEX = {
     "TreadPlate": ("metal_plate", 120.0, 0.0, 1.0, 1.0, 1.0),
     "Plywood": ("plywood", 180.0, 0.0, 1.0, 0.0, 1.0),
     "Osb": ("oriented_strand_board", 160.0, 0.0, 1.0, 0.0, 1.0),
+    # Phase 17.5: streets, neighbours and floor coverings
+    "CrackedAsphalt": ("road_damaged", 500.0, 0.0, 1.0, 0.0, 1.0),
+    "WornAsphalt": ("worn_asphalt", 450.0, 0.0, 1.0, 0.0, 1.0),
+    "Sidewalk": ("concrete_pavement", 240.0, 0.0, 1.0, 0.0, 1.0),
+    "RedBrick": ("red_bricks_04", 200.0, 0.0, 1.0, 0.0, 1.0),
+    "PaintedBrick": ("painted_worn_brick", 220.0, 0.0, 1.0, 0.0, 1.0),
+    "DarkBrick": ("dark_brick_wall", 220.0, 0.0, 1.0, 0.0, 1.0),
+    "RustyCorrugated": ("rusty_corrugated_iron", 240.0, 0.0, 1.0, 1.0, 1.0),
+    "WornCorrugated": ("worn_corrugated_iron", 240.0, 0.0, 1.0, 1.0, 1.0),
+    "RustedShutter": ("rusted_shutter", 260.0, 0.0, 1.0, 1.0, 1.0),
+    "PaintedShutter": ("painted_metal_shutter", 260.0, 0.0, 1.0, 1.0, 1.0),
+    "RubberTiles": ("rubber_tiles", 120.0, 0.0, 1.0, 0.0, 1.0),
+    "PaintedConcrete": ("painted_concrete", 320.0, 0.0, 1.0, 0.0, 1.0),
+    "AntiSlip": ("anti_slip_concrete", 260.0, 0.0, 1.0, 0.0, 1.0),
+    "WoodFloor": ("wood_floor_worn", 200.0, 0.0, 1.0, 0.0, 1.0),
+    "Linoleum": ("old_linoleum_flooring_01", 220.0, 0.0, 1.0, 0.0, 1.0),
+    "FloorTiles": ("floor_tiles_06", 180.0, 0.0, 1.0, 0.0, 1.0),
+    "Plaster": ("plastered_wall_04", 280.0, 0.0, 1.0, 0.0, 1.0),
+    "WhitewashedBrick": ("whitewashed_brick", 220.0, 0.0, 1.0, 0.0, 1.0),
+    "SteelPlate": ("metal_plate_02", 160.0, 0.0, 1.0, 1.0, 1.0),
+    "GreenRust": ("green_metal_rust", 200.0, 0.0, 1.0, 1.0, 1.0),
+    "Gravel": ("gravel_floor", 300.0, 0.0, 1.0, 0.0, 1.0),
+    "BoxProfile": ("box_profile_metal_sheet", 220.0, 0.0, 1.0, 1.0, 1.0),
+    "ConcretePanels": ("concrete_panels", 400.0, 0.0, 1.0, 0.0, 1.0),
 }
 surface_parent = eal.load_asset("/Game/WorkshopEmpire/Materials/M_WESurface")
 textures_dir = os.path.join(SRC, "PolyHaven", "textures")

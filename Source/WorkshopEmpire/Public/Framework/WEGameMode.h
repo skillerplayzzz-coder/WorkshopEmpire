@@ -95,4 +95,6 @@ protected:
 #endif
 	bool bEndingSession = false;
 	FString CurrentSlot = TEXT("Quicksave");
+	/** Phase 17.5: new game with the tutorial (?WETutorial=1). */
+	bool bStartTutorial = false;
 };

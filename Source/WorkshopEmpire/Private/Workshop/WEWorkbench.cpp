@@ -1,6 +1,7 @@
 #include "Workshop/WEWorkbench.h"
 #include "Fx/WEFx.h"
 
+#include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Framework/WEPlayerController.h"
@@ -22,7 +23,9 @@
 #include "Workshop/WEFurnitureDefinition.h"
 #include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
+#include "Progression/WETutorialComponent.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "Workshop/WEWorkPlan.h"
 
 #define LOCTEXT_NAMESPACE "WEWorkbench"
 
@@ -47,6 +50,12 @@ AWEWorkbench::AWEWorkbench()
 	WorkPoint = CreateDefaultSubobject<USceneComponent>(TEXT("WorkPoint"));
 	WorkPoint->SetupAttachment(RootComponent);
 	WorkPoint->SetMobility(EComponentMobility::Movable);
+
+	// Work view camera (Phase 17.5): aimed at the device when the view opens; only used as a view target.
+	WorkCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("WorkCamera"));
+	WorkCamera->SetupAttachment(RootComponent);
+	WorkCamera->SetFieldOfView(52.f);
+	WorkCamera->bConstrainAspectRatio = false;
 
 	WorkIndicator = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WorkIndicator"));
 	WorkIndicator->SetupAttachment(RootComponent);
@@ -324,11 +333,23 @@ void AWEWorkbench::CancelActiveStep()
 		return;
 	}
 	GetWorldTimerManager().ClearTimer(WorkTimer);
+	ClearManualState();
 	Work.StepIndex = INDEX_NONE;
 	Work.Worker = nullptr;
 	Work.RepairKind = EWERepairStepKind::None;
 	Work.RepairFault = INDEX_NONE;
 	RaiseEvent(EWEWorkbenchEvent::StepCancelled);
+}
+
+void AWEWorkbench::ClearManualState()
+{
+	Work.bManual = false;
+	Work.TaskCount = 0;
+	Work.TaskMask = 0;
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ManualIdleTimer);
+	}
 }
 
 void AWEWorkbench::CompleteActiveStep()
@@ -341,6 +362,12 @@ void AWEWorkbench::CompleteActiveStep()
 
 	AWECharacter* Worker = Work.Worker;
 	const bool bRepair = Work.RepairKind != EWERepairStepKind::None;
+	ClearManualState();
+	// Tutorial: a player finished a step by hand or with the timer.
+	if (UWETutorialComponent* Tutorial = IsValid(Worker) && Worker->IsPlayerControlled() ? UWETutorialComponent::Get(this) : nullptr)
+	{
+		Tutorial->NotifyEvent(bRepair ? EWETutorialEvent::RepairStep : EWETutorialEvent::DisassemblyStep);
+	}
 	const FWEDisassemblyStep* Step = GetNextStep();
 	if (!PlacedItem || (!bRepair && !Step) || !IsValid(Worker) || !UWEInteractionComponent::IsWithinReach(Worker, this, WorkReach))
 	{
@@ -506,6 +533,7 @@ void AWEWorkbench::ResetForLoad()
 		return;
 	}
 	GetWorldTimerManager().ClearTimer(WorkTimer);
+	ClearManualState();
 	Work.StepIndex = INDEX_NONE;
 	Work.Worker = nullptr;
 	Work.RepairKind = EWERepairStepKind::None;
@@ -523,6 +551,11 @@ float AWEWorkbench::GetProgress() const
 	if (!IsBusy() || Work.Duration <= 0.f)
 	{
 		return 0.f;
+	}
+	if (Work.bManual)
+	{
+		// Hands-on: share of the tasks done.
+		return Work.TaskCount > 0 ? FMath::Clamp(FMath::CountBits(Work.TaskMask) / static_cast<float>(Work.TaskCount), 0.f, 1.f) : 0.f;
 	}
 	// Measured on this machine's own clock from when the step start arrived. The client's estimate of
 	// the server clock can be off by seconds, which made bars jump to 100 % (seen in the network test).
@@ -582,6 +615,7 @@ void AWEWorkbench::PlayEventSound(EWEWorkbenchEvent Event) const
 	case EWEWorkbenchEvent::StepCompleted: Sound = SoundStepDone; break;
 	case EWEWorkbenchEvent::Finished:      Sound = SoundFinished; break;
 	case EWEWorkbenchEvent::StepCancelled: Sound = SoundCancelled; break;
+	case EWEWorkbenchEvent::TaskDone:      Sound = SoundStepStart; break;
 	default: break;
 	}
 	if (Sound)
@@ -1057,6 +1091,121 @@ FText AWEWorkbench::GetRepairStatusText(const FWEItemInstance& Item)
 		return LOCTEXT("StatusReadyForTest", "bereit für den Funktionstest");
 	}
 	return FText::FromString(FString::Join(Lines, TEXT(", ")));
+}
+
+// --- Work view (Phase 17.5) ----------------------------------------------------------------------------
+
+FWEWorkPlan AWEWorkbench::GetWorkPlan(bool bRepair) const
+{
+	const UWEItemDefinition* Def = PlacedItem ? PlacedItem->GetItem().Definition.Get() : nullptr;
+	if (!Def)
+	{
+		return FWEWorkPlan();
+	}
+	if (!bRepair)
+	{
+		return WEWorkPlan::ForDisassembly(Def, GetNextStepIndex());
+	}
+	FText Reason;
+	return WEWorkPlan::ForRepair(Def, GetNextRepairStep(Reason));
+}
+
+bool AWEWorkbench::TryStartManualStep(AWECharacter* Character, bool bRepair)
+{
+	if (!HasAuthority())
+	{
+		return false;
+	}
+	const FWEWorkPlan Plan = GetWorkPlan(bRepair);
+	if (!Plan.IsValid() || !(bRepair ? TryStartRepairStep(Character) : TryStartStep(Character)))
+	{
+		return false;
+	}
+	// No timer: the step ends when the last task is done by hand.
+	GetWorldTimerManager().ClearTimer(WorkTimer);
+	Work.bManual = true;
+	Work.TaskCount = static_cast<uint8>(Plan.Tasks.Num());
+	Work.TaskMask = 0;
+	LastTaskTime = GetWorld()->GetTimeSeconds();
+	// Walked away from the keyboard: the bench is freed again after a while.
+	GetWorldTimerManager().SetTimer(ManualIdleTimer, this, &AWEWorkbench::CancelActiveStep, 180.f, false);
+	ForceNetUpdate();
+	UE_LOG(LogWENet, Log, TEXT("%s: %s works by hand (%d tasks, %.1fs)"), *GetName(), *Character->GetName(), Plan.Tasks.Num(), Work.Duration);
+	return true;
+}
+
+bool AWEWorkbench::DoManualTask(AWECharacter* Character, int32 TaskIndex, EWEToolType Tool)
+{
+	if (!HasAuthority() || !Work.bManual || !Character || Work.Worker != Character || !PlacedItem)
+	{
+		return false;
+	}
+	if (!UWEInteractionComponent::IsWithinReach(Character, this, WorkReach))
+	{
+		ShowMessage(Character, LOCTEXT("ManualTooFar", "Zu weit von der Werkbank weg"));
+		return false;
+	}
+	const FWEWorkPlan Plan = GetWorkPlan(IsRepairJob());
+	if (Plan.Tasks.Num() != Work.TaskCount || !Plan.IsTaskAvailable(TaskIndex, Work.TaskMask))
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s: task %d refused (not available)"), *GetName(), TaskIndex);
+		return false;
+	}
+	const FWEWorkTask& Task = Plan.Tasks[TaskIndex];
+	if (Task.Tool != Tool || (Tool != EWEToolType::None && FindToolSpeed(Character, Tool) <= 0.f))
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s: task %d refused (wrong tool)"), *GetName(), TaskIndex);
+		return false;
+	}
+	// Work takes time: the client holds the button for the task's share of the step (with tolerance for lag).
+	const float Now = GetWorld()->GetTimeSeconds();
+	const float Expected = Plan.GetTaskSeconds(TaskIndex, Work.Duration);
+	if (Now - LastTaskTime < Expected * 0.5f - 0.05f)
+	{
+		UE_LOG(LogWENet, Log, TEXT("%s: task %d refused (too fast: %.2fs < %.2fs)"), *GetName(), TaskIndex, Now - LastTaskTime, Expected);
+		return false;
+	}
+	LastTaskTime = Now;
+	Work.TaskMask |= (1u << TaskIndex);
+	GetWorldTimerManager().SetTimer(ManualIdleTimer, this, &AWEWorkbench::CancelActiveStep, 180.f, false);
+	if (FMath::CountBits(Work.TaskMask) >= Work.TaskCount)
+	{
+		CompleteActiveStep();
+	}
+	else
+	{
+		RaiseEvent(EWEWorkbenchEvent::TaskDone);
+	}
+	return true;
+}
+
+void AWEWorkbench::CancelManualStep(AWECharacter* Character)
+{
+	if (HasAuthority() && Work.bManual && Work.Worker == Character)
+	{
+		CancelActiveStep();
+	}
+}
+
+void AWEWorkbench::AimWorkCamera()
+{
+	FVector Center = WorkPoint->GetComponentLocation() + FVector(0.f, 0.f, 12.f);
+	float Radius = 25.f;
+	if (PlacedItem)
+	{
+		FVector Origin, Extent;
+		PlacedItem->GetActorBounds(true, Origin, Extent);
+		if (!Extent.IsNearlyZero())
+		{
+			Center = Origin;
+			Radius = FMath::Clamp(Extent.Size(), 12.f, 90.f);
+		}
+	}
+	// From the front edge (where the player stands) and above, looking down at about 55 degrees.
+	const FVector Front = GetActorForwardVector();
+	// Far enough that the whole device (and the parts tray beside it) fits between the side panels of the view.
+	const FVector Eye = Center + Front * Radius * 1.8f + FVector::UpVector * Radius * 2.5f + FVector(0.f, 0.f, 10.f);
+	WorkCamera->SetWorldLocationAndRotation(Eye, (Center - Eye).Rotation());
 }
 
 #undef LOCTEXT_NAMESPACE

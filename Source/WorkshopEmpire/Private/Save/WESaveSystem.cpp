@@ -37,6 +37,8 @@
 #include "Economy/WETraderTerminal.h"
 #include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
+#include "Progression/WETutorialComponent.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
 
 #define LOCTEXT_NAMESPACE "WESaveSystem"
 
@@ -83,6 +85,7 @@ FWESavedItem FWESaveSystem::ToSaved(const FWEItemInstance& Item)
 	Saved.RepairRemoved = Item.Repair.Removed;
 	Saved.RepairReplaced = Item.Repair.Replaced;
 	Saved.RepairFlags = Item.Repair.Flags;
+	Saved.Marks = Item.Marks;
 	return Saved;
 }
 
@@ -104,6 +107,7 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 	OutItem.Repair.Removed = Saved.RepairRemoved;
 	OutItem.Repair.Replaced = Saved.RepairReplaced;
 	OutItem.Repair.Flags = Saved.RepairFlags;
+	OutItem.Marks = Saved.Marks & (FWEItemInstance::Favorite | FWEItemInstance::Locked | FWEItemInstance::ReleasedForSale);
 	return true;
 }
 
@@ -407,6 +411,17 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		Save->OwnedUpgrades = Progression->GetOwnedUpgrades();
 		Save->GuideStep = Progression->GetGuideStep();
 	}
+	// Workshop look and tutorial (version 14).
+	if (const UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(World))
+	{
+		Save->bHasStyle = true;
+		Save->ZoneStyles = Style->GetAllStyles();
+	}
+	if (const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(World))
+	{
+		Save->TutorialState = static_cast<uint8>(Tutorial->GetState());
+		Save->TutorialStep = Tutorial->GetStep();
+	}
 	return Save;
 }
 
@@ -511,6 +526,16 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 			Progression->SetOwnedUpgrades(Save->OwnedUpgrades);
 			Progression->SetGuideStep(Save->GuideStep);
 		}
+	}
+	// Version 14: look of the buildings and the tutorial (older saves: original look, tutorial off).
+	if (UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(World))
+	{
+		Style->SetAllStyles(Save->bHasStyle ? Save->ZoneStyles : TArray<FWEZoneStyle>());
+	}
+	if (UWETutorialComponent* Tutorial = UWETutorialComponent::Get(World))
+	{
+		const uint8 State = Save->SaveVersion >= 14 ? Save->TutorialState : 0;
+		Tutorial->SetState(State <= static_cast<uint8>(EWETutorialState::Completed) ? static_cast<EWETutorialState>(State) : EWETutorialState::Off, Save->TutorialStep);
 	}
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{

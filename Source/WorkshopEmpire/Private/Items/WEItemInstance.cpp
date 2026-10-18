@@ -15,8 +15,27 @@ FWEItemInstance FWEItemInstance::Make(UWEItemDefinition* InDefinition, int32 InQ
 
 bool FWEItemInstance::CanStackWith(const FWEItemInstance& Other) const
 {
+	// Marks must match: a locked stack never swallows loose goods (and the other way round).
 	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition
-		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair;
+		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair && Marks == Other.Marks;
+}
+
+bool FWEItemInstance::IsPersonalEquipment() const
+{
+	return Definition && (Definition->ToolType != EWEToolType::None || Definition->CarryBonusKg > 0.f || Definition->Category == EWEItemCategory::Tool);
+}
+
+bool FWEItemInstance::NeedsSaleConfirmation() const
+{
+	if (!Definition)
+	{
+		return false;
+	}
+	// Rare finds and collectibles, or anything worth 150 € or more per piece.
+	FWEItemInstance One = *this;
+	One.Quantity = 1;
+	return Definition->Rarity >= EWEItemRarity::Rare || Definition->Category == EWEItemCategory::Collectible
+		|| Definition->Category == EWEItemCategory::RareFind || One.GetEstimatedValue().GetCents() >= 15000;
 }
 
 float FWEItemInstance::GetUnitWeightKg() const

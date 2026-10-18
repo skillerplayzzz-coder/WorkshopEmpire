@@ -4,6 +4,8 @@
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
@@ -98,6 +100,7 @@ void AWEVehicle::RebuildVisuals()
 	StorageMaxWeightKg = Stats.CargoMaxKg;
 	Super::RebuildVisuals();
 	GetStorage()->SetAcceptsBulky(true);
+	RebuildVanModel();
 }
 
 void AWEVehicle::SetUnlocked(bool bInUnlocked)
@@ -142,6 +145,7 @@ void AWEVehicle::StartDriveAnimation(bool bLeaving)
 	bVisualAway = bLeaving;
 	bDriveLeaving = bLeaving;
 	DriveStart = GetWorld()->GetTimeSeconds();
+	LastDriveOffset = bLeaving ? 0.f : DriveDistance;
 	SetActorHiddenInGame(false);
 	if (USoundBase* Engine = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/SFX_VanDrive.SFX_VanDrive")))
 	{
@@ -165,6 +169,16 @@ void AWEVehicle::DriveTick()
 			Delta = GetActorRotation().RotateVector(Delta); // along the nose of the van in world space
 		}
 		Boxes->SetRelativeLocation(DriveHome + Delta);
+	}
+	// Wheels roll with the distance driven.
+	const float Rolled = Offset - LastDriveOffset;
+	LastDriveOffset = Offset;
+	for (USceneComponent* Pivot : WheelPivots)
+	{
+		if (Pivot && WheelRadius > 1.f)
+		{
+			Pivot->AddLocalRotation(FRotator(-FMath::RadiansToDegrees(Rolled / WheelRadius), 0.f, 0.f));
+		}
 	}
 	if (T >= 1.f)
 	{
@@ -404,7 +418,7 @@ void AWEVehicle::FinishTour()
 		for (const FWEInventorySlotData& Slot : Slots)
 		{
 			const FWEMoney Price = Terminal ? Terminal->GetBestSellPrice(Slot.Item) : FWEMoney();
-			if (Price.IsZero() || Slot.Item.IsCustomerItem())
+			if (Price.IsZero() || Slot.Item.IsCustomerItem() || Slot.Item.IsSaleProtected())
 			{
 				continue;
 			}
@@ -619,4 +633,57 @@ bool AWEVehicle::GetExamineInfo(FWEExamineInfo& OutInfo) const
 	return true;
 }
 
+void AWEVehicle::RebuildVanModel()
+{
+	// 0 = old van, 1 = modern van, 2 = truck (the modern body, a size bigger).
+	const int32 Kind = bTruck ? 2 : bImproved ? 1 : 0;
+	if (Kind == VanModelKind && VanParts.Num() > 0)
+	{
+		Boxes->SetVisibility(false);
+		return;
+	}
+	for (UStaticMeshComponent* Part : VanParts) { if (Part) { Part->DestroyComponent(); } }
+	for (USceneComponent* Pivot : WheelPivots) { if (Pivot) { Pivot->DestroyComponent(); } }
+	VanParts.Reset();
+	WheelPivots.Reset();
+	VanModelKind = Kind;
+	UStaticMesh* Body = LoadObject<UStaticMesh>(nullptr, Kind == 0 ? TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_VanOld.SM_Gen_VanOld")
+		: TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_VanModern.SM_Gen_VanModern"), nullptr, LOAD_Quiet | LOAD_NoWarn);
+	UStaticMesh* Wheel = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_VanWheel.SM_Gen_VanWheel"), nullptr, LOAD_Quiet | LOAD_NoWarn);
+	if (!Body || !Wheel)
+	{
+		Boxes->SetVisibility(true); // models not built: the box van stays
+		return;
+	}
+	Boxes->SetVisibility(false);
+	// The model is 540 cm long with its nose at +X; wheel centres 165 cm before/behind the middle, 24 cm above
+	// the body's lowest point; the wheel model (radius 41 cm) stands on its own origin.
+	const float Scale = Size.X / 540.f * (Kind == 2 ? 1.15f : 1.f);
+	WheelRadius = 41.f * Scale;
+	auto Make = [this](UStaticMesh* Mesh, USceneComponent* Parent, const FTransform& Relative)
+	{
+		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		Part->SetStaticMesh(Mesh);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetupAttachment(Parent);
+		Part->SetRelativeTransform(Relative);
+		Part->RegisterComponent();
+		VanParts.Add(Part);
+		return Part;
+	};
+	Make(Body, Boxes, FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, (41.f - 24.f) * Scale), FVector(Scale)));
+	for (const float X : { -165.f, 165.f })
+	{
+		for (const float Y : { -1.f, 1.f })
+		{
+			USceneComponent* Pivot = NewObject<USceneComponent>(this, NAME_None, RF_Transient);
+			Pivot->SetupAttachment(Boxes); // moves with the body when it drives
+			Pivot->SetRelativeLocation(FVector(X * Scale, Y * 87.f * Scale, WheelRadius));
+			Pivot->RegisterComponent();
+			WheelPivots.Add(Pivot);
+			// Hub cap outwards: the model's cap faces -Y.
+			Make(Wheel, Pivot, FTransform(FRotator(0.f, Y > 0.f ? 180.f : 0.f, 0.f), FVector(0.f, 0.f, -WheelRadius), FVector(Scale)));
+		}
+	}
+}
 #undef LOCTEXT_NAMESPACE

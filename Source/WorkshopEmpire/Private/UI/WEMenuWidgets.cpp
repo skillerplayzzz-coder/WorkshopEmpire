@@ -4,12 +4,17 @@
 #include "Components/Border.h"
 #include "Components/BorderSlot.h"
 #include "Components/Button.h"
+#include "Components/ButtonSlot.h"
 #include "Components/CheckBox.h"
 #include "Components/EditableTextBox.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
+#include "Components/Overlay.h"
+#include "Components/OverlaySlot.h"
 #include "Components/ScrollBox.h"
 #include "Components/SizeBox.h"
+#include "Components/Spacer.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
@@ -20,81 +25,59 @@
 #include "GameFramework/GameStateBase.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Online/WESessionSubsystem.h"
+#include "Progression/WETutorialComponent.h"
 #include "Save/WESaveSystem.h"
-#include "UI/WEGraphicsSettings.h"
 #include "SocketSubsystem.h"
-#include "Styling/CoreStyle.h"
+#include "UI/WEGraphicsSettings.h"
 #include "WEMoney.h"
 
 #define LOCTEXT_NAMESPACE "WEMenu"
 
+using namespace WEUI;
+
 namespace WEMenuStyle
 {
-	UTextBlock* Text(UWidgetTree* Tree, int32 Size, const FLinearColor& Color, const char* Face = "Regular")
-	{
-		UTextBlock* T = Tree->ConstructWidget<UTextBlock>();
-		T->SetFont(FCoreStyle::GetDefaultFontStyle(Face, Size));
-		T->SetColorAndOpacity(FSlateColor(Color));
-		return T;
-	}
-
-	const FLinearColor Gold(1.f, 0.78f, 0.35f);
-	const FLinearColor Soft(0.75f, 0.8f, 0.85f);
-	const FLinearColor Dark(0.05f, 0.05f, 0.05f);
-	const FLinearColor PanelColor(0.035f, 0.04f, 0.045f, 0.92f);
-
-	UButton* Button(UWidgetTree* Tree, const FText& Label, int32 Size = 13)
-	{
-		UButton* B = Tree->ConstructWidget<UButton>();
-		UTextBlock* T = Text(Tree, Size, Dark, "Bold");
-		T->SetText(Label);
-		T->SetJustification(ETextJustify::Center);
-		B->SetContent(T);
-		return B;
-	}
-
-	UVerticalBox* Panel(UWidgetTree* Tree, UPanelWidget* Parent, float Width)
-	{
-		USizeBox* Size = Tree->ConstructWidget<USizeBox>();
-		Size->SetWidthOverride(Width);
-		UBorder* Frame = Tree->ConstructWidget<UBorder>();
-		Frame->SetBrushColor(PanelColor);
-		Frame->SetPadding(FMargin(28.f, 22.f));
-		Size->SetContent(Frame);
-		UVerticalBox* Box = Tree->ConstructWidget<UVerticalBox>();
-		Frame->SetContent(Box);
-		if (UBorder* ParentBorder = Cast<UBorder>(Parent))
-		{
-			ParentBorder->SetContent(Size);
-		}
-		else if (Parent)
-		{
-			Parent->AddChild(Size);
-		}
-		return Box;
-	}
-
-	void Add(UVerticalBox* Box, UWidget* Child, float Top = 0.f, EHorizontalAlignment Align = HAlign_Fill)
-	{
-		if (UVerticalBoxSlot* S = Box->AddChildToVerticalBox(Child))
-		{
-			S->SetPadding(FMargin(0.f, Top, 0.f, 0.f));
-			S->SetHorizontalAlignment(Align);
-		}
-	}
-
 	UScrollBox* List(UWidgetTree* Tree, UVerticalBox* Box, float Height)
 	{
-		USizeBox* Size = Tree->ConstructWidget<USizeBox>();
-		Size->SetHeightOverride(Height);
+		UBorder* Inset = WEUI::Box(Tree, Col::PanelDark, FMargin(6.f), Col::Line, 2.f);
 		UScrollBox* Scroll = Tree->ConstructWidget<UScrollBox>();
-		Size->SetContent(Scroll);
-		Add(Box, Size, 8.f);
+		Inset->SetContent(Scroll);
+		AddV(Box, Sized(Tree, Inset, 0.f, Height), FMargin(0.f, 8.f, 0.f, 0.f));
 		return Scroll;
+	}
+
+	UEditableTextBox* TextField(UWidgetTree* Tree, const FText& Value, const FText& Hint)
+	{
+		UEditableTextBox* Field = Tree->ConstructWidget<UEditableTextBox>();
+		FEditableTextBoxStyle Style = FEditableTextBoxStyle::GetDefault();
+		Style.SetBackgroundImageNormal(Brush(Col::PanelDark, Col::LineStrong, 1.f, 2.f));
+		Style.SetBackgroundImageHovered(Brush(Col::PanelDark, Col::Accent, 1.f, 2.f));
+		Style.SetBackgroundImageFocused(Brush(Col::PanelDark, Col::Accent, 1.f, 2.f));
+		Style.SetBackgroundImageReadOnly(Brush(Col::WithAlpha(Col::PanelDark, 0.6f), Col::Line, 1.f, 2.f));
+		Style.SetForegroundColor(FSlateColor(Col::Text));
+		Style.SetFont(Font(EFont::Body, 14));
+		Style.SetPadding(FMargin(10.f, 7.f));
+		Field->WidgetStyle = Style;
+		Field->SetText(Value);
+		Field->SetHintText(Hint);
+		return Field;
+	}
+
+	UCheckBox* Check(UWidgetTree* Tree, UVerticalBox* Box, const FText& Label, bool bChecked, float Top = 8.f)
+	{
+		UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>();
+		UCheckBox* C = Tree->ConstructWidget<UCheckBox>();
+		C->SetIsChecked(bChecked);
+		AddH(Row, C, FMargin(0.f, 0.f, 8.f, 0.f));
+		AddH(Row, Text(Tree, Label, 13, Col::Text, EFont::Body, 460.f), FMargin(), true);
+		AddV(Box, Row, FMargin(0.f, Top, 0.f, 0.f));
+		return C;
 	}
 }
 
-// --- Row --------------------------------------------------------------------------------------------
+// =================================================================================================================
+// Rows
+// =================================================================================================================
 
 void UWEMenuRowWidget::NativeOnInitialized()
 {
@@ -103,41 +86,39 @@ void UWEMenuRowWidget::NativeOnInitialized()
 	{
 		return;
 	}
-	UBorder* Frame = WidgetTree->ConstructWidget<UBorder>();
-	Frame->SetBrushColor(FLinearColor(0.08f, 0.085f, 0.09f, 0.95f));
-	Frame->SetPadding(FMargin(10.f, 6.f));
+	UBorder* Frame = Box(WidgetTree, Col::Raised, FMargin(10.f, 7.f), Col::Line, 2.f);
 	WidgetTree->RootWidget = Frame;
 	UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
 	Frame->SetContent(Row);
+	RowIcon = Icon(WidgetTree, TEXT("Folder"), 22.f, Col::TextDim);
+	AddH(Row, RowIcon, FMargin(0.f, 0.f, 10.f, 0.f));
 	UVerticalBox* Texts = WidgetTree->ConstructWidget<UVerticalBox>();
-	TitleText = WEMenuStyle::Text(WidgetTree, 13, FLinearColor::White);
-	DetailText = WEMenuStyle::Text(WidgetTree, 10, WEMenuStyle::Soft);
-	Texts->AddChildToVerticalBox(TitleText);
-	Texts->AddChildToVerticalBox(DetailText);
-	if (UHorizontalBoxSlot* S = Row->AddChildToHorizontalBox(Texts))
-	{
-		S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-		S->SetVerticalAlignment(VAlign_Center);
-	}
-	Button = WidgetTree->ConstructWidget<UButton>();
-	ButtonText = WEMenuStyle::Text(WidgetTree, 11, WEMenuStyle::Dark, "Bold");
-	Button->SetContent(ButtonText);
+	TitleText = Text(WidgetTree, FText::GetEmpty(), 14, Col::Text, EFont::Strong, 360.f);
+	DetailText = Text(WidgetTree, FText::GetEmpty(), 11, Col::TextDim, EFont::Body, 360.f);
+	AddV(Texts, TitleText);
+	AddV(Texts, DetailText);
+	AddH(Row, Texts, FMargin(), true);
+	Button = WEUI::Button(WidgetTree, FText::FromString(TEXT("·")), EButton::Primary, NAME_None, 12, &ButtonText);
 	Button->OnClicked.AddDynamic(this, &UWEMenuRowWidget::HandleClicked);
-	if (UHorizontalBoxSlot* S = Row->AddChildToHorizontalBox(Button))
-	{
-		S->SetVerticalAlignment(VAlign_Center);
-		S->SetPadding(FMargin(8.f, 0.f, 0.f, 0.f));
-	}
+	AddH(Row, Button, FMargin(8.f, 0.f, 0.f, 0.f));
 }
 
-void UWEMenuRowWidget::Configure(const FText& Title, const FText& Detail, const FText& ButtonLabel, bool bButtonEnabled, TFunction<void()> InOnClicked)
+void UWEMenuRowWidget::Configure(const FText& Title, const FText& Detail, const FText& ButtonLabel, bool bButtonEnabled, TFunction<void()> InOnClicked,
+	FName IconName, bool bPrimary)
 {
 	TitleText->SetText(Title);
 	DetailText->SetText(Detail);
 	DetailText->SetVisibility(Detail.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
-	ButtonText->SetText(ButtonLabel);
+	ButtonText->SetText(Upper(ButtonLabel));
 	Button->SetVisibility(ButtonLabel.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 	Button->SetIsEnabled(bButtonEnabled);
+	SetButtonKind(Button, bPrimary ? EButton::Primary : EButton::Danger, ButtonText);
+	if (UTexture2D* Tex = IconTexture(IconName))
+	{
+		RowIcon->SetBrushFromTexture(Tex);
+		RowIcon->SetDesiredSizeOverride(FVector2D(22.f, 22.f));
+	}
+	RowIcon->SetVisibility(IconName.IsNone() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
 	OnClicked = MoveTemp(InOnClicked);
 }
 
@@ -149,16 +130,239 @@ void UWEMenuRowWidget::HandleClicked()
 	}
 }
 
-// --- Main menu --------------------------------------------------------------------------------------
-
-UButton* UWEMainMenuWidget::MakeButton(UVerticalBox* Parent, const FText& Label, float Width)
+void UWESettingRow::NativeOnInitialized()
 {
-	UButton* B = WEMenuStyle::Button(WidgetTree, Label, 15);
-	USizeBox* Size = WidgetTree->ConstructWidget<USizeBox>();
-	Size->SetWidthOverride(Width);
-	Size->SetHeightOverride(44.f);
-	Size->SetContent(B);
-	WEMenuStyle::Add(Parent, Size, 10.f, HAlign_Center);
+	Super::NativeOnInitialized();
+	if (!WidgetTree || WidgetTree->RootWidget)
+	{
+		return;
+	}
+	UBorder* Frame = Box(WidgetTree, Col::Raised, FMargin(10.f, 5.f), Col::Line, 2.f);
+	WidgetTree->RootWidget = Frame;
+	UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+	Frame->SetContent(Row);
+	RowIcon = Icon(WidgetTree, TEXT("Gear"), 18.f, Col::TextDim);
+	AddH(Row, RowIcon, FMargin(0.f, 0.f, 10.f, 0.f));
+	LabelText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong);
+	AddH(Row, LabelText, FMargin(), true);
+	UButton* Left = Button(WidgetTree, FText::GetEmpty(), EButton::Icon, TEXT("ChevronLeft"), 12);
+	Left->OnClicked.AddDynamic(this, &UWESettingRow::HandleLeft);
+	AddH(Row, Left);
+	ValueText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Accent, EFont::Head);
+	ValueText->SetJustification(ETextJustify::Center);
+	AddH(Row, Sized(WidgetTree, ValueText, 170.f));
+	UButton* Right = Button(WidgetTree, FText::GetEmpty(), EButton::Icon, TEXT("ChevronRight"), 12);
+	Right->OnClicked.AddDynamic(this, &UWESettingRow::HandleRight);
+	AddH(Row, Right);
+}
+
+void UWESettingRow::Setup(UWESettingsPanel* InOwner, int32 InIndex, const FText& Label, FName IconName)
+{
+	Owner = InOwner;
+	Index = InIndex;
+	LabelText->SetText(Label);
+	if (UTexture2D* Tex = IconTexture(IconName))
+	{
+		RowIcon->SetBrushFromTexture(Tex);
+		RowIcon->SetDesiredSizeOverride(FVector2D(18.f, 18.f));
+	}
+}
+
+void UWESettingRow::SetValue(const FText& Value)
+{
+	ValueText->SetText(Upper(Value));
+}
+
+void UWESettingRow::HandleLeft()
+{
+	if (Owner)
+	{
+		Owner->Step(Index, -1);
+	}
+}
+
+void UWESettingRow::HandleRight()
+{
+	if (Owner)
+	{
+		Owner->Step(Index, 1);
+	}
+}
+
+// =================================================================================================================
+// Settings panel
+// =================================================================================================================
+
+void UWESettingsPanel::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+	if (!WidgetTree || WidgetTree->RootWidget)
+	{
+		return;
+	}
+	UVerticalBox* Box2 = WidgetTree->ConstructWidget<UVerticalBox>();
+	WidgetTree->RootWidget = Box2;
+	struct FRowDef { const TCHAR* Section; FText Label; FName Icon; };
+	const FRowDef Defs[Count] = {
+		{ TEXT("Grafik"), LOCTEXT("SQuality", "Grafikqualität"), TEXT("Desktop") },
+		{ nullptr, LOCTEXT("SRes", "Auflösung"), TEXT("Window") },
+		{ nullptr, LOCTEXT("SMode", "Anzeigemodus"), TEXT("Window") },
+		{ nullptr, LOCTEXT("SVSync", "VSync"), TEXT("Clock") },
+		{ nullptr, LOCTEXT("SFps", "Bildrate begrenzen"), TEXT("Chart") },
+		{ TEXT("Oberfläche & Steuerung"), LOCTEXT("SUi", "UI-Skalierung"), TEXT("Search") },
+		{ nullptr, LOCTEXT("SMouse", "Mausempfindlichkeit"), TEXT("Hand") },
+		{ nullptr, LOCTEXT("SInvert", "Maus Y invertieren"), TEXT("ChevronDown") },
+		{ nullptr, LOCTEXT("SFov", "Sichtfeld"), TEXT("Search") },
+		{ TEXT("Audio"), LOCTEXT("SVolume", "Gesamtlautstärke"), TEXT("Bell") },
+	};
+	for (int32 i = 0; i < Count; ++i)
+	{
+		if (Defs[i].Section)
+		{
+			AddV(Box2, SectionHeader(WidgetTree, FText::FromString(Defs[i].Section), NAME_None, nullptr, 12), FMargin(0.f, i == 0 ? 0.f : 10.f, 0.f, 6.f));
+		}
+		UWESettingRow* Row = CreateWidget<UWESettingRow>(GetOwningPlayer(), UWESettingRow::StaticClass());
+		Row->Setup(this, i, Defs[i].Label, Defs[i].Icon);
+		AddV(Box2, Row, FMargin(0.f, 0.f, 0.f, 3.f));
+		Rows.Add(Row);
+	}
+	UHorizontalBox* Buttons = WidgetTree->ConstructWidget<UHorizontalBox>();
+	StatusText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Good, EFont::Strong);
+	AddH(Buttons, StatusText, FMargin(), true);
+	UButton* Defaults = Button(WidgetTree, LOCTEXT("Defaults", "Standard"), EButton::Secondary, NAME_None, 12);
+	Defaults->OnClicked.AddDynamic(this, &UWESettingsPanel::HandleDefaults);
+	AddH(Buttons, Defaults, FMargin(0.f, 0.f, 6.f, 0.f));
+	UButton* Apply = Button(WidgetTree, LOCTEXT("Apply", "Übernehmen"), EButton::Primary, TEXT("Check"), 12);
+	Apply->OnClicked.AddDynamic(this, &UWESettingsPanel::HandleApply);
+	AddH(Buttons, Apply);
+	AddV(Box2, Buttons, FMargin(0.f, 12.f, 0.f, 0.f));
+	Reload();
+}
+
+void UWESettingsPanel::Reload()
+{
+	Values = WESettings::Load();
+	QualityLevel = WEGraphics::GetQuality();
+	Resolutions = WESettings::GetResolutions();
+	Refresh();
+	if (StatusText)
+	{
+		StatusText->SetText(FText::GetEmpty());
+	}
+}
+
+void UWESettingsPanel::Refresh()
+{
+	if (Rows.Num() < Count)
+	{
+		return;
+	}
+	auto Pct = [](float V) { return FText::Format(LOCTEXT("PctFmt", "{0} %"), FText::AsNumber(FMath::RoundToInt(V * 100.f))); };
+	auto OnOff = [](bool b) { return b ? LOCTEXT("On", "Ein") : LOCTEXT("Off", "Aus"); };
+	Rows[ERow::Quality]->SetValue(WEGraphics::GetQualityName(QualityLevel));
+	Rows[Resolution]->SetValue(FText::FromString(FString::Printf(TEXT("%d × %d"), Values.Resolution.X, Values.Resolution.Y)));
+	Rows[WindowMode]->SetValue(WESettings::GetWindowModeName(Values.WindowMode));
+	Rows[VSync]->SetValue(OnOff(Values.bVSync));
+	Rows[FrameLimit]->SetValue(WESettings::GetFrameLimitName(Values.FrameLimit));
+	Rows[UIScale]->SetValue(Pct(Values.UIScale));
+	{ FNumberFormattingOptions One; One.MinimumFractionalDigits = 1; One.MaximumFractionalDigits = 1; Rows[Mouse]->SetValue(FText::Format(LOCTEXT("MouseValue", "{0}×"), FText::AsNumber(Values.MouseSensitivity, &One))); }
+	Rows[InvertY]->SetValue(OnOff(Values.bInvertY));
+	Rows[Fov]->SetValue(FText::Format(LOCTEXT("Deg", "{0}°"), FText::AsNumber(FMath::RoundToInt(Values.FieldOfView))));
+	Rows[Volume]->SetValue(Pct(Values.MasterVolume));
+}
+
+void UWESettingsPanel::Step(int32 Index, int32 Direction)
+{
+	static const float Limits[] = { 0.f, 30.f, 60.f, 120.f, 144.f, 240.f };
+	switch (Index)
+	{
+	case ERow::Quality:
+		QualityLevel = (QualityLevel + Direction + WEGraphics::NumLevels) % WEGraphics::NumLevels;
+		break;
+	case Resolution:
+	{
+		int32 Current = Resolutions.IndexOfByKey(Values.Resolution);
+		Current = Current == INDEX_NONE ? Resolutions.Num() - 1 : (Current + Direction + Resolutions.Num()) % Resolutions.Num();
+		Values.Resolution = Resolutions[Current];
+		break;
+	}
+	case WindowMode:   Values.WindowMode = (Values.WindowMode + Direction + 3) % 3; break;
+	case VSync:        Values.bVSync = !Values.bVSync; break;
+	case FrameLimit:
+	{
+		int32 Current = 0;
+		for (int32 i = 0; i < UE_ARRAY_COUNT(Limits); ++i)
+		{
+			Current = FMath::IsNearlyEqual(Limits[i], Values.FrameLimit) ? i : Current;
+		}
+		Values.FrameLimit = Limits[(Current + Direction + UE_ARRAY_COUNT(Limits)) % UE_ARRAY_COUNT(Limits)];
+		break;
+	}
+	case UIScale:      Values.UIScale = FMath::Clamp(Values.UIScale + Direction * 0.1f, 0.8f, 1.3f); break;
+	case Mouse:        Values.MouseSensitivity = FMath::Clamp(Values.MouseSensitivity + Direction * 0.1f, 0.2f, 3.f); break;
+	case InvertY:      Values.bInvertY = !Values.bInvertY; break;
+	case Fov:          Values.FieldOfView = FMath::Clamp(Values.FieldOfView + Direction * 5.f, 70.f, 110.f); break;
+	case Volume:       Values.MasterVolume = FMath::Clamp(Values.MasterVolume + Direction * 0.1f, 0.f, 1.f); break;
+	default: break;
+	}
+	Play(this, ESound::Toggle, 0.4f);
+	StatusText->SetText(LOCTEXT("Unsaved", "Noch nicht übernommen"));
+	StatusText->SetColorAndOpacity(FSlateColor(Col::Accent));
+	Refresh();
+}
+
+void UWESettingsPanel::HandleApply()
+{
+	WEGraphics::SetQuality(QualityLevel);
+	WESettings::Save(Values);
+	StatusText->SetText(LOCTEXT("Applied", "Übernommen und gespeichert"));
+	StatusText->SetColorAndOpacity(FSlateColor(Col::Good));
+	Play(this, ESound::Confirm, 0.5f);
+}
+
+void UWESettingsPanel::HandleDefaults()
+{
+	const FIntPoint KeepResolution = Values.Resolution;
+	Values = WESettings::FValues();
+	Values.Resolution = KeepResolution;
+	QualityLevel = 2;
+	Refresh();
+	StatusText->SetText(LOCTEXT("DefaultsSet", "Standardwerte – noch nicht übernommen"));
+	StatusText->SetColorAndOpacity(FSlateColor(Col::Accent));
+}
+
+// =================================================================================================================
+// Main menu
+// =================================================================================================================
+
+UButton* UWEMainMenuWidget::MakeMenuButton(UVerticalBox* Parent, const FText& Label, FName IconName, TObjectPtr<UTextBlock>* OutDetail)
+{
+	UButton* B = WidgetTree->ConstructWidget<UButton>();
+	FButtonStyle Style = ButtonStyle(EButton::Ghost);
+	Style.SetHovered(Brush(Col::WithAlpha(Col::Accent, 0.14f), FLinearColor::Transparent, 0.f, 0.f));
+	Style.SetPressed(Brush(Col::WithAlpha(Col::Accent, 0.24f), FLinearColor::Transparent, 0.f, 0.f));
+	Style.SetNormalPadding(FMargin(14.f, 10.f));
+	Style.SetPressedPadding(FMargin(16.f, 11.f, 12.f, 9.f));
+	Style.SetHoveredSound(FSlateSound());
+	B->SetStyle(Style);
+	UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+	AddH(Row, Icon(WidgetTree, IconName, 26.f, Col::Accent), FMargin(0.f, 0.f, 16.f, 0.f));
+	UVerticalBox* Texts = WidgetTree->ConstructWidget<UVerticalBox>();
+	UTextBlock* T = Text(WidgetTree, Upper(Label), 24, Col::Text, EFont::Head);
+	T->SetFont(Font(EFont::Head, 24, 80));
+	AddV(Texts, T);
+	if (OutDetail)
+	{
+		*OutDetail = Text(WidgetTree, FText::GetEmpty(), 11, Col::TextDim, EFont::Body, 360.f);
+		AddV(Texts, *OutDetail);
+	}
+	AddH(Row, Texts, FMargin(), true);
+	B->SetContent(Row);
+	if (UButtonSlot* ContentSlot = Cast<UButtonSlot>(Row->Slot))
+	{
+		ContentSlot->SetHorizontalAlignment(HAlign_Left);
+	}
+	AddV(Parent, Sized(WidgetTree, B, 420.f), FMargin(0.f, 0.f, 0.f, 4.f), HAlign_Left);
 	return B;
 }
 
@@ -171,117 +375,144 @@ void UWEMainMenuWidget::NativeOnInitialized()
 		return;
 	}
 	const UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
-
-	// Dim the 3D scene a little, panel on the left.
-	UBorder* Root = WidgetTree->ConstructWidget<UBorder>();
-	Root->SetBrushColor(FLinearColor(0.f, 0.f, 0.f, 0.25f));
-	Root->SetPadding(FMargin(70.f, 50.f));
-	Root->SetHorizontalAlignment(HAlign_Left);
-	Root->SetVerticalAlignment(VAlign_Center);
+	UOverlay* Root = WidgetTree->ConstructWidget<UOverlay>();
 	WidgetTree->RootWidget = Root;
-	UVerticalBox* Box = WEMenuStyle::Panel(WidgetTree, Root, 560.f);
 
-	UTextBlock* Title = WEMenuStyle::Text(WidgetTree, 34, WEMenuStyle::Gold, "Bold");
-	Title->SetText(LOCTEXT("Title", "WORKSHOP EMPIRE"));
-	WEMenuStyle::Add(Box, Title);
-	UTextBlock* Sub = WEMenuStyle::Text(WidgetTree, 11, WEMenuStyle::Soft);
-	Sub->SetText(FText::Format(LOCTEXT("Subtitle", "Werkstatt, Recycling und Industrie – allein oder im Koop mit bis zu 4 Spielern · Version {0}"),
-		FText::FromString(UWESessionSubsystem::GetGameVersion())));
-	Sub->SetAutoWrapText(true);
-	WEMenuStyle::Add(Box, Sub, 2.f);
-	ServiceText = WEMenuStyle::Text(WidgetTree, 11, FLinearColor(0.55f, 0.85f, 0.6f));
-	ServiceText->SetText(Session ? Session->GetServiceText() : FText::GetEmpty());
-	WEMenuStyle::Add(Box, ServiceText, 6.f);
-
-	// Name (LAN only; Steam shows the Steam name).
-	UHorizontalBox* NameRow = WidgetTree->ConstructWidget<UHorizontalBox>();
-	UTextBlock* NameLabel = WEMenuStyle::Text(WidgetTree, 12, FLinearColor::White);
-	NameLabel->SetText(LOCTEXT("Name", "Dein Name: "));
-	NameRow->AddChildToHorizontalBox(NameLabel)->SetVerticalAlignment(VAlign_Center);
-	NameBox = WidgetTree->ConstructWidget<UEditableTextBox>();
-	NameBox->SetText(FText::FromString(Session ? Session->GetLocalPlayerName() : FString()));
-	NameBox->SetIsReadOnly(!Session || !Session->CanChangePlayerName());
-	NameBox->OnTextCommitted.AddDynamic(this, &UWEMainMenuWidget::HandleNameCommitted);
-	if (UHorizontalBoxSlot* S = NameRow->AddChildToHorizontalBox(NameBox))
+	// Left: dark band with the logo and the main entries; the scene stays visible on the right.
+	UHorizontalBox* Columns = WidgetTree->ConstructWidget<UHorizontalBox>();
+	if (UOverlaySlot* S = Root->AddChildToOverlay(Columns))
 	{
-		S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		S->SetHorizontalAlignment(HAlign_Fill);
+		S->SetVerticalAlignment(VAlign_Fill);
 	}
-	WEMenuStyle::Add(Box, NameRow, 10.f);
+	UBorder* Band = Box(WidgetTree, Col::Hex(0x0B0D10, 0.86f), FMargin(64.f, 52.f, 40.f, 40.f), FLinearColor::Transparent, 0.f);
+	AddH(Columns, Sized(WidgetTree, Band, 560.f), FMargin(), false, VAlign_Fill);
+	AddH(Columns, Sized(WidgetTree, Box(WidgetTree, Col::Accent, FMargin(0.f), FLinearColor::Transparent, 0.f), 3.f), FMargin(), false, VAlign_Fill);
+	UVerticalBox* Left = WidgetTree->ConstructWidget<UVerticalBox>();
+	Band->SetContent(Left);
+	LeftColumn = Left;
+	AddV(Left, Hazard(WidgetTree, 7.f, 150.f));
+	UTextBlock* Title1 = Text(WidgetTree, FText::FromString(TEXT("WORKSHOP")), 58, Col::Text, EFont::Black);
+	Title1->SetFont(Font(EFont::Black, 58, 40));
+	AddV(Left, Title1, FMargin(0.f, 16.f, 0.f, 0.f));
+	UTextBlock* Title2 = Text(WidgetTree, FText::FromString(TEXT("EMPIRE")), 58, Col::Accent, EFont::Black);
+	Title2->SetFont(Font(EFont::Black, 58, 40));
+	AddV(Left, Title2, FMargin(0.f, -14.f, 0.f, 0.f));
+	AddV(Left, Heading(WidgetTree, LOCTEXT("Tagline", "Werkstatt · Recycling · Industrie"), 13, Col::TextDim), FMargin(0.f, 2.f, 0.f, 40.f));
 
+	ContinueButton = MakeMenuButton(Left, LOCTEXT("Continue", "Spiel fortsetzen"), TEXT("Play"), &ContinueDetail);
+	ContinueButton->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleContinue);
+	MakeMenuButton(Left, LOCTEXT("NewGame", "Neues Spiel"), TEXT("Plus"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowNew);
+	MakeMenuButton(Left, LOCTEXT("Multiplayer", "Multiplayer"), TEXT("People"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowJoin);
+	MakeMenuButton(Left, LOCTEXT("SettingsBtn", "Einstellungen"), TEXT("Gear"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowSettings);
+	MakeMenuButton(Left, LOCTEXT("Quit", "Beenden"), TEXT("Exit"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleQuit);
+
+	AddV(Left, WidgetTree->ConstructWidget<USpacer>(), FMargin(), HAlign_Fill, true);
+	MessageText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Accent, EFont::Strong, 440.f);
+	AddV(Left, MessageText, FMargin(0.f, 0.f, 0.f, 6.f));
+	StatusText = Text(WidgetTree, FText::GetEmpty(), 12, Col::TextDim, EFont::Body, 440.f);
+	AddV(Left, StatusText, FMargin(0.f, 0.f, 0.f, 10.f));
+	ServiceText = Text(WidgetTree, Session ? Session->GetServiceText() : FText::GetEmpty(), 11, Col::Good, EFont::Strong);
+	AddV(Left, ServiceText);
+	AddV(Left, Text(WidgetTree, FText::Format(LOCTEXT("Version", "Version {0} · allein oder im Koop mit bis zu 4 Spielern"), FText::FromString(UWESessionSubsystem::GetGameVersion())),
+		10, Col::TextMuted), FMargin(0.f, 2.f, 0.f, 0.f));
+
+	// Right: a card with the open page.
+	UVerticalBox* CardBox = WidgetTree->ConstructWidget<UVerticalBox>();
+	UHorizontalBox* CardHead = WidgetTree->ConstructWidget<UHorizontalBox>();
+	AddH(CardHead, Sized(WidgetTree, Box(WidgetTree, Col::Accent, FMargin(0.f), FLinearColor::Transparent, 0.f), 4.f, 26.f), FMargin(0.f, 0.f, 10.f, 0.f));
+	PageTitle = Heading(WidgetTree, FText::GetEmpty(), 20, Col::Text);
+	AddH(CardHead, PageTitle, FMargin(), true);
+	UButton* Back = Button(WidgetTree, LOCTEXT("Back", "Zurück"), EButton::Ghost, TEXT("ChevronLeft"), 12);
+	Back->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleBack);
+	AddH(CardHead, Back);
+	AddV(CardBox, CardHead, FMargin(0.f, 0.f, 0.f, 14.f));
 	Pages = WidgetTree->ConstructWidget<UWidgetSwitcher>();
-	WEMenuStyle::Add(Box, Pages, 8.f);
+	AddV(CardBox, Pages, FMargin(), HAlign_Fill, true);
 
-	// Page 0: main.
-	UVerticalBox* Main = WidgetTree->ConstructWidget<UVerticalBox>();
-	MakeButton(Main, LOCTEXT("HostNew", "Neues Spiel hosten"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleHostNew);
-	MakeButton(Main, LOCTEXT("Load", "Spielstand laden und hosten"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowLoad);
-	MakeButton(Main, LOCTEXT("Join", "Spiel beitreten"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowJoin);
-	UButton* Graphics = MakeButton(Main, WEGraphics::GetButtonLabel());
-	Graphics->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleGraphics);
-	GraphicsText = Cast<UTextBlock>(Graphics->GetContent());
-	MakeButton(Main, LOCTEXT("Quit", "Beenden"))->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleQuit);
-	UHorizontalBox* LANRow = WidgetTree->ConstructWidget<UHorizontalBox>();
-	LANCheck = WidgetTree->ConstructWidget<UCheckBox>();
-	LANCheck->SetIsChecked(!Session || Session->GetService() != EWEOnlineService::Steam);
-	LANCheck->SetIsEnabled(Session && Session->GetService() == EWEOnlineService::Steam);
-	LANRow->AddChildToHorizontalBox(LANCheck)->SetVerticalAlignment(VAlign_Center);
-	UTextBlock* LANLabel = WEMenuStyle::Text(WidgetTree, 11, WEMenuStyle::Soft);
-	LANLabel->SetText(LOCTEXT("LANOnly", " Im LAN / per IP hosten statt über Steam (Freunde laden geht nur über Steam)"));
-	LANRow->AddChildToHorizontalBox(LANLabel)->SetVerticalAlignment(VAlign_Center);
-	WEMenuStyle::Add(Main, LANRow, 12.f);
-	Pages->AddChild(Main);
+	// Page 0: empty (home).
+	Pages->AddChild(WidgetTree->ConstructWidget<USpacer>());
 
 	// Page 1: load a save.
 	UVerticalBox* Load = WidgetTree->ConstructWidget<UVerticalBox>();
-	UTextBlock* LoadTitle = WEMenuStyle::Text(WidgetTree, 14, WEMenuStyle::Gold, "Bold");
-	LoadTitle->SetText(LOCTEXT("LoadTitle", "Spielstand laden – du bist der Host, Mitspieler treten bei"));
-	WEMenuStyle::Add(Load, LoadTitle);
-	SaveList = WEMenuStyle::List(WidgetTree, Load, 260.f);
-	MakeButton(Load, LOCTEXT("Back", "Zurück"), 200.f)->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleBack);
+	AddV(Load, Text(WidgetTree, LOCTEXT("LoadHint", "Du bist der Host: Mitspieler können jederzeit beitreten und gehen – ihr Inventar wartet auf sie."), 12, Col::TextDim, EFont::Body, 600.f));
+	SaveList = WEMenuStyle::List(WidgetTree, Load, 380.f);
 	Pages->AddChild(Load);
 
-	// Page 2: join.
+	// Page 2: multiplayer (host and join).
 	UVerticalBox* Join = WidgetTree->ConstructWidget<UVerticalBox>();
-	UTextBlock* JoinTitle = WEMenuStyle::Text(WidgetTree, 14, WEMenuStyle::Gold, "Bold");
-	JoinTitle->SetText(LOCTEXT("JoinTitle", "Spiel beitreten"));
-	WEMenuStyle::Add(Join, JoinTitle);
+	UHorizontalBox* NameRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	AddH(NameRow, Text(WidgetTree, LOCTEXT("Name", "Dein Name"), 13, Col::TextDim, EFont::Strong), FMargin(0.f, 0.f, 10.f, 0.f));
+	NameBox = WEMenuStyle::TextField(WidgetTree, FText::FromString(Session ? Session->GetLocalPlayerName() : FString()), FText::GetEmpty());
+	NameBox->SetIsReadOnly(!Session || !Session->CanChangePlayerName());
+	NameBox->OnTextCommitted.AddDynamic(this, &UWEMainMenuWidget::HandleNameCommitted);
+	AddH(NameRow, NameBox, FMargin(), true);
+	AddV(Join, NameRow);
+	AddV(Join, SectionHeader(WidgetTree, LOCTEXT("HostHead", "Spiel eröffnen"), TEXT("Home"), nullptr, 12), FMargin(0.f, 14.f, 0.f, 6.f));
+	UHorizontalBox* HostRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	UButton* HostNew = Button(WidgetTree, LOCTEXT("HostNew", "Neues Spiel hosten"), EButton::Primary, TEXT("Plus"), 12);
+	HostNew->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowNew);
+	AddH(HostRow, HostNew, FMargin(0.f, 0.f, 6.f, 0.f));
+	UButton* HostLoad = Button(WidgetTree, LOCTEXT("HostLoad", "Spielstand hosten"), EButton::Secondary, TEXT("Folder"), 12);
+	HostLoad->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowLoad);
+	AddH(HostRow, HostLoad);
+	AddV(Join, HostRow);
+	LANCheck = WEMenuStyle::Check(WidgetTree, Join, LOCTEXT("LANOnly", "Im LAN / per IP hosten statt über Steam (Freunde einladen geht nur über Steam)"),
+		!Session || Session->GetService() != EWEOnlineService::Steam);
+	LANCheck->SetIsEnabled(Session && Session->GetService() == EWEOnlineService::Steam);
+	AddV(Join, SectionHeader(WidgetTree, LOCTEXT("JoinHead", "Spiel beitreten"), TEXT("People"), nullptr, 12), FMargin(0.f, 16.f, 0.f, 6.f));
 	UHorizontalBox* SearchRow = WidgetTree->ConstructWidget<UHorizontalBox>();
-	SteamSearchButton = WEMenuStyle::Button(WidgetTree, LOCTEXT("SearchSteam", "Steam-Spiele suchen"), 12);
+	SteamSearchButton = Button(WidgetTree, LOCTEXT("SearchSteam", "Steam-Spiele suchen"), EButton::Secondary, TEXT("Search"), 12);
 	SteamSearchButton->SetIsEnabled(Session && Session->GetService() == EWEOnlineService::Steam);
 	SteamSearchButton->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleSearchSteam);
-	SearchRow->AddChildToHorizontalBox(SteamSearchButton)->SetPadding(FMargin(0.f, 0.f, 8.f, 0.f));
-	UButton* LANButton = WEMenuStyle::Button(WidgetTree, LOCTEXT("SearchLAN", "LAN-Spiele suchen"), 12);
+	AddH(SearchRow, SteamSearchButton, FMargin(0.f, 0.f, 6.f, 0.f));
+	UButton* LANButton = Button(WidgetTree, LOCTEXT("SearchLAN", "LAN-Spiele suchen"), EButton::Secondary, TEXT("Search"), 12);
 	LANButton->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleSearchLAN);
-	SearchRow->AddChildToHorizontalBox(LANButton);
-	WEMenuStyle::Add(Join, SearchRow, 8.f);
-	GameList = WEMenuStyle::List(WidgetTree, Join, 200.f);
+	AddH(SearchRow, LANButton);
+	AddV(Join, SearchRow);
+	GameList = WEMenuStyle::List(WidgetTree, Join, 170.f);
 	UHorizontalBox* AddressRow = WidgetTree->ConstructWidget<UHorizontalBox>();
-	UTextBlock* AddressLabel = WEMenuStyle::Text(WidgetTree, 12, FLinearColor::White);
-	AddressLabel->SetText(LOCTEXT("Address", "IP-Adresse: "));
-	AddressRow->AddChildToHorizontalBox(AddressLabel)->SetVerticalAlignment(VAlign_Center);
-	AddressBox = WidgetTree->ConstructWidget<UEditableTextBox>();
-	AddressBox->SetHintText(LOCTEXT("AddressHint", "z. B. 192.168.0.5"));
-	if (UHorizontalBoxSlot* S = AddressRow->AddChildToHorizontalBox(AddressBox))
-	{
-		S->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	}
-	UButton* Connect = WEMenuStyle::Button(WidgetTree, LOCTEXT("Connect", "Verbinden"), 12);
+	AddressBox = WEMenuStyle::TextField(WidgetTree, FText::GetEmpty(), LOCTEXT("AddressHint", "IP-Adresse, z. B. 192.168.0.5"));
+	AddH(AddressRow, AddressBox, FMargin(), true);
+	UButton* Connect = Button(WidgetTree, LOCTEXT("Connect", "Verbinden"), EButton::Primary, TEXT("ChevronRight"), 12);
 	Connect->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleJoinAddress);
-	AddressRow->AddChildToHorizontalBox(Connect)->SetPadding(FMargin(8.f, 0.f, 0.f, 0.f));
-	WEMenuStyle::Add(Join, AddressRow, 10.f);
-	MakeButton(Join, LOCTEXT("Back2", "Zurück"), 200.f)->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleBack);
+	AddH(AddressRow, Connect, FMargin(6.f, 0.f, 0.f, 0.f));
+	AddV(Join, AddressRow, FMargin(0.f, 10.f, 0.f, 0.f));
 	Pages->AddChild(Join);
 
-	StatusText = WEMenuStyle::Text(WidgetTree, 12, WEMenuStyle::Soft);
-	StatusText->SetAutoWrapText(true);
-	WEMenuStyle::Add(Box, StatusText, 12.f);
-	MessageText = WEMenuStyle::Text(WidgetTree, 13, WEMenuStyle::Gold, "Bold");
-	MessageText->SetAutoWrapText(true);
-	WEMenuStyle::Add(Box, MessageText, 6.f);
-	UTextBlock* Hint = WEMenuStyle::Text(WidgetTree, 10, WEMenuStyle::Soft);
-	Hint->SetAutoWrapText(true);
-	Hint->SetText(LOCTEXT("Hint", "Der Host besitzt den Spielstand und speichert. Mitspieler können jederzeit beitreten und gehen – ihr Inventar wartet auf sie."));
-	WEMenuStyle::Add(Box, Hint, 12.f);
+	// Page 3: new game.
+	UVerticalBox* New = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddV(New, Text(WidgetTree, LOCTEXT("NewHint", "Du startest mit einer kleinen Garage, 250 € und ein paar alten Geräten. Freunde können später über Multiplayer beitreten."),
+		12, Col::TextDim, EFont::Body, 600.f));
+	AddV(New, Text(WidgetTree, LOCTEXT("CompanyName", "Name deines Unternehmens"), 13, Col::Text, EFont::Strong), FMargin(0.f, 16.f, 0.f, 6.f));
+	CompanyBox = WEMenuStyle::TextField(WidgetTree, LOCTEXT("DefaultCompany", "Werkstatt"), LOCTEXT("CompanyHint", "z. B. Schraubwerk_Mueller"));
+	AddV(New, CompanyBox);
+	AddV(New, Text(WidgetTree, LOCTEXT("CompanyRule", "Wird auch der Name des Spielstands (Buchstaben, Ziffern, - und _)."), 10, Col::TextMuted), FMargin(0.f, 4.f, 0.f, 0.f));
+	TutorialCheck = WEMenuStyle::Check(WidgetTree, New, LOCTEXT("TutorialOpt", "Tutorial spielen (empfohlen) – kurze Hinweise direkt in der Werkstatt, jederzeit überspringbar"), true, 16.f);
+	UButton* Start = Button(WidgetTree, LOCTEXT("StartNew", "Unternehmen gründen"), EButton::Primary, TEXT("Play"), 15);
+	Start->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleStartNew);
+	AddV(New, Start, FMargin(0.f, 22.f, 0.f, 0.f), HAlign_Left);
+	Pages->AddChild(New);
+
+	// Page 4: settings.
+	Settings = CreateWidget<UWESettingsPanel>(GetOwningPlayer(), UWESettingsPanel::StaticClass());
+	UScrollBox* SettingsScroll = WidgetTree->ConstructWidget<UScrollBox>();
+	SettingsScroll->AddChild(Settings);
+	Pages->AddChild(SettingsScroll);
+
+	UBorder* Card = Box(WidgetTree, Col::Hex(0x121519, 0.95f), FMargin(26.f, 22.f), Col::WithAlpha(Col::LineStrong, 0.8f), 3.f);
+	Card->SetContent(Sized(WidgetTree, CardBox, 660.f, 600.f));
+	PageCard = Card;
+	if (UOverlaySlot* S = Root->AddChildToOverlay(Card))
+	{
+		S->SetHorizontalAlignment(HAlign_Right);
+		S->SetVerticalAlignment(VAlign_Center);
+		S->SetPadding(FMargin(0.f, 0.f, 70.f, 0.f));
+	}
+	ShowPage(0);
+	IntroAnim.Duration = 0.5f;
+	IntroAnim.Offset = 30.f;
+	IntroAnim.Start();
 }
 
 void UWEMainMenuWidget::ShowPage(int32 Page)
@@ -289,6 +520,20 @@ void UWEMainMenuWidget::ShowPage(int32 Page)
 	if (Pages)
 	{
 		Pages->SetActiveWidgetIndex(Page);
+	}
+	if (PageCard)
+	{
+		PageCard->SetVisibility(Page == 0 ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
+		CardAnim.Start();
+	}
+	static const FText Titles[] = { FText::GetEmpty(), LOCTEXT("PLoad", "Spiel fortsetzen"), LOCTEXT("PMulti", "Multiplayer"), LOCTEXT("PNew", "Neues Spiel"), LOCTEXT("PSettings", "Einstellungen") };
+	if (PageTitle && Page >= 0 && Page < UE_ARRAY_COUNT(Titles))
+	{
+		PageTitle->SetText(Upper(Titles[Page]));
+	}
+	if (Page == 4 && Settings)
+	{
+		Settings->Reload();
 	}
 	LastSignature.Reset();
 }
@@ -306,12 +551,35 @@ bool UWEMainMenuWidget::WantsLAN() const
 	return !LANCheck || LANCheck->IsChecked();
 }
 
-void UWEMainMenuWidget::HandleHostNew()
+void UWEMainMenuWidget::HandleContinue()
+{
+	if (LatestSlot.IsEmpty())
+	{
+		ShowPage(1);
+		return;
+	}
+	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
+	{
+		Session->HostGame(LatestSlot, WantsLAN());
+	}
+}
+
+void UWEMainMenuWidget::HandleShowNew()
+{
+	ShowPage(3);
+}
+
+void UWEMainMenuWidget::HandleStartNew()
 {
 	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
 	{
-		Session->HostGame(FString(), WantsLAN());
+		Session->HostNewGame(CompanyBox ? CompanyBox->GetText().ToString() : FString(), !TutorialCheck || TutorialCheck->IsChecked(), WantsLAN());
 	}
+}
+
+void UWEMainMenuWidget::HandleHostNew()
+{
+	HandleStartNew();
 }
 
 void UWEMainMenuWidget::HandleShowLoad()
@@ -328,13 +596,9 @@ void UWEMainMenuWidget::HandleShowJoin()
 	}
 }
 
-void UWEMainMenuWidget::HandleGraphics()
+void UWEMainMenuWidget::HandleShowSettings()
 {
-	WEGraphics::CycleQuality();
-	if (GraphicsText)
-	{
-		GraphicsText->SetText(WEGraphics::GetButtonLabel());
-	}
+	ShowPage(4);
 }
 
 void UWEMainMenuWidget::HandleQuit()
@@ -398,6 +662,11 @@ FString UWEMainMenuWidget::BuildSignature() const
 void UWEMainMenuWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	IntroAnim.Tick(LeftColumn, InDeltaTime);
+	if (PageCard && PageCard->GetVisibility() == ESlateVisibility::Visible)
+	{
+		CardAnim.Tick(PageCard, InDeltaTime);
+	}
 	const FString Sig = BuildSignature();
 	if (Sig != LastSignature)
 	{
@@ -413,10 +682,33 @@ void UWEMainMenuWidget::Rebuild()
 	{
 		StatusText->SetText(Session ? Session->GetStatusText() : FText::GetEmpty());
 	}
+	// "Spiel fortsetzen": the newest readable save.
+	const TArray<FWESaveSlotInfo> Slots = FWESaveSystem::ListSlots();
+	LatestSlot.Reset();
+	for (const FWESaveSlotInfo& Info : Slots)
+	{
+		if (Info.bReadable)
+		{
+			LatestSlot = Info.Slot;
+			if (ContinueDetail)
+			{
+				ContinueDetail->SetText(FText::Format(LOCTEXT("ContinueDetail", "{0} · {1} · {2}"), FText::FromString(Info.Slot), FText::AsDateTime(Info.SavedAtUtc),
+					FText::FromString(FWEMoney::FromCents(FMath::Max<int64>(0, Info.BalanceCents)).ToDisplayString())));
+			}
+			break;
+		}
+	}
+	if (ContinueDetail && LatestSlot.IsEmpty())
+	{
+		ContinueDetail->SetText(LOCTEXT("NoSaveYet", "Noch kein Spielstand – starte ein neues Spiel"));
+	}
+	if (ContinueButton)
+	{
+		ContinueButton->SetIsEnabled(!LatestSlot.IsEmpty());
+	}
 	if (SaveList && Pages && Pages->GetActiveWidgetIndex() == 1)
 	{
 		SaveList->ClearChildren();
-		const TArray<FWESaveSlotInfo> Slots = FWESaveSystem::ListSlots();
 		for (const FWESaveSlotInfo& Info : Slots)
 		{
 			UWEMenuRowWidget* Row = CreateWidget<UWEMenuRowWidget>(this, UWEMenuRowWidget::StaticClass());
@@ -424,19 +716,20 @@ void UWEMainMenuWidget::Rebuild()
 			Row->Configure(FText::FromString(Info.Slot),
 				Info.bReadable ? FText::Format(LOCTEXT("SaveDetail", "{0} · Firmenkonto {1}"), FText::AsDateTime(Info.SavedAtUtc), FText::FromString(FWEMoney::FromCents(FMath::Max<int64>(0, Info.BalanceCents)).ToDisplayString()))
 					: LOCTEXT("SaveBroken", "Datei beschädigt oder neuere Version"),
-				LOCTEXT("LoadHost", "Laden & hosten"), Info.bReadable, [this, SlotName]()
+				LOCTEXT("LoadHost", "Laden"), Info.bReadable, [this, SlotName]()
 				{
 					if (UWESessionSubsystem* S = UWESessionSubsystem::Get(this))
 					{
 						S->HostGame(SlotName, WantsLAN());
 					}
-				});
+				}, SlotName == TEXT("Autosave") ? FName(TEXT("Clock")) : FName(TEXT("Save")));
 			SaveList->AddChild(Row);
+			Row->SetPadding(FMargin(0.f, 0.f, 0.f, 4.f));
 		}
 		if (Slots.IsEmpty())
 		{
 			UWEMenuRowWidget* Row = CreateWidget<UWEMenuRowWidget>(this, UWEMenuRowWidget::StaticClass());
-			Row->Configure(LOCTEXT("NoSaves", "Noch keine Spielstände"), LOCTEXT("NoSavesHint", "Im Spiel speichert der Host mit [F5] oder im Menü [Esc]."), FText::GetEmpty(), false, nullptr);
+			Row->Configure(LOCTEXT("NoSaves", "Noch keine Spielstände"), LOCTEXT("NoSavesHint", "Im Spiel speichert der Host mit [F5] oder im Menü [Esc]."), FText::GetEmpty(), false, nullptr, TEXT("Info"));
 			SaveList->AddChild(Row);
 		}
 	}
@@ -457,8 +750,9 @@ void UWEMainMenuWidget::Rebuild()
 					{
 						S->JoinGame(Index);
 					}
-				});
+				}, TEXT("People"));
 			GameList->AddChild(Row);
+			Row->SetPadding(FMargin(0.f, 0.f, 0.f, 4.f));
 		}
 	}
 }
@@ -473,7 +767,9 @@ FReply UWEMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKe
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
-// --- Pause menu -------------------------------------------------------------------------------------
+// =================================================================================================================
+// Pause menu
+// =================================================================================================================
 
 void UWEPauseMenuWidget::NativeOnInitialized()
 {
@@ -483,52 +779,79 @@ void UWEPauseMenuWidget::NativeOnInitialized()
 	{
 		return;
 	}
-	UBorder* Root = WidgetTree->ConstructWidget<UBorder>();
-	Root->SetBrushColor(FLinearColor(0.f, 0.f, 0.f, 0.45f));
+	UBorder* Root = Box(WidgetTree, Col::Backdrop, FMargin(0.f), FLinearColor::Transparent, 0.f);
 	Root->SetHorizontalAlignment(HAlign_Center);
 	Root->SetVerticalAlignment(VAlign_Center);
 	WidgetTree->RootWidget = Root;
-	UVerticalBox* Box = WEMenuStyle::Panel(WidgetTree, Root, 620.f);
 
-	UTextBlock* Title = WEMenuStyle::Text(WidgetTree, 22, WEMenuStyle::Gold, "Bold");
-	Title->SetText(LOCTEXT("PauseTitle", "Menü"));
-	WEMenuStyle::Add(Box, Title);
-	UTextBlock* Running = WEMenuStyle::Text(WidgetTree, 10, WEMenuStyle::Soft);
-	Running->SetText(LOCTEXT("Running", "Das Spiel läuft im Koop weiter."));
-	WEMenuStyle::Add(Box, Running, 2.f);
-	SessionText = WEMenuStyle::Text(WidgetTree, 11, FLinearColor(0.55f, 0.85f, 0.6f));
-	SessionText->SetAutoWrapText(true);
-	WEMenuStyle::Add(Box, SessionText, 8.f);
-
-	PlayersTitle = WEMenuStyle::Text(WidgetTree, 14, FLinearColor::White, "Bold");
-	WEMenuStyle::Add(Box, PlayersTitle, 12.f);
-	PlayerList = WEMenuStyle::List(WidgetTree, Box, 190.f);
-
-	auto AddButton = [this, Box](const FText& Label, TObjectPtr<UTextBlock>* OutText = nullptr)
+	UHorizontalBox* Columns = WidgetTree->ConstructWidget<UHorizontalBox>();
+	// Left: buttons.
+	UVerticalBox* Left = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddV(Left, Hazard(WidgetTree, 6.f, 120.f));
+	AddV(Left, Heading(WidgetTree, LOCTEXT("PauseTitle", "Menü"), 30, Col::Text), FMargin(0.f, 10.f, 0.f, 2.f));
+	AddV(Left, Text(WidgetTree, LOCTEXT("Running", "Das Spiel läuft im Koop weiter."), 11, Col::TextDim), FMargin(0.f, 0.f, 0.f, 18.f));
+	auto AddButton = [this, Left](const FText& Label, FName IconName, EButton Kind, TObjectPtr<UTextBlock>* OutText = nullptr)
 	{
-		UButton* B = WEMenuStyle::Button(WidgetTree, Label, 14);
+		UTextBlock* LabelText = nullptr;
+		UButton* B = Button(WidgetTree, Label, Kind, IconName, 14, &LabelText);
+		if (UHorizontalBox* Inner = Cast<UHorizontalBox>(B->GetContent()))
+		{
+			if (UButtonSlot* ContentSlot = Cast<UButtonSlot>(Inner->Slot))
+			{
+				ContentSlot->SetHorizontalAlignment(HAlign_Left);
+			}
+		}
 		if (OutText)
 		{
-			*OutText = Cast<UTextBlock>(B->GetContent());
+			*OutText = LabelText;
 		}
-		USizeBox* Size = WidgetTree->ConstructWidget<USizeBox>();
-		Size->SetWidthOverride(380.f);
-		Size->SetHeightOverride(40.f);
-		Size->SetContent(B);
-		WEMenuStyle::Add(Box, Size, 8.f, HAlign_Center);
+		AddV(Left, Sized(WidgetTree, B, 300.f, 42.f), FMargin(0.f, 0.f, 0.f, 6.f));
 		return B;
 	};
-	AddButton(LOCTEXT("Continue", "Weiterspielen"))->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleContinue);
-	AddButton(LOCTEXT("Invite", "Steam-Freunde einladen"))->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleInvite);
-	SaveButton = AddButton(LOCTEXT("Save", "Speichern"));
+	AddButton(LOCTEXT("Continue", "Weiterspielen"), TEXT("Play"), EButton::Primary)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleContinue);
+	SaveButton = AddButton(LOCTEXT("Save", "Speichern"), TEXT("Save"), EButton::Secondary);
 	SaveButton->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleSave);
-	AddButton(LOCTEXT("Leave", "Zum Hauptmenü"), &LeaveText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleLeave);
-	AddButton(WEGraphics::GetButtonLabel(), &GraphicsText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleGraphics);
-	AddButton(LOCTEXT("QuitGame", "Spiel beenden"))->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleQuit);
+	AddButton(LOCTEXT("SettingsBtn2", "Einstellungen"), TEXT("Gear"), EButton::Secondary)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleSettings);
+	AddButton(LOCTEXT("Tutorial", "Tutorial"), TEXT("Bulb"), EButton::Secondary, &TutorialText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleTutorial);
+	AddButton(LOCTEXT("Invite", "Steam-Freunde einladen"), TEXT("People"), EButton::Secondary)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleInvite);
+	AddButton(LOCTEXT("Leave", "Zum Hauptmenü"), TEXT("Home"), EButton::Secondary, &LeaveText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleLeave);
+	AddButton(LOCTEXT("QuitGame", "Spiel beenden"), TEXT("Exit"), EButton::Danger)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleQuit);
+	InfoText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Accent, EFont::Strong, 300.f);
+	AddV(Left, InfoText, FMargin(0.f, 8.f, 0.f, 0.f));
+	AddH(Columns, Left, FMargin(0.f, 0.f, 28.f, 0.f), false, VAlign_Top);
 
-	InfoText = WEMenuStyle::Text(WidgetTree, 11, WEMenuStyle::Gold);
-	InfoText->SetAutoWrapText(true);
-	WEMenuStyle::Add(Box, InfoText, 10.f);
+	// Right: session and players, or the settings.
+	Pages = WidgetTree->ConstructWidget<UWidgetSwitcher>();
+	UVerticalBox* Session = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddV(Session, SectionHeader(WidgetTree, LOCTEXT("SessionHead", "Sitzung"), TEXT("Desktop"), nullptr, 13), FMargin(0.f, 0.f, 0.f, 6.f));
+	SessionText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Good, EFont::Strong, 470.f);
+	AddV(Session, SessionText, FMargin(0.f, 0.f, 0.f, 14.f));
+	PlayersTitle = Heading(WidgetTree, FText::GetEmpty(), 13, Col::Text);
+	AddV(Session, PlayersTitle);
+	PlayerList = WEMenuStyle::List(WidgetTree, Session, 260.f);
+	Pages->AddChild(Session);
+	Settings = CreateWidget<UWESettingsPanel>(GetOwningPlayer(), UWESettingsPanel::StaticClass());
+	UScrollBox* SettingsScroll = WidgetTree->ConstructWidget<UScrollBox>();
+	SettingsScroll->AddChild(Settings);
+	Pages->AddChild(SettingsScroll);
+	AddH(Columns, Sized(WidgetTree, Pages, 520.f, 560.f), FMargin(), false, VAlign_Top);
+
+	UBorder* Frame = Box(WidgetTree, Col::Panel, FMargin(30.f, 26.f), Col::WithAlpha(Col::LineStrong, 0.8f), 3.f);
+	Frame->SetContent(Columns);
+	Card = Frame;
+	Root->SetContent(Frame);
+}
+
+void UWEPauseMenuWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+	if (Pages)
+	{
+		Pages->SetActiveWidgetIndex(0);
+	}
+	Anim.Start();
+	LastSignature.Reset();
+	Play(this, ESound::Open, 0.4f);
 }
 
 bool UWEPauseMenuWidget::IsHost() const
@@ -552,12 +875,17 @@ FString UWEPauseMenuWidget::BuildSignature() const
 			}
 		}
 	}
+	if (const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this))
+	{
+		Sig += FString::Printf(TEXT("tut%d"), static_cast<int32>(Tutorial->GetState()));
+	}
 	return Sig + (IsHost() ? TEXT("host") : TEXT("client"));
 }
 
 void UWEPauseMenuWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	Anim.Tick(Card, InDeltaTime);
 	const FString Sig = BuildSignature();
 	if (Sig != LastSignature)
 	{
@@ -576,11 +904,11 @@ void UWEPauseMenuWidget::Rebuild()
 	FText SessionLine;
 	if (GetOwningPlayer() && GetOwningPlayer()->GetNetMode() == NM_Standalone)
 	{
-		SessionLine = LOCTEXT("SessionSolo", "Allein (ohne Netzwerk) – für Koop im Hauptmenü \"Neues Spiel hosten\" wählen.");
+		SessionLine = LOCTEXT("SessionSolo", "Allein (ohne Netzwerk) – für Koop im Hauptmenü unter Multiplayer hosten.");
 	}
 	else if (Session && Session->GetService() == EWEOnlineService::Steam && !Session->IsLANSession())
 	{
-		SessionLine = bHost ? LOCTEXT("SessionSteamHost", "Steam-Lobby: Freunde laden über den Knopf unten ein oder treten über die Steam-Freundesliste bei.")
+		SessionLine = bHost ? LOCTEXT("SessionSteamHost", "Steam-Lobby: Freunde laden über den Knopf links ein oder treten über die Steam-Freundesliste bei.")
 			: LOCTEXT("SessionSteamClient", "Steam-Spiel");
 	}
 	else if (bHost)
@@ -595,12 +923,14 @@ void UWEPauseMenuWidget::Rebuild()
 		SessionLine = LOCTEXT("SessionLANClient", "LAN-Spiel");
 	}
 	SessionText->SetText(SessionLine);
-	PlayersTitle->SetText(FText::Format(LOCTEXT("Players", "Spieler ({0}/{1})"), Count, UWESessionSubsystem::MaxPlayers));
+	PlayersTitle->SetText(Upper(FText::Format(LOCTEXT("Players", "Spieler ({0}/{1})"), Count, UWESessionSubsystem::MaxPlayers)));
 	SaveButton->SetIsEnabled(bHost);
-	if (!LeaveText->GetText().ToString().StartsWith(TEXT("Wirklich")))
+	if (!LeaveText->GetText().ToString().StartsWith(TEXT("WIRKLICH")))
 	{
 		LeaveText->SetText(bHost && Count > 1 ? LOCTEXT("LeaveHost", "Spiel beenden (alle zum Hauptmenü)") : LOCTEXT("LeaveClient", "Zum Hauptmenü"));
 	}
+	const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
+	TutorialText->SetText(Tutorial && Tutorial->IsActive() ? LOCTEXT("TutSkip", "Tutorial überspringen") : LOCTEXT("TutStart", "Tutorial starten"));
 
 	PlayerList->ClearChildren();
 	ListedPlayers = 0;
@@ -614,7 +944,7 @@ void UWEPauseMenuWidget::Rebuild()
 		++ListedPlayers;
 		const AWEPlayerState* WEPS = Cast<AWEPlayerState>(PS);
 		const bool bIsHostRow = WEPS && WEPS->IsHost();
-		FText Detail = bIsHostRow ? LOCTEXT("RowHost", "Host · besitzt den Spielstand")
+		const FText Detail = bIsHostRow ? LOCTEXT("RowHost", "Host · besitzt den Spielstand")
 			: FText::Format(LOCTEXT("RowPing", "Ping {0} ms"), FMath::RoundToInt(PS->GetPingInMilliseconds()));
 		UWEMenuRowWidget* Row = CreateWidget<UWEMenuRowWidget>(this, UWEMenuRowWidget::StaticClass());
 		TWeakObjectPtr<APlayerState> Weak(PS);
@@ -625,8 +955,9 @@ void UWEPauseMenuWidget::Rebuild()
 				{
 					PC->RequestKick(Weak.Get());
 				}
-			});
+			}, bIsHostRow ? FName(TEXT("Home")) : FName(TEXT("Person")), false);
 		PlayerList->AddChild(Row);
+		Row->SetPadding(FMargin(0.f, 0.f, 0.f, 4.f));
 	}
 }
 
@@ -656,6 +987,43 @@ void UWEPauseMenuWidget::HandleSave()
 	}
 }
 
+void UWEPauseMenuWidget::HandleSettings()
+{
+	ShowSettings(Pages && Pages->GetActiveWidgetIndex() != 1);
+}
+
+void UWEPauseMenuWidget::ShowSettings(bool bShow)
+{
+	if (Pages)
+	{
+		Pages->SetActiveWidgetIndex(bShow ? 1 : 0);
+		if (bShow && Settings)
+		{
+			Settings->Reload();
+		}
+	}
+}
+
+void UWEPauseMenuWidget::HandleTutorial()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
+	const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
+	if (!PC)
+	{
+		return;
+	}
+	if (Tutorial && Tutorial->IsActive())
+	{
+		PC->RequestTutorial(1);
+		InfoText->SetText(LOCTEXT("TutSkipped", "Tutorial übersprungen – hier oder am PC unter \"Hilfe\" neu starten."));
+	}
+	else
+	{
+		PC->RequestTutorial(0);
+		PC->ClosePauseMenu();
+	}
+}
+
 void UWEPauseMenuWidget::HandleLeave()
 {
 	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
@@ -665,22 +1033,13 @@ void UWEPauseMenuWidget::HandleLeave()
 		return;
 	}
 	// The host ends the game for everybody: ask once more.
-	if (IsHost() && GS && GS->PlayerArray.Num() > 1 && !LeaveText->GetText().ToString().StartsWith(TEXT("Wirklich")))
+	if (IsHost() && GS && GS->PlayerArray.Num() > 1 && !LeaveText->GetText().ToString().StartsWith(TEXT("WIRKLICH")))
 	{
 		LeaveText->SetText(LOCTEXT("LeaveConfirm", "Wirklich beenden? Nochmal klicken"));
 		InfoText->SetText(LOCTEXT("LeaveInfo", "Alle Mitspieler kehren ins Hauptmenü zurück. Vorher wird automatisch gespeichert."));
 		return;
 	}
 	PC->RequestLeaveGame();
-}
-
-void UWEPauseMenuWidget::HandleGraphics()
-{
-	WEGraphics::CycleQuality();
-	if (GraphicsText)
-	{
-		GraphicsText->SetText(WEGraphics::GetButtonLabel());
-	}
 }
 
 void UWEPauseMenuWidget::HandleQuit()
@@ -695,6 +1054,11 @@ FReply UWEPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FK
 {
 	if (InKeyEvent.GetKey() == EKeys::Escape)
 	{
+		if (Pages && Pages->GetActiveWidgetIndex() == 1)
+		{
+			Pages->SetActiveWidgetIndex(0);
+			return FReply::Handled();
+		}
 		HandleContinue();
 		return FReply::Handled();
 	}

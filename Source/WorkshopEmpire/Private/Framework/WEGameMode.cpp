@@ -3,6 +3,8 @@
 #include "Economy/WECompanyComponent.h"
 #include "Framework/WEGameState.h"
 #include "Progression/WEProgressionComponent.h"
+#include "Progression/WETutorialComponent.h"
+#include "Dev/WEIconBaker.h"
 #include "Framework/WEPlayerController.h"
 #include "Framework/WEPlayerState.h"
 #include "GameFramework/GameSession.h"
@@ -42,6 +44,13 @@ void AWEGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 	StartSlot = UGameplayStatics::ParseOption(Options, TEXT("WELoad"));
+	// Phase 17.5: a new company from the main menu - its save slot (company name) and whether the tutorial runs.
+	const FString NewSlot = UGameplayStatics::ParseOption(Options, TEXT("WESlot"));
+	if (StartSlot.IsEmpty() && FWESaveSystem::IsValidSlotName(NewSlot))
+	{
+		CurrentSlot = NewSlot;
+	}
+	bStartTutorial = StartSlot.IsEmpty() && UGameplayStatics::ParseOption(Options, TEXT("WETutorial")) == TEXT("1");
 }
 
 FString AWEGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
@@ -98,6 +107,17 @@ void AWEGameMode::BeginPlay()
 		// The host chose a save in the main menu: load it once the level runs.
 		FTimerHandle LoadTimer;
 		GetWorldTimerManager().SetTimer(LoadTimer, FTimerDelegate::CreateWeakLambda(this, [this]() { LoadFromSlot(StartSlot); }), 0.2f, false);
+	}
+	else if (bStartTutorial)
+	{
+		if (UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this))
+		{
+			Tutorial->Start();
+		}
+	}
+	if (AWEIconBaker::IsRequested())
+	{
+		GetWorld()->SpawnActor<AWEIconBaker>();
 	}
 	if (AutosaveIntervalSeconds > 0.f)
 	{

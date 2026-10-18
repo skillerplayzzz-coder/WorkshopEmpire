@@ -26,6 +26,9 @@ public:
 	/** Local transform of the door opening (floor centre, facing +X). */
 	FTransform GetDoorTransform() const;
 
+	/** Phase 17.5: personalised inner walls and floor (nullptr = the building's own look). */
+	void ApplyStyle(const struct FWEStyleOption* Wall, const struct FWEStyleOption* Floor);
+
 protected:
 	virtual void BeginPlay() override;
 	void ApplyAllTints();

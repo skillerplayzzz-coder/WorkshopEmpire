@@ -395,7 +395,22 @@ SURFACE_ITEMS = {
     "AluminiumScrap": S.TREAD_PLATE, "SteelBracketSet": S.TREAD_PLATE, "CopperWireSpool": S.PAINTED_METAL,
     "PalletBrackets": S.OSB, "PalletCables": S.OSB, "VintageRadio": S.PLYWOOD, "PreciousConcentrate": S.PAINTED_METAL,
 }
+# Phase 17.5: procedural models (Tools/Assets/build_models.py), modelled in real size (scale 1).
+GEN_ITEMS = {
+    "OldComputer", "PowerSupply", "GraphicsCard", "RareGpu", "RamModule", "Mainboard", "ElectricMotor", "ServoMotor",
+    "IndustrialMotorLarge", "SteelScrap", "AluminiumScrap", "PlasticParts", "GlassCullet", "ElectronicScrap", "ShredElectronics",
+    "ShredMetal", "CopperGranulate", "SteelBale", "AluBale", "CopperBale", "AluminiumIngot", "CopperIngot", "CopperWireSpool",
+    "CopperCable", "ExtensionCable", "SteelBracketSet", "SheetMetalScrews", "Capacitors", "GoldCpu", "VintageRadio",
+    "SolderingIron", "SolderingStation", "PalletBrackets", "PalletCables", "PreciousConcentrate",
+}
 for suffix, (da, path) in items.items():
+    gen_path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{suffix}"
+    if suffix in GEN_ITEMS and unreal.EditorAssetLibrary.does_asset_exist(gen_path):
+        da.set_editor_property("world_mesh", unreal.load_asset(gen_path))
+        da.set_editor_property("world_scale", unreal.Vector(1.0, 1.0, 1.0))
+        da.set_editor_property("surface", S.PLACEHOLDER)
+        unreal.EditorAssetLibrary.save_asset(path)
+        continue
     if suffix in MODEL_ITEMS:
         name, longest = MODEL_ITEMS[suffix]
         mesh_path = f"/Game/WorkshopEmpire/Art/Models/SM_{name}"

@@ -28,7 +28,31 @@ enum class EWESurface : uint8
 	RustyMetal,
 	TreadPlate,
 	Plywood,
-	Osb
+	Osb,
+	// Phase 17.5 (append only: values are stored in data assets)
+	CrackedAsphalt,
+	WornAsphalt,
+	Sidewalk,
+	RedBrick,
+	PaintedBrick,
+	DarkBrick,
+	RustyCorrugated,
+	WornCorrugated,
+	RustedShutter,
+	PaintedShutter,
+	RubberTiles,
+	PaintedConcrete,
+	AntiSlip,
+	WoodFloor,
+	Linoleum,
+	FloorTiles,
+	Plaster,
+	WhitewashedBrick,
+	SteelPlate,
+	GreenRust,
+	Gravel,
+	BoxProfile,
+	ConcretePanels
 };
 
 namespace WESurface
@@ -41,4 +65,7 @@ namespace WESurface
 	 * texture; white = texture colours). Falls back to the placeholder material with Tint as colour.
 	 */
 	WORKSHOPEMPIRE_API void Apply(UMeshComponent* Mesh, EWESurface Kind, const FLinearColor& Tint, float Grime = -1.f);
+
+	/** Phase 17.5 (paint, epoxy floors): like Apply, plus desaturation of the texture (1 = only the tint colour) and roughness scale (< 0 = keep). */
+	WORKSHOPEMPIRE_API void ApplyEx(UMeshComponent* Mesh, EWESurface Kind, const FLinearColor& Tint, float Grime, float Desaturation, float Roughness, float Metallic = -1.f);
 }

@@ -38,6 +38,8 @@ EWEBookingCategory UWECompanyComponent::Classify(const FString& Description)
 		{ TEXT("Rückbuchung Einrichtung"), EWEBookingCategory::Equipment },
 		{ TEXT("Werkstatt"), EWEBookingCategory::Expansion },
 		{ TEXT("Rückbuchung Werkstatt"), EWEBookingCategory::Expansion },
+		{ TEXT("Gebäude verkauft"), EWEBookingCategory::Expansion },
+		{ TEXT("Gestaltung"), EWEBookingCategory::Equipment },
 		{ TEXT("Löhne"), EWEBookingCategory::Wages },
 		{ TEXT("Stromrechnung"), EWEBookingCategory::Power },
 		{ TEXT("Tankfüllung"), EWEBookingCategory::Logistics },

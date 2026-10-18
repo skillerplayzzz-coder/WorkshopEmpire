@@ -44,7 +44,7 @@ ground = spawn(unreal.StaticMeshActor, (0, 0, -2), label="Ground")
 ground.static_mesh_component.set_static_mesh(PLANE)
 asphalt = "/Game/WorkshopEmpire/Materials/Surfaces/MI_WEAsphalt"
 ground.static_mesh_component.set_material(0, unreal.load_asset(asphalt if unreal.EditorAssetLibrary.does_asset_exist(asphalt) else "/Game/WorkshopEmpire/Materials/MI_WEGround.MI_WEGround"))
-ground.set_actor_scale3d(unreal.Vector(80.0, 80.0, 1.0))
+ground.set_actor_scale3d(unreal.Vector(120.0, 120.0, 1.0))
 
 # The garage with its door, a yard lamp and some clutter in the yard.
 spawn(unreal.WEGarageBuilding, (0, 0, 0), label="Garage")
@@ -87,6 +87,12 @@ ic.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
 ic.set_intensity(80.0)
 ic.set_attenuation_radius(900.0)
 ic.set_light_color(unreal.LinearColor(1.0, 0.8, 0.55, 1.0))
+# Phase 17.5: the same neighbourhood as in the game (street, power lines, fence, neighbours).
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import world_neighbourhood
+world_neighbourhood.build_all(menu=True)
+
 ppv = spawn(unreal.PostProcessVolume, (0, 0, 0), label="PostProcess")
 ppv.set_editor_property("unbound", True)
 pp = ppv.get_editor_property("settings")
@@ -96,6 +102,7 @@ for name, value in (("vignette_intensity", 0.45), ("bloom_intensity", 0.5), ("fi
 ppv.set_editor_property("settings", pp)
 cam = spawn(unreal.CameraActor, (1150, -520, 210), (-6.0, 152.0, 0.0), "MenuCamera")
 cam.camera_component.set_editor_property("field_of_view", 70.0)
+cam.camera_component.set_editor_property("constrain_aspect_ratio", False)  # no black bars at 4:3 or 21:9
 
 world = unreal.EditorLevelLibrary.get_editor_world()
 world.get_world_settings().set_editor_property("default_game_mode", unreal.WEMenuGameMode)

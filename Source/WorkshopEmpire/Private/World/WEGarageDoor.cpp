@@ -5,6 +5,8 @@
 #include "Materials/MaterialInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "World/WEPlaceholderVisuals.h"
+#include "World/WESurface.h"
+#include "Workshop/WEWorkshopStyleComponent.h"
 #include "Player/WECharacter.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -58,6 +60,10 @@ void AWEGarageDoor::BeginPlay()
 	Panel->SetRelativeLocation(FVector(0.f, 0.f, GetTargetHeight() + DoorHeight * 0.5f));
 	ApplyTint(); // transient tint is not saved with the map
 	ApplyShutterModel();
+	if (UWEWorkshopStyleComponent* Style = UWEWorkshopStyleComponent::Get(this))
+	{
+		Style->ApplyAll();
+	}
 }
 
 void AWEGarageDoor::ApplyShutterModel()
@@ -75,8 +81,46 @@ void AWEGarageDoor::ApplyShutterModel()
 	ShutterVisual->SetupAttachment(Root);
 	ShutterVisual->SetRelativeRotation(FRotator(0.f, 90.f, 0.f)); // model width (X) along the opening (Y)
 	ShutterVisual->RegisterComponent();
+	ShutterBack = NewObject<UStaticMeshComponent>(this, TEXT("ShutterBack"), RF_Transient);
+	ShutterBack->SetStaticMesh(Shutter);
+	ShutterBack->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ShutterBack->SetupAttachment(Root);
+	ShutterBack->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	ShutterBack->RegisterComponent();
 	UpdateShutterVisual();
 	Panel->SetVisibility(false); // stays as collision
+}
+
+void AWEGarageDoor::ApplyStyle(const FWEStyleOption* Paint)
+{
+	if (!ShutterVisual)
+	{
+		ApplyShutterModel();
+	}
+	UMeshComponent* Visual = ShutterVisual ? static_cast<UMeshComponent*>(ShutterVisual) : Panel.Get();
+	if (!Paint || Paint->Surface == EWESurface::Placeholder)
+	{
+		if (ShutterVisual && ShutterVisual->GetStaticMesh())
+		{
+			// Back to the model's own materials.
+			for (int32 i = 0; i < ShutterVisual->GetNumMaterials(); ++i)
+			{
+				ShutterVisual->SetMaterial(i, ShutterVisual->GetStaticMesh()->GetMaterial(i));
+				if (ShutterBack) { ShutterBack->SetMaterial(i, ShutterVisual->GetStaticMesh()->GetMaterial(i)); }
+			}
+		}
+		else
+		{
+			ApplyTint();
+		}
+		return;
+	}
+	// Paint is a dielectric coat: no metallic reflections (a red metal shutter mirrored the bright yard in pink).
+	WESurface::ApplyEx(Visual, Paint->Surface, Paint->Tint, 0.25f, Paint->Desaturation, 1.f, 0.05f);
+	if (ShutterBack)
+	{
+		WESurface::ApplyEx(ShutterBack, Paint->Surface, Paint->Tint, 0.25f, Paint->Desaturation, 1.f, 0.05f);
+	}
 }
 
 void AWEGarageDoor::UpdateShutterVisual()
@@ -93,6 +137,11 @@ void AWEGarageDoor::UpdateShutterVisual()
 	const FVector Scale(DoorWidth / FMath::Max(ModelSize.X, 1.f), 14.f / FMath::Max(ModelSize.Y, 1.f), Visible / FMath::Max(ModelSize.Z, 1.f));
 	ShutterVisual->SetRelativeScale3D(Scale);
 	ShutterVisual->SetRelativeLocation(FVector(0.f, 0.f, DoorHeight - Visible - Bounds.Min.Z * Scale.Z));
+	if (ShutterBack)
+	{
+		ShutterBack->SetRelativeScale3D(Scale);
+		ShutterBack->SetRelativeLocation(ShutterVisual->GetRelativeLocation());
+	}
 }
 
 void AWEGarageDoor::ApplyTint()

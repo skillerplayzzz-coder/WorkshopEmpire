@@ -29,6 +29,7 @@ public class WorkshopEmpire : ModuleRules
 			"EngineSettings",
 			"Sockets",
 			"RHI", "RenderCore", "ApplicationCore",
+			"ImageWrapper", "AssetRegistry", "AudioMixer",
 			"Slate",
 			"SlateCore"
 		});
