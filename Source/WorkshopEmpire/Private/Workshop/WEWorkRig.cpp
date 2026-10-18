@@ -61,7 +61,7 @@ uint32 AWEWorkRig::ComputeSignature() const
 	uint32 Hash = HashCombine(PointerHash(Item), GetTypeHash(B->GetNextStepIndex()));
 	Hash = HashCombine(Hash, HashCombine(GetTypeHash(SelectedPart), GetTypeHash(B->GetActivePart())));
 	Hash = HashCombine(Hash, GetTypeHash(Item->GetItem().RemovedParts));
-	Hash = HashCombine(Hash, GetTypeHash(bRepair));
+	Hash = HashCombine(Hash, HashCombine(GetTypeHash(bRepair), GetTypeHash(bInstall)));
 	if (bRepair)
 	{
 		FText Reason;
@@ -74,7 +74,7 @@ uint32 AWEWorkRig::ComputeSignature() const
 bool AWEWorkRig::IsTaskDone(int32 Index) const
 {
 	const AWEWorkbench* B = Bench.Get();
-	return B && B->IsManualWork() && B->IsRepairJob() == bRepair && (B->GetTaskMask() & (1u << Index)) != 0;
+	return B && B->IsManualWork() && B->IsRepairJob() == bRepair && B->IsInstallJob() == bInstall && (B->GetTaskMask() & (1u << Index)) != 0;
 }
 
 FVector AWEWorkRig::GetTaskLocation(int32 Index) const
@@ -140,7 +140,7 @@ void AWEWorkRig::RebuildPlan()
 	if (B && PlanSignature != 0 && B->GetAssembly() && !bRepair)
 	{
 		// Part layout: the plan belongs to the part being worked on, else to the part the player picked (none: pick one).
-		Plan = B->GetActivePart() != INDEX_NONE ? B->GetWorkPlan(false) : (SelectedPart != INDEX_NONE ? B->GetPartPlan(SelectedPart) : FWEWorkPlan());
+		Plan = B->GetActivePart() != INDEX_NONE ? B->GetWorkPlan(false) : (SelectedPart != INDEX_NONE ? B->GetPartPlan(SelectedPart, bInstall) : FWEWorkPlan());
 	}
 	else
 	{
@@ -273,7 +273,7 @@ void AWEWorkRig::Tick(float DeltaSeconds)
 	}
 	ComputeFrame();
 	const float Now = GetWorld()->GetTimeSeconds();
-	const uint32 Mask = B->IsManualWork() && B->IsRepairJob() == bRepair ? B->GetTaskMask() : 0;
+	const uint32 Mask = B->IsManualWork() && B->IsRepairJob() == bRepair && B->IsInstallJob() == bInstall ? B->GetTaskMask() : 0;
 	int32 TrayCount = 0;
 	for (int32 i = 0; i < Pieces.Num(); ++i)
 	{

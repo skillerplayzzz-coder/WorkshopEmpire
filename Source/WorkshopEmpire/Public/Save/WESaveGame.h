@@ -31,6 +31,8 @@ struct WORKSHOPEMPIRE_API FWESavedItem
 	UPROPERTY() uint8 Marks = 0;
 	/** Since save version 15: parts already out of a device with a part layout. */
 	UPROPERTY() int32 RemovedParts = 0;
+	/** Since save version 16: parts put back in (FWEItemInstance::InstalledParts). */
+	UPROPERTY() int64 InstalledParts = 0;
 };
 
 USTRUCT()
@@ -260,7 +262,7 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 
 public:
 	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). 13: Phase 16 (company statistics, milestones). 14: Phase 17.5 (item marks, workshop look, tutorial, sold buildings via upgrades). 15: Phase 18a (parts out of devices, character, van cargo). */
-	static constexpr int32 CurrentVersion = 15;
+	static constexpr int32 CurrentVersion = 16;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;

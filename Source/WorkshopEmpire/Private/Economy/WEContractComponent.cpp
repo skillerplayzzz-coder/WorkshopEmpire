@@ -100,7 +100,7 @@ bool UWEContractComponent::Matches(const FWEContract& Contract, const FWEItemIns
 	// Phase 17.5: locked, favourite and unreleased personal equipment never goes to a customer.
 	return Item.Definition == Contract.Item && Item.Condition <= Contract.MinCondition && Item.Quality >= Contract.MinQuality
 		&& !Item.IsPartiallyDisassembled() && !Item.IsCustomerItem() && (!Item.Repair.IsInProgress() || !Item.IsBroken())
-		&& !Item.IsSaleProtected();
+		&& !Item.IsSaleProtected() && !Item.NeedsFunctionTest();
 }
 
 int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const AWECharacter* Character)

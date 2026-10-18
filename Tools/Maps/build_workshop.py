@@ -47,9 +47,9 @@ def furniture(fid, name, desc, euros, prop_type, size, tint, bench=False, storag
 
 ITEMS = [
     furniture("Workbench", "Werkbank", "Eine zweite Werkbank: zwei Geräte gleichzeitig bearbeiten.", 90, P.WORKBENCH,
-              (80, 200, 90), (0.45, 0.30, 0.18), bench=True, storage=("Werkbank", 12, 60.0)),
+              (80, 200, 90), (0.45, 0.30, 0.18), bench=True, storage=("Werkbank", 24, 100.0)),
     furniture("LargeWorkbench", "Große Werkbank", "Massive Arbeitsplatte, mehr Ablage: Arbeiten 20 % schneller.", 240, P.WORKBENCH,
-              (100, 280, 95), (0.32, 0.22, 0.14), bench=True, storage=("Große Werkbank", 20, 100.0), speed=1.2),
+              (100, 280, 95), (0.32, 0.22, 0.14), bench=True, storage=("Große Werkbank", 36, 160.0), speed=1.2),
     furniture("HeavyShelf", "Schwerlastregal", "Robustes Stahlregal für Teile und Material.", 60, P.SHELF,
               (50, 180, 200), (0.30, 0.32, 0.35), storage=("Schwerlastregal", 15, 150.0)),
     furniture("LargeShelf", "Großes Lagerregal", "Hohes, breites Regal für viel Lagerplatz.", 140, P.SHELF,

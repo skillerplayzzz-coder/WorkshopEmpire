@@ -98,11 +98,14 @@ void UWEWorkViewWidget::NativeOnInitialized()
 		DeviceInfo = Text(WidgetTree, FText::GetEmpty(), 12, Col::TextDim, EFont::Body, 380.f);
 		AddV(V, DeviceInfo, FMargin(0.f, 2.f, 0.f, 10.f));
 		UHorizontalBox* Modes = WidgetTree->ConstructWidget<UHorizontalBox>();
-		ModeDisassemble = Button(WidgetTree, LOCTEXT("ModeDis", "Zerlegen"), EButton::TabActive, TEXT("Disassemble"), 13, &ModeDisassembleLabel);
-		ModeRepair = Button(WidgetTree, LOCTEXT("ModeRep", "Reparieren"), EButton::Tab, TEXT("Repair"), 13, &ModeRepairLabel);
+		ModeDisassemble = Button(WidgetTree, LOCTEXT("ModeDis", "Zerlegen"), EButton::TabActive, TEXT("Disassemble"), 12, &ModeDisassembleLabel);
+		ModeAssemble = Button(WidgetTree, LOCTEXT("ModeAsm", "Zusammenbauen"), EButton::Tab, TEXT("Wrench"), 12, &ModeAssembleLabel);
+		ModeRepair = Button(WidgetTree, LOCTEXT("ModeRep", "Testen/Reparieren"), EButton::Tab, TEXT("Repair"), 12, &ModeRepairLabel);
 		ModeDisassemble->OnClicked.AddDynamic(this, &UWEWorkViewWidget::HandleModeDisassemble);
+		ModeAssemble->OnClicked.AddDynamic(this, &UWEWorkViewWidget::HandleModeAssemble);
 		ModeRepair->OnClicked.AddDynamic(this, &UWEWorkViewWidget::HandleModeRepair);
-		AddH(Modes, ModeDisassemble, FMargin(0.f, 0.f, 6.f, 0.f));
+		AddH(Modes, ModeDisassemble, FMargin(0.f, 0.f, 4.f, 0.f));
+		AddH(Modes, ModeAssemble, FMargin(0.f, 0.f, 4.f, 0.f));
 		AddH(Modes, ModeRepair);
 		AddV(V, Modes, FMargin(0.f, 0.f, 0.f, 10.f));
 		AddV(V, Divider(WidgetTree));
@@ -203,7 +206,12 @@ void UWEWorkViewWidget::Setup(AWEWorkbench* InBench, bool bInRepair)
 {
 	Bench = InBench;
 	bRepair = bInRepair;
-	if (!CanDisassemble() && CanRepair())
+	bInstall = false;
+	if (!bRepair && !CanDisassemble() && !CanRepair() && CanAssemble())
+	{
+		bInstall = true;
+	}
+	else if (!CanDisassemble() && CanRepair())
 	{
 		bRepair = true;
 	}
@@ -227,6 +235,7 @@ void UWEWorkViewWidget::Setup(AWEWorkbench* InBench, bool bInRepair)
 	if (Rig)
 	{
 		Rig->Init(InBench, bRepair);
+		Rig->SetInstallMode(bInstall);
 	}
 	RefreshTools();
 	// Start with the tool the first task needs, if the player has it.
@@ -245,6 +254,7 @@ void UWEWorkViewWidget::Shutdown()
 	{
 		View->SetHover(INDEX_NONE);
 		View->SetSelected(INDEX_NONE);
+		View->SetInstallPreview(INDEX_NONE);
 		View->SetActiveTask(INDEX_NONE, INDEX_NONE, 0.f);
 	}
 	if (Rig)
@@ -350,7 +360,8 @@ void UWEWorkViewWidget::SelectPart(int32 Part)
 	}
 	if (View)
 	{
-		View->SetSelected(Part);
+		View->SetSelected(bInstall ? INDEX_NONE : Part);
+		View->SetInstallPreview(bInstall ? Part : INDEX_NONE);
 	}
 	if (Part != INDEX_NONE && View)
 	{
@@ -358,9 +369,10 @@ void UWEWorkViewWidget::SelectPart(int32 Part)
 		const UWEAssemblyDefinition* Assembly = B->GetAssembly();
 		const UStaticMesh* Mesh = Assembly && Assembly->Parts.IsValidIndex(Part) ? Assembly->Parts[Part].Mesh.Get() : nullptr;
 		const float Size = Mesh ? Mesh->GetBoundingBox().GetSize().Size() : 20.f;
-		OrbitGoal = View->GetPartCenter(Part);
-		OrbitGoalDist = FMath::Clamp(Size * 2.4f, OrbitBaseDist * 0.35f, OrbitBaseDist);
-		const FWEWorkPlan Plan = B->GetPartPlan(Part);
+		// A part going back in is aimed at where it belongs (it waits in front of that spot).
+		OrbitGoal = bInstall && Mesh ? View->DeviceToWorld(Mesh->GetBoundingBox().GetCenter()) : View->GetPartCenter(Part);
+		OrbitGoalDist = FMath::Clamp(Size * (bInstall ? 3.f : 2.4f), OrbitBaseDist * 0.35f, OrbitBaseDist);
+		const FWEWorkPlan Plan = B->GetPartPlan(Part, bInstall);
 		if (Plan.IsValid())
 		{
 			const int32 Wanted = Tools.IndexOfByKey(Plan.Tasks[0].Tool);
@@ -394,11 +406,75 @@ bool UWEWorkViewWidget::CanRepair() const
 	return B && B->GetPlacedItem() && B->GetNextRepairStep(Reason).Kind != EWERepairStepKind::None;
 }
 
-void UWEWorkViewWidget::SetRepairMode(bool bInRepair)
+bool UWEWorkViewWidget::CanAssemble() const
 {
-	if (bRepair == bInRepair)
+	const AWEWorkbench* B = Bench.Get();
+	return B && B->GetPlacedItem() && B->HasInstallablePart();
+}
+
+int32 UWEWorkViewWidget::DefaultInstallPart() const
+{
+	const AWEWorkbench* B = Bench.Get();
+	const UWEAssemblyDefinition* Assembly = B ? B->GetAssembly() : nullptr;
+	if (!Assembly)
+	{
+		return INDEX_NONE;
+	}
+	const int32 Removed = B->GetPlacedItem()->GetItem().RemovedParts;
+	for (int32 i = Assembly->Parts.Num() - 1; i >= 0; --i)
+	{
+		if (B->IsReinstallable(i) && Assembly->CanInstall(i, Removed))
+		{
+			return i;
+		}
+	}
+	return INDEX_NONE;
+}
+
+bool UWEWorkViewWidget::IsMyJob() const
+{
+	const AWEWorkbench* B = Bench.Get();
+	return B && B->IsManualWork() && B->GetWorker() == GetCharacter() && B->IsRepairJob() == bRepair && B->IsInstallJob() == bInstall;
+}
+
+void UWEWorkViewWidget::SetInstallMode(bool bInInstall)
+{
+	if (bInstall == bInInstall && !bRepair)
 	{
 		return;
+	}
+	AWEWorkbench* B = Bench.Get();
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
+	if (B && PC && B->IsManualWork() && B->GetWorker() == GetCharacter())
+	{
+		PC->RequestWorkCancel(B);
+	}
+	bRepair = false;
+	bInstall = bInInstall;
+	SelectPart(INDEX_NONE);
+	if (Rig)
+	{
+		Rig->SetRepairMode(false);
+		Rig->SetInstallMode(bInstall);
+	}
+	LastInfoSignature.Reset();
+	Play(this, ESound::Toggle, 0.4f);
+}
+
+void UWEWorkViewWidget::SetRepairMode(bool bInRepair)
+{
+	if (bRepair == bInRepair && !(bInRepair == false && bInstall))
+	{
+		return;
+	}
+	if (bInstall)
+	{
+		bInstall = false;
+		SelectPart(INDEX_NONE);
+		if (Rig)
+		{
+			Rig->SetInstallMode(false);
+		}
 	}
 	AWEWorkbench* B = Bench.Get();
 	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
@@ -419,6 +495,7 @@ void UWEWorkViewWidget::SetRepairMode(bool bInRepair)
 }
 
 void UWEWorkViewWidget::HandleModeDisassemble() { if (CanDisassemble()) { SetRepairMode(false); } else { Hint(LOCTEXT("NoDis", "Dieses Gerät lässt sich hier nicht weiter zerlegen."), true); } }
+void UWEWorkViewWidget::HandleModeAssemble() { if (CanAssemble()) { SetInstallMode(true); } else { Hint(LOCTEXT("NoAsm", "Hier ist nichts wieder einzubauen."), true); } }
 void UWEWorkViewWidget::HandleModeRepair() { if (CanRepair()) { SetRepairMode(true); } else { Hint(LOCTEXT("NoRep", "Hier gibt es nichts zu reparieren."), true); } }
 
 void UWEWorkViewWidget::HandleClose()
@@ -441,7 +518,11 @@ void UWEWorkViewWidget::HandleAuto()
 	{
 		return; // already running on the timer
 	}
-	PC->RequestWorkAuto(B, bRepair);
+	if (bInstall && SelectedPart == INDEX_NONE)
+	{
+		SelectPart(DefaultInstallPart());
+	}
+	PC->RequestWorkAuto(B, bRepair, IsPartMode() ? SelectedPart : INDEX_NONE, bInstall);
 	HoldTask = PendingTask = INDEX_NONE;
 	LastStartRequest = GetWorld()->GetTimeSeconds() + 1.f; // let the timed step start first
 	Play(this, ESound::Click, 0.5f);
@@ -588,8 +669,26 @@ FReply UWEWorkViewWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, c
 	const int32 Task = FindTaskAt(MousePosition());
 	if (Task == INDEX_NONE)
 	{
+		// A click on a row of the part list picks that part (the only way to pick one that is out).
+		for (int32 i = 0; i < PartRows.Num(); ++i)
+		{
+			if (PartRows[i] && IsPartMode() && PartRows[i]->GetCachedGeometry().IsUnderLocation(InMouseEvent.GetScreenSpacePosition()))
+			{
+				const FWEItemInstance* State = Bench.IsValid() && Bench->GetPlacedItem() ? &Bench->GetPlacedItem()->GetItem() : nullptr;
+				if (State && State->IsPartRemoved(i) == bInstall && i != SelectedPart)
+				{
+					SelectPart(i);
+				}
+				else if (State && State->IsPartRemoved(i) != bInstall)
+				{
+					Hint(bInstall ? LOCTEXT("RowIsIn", "Dieses Teil ist eingebaut – zum Ausbauen auf „Zerlegen“ wechseln.")
+						: LOCTEXT("RowIsOut", "Dieses Teil ist schon ausgebaut – zum Einbauen auf „Zusammenbauen“ wechseln."));
+				}
+				return FReply::Handled();
+			}
+		}
 		// Part layout: a click on a part picks it.
-		if (IsPartMode())
+		if (IsPartMode() && !bInstall)
 		{
 			const int32 Part = PartUnderMouse();
 			if (Part != INDEX_NONE && Part != SelectedPart)
@@ -626,7 +725,7 @@ void UWEWorkViewWidget::DevHoldTask(int32 Task)
 			: FText::Format(LOCTEXT("MissingTool", "Dafür fehlt dir: {0}"), WEItems::GetToolText(T.Tool)), true);
 		return;
 	}
-	if (!B->IsManualWork() || B->GetWorker() != GetCharacter() || B->IsRepairJob() != bRepair)
+	if (!IsMyJob())
 	{
 		Hint(LOCTEXT("Wait", "Einen Moment …"));
 		TryStartWork();
@@ -715,7 +814,9 @@ void UWEWorkViewWidget::TryStartWork()
 	{
 		return; // the player picks the part first
 	}
-	const bool bCan = bRepair ? B->CanStartRepairStep(Character, Reason) : B->CanStartStep(Character, Reason, IsPartMode() ? SelectedPart : INDEX_NONE);
+	const bool bCan = bRepair ? B->CanStartRepairStep(Character, Reason)
+		: bInstall ? B->CanStartInstall(Character, Reason, SelectedPart)
+		: B->CanStartStep(Character, Reason, IsPartMode() ? SelectedPart : INDEX_NONE);
 	if (!bCan)
 	{
 		if (!Reason.IsEmpty() && HintTime <= 0.f)
@@ -726,7 +827,7 @@ void UWEWorkViewWidget::TryStartWork()
 		return;
 	}
 	LastStartRequest = Now;
-	PC->RequestWorkStart(B, bRepair, IsPartMode() ? SelectedPart : INDEX_NONE);
+	PC->RequestWorkStart(B, bRepair, IsPartMode() ? SelectedPart : INDEX_NONE, bInstall);
 }
 
 void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -749,11 +850,17 @@ void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 	// Mode no longer possible (e.g. repaired, or fully disassembled into a repairable state): switch.
 	if (!B->IsBusy())
 	{
-		if (bRepair && !CanRepair() && CanDisassemble())
+		if (bInstall && !CanAssemble() && CanRepair())
+		{
+			// Everything is back in: on to the function test.
+			SetRepairMode(true);
+			Hint(LOCTEXT("AllIn", "Alles eingebaut – jetzt der Funktionstest."));
+		}
+		else if (bRepair && !CanRepair() && CanDisassemble())
 		{
 			SetRepairMode(false);
 		}
-		else if (!bRepair && !CanDisassemble() && CanRepair())
+		else if (!bRepair && !bInstall && !CanDisassemble() && CanRepair())
 		{
 			SetRepairMode(true);
 		}
@@ -761,19 +868,19 @@ void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 	UpdateOrbit(InDeltaTime);
 	if (AWEAssemblyView* View = GetView())
 	{
-		// Part under the cursor lights up; a picked part that came out is done.
+		// Part under the cursor lights up; a picked part that came out (or went back in) is done.
 		const int32 Removed = B->GetPlacedItem() ? B->GetPlacedItem()->GetItem().RemovedParts : 0;
-		if (SelectedPart != INDEX_NONE && (Removed & (1 << SelectedPart)) != 0)
+		if (SelectedPart != INDEX_NONE && ((Removed & (1 << SelectedPart)) != 0) != bInstall)
 		{
 			SelectPart(INDEX_NONE);
 		}
-		View->SetHover(IsPartMode() && !bOrbiting && FindTaskAt(MousePosition()) == INDEX_NONE ? PartUnderMouse() : INDEX_NONE);
+		View->SetHover(IsPartMode() && !bInstall && !bOrbiting && FindTaskAt(MousePosition()) == INDEX_NONE ? PartUnderMouse() : INDEX_NONE);
 		LastRemovedParts = Removed;
 	}
 	TryStartWork();
 
 	// Holding on a task: when the time is reached, the server gets the request.
-	const bool bMine = B->IsManualWork() && B->GetWorker() == GetCharacter() && B->IsRepairJob() == bRepair;
+	const bool bMine = IsMyJob();
 	const uint32 Mask = bMine ? B->GetTaskMask() : 0;
 	if (PendingTask != INDEX_NONE)
 	{
@@ -826,7 +933,7 @@ void UWEWorkViewWidget::UpdateMarkers()
 	AWEWorkbench* B = Bench.Get();
 	APlayerController* PC = GetOwningPlayer();
 	const FWEWorkPlan& Plan = Rig->GetPlan();
-	const bool bMine = B && B->IsManualWork() && B->GetWorker() == GetCharacter() && B->IsRepairJob() == bRepair;
+	const bool bMine = IsMyJob();
 	const uint32 Mask = bMine ? B->GetTaskMask() : 0;
 	const float Scale = FMath::Max(UWidgetLayoutLibrary::GetViewportScale(this), 0.01f);
 	const int32 Hover = FindTaskAt(MousePosition());
@@ -874,7 +981,7 @@ void UWEWorkViewWidget::RefreshInfo()
 	AWEWorkbench* B = Bench.Get();
 	const AWEPickupItem* Item = B ? B->GetPlacedItem() : nullptr;
 	const FWEWorkPlan& Plan = Rig->GetPlan();
-	const bool bMine = B && B->IsManualWork() && B->GetWorker() == GetCharacter() && B->IsRepairJob() == bRepair;
+	const bool bMine = IsMyJob();
 	const uint32 Mask = bMine ? B->GetTaskMask() : 0;
 
 	if (!Item || !Item->GetItem().Definition)
@@ -899,10 +1006,14 @@ void UWEWorkViewWidget::RefreshInfo()
 	DeviceInfo->SetText(Status.IsEmpty()
 		? FText::Format(LOCTEXT("Info", "{0} · Qualität {1} %"), WEItems::GetConditionText(Instance.Condition), FText::AsNumber(Instance.Quality))
 		: FText::Format(LOCTEXT("InfoRepair", "{0} · Qualität {1} % · {2}"), WEItems::GetConditionText(Instance.Condition), FText::AsNumber(Instance.Quality), Status));
-	SetButtonKind(ModeDisassemble, !bRepair ? EButton::TabActive : EButton::Tab, ModeDisassembleLabel);
+	SetButtonKind(ModeDisassemble, !bRepair && !bInstall ? EButton::TabActive : EButton::Tab, ModeDisassembleLabel);
+	SetButtonKind(ModeAssemble, bInstall ? EButton::TabActive : EButton::Tab, ModeAssembleLabel);
 	SetButtonKind(ModeRepair, bRepair ? EButton::TabActive : EButton::Tab, ModeRepairLabel);
 	ModeDisassemble->SetIsEnabled(CanDisassemble());
 	ModeRepair->SetIsEnabled(CanRepair());
+	// Reassembly exists for devices with a part layout only.
+	ModeAssemble->SetVisibility(B->GetAssembly() ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	ModeAssemble->SetIsEnabled(CanAssemble() || bInstall);
 
 	// Current step.
 	FText Title;
@@ -915,6 +1026,31 @@ void UWEWorkViewWidget::RefreshInfo()
 		if (Info.Material)
 		{
 			Yield = FText::Format(LOCTEXT("Uses", "Verbraucht: {0}"), Info.Material->DisplayName);
+		}
+	}
+	else if (IsPartMode() && bInstall)
+	{
+		// Reassembly: the picked part and what it needs.
+		const UWEAssemblyDefinition* Assembly = B->GetAssembly();
+		const int32 Part = B->GetActivePart() != INDEX_NONE ? B->GetActivePart() : SelectedPart;
+		const FWEDisassemblyStep* Step = Part != INDEX_NONE ? B->GetStepAt(Part) : nullptr;
+		if (!Step || !Assembly->Parts.IsValidIndex(Part))
+		{
+			Title = LOCTEXT("PickPartIn", "Teil in der Liste wählen");
+		}
+		else
+		{
+			const FText Name = FText::Format(LOCTEXT("PartIn", "{0} einbauen"), Assembly->Parts[Part].DisplayName);
+			Title = Step->RequiredTool == EWEToolType::None ? Name : FText::Format(LOCTEXT("PartInTool", "{0} ({1})"), Name, WEItems::GetToolText(Step->RequiredTool));
+			TArray<FString> Names;
+			for (const FWEInstallNeed& Need : AWEWorkbench::GetInstallNeeds(Def, Part))
+			{
+				Names.Add(Need.Count > 1 ? FString::Printf(TEXT("%d× %s"), Need.Count, *Need.Item->DisplayName.ToString()) : Need.Item->DisplayName.ToString());
+			}
+			if (Names.Num() > 0)
+			{
+				Yield = FText::Format(LOCTEXT("PartNeeds", "Braucht (Inventar oder Werkbanklager): {0}"), FText::FromString(FString::Join(Names, TEXT(", "))));
+			}
 		}
 	}
 	else if (IsPartMode())
@@ -983,12 +1119,13 @@ void UWEWorkViewWidget::RefreshInfo()
 		}
 		else if (IsPartMode() && SelectedPart == INDEX_NONE && B->GetActivePart() == INDEX_NONE)
 		{
-			Line = LOCTEXT("PickPartLine", "Klicke ein Bauteil an, um es auszubauen. Rechte Maustaste: drehen, Mausrad: zoomen.");
+			Line = bInstall ? LOCTEXT("PickPartInLine", "Wähle links ein ausgebautes Teil, um es wieder einzubauen. Die Teile kommen aus deinem Inventar oder dem Werkbanklager.")
+				: LOCTEXT("PickPartLine", "Klicke ein Bauteil an, um es auszubauen. Rechte Maustaste: drehen, Mausrad: zoomen.");
 		}
 		else if (IsPartMode() && B->GetActivePart() == INDEX_NONE)
 		{
 			FText Reason;
-			if (!B->CanStartStep(GetCharacter(), Reason, SelectedPart) && !Reason.IsEmpty())
+			if (!(bInstall ? B->CanStartInstall(GetCharacter(), Reason, SelectedPart) : B->CanStartStep(GetCharacter(), Reason, SelectedPart)) && !Reason.IsEmpty())
 			{
 				Line = Reason;
 			}
@@ -1003,7 +1140,7 @@ void UWEWorkViewWidget::RefreshInfo()
 				{
 					const FWEWorkTask& T = Plan.Tasks[i];
 					Line = FText::Format(LOCTEXT("Next", "{0}: Werkzeug „{1}“, dann auf die Markierung gedrückt halten."),
-						WEWorkPlan::GetTaskText(T.Kind, Plan.bRepair && B->GetNextRepairStep(Ignored).Kind == EWERepairStepKind::Install), WEItems::GetToolText(T.Tool));
+						WEWorkPlan::GetTaskText(T.Kind, Plan.bInstall || (Plan.bRepair && B->GetNextRepairStep(Ignored).Kind == EWERepairStepKind::Install)), WEItems::GetToolText(T.Tool));
 					break;
 				}
 			}
@@ -1013,13 +1150,15 @@ void UWEWorkViewWidget::RefreshInfo()
 	}
 
 	// Step list (rebuilt only when it changes).
-	FString Signature = FString::Printf(TEXT("%d|%d|%d|%s|%d|%d"), bRepair ? 1 : 0, B->GetNextStepIndex(), Instance.Repair.Faults, *Status.ToString(), Instance.RemovedParts, SelectedPart);
+	FString Signature = FString::Printf(TEXT("%d|%d|%d|%s|%d|%d|%d|%d"), bRepair ? 1 : 0, B->GetNextStepIndex(), Instance.Repair.Faults, *Status.ToString(), Instance.RemovedParts, SelectedPart,
+		bInstall ? 1 : 0, Instance.Repair.Flags);
 	if (Signature == LastInfoSignature)
 	{
 		return;
 	}
 	LastInfoSignature = Signature;
 	StepList->ClearChildren();
+	PartRows.Reset();
 	auto Line = [this](const FText& Label, int32 State) // 0 done, 1 current, 2 later
 	{
 		UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
@@ -1030,19 +1169,32 @@ void UWEWorkViewWidget::RefreshInfo()
 	};
 	if (IsPartMode())
 	{
-		// Every part with its state: out, picked, free, or still blocked.
+		// Every part with its state. Taking apart: out, picked, free, or still blocked.
+		// Putting together: in, picked, can go in, blocked, or scrapped (cannot go back).
 		const UWEAssemblyDefinition* Assembly = B->GetAssembly();
 		for (int32 i = 0; i < Assembly->Parts.Num(); ++i)
 		{
 			const bool bOut = Instance.IsPartRemoved(i);
-			const bool bFree = Assembly->IsAvailable(i, Instance.RemovedParts);
+			const bool bDone = bInstall ? !bOut : bOut;
+			const bool bGoneForGood = bInstall && bOut && !B->IsReinstallable(i);
+			const bool bFree = bInstall ? (!bGoneForGood && Assembly->CanInstall(i, Instance.RemovedParts)) : Assembly->IsAvailable(i, Instance.RemovedParts);
 			UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
-			const FName IconName = bOut ? FName(TEXT("Check")) : i == SelectedPart ? FName(TEXT("Play")) : bFree ? FName(TEXT("Wrench")) : FName(TEXT("Lock"));
-			const FLinearColor Tint = bOut ? Col::Good : i == SelectedPart ? Col::Accent : bFree ? Col::Text : Col::TextMuted;
+			const FName IconName = bDone ? FName(TEXT("Check")) : i == SelectedPart ? FName(TEXT("Play")) : bGoneForGood ? FName(TEXT("Minus")) : bFree ? FName(TEXT("Wrench")) : FName(TEXT("Lock"));
+			const FLinearColor Tint = bDone ? Col::Good : i == SelectedPart ? Col::Accent : bFree ? Col::Text : Col::TextMuted;
 			AddH(Row, Icon(WidgetTree, IconName, 14.f, Tint), FMargin(0.f, 0.f, 8.f, 0.f));
-			AddH(Row, Text(WidgetTree, Assembly->Parts[i].DisplayName, 13, bOut ? Col::TextMuted : i == SelectedPart ? Col::Text : bFree ? Col::TextDim : Col::TextMuted,
+			FText Label = Assembly->Parts[i].DisplayName;
+			if (bGoneForGood)
+			{
+				Label = FText::Format(LOCTEXT("RowScrapped", "{0} (verwertet)"), Label);
+			}
+			else if (bInstall && !bOut && Instance.GetInstalledCondition(i) != INDEX_NONE)
+			{
+				Label = FText::Format(LOCTEXT("RowInstalled", "{0} ({1})"), Label, WEItems::GetConditionText(static_cast<EWEItemCondition>(Instance.GetInstalledCondition(i))));
+			}
+			AddH(Row, Text(WidgetTree, Label, 13, bDone ? Col::TextMuted : i == SelectedPart ? Col::Text : bFree ? Col::TextDim : Col::TextMuted,
 				i == SelectedPart ? EFont::Strong : EFont::Body, 340.f), FMargin(), true);
 			AddV(StepList, Row, FMargin(0.f, 0.f, 0.f, 3.f));
+			PartRows.Add(Row);
 		}
 	}
 	else if (!bRepair && Def->Disassembly)
@@ -1052,6 +1204,13 @@ void UWEWorkViewWidget::RefreshInfo()
 			const int32 Next = B->GetNextStepIndex();
 			Line(Def->Disassembly->Steps[i].ActionText, i < Next ? 0 : i == Next ? 1 : 2);
 		}
+	}
+	else if (bRepair && Instance.NeedsFunctionTest())
+	{
+		// Put back together: only the test is left.
+		FText Ignored;
+		Line(LOCTEXT("RBuilt", "Teile eingebaut"), B->GetNextRepairStep(Ignored).Kind == EWERepairStepKind::Test ? 0 : 1);
+		Line(LOCTEXT("RTestBuilt", "Funktionstest"), B->GetNextRepairStep(Ignored).Kind == EWERepairStepKind::Test ? 1 : 2);
 	}
 	else if (bRepair)
 	{
@@ -1085,8 +1244,8 @@ bool UWEWorkViewWidget::DevWorkNext()
 	const AWEWorkbench* B = Bench.Get();
 	if (IsPartMode() && SelectedPart == INDEX_NONE && B && B->GetPlacedItem() && !B->IsBusy())
 	{
-		// Test automation picks the parts in list order.
-		SelectPart(B->GetAssembly()->GetDefaultPart(B->GetPlacedItem()->GetItem().RemovedParts));
+		// Test automation picks the parts in list order (putting together: the other way round).
+		SelectPart(bInstall ? DefaultInstallPart() : B->GetAssembly()->GetDefaultPart(B->GetPlacedItem()->GetItem().RemovedParts));
 		return false;
 	}
 	const int32 Task = DevFindAvailableTask();
@@ -1103,7 +1262,7 @@ bool UWEWorkViewWidget::DevWorkNext()
 FString UWEWorkViewWidget::DescribeState() const
 {
 	const AWEWorkbench* B = Bench.Get();
-	return FString::Printf(TEXT("mode=%s tasks=%d mask=%u manual=%d busy=%d tool=%d hold=%d"), bRepair ? TEXT("repair") : TEXT("disassemble"),
+	return FString::Printf(TEXT("mode=%s tasks=%d mask=%u manual=%d busy=%d tool=%d hold=%d"), bRepair ? TEXT("repair") : bInstall ? TEXT("assemble") : TEXT("disassemble"),
 		Rig ? Rig->GetPlan().Tasks.Num() : -1, B ? B->GetTaskMask() : 0, B && B->IsManualWork() ? 1 : 0, B && B->IsBusy() ? 1 : 0,
 		Tools.IsValidIndex(SelectedTool) ? static_cast<int32>(Tools[SelectedTool]) : -1, HoldTask);
 }

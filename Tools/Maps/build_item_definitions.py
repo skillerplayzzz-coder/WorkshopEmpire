@@ -396,6 +396,7 @@ def build_pc_assembly():
         part.set_editor_property("service_access", spec.get("service", False))
         part.set_editor_property("lays_beside", spec.get("beside", False))
         part.set_editor_property("shell", spec.get("shell", False))
+        part.set_editor_property("optional", spec.get("optional", False))
         parts.append(part)
     asm, asm_path = data_asset("/Game/WorkshopEmpire/Data/Assembly", "ASM_OldComputer", unreal.WEAssemblyDefinition)
     asm.set_editor_property("parts", parts)

@@ -397,21 +397,48 @@ namespace WEWorkPlan
 		return Plan;
 	}
 
-	FText GetTaskText(EWEWorkTaskKind Kind, bool bRepairInstall)
+	FWEWorkPlan ForAssemblyInstall(const UWEItemDefinition* Def, int32 PartIndex)
+	{
+		FWEWorkPlan Plan = ForAssemblyPart(Def, PartIndex);
+		if (!Plan.IsValid())
+		{
+			return Plan;
+		}
+		Plan.bInstall = true;
+		uint8 MaxPhase = 0;
+		for (const FWEWorkTask& T : Plan.Tasks)
+		{
+			MaxPhase = FMath::Max(MaxPhase, T.Phase);
+		}
+		// Reverse order: the part goes in first, the fastener that came off first goes on last.
+		for (FWEWorkTask& T : Plan.Tasks)
+		{
+			T.Phase = MaxPhase - T.Phase;
+			if (T.Fastener == INDEX_NONE)
+			{
+				T.Kind = T.Kind == EWEWorkTaskKind::Lid ? EWEWorkTaskKind::Lid : EWEWorkTaskKind::InsertPart;
+			}
+		}
+		// The part task first in the list too (markers and hints read the list in order).
+		Plan.Tasks.StableSort([](const FWEWorkTask& A, const FWEWorkTask& B) { return A.Phase < B.Phase; });
+		return Plan;
+	}
+
+	FText GetTaskText(EWEWorkTaskKind Kind, bool bInstall)
 	{
 		switch (Kind)
 		{
-		case EWEWorkTaskKind::Screw:      return bRepairInstall ? LOCTEXT("ScrewIn", "Schraube eindrehen") : LOCTEXT("Screw", "Schraube lösen");
+		case EWEWorkTaskKind::Screw:      return bInstall ? LOCTEXT("ScrewIn", "Schraube eindrehen") : LOCTEXT("Screw", "Schraube lösen");
 		case EWEWorkTaskKind::Grip:       return LOCTEXT("Grip", "Mit der Zange lösen");
 		case EWEWorkTaskKind::Cut:        return LOCTEXT("Cut", "Durchtrennen");
 		case EWEWorkTaskKind::Knock:      return LOCTEXT("Knock", "Losklopfen");
-		case EWEWorkTaskKind::Solder:     return bRepairInstall ? LOCTEXT("SolderIn", "Einlöten") : LOCTEXT("Solder", "Lötstelle lösen");
+		case EWEWorkTaskKind::Solder:     return bInstall ? LOCTEXT("SolderIn", "Einlöten") : LOCTEXT("Solder", "Lötstelle lösen");
 		case EWEWorkTaskKind::Probe:      return LOCTEXT("Probe", "Messpunkt prüfen");
-		case EWEWorkTaskKind::Clip:       return LOCTEXT("Clip", "Klammer aufdrücken");
-		case EWEWorkTaskKind::Unplug:     return bRepairInstall ? LOCTEXT("PlugIn", "Stecker einstecken") : LOCTEXT("Unplug", "Stecker ziehen");
-		case EWEWorkTaskKind::Lid:        return LOCTEXT("Lid", "Abdeckung abnehmen");
+		case EWEWorkTaskKind::Clip:       return bInstall ? LOCTEXT("ClipIn", "Klammer einrasten") : LOCTEXT("Clip", "Klammer aufdrücken");
+		case EWEWorkTaskKind::Unplug:     return bInstall ? LOCTEXT("PlugIn", "Stecker einstecken") : LOCTEXT("Unplug", "Stecker ziehen");
+		case EWEWorkTaskKind::Lid:        return bInstall ? LOCTEXT("LidOn", "Abdeckung aufsetzen") : LOCTEXT("Lid", "Abdeckung abnehmen");
 		case EWEWorkTaskKind::PullPart:   return LOCTEXT("PullPart", "Teil herausnehmen");
-		case EWEWorkTaskKind::InsertPart: return LOCTEXT("InsertPart", "Ersatzteil einsetzen");
+		case EWEWorkTaskKind::InsertPart: return bInstall ? LOCTEXT("InsertPartIn", "Teil einsetzen") : LOCTEXT("InsertPart", "Ersatzteil einsetzen");
 		case EWEWorkTaskKind::PowerTest:  return LOCTEXT("PowerTest", "Einschalten und testen");
 		case EWEWorkTaskKind::Wipe:       return LOCTEXT("Wipe", "Reinigen");
 		}

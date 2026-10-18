@@ -46,6 +46,8 @@ public:
 	void SetSelected(int32 Part) { SelectedPart = Part; }
 	/** Local feedback while the mouse is held: Fastener = INDEX_NONE means the part itself (pulled out a little). */
 	void SetActiveTask(int32 Part, int32 Fastener, float Progress);
+	/** Reassembly: a removed part the player picked hovers in front of its place (shown while it goes back in). */
+	void SetInstallPreview(int32 Part) { InstallPreview = Part; }
 
 protected:
 	struct FFastenerVis
@@ -61,6 +63,9 @@ protected:
 		bool bOut = false;
 		float OutAt = -1.f;
 		bool bGone = false;
+		/** Reassembly: the part is set in (its own task done) and when that happened. */
+		bool bInserted = false;
+		float InsertedAt = -1.f;
 	};
 
 	void Build();
@@ -78,6 +83,9 @@ protected:
 	TArray<FPartVis> Parts;
 	int32 HoverPart = INDEX_NONE;
 	int32 SelectedPart = INDEX_NONE;
+	int32 InstallPreview = INDEX_NONE;
+	/** Part going back in this frame (running install job, else the preview). */
+	int32 InstallingPart = INDEX_NONE;
 	int32 ActivePart = INDEX_NONE;
 	int32 ActiveFastener = INDEX_NONE;
 	float ActiveProgress = 0.f;

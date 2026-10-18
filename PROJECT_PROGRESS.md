@@ -159,10 +159,19 @@ Phase 18 wurde nicht begonnen.
 - Stadt: zwei Kreuzungen mit Ampeln und Zebrastreifen, Tankstelle, Parkplatz, Autowerkstatt, Imbiss, Brachfläche mit Plakatwand, geparkte Autos, Pflanzen; Straßen laufen weiter, Baustellen sperren sie am Rand des Spielbereichs; Gebäude dahinter, Skyline
 - Behoben: Mitarbeiter fanden den Weg aus der Garage nicht (seit 17.5)
 
+### Nachbesserungen nach Phase 18 (0.18.1, 2026-10-18, auf Mikes Wunsch)
+- PC wieder zusammenbauen: Arbeitsansicht mit dritter Ansicht „Zusammenbauen“; ausgebautes Teil in der Liste wählen, es schwebt vor seinem Platz, wird eingesetzt, dann Stecker, Klammern und Schrauben in umgekehrter Reihenfolge; Teile und Schrauben kommen aus Inventar oder Werkbanklager (beste zuerst); Reihenfolge prüft, was davor ausgebaut und was darunter eingebaut sein muss; CD-Laufwerk (wird beim Ausbau verwertet) und Gehäuselüfter sind optional
+- Funktionstest danach („Testen/Reparieren“): läuft nur, wenn alles Nötige drin ist; mit guten Teilen läuft der PC (Zustand = schlechtestes Teil), mit defekten Teilen schlägt er fehl und nennt sie; ungetestet verkauft er sich wie ein defekter; eingebaute Teile kommen beim erneuten Ausbau so heraus, wie sie hineingingen; Speicherstand Version 16
+- Werkbanklager 24 statt 12 Plätze (100 kg), große Werkbank 36 Plätze
+- Transporter: jede Ladung wird einzeln von den Händen durch die Hecktüren an ihren Platz getragen; mehrere Stapel nacheinander; beim Ausladen fliegt jedes sperrige Teil einzeln heraus und erscheint erst dann hinter dem Wagen
+- Sounds: alle selbst erzeugten Sounds ersetzt (15 Pixabay-Aufnahmen, 5 Kenney-Sounds, Quellen in `Docs/ASSET_SOURCES.md`)
+- Geparkte Autos: Kenney Car Kit (CC0, ohne Marken) statt eigener Klötzchen-Modelle
+
 ## Offene Aufgaben
 
-- Mike: Praxistest Phase 18 (PC zerlegen von Hand, Charaktereditor, Transporter-Türen, Stadt, Baumenü)
-- Noch nicht umgesetzt (Phase 18 Wunschliste): PC wieder zusammenbauen und testen; ausgebaute Teile wieder einbauen; Spiegel in der Werkstatt; echte Kleidungsmodelle (die Kleidung ist auf den Körper gemalt, kein eigenes Kleidungsnetz, keine Kapuze); nur ein Gesicht je Geschlecht (Varianten über Brauen, Bart, Hautton); Ladung wird nicht einzeln hinein-/herausgetragen animiert (Türen öffnen sich, die Ladung erscheint); geparkte Autos sind einfache Modelle; Werkbanklager (12 Plätze) ist für einen ganz zerlegten PC zu klein – der Rest fällt neben die Werkbank
+- Mike: Praxistest Phase 18 und 0.18.1 (PC zerlegen und wieder zusammenbauen, Funktionstest, Transporter beladen, neue Sounds anhören, Autos)
+- Noch nicht umgesetzt (Phase 18 Wunschliste): Spiegel in der Werkstatt; echte Kleidungsmodelle (die Kleidung ist auf den Körper gemalt, kein eigenes Kleidungsnetz, keine Kapuze); nur ein Gesicht je Geschlecht (Varianten über Brauen, Bart, Hautton)
+- Sounds: ausgewählt nach Titel, Länge und Pegel; im Spiel noch nicht angehört (kein Audio im Testlauf). Was nicht passt, wird auf Hinweis getauscht
 
 - Mike: Praxistest Phase 17.5 (Arbeitsansicht – fühlt sich das Schrauben gut an? Ferrit OS, Gestaltung, Tutorial, Koop an einer Werkbank)
 - Mike: Praxistest Phase 16 (fühlt sich das Tempo richtig an? die Simulation ersetzt keinen echten Spieler) und weiterhin Phase 15 (Klang) sowie Steam mit einem Freund
@@ -182,4 +191,4 @@ Phase 18 – Release-Vorbereitung (laut Spezifikation), erst nach Mikes Freigabe
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-18 (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.

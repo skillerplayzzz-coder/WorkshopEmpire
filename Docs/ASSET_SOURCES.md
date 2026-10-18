@@ -9,7 +9,9 @@ Nur Assets, die kommerziell genutzt werden dürfen (Spec §19 "Asset-Qualität")
 | Poly Haven (polyhaven.com) – 3D-Modelle und Texturen | CC0 1.0 | ja | nicht nötig (freiwillig: "Assets von Poly Haven") |
 | Kenney (kenney.nl) – Impact Sounds, Interface Sounds | CC0 1.0 | ja | nicht nötig |
 | Epic Games – UE-Mannequin (Manny/Quinn) mit Animationen aus den Engine-Vorlagen | Unreal Engine EULA | ja, in Unreal-Projekten | nicht nötig |
-| Eigene, im Projekt erzeugte Sounds (`build_audio.py`) und Materialien | eigen | ja | – |
+| Pixabay (pixabay.com) – Soundeffekte | Pixabay Content License | ja | nicht nötig |
+| Kenney (kenney.nl) – Car Kit (geparkte Autos) | CC0 1.0 | ja | nicht nötig |
+| Eigene, im Projekt erzeugte Materialien | eigen | ja | – |
 
 ## Geladen und importiert (Phase 15, 2026-10-17)
 
@@ -67,3 +69,29 @@ Kleidung, Schuhe, Kappe, Mütze und Sonnenbrille sind eigen: Die Kleidung wird i
 ### Eigene Modelle (Phase 17.5)
 
 52 Modelle unter `Content/WorkshopEmpire/Art/Generated/SM_Gen_*` sind im Projekt selbst erzeugt (`Tools/Assets/build_models.py`, Geometry Scripting): die Gegenstände ohne passendes Fremdmodell (PC-Tower, Netzteil, Mainboard, Grafikkarten, Motoren, Barren, Ballen, Spulen, Paletten …), Monitor, Tastatur und Maus des Werkstatt-PCs, beide Transporter mit Rädern, Container, Müllcontainer, Betonsperren, Leitkegel, Fasspaletten, Zählerkasten und das Firmenschild. Materialien: `Materials/Props/MI_Prop_*` (eigene Instanzen mit Poly-Haven-Texturen). Item-Bilder werden im Spiel aus den Modellen gerendert (`-WEBakeIcons`). Die 65 Linien-Icons der Oberfläche, der Gefahrenstreifen, das „Ferrit“-Logo und das Desktop-Hintergrundbild erzeugt `Tools/UI/make_icons.py` (eigen, keine Fremdschrift).
+
+## Nach Phase 18 – Nachgeladen (2026-10-18)
+
+Mike hat am 2026-10-18 die Liste freigegeben („sound ok und b“). Die selbst erzeugten Sounds sind damit vollständig ersetzt; `Tools/Maps/build_audio.py` schneidet die Aufnahmen zu (ruhigster Abschnitt, Mono für 3D-Sounds, Loops mit Überblendung, normalisiert) und importiert sie unter den bisherigen Namen `SFX_*`.
+
+| Im Spiel (`SFX_*`) | Quelle | Datei in `SourceArt/` |
+|---|---|---|
+| PlaceItem, PartRemoved, Step | Kenney Impact Sounds (CC0) | `impactWood_medium_002`, `impactMetal_light_002`, `footstep_concrete_000` |
+| DisassemblyDone, Denied | Kenney Interface Sounds (CC0) | `confirmation_002`, `error_004` |
+| ScrewLoosen | Pixabay „ratchet socket wrench tool“ (freesound_community) | `Pixabay/ratchet-socket-wrench-tool.mp3` |
+| ShredderLoop | Pixabay „Wood chipper machine grinding shredding tree branches, extended“ (freesound_community) | `Pixabay/wood-chipper-grinding-shredding.mp3` |
+| ShredderCrunch | Pixabay „Heavy Metal Crush“ (Soumages) | `Pixabay/heavy-metal-crush.mp3` |
+| PressLoop | Pixabay „Homemade hydraulic hoist“ (freesound_community) | `Pixabay/homemade-hydraulic-hoist.mp3` |
+| PressSlam | Pixabay „Hydraulic press“ (freesound_community) | `Pixabay/hydraulic-press.mp3` |
+| MotorLoop | Pixabay „Electric Motor Whir“ (freesound_community) | `Pixabay/electric-motor-whir.mp3` |
+| FurnaceLoop | Pixabay „Fire in furnace“ (AudioPapkin) | `Pixabay/fire-in-furnace.mp3` |
+| MachineStart, MachineStop | Pixabay „Electric motor engine start stop“ (freesound_community), in zwei Hälften geteilt | `Pixabay/electric-motor-engine-start-stop.mp3` |
+| PourSizzle | Pixabay „Boiling Metal“ (SoundReality) | `Pixabay/boiling-metal.mp3` |
+| Strap | Pixabay „Cable tie“ (spinopel) | `Pixabay/cable-tie.mp3` |
+| RoomTone | Pixabay „Room Tone Office 12“ (freesound_community) | `Pixabay/room-tone-office.mp3` |
+| Outdoor | Pixabay „Suburban Spring Day Ambience_1“ (DJARTMUSIC) | `Pixabay/suburban-spring-day-ambience.mp3` |
+| VanDrive | Pixabay „Van Interior Driving“ (TommyLynn) | `Pixabay/van-interior-driving.mp3` |
+
+Ebenfalls geladen, noch nicht verwendet: `Pixabay/electric-screwdriver.mp3` (spinopel), `Pixabay/trash-compactor-compression.mp3` (freesound_community). Zusammen 15 Dateien, 15,6 MB.
+
+**Geparkte Autos:** Kenney „Car Kit“ 3.1 (`kenney_car-kit.zip`, 4,8 MB, CC0), entpackt nach `SourceArt/Kenney/CarKit`. Importiert mit `Tools/Assets/import_cars.py` nach `Content/WorkshopEmpire/Art/Import/KenneyCars`: sedan, sedan-sports, hatchback-sports, suv, suv-luxury, van, delivery, truck (ohne Marken). Die selbst gebauten Autos `SM_Gen_CarSedan*/CarPickup*` werden nicht mehr platziert.

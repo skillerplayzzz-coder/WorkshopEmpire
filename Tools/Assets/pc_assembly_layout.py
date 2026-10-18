@@ -79,7 +79,7 @@ PARTS = [
         plug((7.3, 17.0, 18.6), MX, 0),
         screw((-6.6, 22.0, 23.4), PY, 1), screw((0.6, 22.0, 23.4), PY, 1),
         screw((-6.6, 22.0, 30.6), PY, 1), screw((0.6, 22.0, 30.6), PY, 1)],
-        requires=["SidePanel"], pull=NY, dist=4.0),
+        requires=["SidePanel"], pull=NY, dist=4.0, optional=True),
     dict(id="PowerSupply", name="Netzteil", fasteners=[
         plug((6.5, -2.0, 27.5), MX, 0), plug((6.9, 16.4, 32.0), MX, 0),
         screw((-7.25, 22.0, 33.15), PY, 1), screw((7.25, 22.0, 33.15), PY, 1),
@@ -91,7 +91,7 @@ PARTS = [
     dict(id="CdDrive", name="CD-Laufwerk", fasteners=[
         plug((-2.5, -1.3, 37.5), PY, 0), plug((4.5, -1.3, 37.5), PY, 0),
         screw((-7.85, -16.0, 37.5), MX, 1), screw((-7.85, -8.0, 37.5), MX, 1)],
-        requires=["SidePanel"], pull=NY, dist=12.0),
+        requires=["SidePanel"], pull=NY, dist=12.0, optional=True),
     dict(id="Case", name="Gehäuse", fasteners=[],
         requires=["SidePanel", "GraphicsCard", "Ram", "CpuCooler", "Cpu", "HardDrive", "Ssd", "CaseFan", "PowerSupply",
                   "Mainboard", "CdDrive"], pull=(0, 0, 1), dist=2.0, shell=True),

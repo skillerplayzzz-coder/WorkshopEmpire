@@ -243,11 +243,21 @@ def tree(at, scale=1.5):
 
 
 # --- Places -------------------------------------------------------------------------------------------------
+CAR_DIR = "/Game/WorkshopEmpire/Art/Import/KenneyCars"
+CAR_SCALE = 1.25  # the kit's cars are 2.6 m long; a uniform scale keeps the wheels round
+
+
 def parked(name, x, y, yaw):
-    wn.place(name, (x, y, 0.0), yaw, folder="City")
+    """A parked car (Kenney Car Kit, CC0, Tools/Assets/import_cars.py). The models are long along Y: turned to X."""
+    path = f"{CAR_DIR}/SM_Car_{name}"
+    mesh = unreal.EditorAssetLibrary.load_asset(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
+    if not mesh:
+        unreal.log_warning(f"WE_CITY car model missing: {path} (run Tools/Assets/import_cars.py)")
+        return None
+    return wn._spawn_mesh(mesh, (x, y, 0.0), (0.0, yaw + 90.0, 0.0), (CAR_SCALE, CAR_SCALE, CAR_SCALE), f"N_Car_{name}", "City")
 
 
-CARS = ["CarSedanRed", "CarSedanBlue", "CarSedanGrey", "CarSedanBeige", "CarPickupGreen", "CarPickupWhite"]
+CARS = ["sedan", "sedan_sports", "hatchback_sports", "suv", "suv_luxury", "van", "delivery", "truck"]
 
 
 def gas_station():

@@ -37,6 +37,9 @@ public:
 	AWEWorkbench* GetBench() const { return Bench.Get(); }
 	bool IsRepairMode() const { return bRepair; }
 	void SetRepairMode(bool bInRepair);
+	/** Reassembly mode: removed parts go back in (devices with a part layout). */
+	void SetInstallMode(bool bInInstall);
+	bool IsInstallMode() const { return bInstall; }
 	/** Removes the props (when the view closes). */
 	void Shutdown();
 
@@ -65,6 +68,7 @@ protected:
 	UFUNCTION() void HandleAuto();
 	UFUNCTION() void HandleModeDisassemble();
 	UFUNCTION() void HandleModeRepair();
+	UFUNCTION() void HandleModeAssemble();
 	UFUNCTION() void HandleTool0();
 	UFUNCTION() void HandleTool1();
 	UFUNCTION() void HandleTool2();
@@ -82,6 +86,11 @@ protected:
 	int32 FindTaskAt(const FVector2D& Position) const;
 	bool CanDisassemble() const;
 	bool CanRepair() const;
+	bool CanAssemble() const;
+	/** Next part that can go back in (reverse list order: the mainboard before what sits on it), or INDEX_NONE. */
+	int32 DefaultInstallPart() const;
+	/** Running job of this player in the current mode. */
+	bool IsMyJob() const;
 	void Hint(const FText& Text, bool bError = false);
 	FVector2D MousePosition() const;
 
@@ -109,6 +118,7 @@ protected:
 	TWeakObjectPtr<AWEWorkbench> Bench;
 	UPROPERTY(Transient) TObjectPtr<AWEWorkRig> Rig;
 	bool bRepair = false;
+	bool bInstall = false;
 
 	// Tools the player carries (index 0 = hands).
 	TArray<EWEToolType> Tools;
@@ -131,6 +141,10 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UButton> ModeRepair;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ModeDisassembleLabel;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ModeRepairLabel;
+	UPROPERTY(Transient) TObjectPtr<UButton> ModeAssemble;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> ModeAssembleLabel;
+	/** Row of each part in the list (a click picks the part); index = part. */
+	UPROPERTY(Transient) TArray<TObjectPtr<UWidget>> PartRows;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> StepList;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> StepTitle;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> StepCount;

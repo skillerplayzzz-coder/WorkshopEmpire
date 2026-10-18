@@ -141,6 +141,8 @@ protected:
 	/** Phase 17.5: hands-on disassembly in the work view (-WEShots=P175W on L_Garage). */
 	void RunWorkViewShots();
 	void RunVanShots();
+	/** After Phase 18: PC put back together and tested in the work view, goods carried into and out of the van. */
+	void RunReassemblyShots();
 	void WorkViewTick();
 	FTimerHandle WorkViewTimer;
 	int32 WorkViewTasks = 0;

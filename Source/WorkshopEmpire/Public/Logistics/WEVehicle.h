@@ -149,6 +149,41 @@ protected:
 	FDelegateHandle CargoChangedHandle;
 	int32 LastCargoCount = -1;
 
+	/**
+	 * Goods go into the bay and come out one at a time (visual only, every machine that renders): a new stack is
+	 * carried from the player's hands (or from behind the van) through the rear doors to its spot; an unloaded one
+	 * leaves its spot and is put down behind the van, where the real item appears when it lands.
+	 */
+	struct FCargoFlight
+	{
+		TWeakObjectPtr<UStaticMeshComponent> Mesh;
+		FVector From = FVector::ZeroVector;   // world
+		FVector To = FVector::ZeroVector;     // in: relative to the cargo floor component; out: world
+		FRotator Rotation = FRotator::ZeroRotator;
+		float Start = 0.f;
+		float Duration = 0.7f;
+	};
+	TMap<FGuid, FCargoFlight> InFlights;
+	TArray<FCargoFlight> OutFlights;
+	TArray<FGuid> CargoMeshIds;
+	/** Where a stack that was just loaded was carried from (from the server), by item id. */
+	TMap<FGuid, TPair<FVector, float>> PendingLoadFrom;
+	float NextFlightStart = 0.f;
+	FTimerHandle FlightTimer;
+	void StartFlightTimer();
+	void TickFlights();
+	FVector CargoLocalToWorld(const FVector& VanLocal) const;
+	/** Drop spot behind the van for the Index-th bulky item (the same on server and clients). */
+	FVector GetUnloadSpot(int32 Index) const;
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastLoadedFrom(FGuid InstanceId, FVector_NetQuantize From);
+public:
+	/** One flight in or out of the bay takes this long; unloading puts the items down one after another. */
+	static constexpr float FlightSeconds = 0.7f;
+	static constexpr float FlightGap = 0.35f;
+	int32 GetCargoFlightCount() const { return InFlights.Num() + OutFlights.Num(); }
+protected:
+
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
 	FWEVehicleStats BasicStats;
 

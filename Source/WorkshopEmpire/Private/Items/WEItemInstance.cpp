@@ -1,6 +1,7 @@
 #include "Items/WEItemInstance.h"
 
 #include "Items/WEItemDefinition.h"
+#include "Workshop/WEAssemblyDefinition.h"
 
 FWEItemInstance FWEItemInstance::Make(UWEItemDefinition* InDefinition, int32 InQuantity, EWEItemCondition InCondition, uint8 InQuality)
 {
@@ -17,7 +18,8 @@ bool FWEItemInstance::CanStackWith(const FWEItemInstance& Other) const
 {
 	// Marks must match: a locked stack never swallows loose goods (and the other way round).
 	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition
-		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair && Marks == Other.Marks && RemovedParts == Other.RemovedParts;
+		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair && Marks == Other.Marks && RemovedParts == Other.RemovedParts
+		&& InstalledParts == Other.InstalledParts;
 }
 
 bool FWEItemInstance::IsPersonalEquipment() const
@@ -50,13 +52,31 @@ FWEMoney FWEItemInstance::GetEstimatedValue() const
 		return FWEMoney();
 	}
 	double Factor = WEItems::GetConditionValueFactor(Condition) * (0.75 + 0.5 * (Quality / 100.0));
-	if (IsBroken())
+	if (IsBroken() || NeedsFunctionTest())
 	{
 		// A broken complex device is worth much less than a working one (repairing must pay off).
+		// Rebuilt but not tested yet: nobody knows whether it runs, so it sells like a broken one.
 		Factor *= Definition->BrokenValueMultiplier;
+	}
+	if (Definition->HasAssembly() && RemovedParts != 0)
+	{
+		// Rebuilt without the optional parts (CD drive, case fan): a little less.
+		Factor *= FMath::Max(0.5, 1.0 - 0.1 * Definition->Assembly->CountMissingOptional(RemovedParts));
 	}
 	const double Cents = static_cast<double>(Definition->BaseValue.GetCents()) * Factor * Quantity;
 	return FWEMoney::FromCents(static_cast<int64>(FMath::RoundToDouble(Cents)));
+}
+
+bool FWEItemInstance::HasBrokenInstalledPart() const
+{
+	for (int32 i = 0; i < MaxInstalledParts; ++i)
+	{
+		if (GetInstalledCondition(i) >= static_cast<int32>(EWEItemCondition::Damaged))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 FText FWEItemInstance::GetDisplayName() const
@@ -68,6 +88,10 @@ FText FWEItemInstance::GetDisplayName() const
 	if (IsPartiallyDisassembled())
 	{
 		return FText::Format(NSLOCTEXT("WEItemInstance", "PartlyDisassembled", "{0} (teilweise zerlegt)"), Definition->DisplayName);
+	}
+	if (NeedsFunctionTest())
+	{
+		return FText::Format(NSLOCTEXT("WEItemInstance", "Untested", "{0} (ungetestet)"), Definition->DisplayName);
 	}
 	if (Repair.IsInProgress())
 	{

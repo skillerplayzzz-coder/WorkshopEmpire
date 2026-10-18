@@ -434,9 +434,9 @@ bool AWEPlayerController::IsWorkViewOpen() const
 	return WorkViewWidget && WorkViewWidget->IsInViewport();
 }
 
-void AWEPlayerController::RequestWorkStart(AWEWorkbench* Bench, bool bRepair, int32 Part) { ServerWorkStart(Bench, bRepair, Part); }
+void AWEPlayerController::RequestWorkStart(AWEWorkbench* Bench, bool bRepair, int32 Part, bool bInstall) { ServerWorkStart(Bench, bRepair, Part, bInstall); }
 void AWEPlayerController::RequestWorkTask(AWEWorkbench* Bench, int32 TaskIndex, EWEToolType Tool) { ServerWorkTask(Bench, static_cast<uint8>(FMath::Clamp(TaskIndex, 0, 255)), Tool); }
-void AWEPlayerController::RequestWorkAuto(AWEWorkbench* Bench, bool bRepair) { ServerWorkAuto(Bench, bRepair); }
+void AWEPlayerController::RequestWorkAuto(AWEWorkbench* Bench, bool bRepair, int32 Part, bool bInstall) { ServerWorkAuto(Bench, bRepair, Part, bInstall); }
 void AWEPlayerController::RequestWorkCancel(AWEWorkbench* Bench) { ServerWorkCancel(Bench); }
 
 namespace
@@ -453,11 +453,11 @@ namespace
 	}
 }
 
-void AWEPlayerController::ServerWorkStart_Implementation(AWEWorkbench* Bench, bool bRepair, int32 Part)
+void AWEPlayerController::ServerWorkStart_Implementation(AWEWorkbench* Bench, bool bRepair, int32 Part, bool bInstall)
 {
 	if (AWECharacter* Worker = WorkerAt(this, Bench))
 	{
-		Bench->TryStartManualStep(Worker, bRepair, bRepair ? INDEX_NONE : Part);
+		Bench->TryStartManualStep(Worker, bRepair, bRepair ? INDEX_NONE : Part, bInstall);
 	}
 }
 
@@ -469,7 +469,7 @@ void AWEPlayerController::ServerWorkTask_Implementation(AWEWorkbench* Bench, uin
 	}
 }
 
-void AWEPlayerController::ServerWorkAuto_Implementation(AWEWorkbench* Bench, bool bRepair)
+void AWEPlayerController::ServerWorkAuto_Implementation(AWEWorkbench* Bench, bool bRepair, int32 Part, bool bInstall)
 {
 	if (AWECharacter* Worker = WorkerAt(this, Bench))
 	{
@@ -478,9 +478,14 @@ void AWEPlayerController::ServerWorkAuto_Implementation(AWEWorkbench* Bench, boo
 		{
 			Bench->TryStartRepairStep(Worker);
 		}
+		else if (bInstall)
+		{
+			Bench->TryStartInstall(Worker, Part);
+		}
 		else
 		{
-			Bench->TryStartStep(Worker);
+			// The picked part (none picked: the next free one).
+			Bench->TryStartStep(Worker, Part);
 		}
 	}
 }

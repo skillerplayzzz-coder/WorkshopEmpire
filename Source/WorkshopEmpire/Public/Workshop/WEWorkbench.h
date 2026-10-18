@@ -51,6 +51,15 @@ struct WORKSHOPEMPIRE_API FWERepairStepInfo
 	const class UWEItemDefinition* Material = nullptr;
 };
 
+/** What putting one part back into a device needs (the part itself and its screws). */
+struct WORKSHOPEMPIRE_API FWEInstallNeed
+{
+	const class UWEItemDefinition* Item = nullptr;
+	int32 Count = 0;
+	/** The part itself (its condition goes into the device); otherwise hardware such as screws. */
+	bool bPart = false;
+};
+
 /** Replicated state of the current job. Clients compute progress locally from the server time. */
 USTRUCT()
 struct WORKSHOPEMPIRE_API FWEWorkbenchWork
@@ -71,6 +80,9 @@ struct WORKSHOPEMPIRE_API FWEWorkbenchWork
 	UPROPERTY() bool bManual = false;
 	UPROPERTY() uint8 TaskCount = 0;
 	UPROPERTY() uint32 TaskMask = 0;
+
+	/** Reassembly: StepIndex is the part that goes back in (not a disassembly step). */
+	UPROPERTY() bool bInstall = false;
 
 	/** Incremented on every event so clients react even to repeated events (sounds, effects). */
 	UPROPERTY() uint16 EventCounter = 0;
@@ -184,22 +196,38 @@ public:
 
 	/** Hands-on plan of the disassembly step (bRepair false) or repair action (true) that runs now or comes next. */
 	FWEWorkPlan GetWorkPlan(bool bRepair) const;
-	/** Hands-on plan for one part of a device with a part layout. */
-	FWEWorkPlan GetPartPlan(int32 Part) const;
+	/** Hands-on plan for one part of a device with a part layout (bInstall: putting it back in). */
+	FWEWorkPlan GetPartPlan(int32 Part, bool bInstall = false) const;
 
 	// --- Part layout (Phase 18a) ----------------------------------------------------------------------------
 	/** The placed device has a real part layout (PC: case, mainboard, cards ...). */
 	const class UWEAssemblyDefinition* GetAssembly() const;
 	/** Disassembly step of Part (or the next step for INDEX_NONE). */
 	const FWEDisassemblyStep* GetStepAt(int32 Part) const;
-	/** Part being worked on (disassembly job), or INDEX_NONE. */
+	/** Part being worked on (taken out or put back in), or INDEX_NONE. */
 	int32 GetActivePart() const { return IsBusy() && Work.RepairKind == EWERepairStepKind::None ? Work.StepIndex : INDEX_NONE; }
 	bool IsManualWork() const { return Work.bManual; }
 	bool IsRepairJob() const { return Work.RepairKind != EWERepairStepKind::None; }
+	/** The running job puts a part back in (reassembly). */
+	bool IsInstallJob() const { return IsBusy() && Work.bInstall; }
 	uint32 GetTaskMask() const { return Work.TaskMask; }
 
+	// --- Reassembly (devices with a part layout) ----------------------------------------------------------------
+	/** Items Part needs to go back in: the part (as many as come out) and its screws. Empty: it cannot go back (scrapped, the body). */
+	static TArray<FWEInstallNeed> GetInstallNeeds(const UWEItemDefinition* Device, int32 Part);
+	/** Part can be put back in at all (not the body, not scrapped on removal). */
+	bool IsReinstallable(int32 Part) const;
+	/** Some removed part of the placed device can be put back now (with or without the needed items). */
+	bool HasInstallablePart() const;
+	bool CanStartInstall(const AWECharacter* Character, FText& OutReason, int32 Part) const;
+	/** Server only. Starts putting Part back in (timed; the hands-on variant goes through TryStartManualStep). */
+	bool TryStartInstall(AWECharacter* Character, int32 Part);
+	/** Finds Count of Item in the character's inventory, then in Storage (parts: best condition first). */
+	static bool FindInstallItems(const AWECharacter* Character, const class UWEInventoryComponent* InStorage, const UWEItemDefinition* Item,
+		int32 Count, TArray<TPair<class UWEInventoryComponent*, int32>>& OutSlots);
+
 	/** Server only. Starts the next step (or repair action) for Character without a timer: it ends when every task is done. */
-	bool TryStartManualStep(AWECharacter* Character, bool bRepair, int32 Part = INDEX_NONE);
+	bool TryStartManualStep(AWECharacter* Character, bool bRepair, int32 Part = INDEX_NONE, bool bInstall = false);
 	/** Server only. One task of the running hands-on step, done with Tool. Checks order, tool and the minimum time. */
 	bool DoManualTask(AWECharacter* Character, int32 TaskIndex, EWEToolType Tool);
 	/** Server only. Character leaves the work view: a half-done hands-on step is dropped (the device keeps its progress). */
@@ -234,7 +262,8 @@ protected:
 
 	void RaiseEvent(EWEWorkbenchEvent Event);
 	float GetServerTime() const;
-	TArray<FWEItemInstance> GenerateOutputs(const FWEDisassemblyStep& Step, const FWEItemInstance& Source);
+	TArray<FWEItemInstance> GenerateOutputs(const FWEDisassemblyStep& Step, const FWEItemInstance& Source, int32 Part = INDEX_NONE);
+	void CompleteInstall(AWECharacter* Worker);
 	void DeliverOutputs(const TArray<FWEItemInstance>& Outputs, AWECharacter* Worker, bool bAnnounce = true);
 	void UpdateIndicator();
 	void CompleteRepairStep(AWECharacter* Worker);

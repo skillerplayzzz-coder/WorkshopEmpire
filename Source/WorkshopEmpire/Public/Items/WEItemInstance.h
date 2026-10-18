@@ -21,7 +21,9 @@ struct WORKSHOPEMPIRE_API FWERepairState
 		FaultsRolled = 1 << 0,
 		Diagnosed    = 1 << 1,
 		Refurbished  = 1 << 2,
-		CustomerItem = 1 << 3
+		CustomerItem = 1 << 3,
+		/** Parts were put back into a device with a part layout: it needs a function test before it counts as working. */
+		NeedsTest    = 1 << 4
 	};
 
 	/** Components that are actually broken (a dud spare part keeps its bit until the function test). */
@@ -90,6 +92,31 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	int32 RemovedParts = 0;
 	bool IsPartRemoved(int32 Part) const { return Part >= 0 && Part < 32 && (RemovedParts & (1 << Part)) != 0; }
 
+	/**
+	 * Parts put back into the device (reassembly): 4 bits per part, 0 = the device's own part, otherwise the condition + 1
+	 * of the item that was installed. Decides the function test and what comes out when the part is removed again.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
+	int64 InstalledParts = 0;
+	static constexpr int32 MaxInstalledParts = 16;
+	/** Condition (index) of the item installed as Part, or INDEX_NONE for the device's own part. */
+	int32 GetInstalledCondition(int32 Part) const
+	{
+		return Part >= 0 && Part < MaxInstalledParts ? static_cast<int32>((InstalledParts >> (Part * 4)) & 0xF) - 1 : INDEX_NONE;
+	}
+	/** ConditionIndex INDEX_NONE: the device's own part again (bits cleared). */
+	void SetInstalledCondition(int32 Part, int32 ConditionIndex)
+	{
+		if (Part >= 0 && Part < MaxInstalledParts)
+		{
+			InstalledParts &= ~(int64(0xF) << (Part * 4));
+			InstalledParts |= int64(FMath::Clamp(ConditionIndex + 1, 0, 15)) << (Part * 4);
+		}
+	}
+	/** Some installed part is broken (condition "Beschädigt" or worse). */
+	bool HasBrokenInstalledPart() const;
+	bool NeedsFunctionTest() const { return Repair.HasFlag(FWERepairState::NeedsTest); }
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	FWERepairState Repair;
 
@@ -149,6 +176,6 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	{
 		return Definition == Other.Definition && InstanceId == Other.InstanceId && Quantity == Other.Quantity
 			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair
-			&& Marks == Other.Marks && RemovedParts == Other.RemovedParts;
+			&& Marks == Other.Marks && RemovedParts == Other.RemovedParts && InstalledParts == Other.InstalledParts;
 	}
 };

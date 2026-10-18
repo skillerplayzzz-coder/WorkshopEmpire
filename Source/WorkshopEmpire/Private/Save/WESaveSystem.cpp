@@ -1,5 +1,6 @@
 #include "Save/WESaveSystem.h"
 #include "Workshop/WEDisassemblyDefinition.h"
+#include "Workshop/WEAssemblyDefinition.h"
 #include "Framework/WEGameMode.h"
 
 #include "Economy/WEAuctionComponent.h"
@@ -88,6 +89,7 @@ FWESavedItem FWESaveSystem::ToSaved(const FWEItemInstance& Item)
 	Saved.RepairFlags = Item.Repair.Flags;
 	Saved.Marks = Item.Marks;
 	Saved.RemovedParts = Item.RemovedParts;
+	Saved.InstalledParts = Item.InstalledParts;
 	return Saved;
 }
 
@@ -111,6 +113,7 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 	OutItem.Repair.Flags = Saved.RepairFlags;
 	OutItem.Marks = Saved.Marks & (FWEItemInstance::Favorite | FWEItemInstance::Locked | FWEItemInstance::ReleasedForSale);
 	OutItem.RemovedParts = Saved.RemovedParts;
+	OutItem.InstalledParts = Definition->HasAssembly() ? Saved.InstalledParts : 0;
 	if (Definition->HasAssembly())
 	{
 		const int32 NumParts = Definition->Disassembly->NumSteps();
@@ -123,7 +126,7 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 			}
 		}
 		OutItem.RemovedParts &= (1 << NumParts) - 1;
-		OutItem.DisassemblyStep = static_cast<uint8>(FMath::CountBits(static_cast<uint32>(OutItem.RemovedParts)));
+		OutItem.DisassemblyStep = Definition->Assembly->CountTakenApart(OutItem.RemovedParts);
 	}
 	return true;
 }

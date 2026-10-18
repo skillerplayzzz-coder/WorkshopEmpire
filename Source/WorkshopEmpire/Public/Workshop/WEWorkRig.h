@@ -27,6 +27,8 @@ public:
 	void Init(AWEWorkbench* InBench, bool bInRepair);
 	void SetRepairMode(bool bInRepair);
 	bool IsRepairMode() const { return bRepair; }
+	/** Reassembly: the picked part's plan is the one for putting it back in. */
+	void SetInstallMode(bool bInInstall) { if (bInstall != bInInstall) { bInstall = bInInstall; RebuildPlan(); } }
 
 	virtual void Tick(float DeltaSeconds) override;
 
@@ -66,6 +68,7 @@ protected:
 	FWEWorkPlan Plan;
 	uint32 PlanSignature = 0;
 	bool bRepair = false;
+	bool bInstall = false;
 	int32 HoverTask = INDEX_NONE;
 	int32 ActiveTask = INDEX_NONE;
 	int32 SelectedPart = INDEX_NONE;

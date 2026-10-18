@@ -153,7 +153,7 @@ bool FWEBuildMoveRemoveTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Start step"), Workbench->TryStartStep(F.Player));
 	TestEqual(TEXT("Big bench: 2.4 s / 1.2 = 2.0 s"), Workbench->GetActiveStepDuration(), 2.f);
 	Workbench->CompleteActiveStep();
-	TestEqual(TEXT("Large bench storage: 20 slots"), Workbench->GetStorage()->GetNumSlots(), 20);
+	TestEqual(TEXT("Large bench storage: 36 slots"), Workbench->GetStorage()->GetNumSlots(), 36);
 
 	// Storage not empty: no removing.
 	int32 Added = 0;
@@ -235,7 +235,7 @@ bool FWEBuildProgressionTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("New bench: 12 + 6 slots"), Bench->GetStorage()->GetNumSlots(), 18);
+	TestEqual(TEXT("New bench: 24 + 6 slots"), Bench->GetStorage()->GetNumSlots(), 30);
 	return true;
 }
 

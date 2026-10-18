@@ -53,9 +53,9 @@ public:
 	class UWEWorkViewWidget* GetWorkView() const { return WorkViewWidget; }
 
 	/** Work view requests (server checks reach, tool, order and time). */
-	void RequestWorkStart(class AWEWorkbench* Bench, bool bRepair, int32 Part = INDEX_NONE);
+	void RequestWorkStart(class AWEWorkbench* Bench, bool bRepair, int32 Part = INDEX_NONE, bool bInstall = false);
 	void RequestWorkTask(class AWEWorkbench* Bench, int32 TaskIndex, EWEToolType Tool);
-	void RequestWorkAuto(class AWEWorkbench* Bench, bool bRepair);
+	void RequestWorkAuto(class AWEWorkbench* Bench, bool bRepair, int32 Part = INDEX_NONE, bool bInstall = false);
 	void RequestWorkCancel(class AWEWorkbench* Bench);
 
 	/** Any full-screen menu (inventory, trade, pause, work view) open. */
@@ -245,13 +245,13 @@ protected:
 	void ServerTutorialEvent(uint8 Event);
 
 	UFUNCTION(Server, Reliable)
-	void ServerWorkStart(class AWEWorkbench* Bench, bool bRepair, int32 Part);
+	void ServerWorkStart(class AWEWorkbench* Bench, bool bRepair, int32 Part, bool bInstall);
 
 	UFUNCTION(Server, Reliable)
 	void ServerWorkTask(class AWEWorkbench* Bench, uint8 TaskIndex, EWEToolType Tool);
 
 	UFUNCTION(Server, Reliable)
-	void ServerWorkAuto(class AWEWorkbench* Bench, bool bRepair);
+	void ServerWorkAuto(class AWEWorkbench* Bench, bool bRepair, int32 Part, bool bInstall);
 
 	UFUNCTION(Server, Reliable)
 	void ServerWorkCancel(class AWEWorkbench* Bench);

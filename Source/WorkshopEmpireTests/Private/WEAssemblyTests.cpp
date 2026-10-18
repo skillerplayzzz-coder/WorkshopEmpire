@@ -7,6 +7,7 @@
 #include "Items/WEPickupItem.h"
 #include "Player/WECharacter.h"
 #include "Save/WESaveGame.h"
+#include "Save/WESaveSystem.h"
 #include "WETestItems.h"
 #include "WETestWorld.h"
 #include "Workshop/WEAssemblyDefinition.h"
@@ -190,6 +191,180 @@ bool FWEAssemblySaveTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Other parts out: not the same item"), Copy == Item);
 	TestFalse(TEXT("...and they do not stack"), Copy.CanStackWith(Item));
 	TestTrue(TEXT("Saved version knows removed parts"), UWESaveGame::CurrentVersion >= 15);
+	return true;
+}
+
+namespace WEAssemblyTests
+{
+	bool Remove(FPcFixture& F, const TCHAR* Id)
+	{
+		const bool bStarted = F.Bench->TryStartStep(F.Player, F.Part(Id));
+		if (bStarted)
+		{
+			F.Bench->CompleteActiveStep();
+		}
+		return bStarted;
+	}
+
+	bool Install(FPcFixture& F, int32 Part)
+	{
+		const bool bStarted = F.Bench->TryStartInstall(F.Player, Part);
+		if (bStarted)
+		{
+			F.Bench->CompleteActiveStep();
+		}
+		return bStarted;
+	}
+
+	bool RunTest(FPcFixture& F)
+	{
+		const bool bStarted = F.Bench->TryStartRepairStep(F.Player);
+		if (bStarted)
+		{
+			F.Bench->CompleteActiveStep();
+		}
+		return bStarted;
+	}
+
+	/** Takes every stack of ItemId out of the bench storage (so a test decides which part is there). */
+	void ClearFromStorage(FPcFixture& F, const TCHAR* ItemId)
+	{
+		const UWEItemDefinition* Def = UWEItemDefinition::FindById(FName(ItemId));
+		for (const FWEInventorySlotData& Slot : F.Bench->GetStorage()->GetAllSlots())
+		{
+			if (Slot.Item.Definition == Def)
+			{
+				FWEItemInstance Out;
+				F.Bench->GetStorage()->RemoveFromSlot(Slot.SlotIndex, Slot.Item.Quantity, Out);
+			}
+		}
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWEAssemblyReassembleTest, "WorkshopEmpire.Workshop.Assembly.ReassembleAndTest", Flags)
+bool FWEAssemblyReassembleTest::RunTest(const FString& Parameters)
+{
+	FPcFixture F;
+	if (!F.Init(*this))
+	{
+		return false;
+	}
+	TestTrue(TEXT("Bench storage holds a whole PC (24 slots)"), F.Bench->GetStorage()->GetNumSlots() >= 24);
+	AWEPickupItem* Pc = F.PlacePc();
+	const int32 Gpu = F.Part(TEXT("GraphicsCard"));
+	TestTrue(TEXT("Panel off"), WEAssemblyTests::Remove(F, TEXT("SidePanel")));
+	TestTrue(TEXT("GPU out"), WEAssemblyTests::Remove(F, TEXT("GraphicsCard")));
+	const int32 Screws = F.Count(TEXT("SheetMetalScrews"));
+	TestEqual(TEXT("GPU in the bench storage"), F.Count(TEXT("GraphicsCard")), 1);
+
+	// Back in: the card and its bracket screw come from the bench storage.
+	FText Reason;
+	TestTrue(TEXT("GPU can go back in"), F.Bench->CanStartInstall(F.Player, Reason, Gpu));
+	TestTrue(TEXT("Installed"), WEAssemblyTests::Install(F, Gpu));
+	TestFalse(TEXT("GPU is in again"), Pc->GetItem().IsPartRemoved(Gpu));
+	TestEqual(TEXT("Card used up"), F.Count(TEXT("GraphicsCard")), 0);
+	TestEqual(TEXT("Its screw used up"), F.Count(TEXT("SheetMetalScrews")), Screws - 1);
+	TestTrue(TEXT("Needs a function test"), Pc->GetItem().NeedsFunctionTest());
+	TestTrue(TEXT("Shown as untested or open"), Pc->GetItem().GetDisplayName().ToString().Contains(TEXT("(")));
+	TestFalse(TEXT("Same part twice: refused"), F.Bench->CanStartInstall(F.Player, Reason, Gpu));
+
+	// Function test (works with the side panel off): a good card - it runs.
+	FText TestReason;
+	TestTrue(TEXT("Test offered"), F.Bench->GetNextRepairStep(TestReason).Kind == EWERepairStepKind::Test);
+	TestTrue(TEXT("Test runs"), WEAssemblyTests::RunTest(F));
+	TestFalse(TEXT("Tested"), Pc->GetItem().NeedsFunctionTest());
+	TestFalse(TEXT("It works"), Pc->GetItem().IsBroken());
+
+	// A broken card goes in: the test fails and names it; out again, it is still the broken card.
+	TestTrue(TEXT("GPU out again"), WEAssemblyTests::Remove(F, TEXT("GraphicsCard")));
+	WEAssemblyTests::ClearFromStorage(F, TEXT("GraphicsCard"));
+	int32 Added = 0;
+	F.Player->GetPlayerInventory()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("GraphicsCard")), 1, EWEItemCondition::Defective, 20), Added);
+	TestTrue(TEXT("Broken card goes in (from the inventory)"), WEAssemblyTests::Install(F, Gpu));
+	TestTrue(TEXT("Test runs"), WEAssemblyTests::RunTest(F));
+	TestTrue(TEXT("Failed: the PC is broken"), Pc->GetItem().IsBroken());
+	TestTrue(TEXT("The test is done (no endless test)"), F.Bench->GetNextRepairStep(TestReason).Kind == EWERepairStepKind::None);
+	TestTrue(TEXT("...and says which part"), TestReason.ToString().Contains(TEXT("Grafikkarte")));
+	TestTrue(TEXT("Broken card out"), WEAssemblyTests::Remove(F, TEXT("GraphicsCard")));
+	bool bBrokenCardBack = false;
+	for (const FWEInventorySlotData& Slot : F.Bench->GetStorage()->GetAllSlots())
+	{
+		bBrokenCardBack |= Slot.Item.Definition && Slot.Item.Definition->ItemId == TEXT("GraphicsCard") && Slot.Item.Condition == EWEItemCondition::Defective;
+	}
+	TestTrue(TEXT("It comes out as the broken card it was"), bBrokenCardBack);
+
+	// Nothing there: the reason says what is missing.
+	WEAssemblyTests::ClearFromStorage(F, TEXT("GraphicsCard"));
+	TestFalse(TEXT("No card: refused"), F.Bench->CanStartInstall(F.Player, Reason, Gpu));
+	TestTrue(TEXT("...naming the card"), Reason.ToString().Contains(TEXT("Grafikkarte")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWEAssemblyRebuildTest, "WorkshopEmpire.Workshop.Assembly.RebuildFromParts", Flags)
+bool FWEAssemblyRebuildTest::RunTest(const FString& Parameters)
+{
+	FPcFixture F;
+	if (!F.Init(*this))
+	{
+		return false;
+	}
+	AWEPickupItem* Pc = F.PlacePc();
+	const FWEItemInstance Intact = Pc->GetItem();
+	// Everything out but the case.
+	const int32 Case = F.Part(TEXT("Case"));
+	int32 Guard = 0;
+	while (++Guard < 32)
+	{
+		const int32 Next = F.Asm->GetDefaultPart(Pc->GetItem().RemovedParts);
+		if (Next == INDEX_NONE || Next == Case || !F.Bench->TryStartStep(F.Player, Next))
+		{
+			break;
+		}
+		F.Bench->CompleteActiveStep();
+	}
+	TestTrue(TEXT("Only the empty case is left"), IsValid(Pc) && F.Asm->GetDefaultPart(Pc->GetItem().RemovedParts) == Case);
+
+	// Order: what sits on the mainboard needs the mainboard first; the scrapped CD drive cannot go back.
+	FText Reason;
+	TestFalse(TEXT("Graphics card before the mainboard: refused"), F.Bench->CanStartInstall(F.Player, Reason, F.Part(TEXT("GraphicsCard"))));
+	TestTrue(TEXT("...names the mainboard"), Reason.ToString().Contains(TEXT("Mainboard")));
+	TestFalse(TEXT("CD drive was scrapped"), F.Bench->IsReinstallable(F.Part(TEXT("CdDrive"))));
+	TestFalse(TEXT("Not testable while the CPU is missing"), F.Bench->GetNextRepairStep(Reason).Kind == EWERepairStepKind::Test);
+
+	// Put it back together the other way round (what the work view does by default).
+	Guard = 0;
+	while (++Guard < 32)
+	{
+		int32 Next = INDEX_NONE;
+		for (int32 i = F.Asm->Parts.Num() - 1; i >= 0 && Next == INDEX_NONE; --i)
+		{
+			Next = F.Bench->IsReinstallable(i) && F.Asm->CanInstall(i, Pc->GetItem().RemovedParts) ? i : INDEX_NONE;
+		}
+		if (Next == INDEX_NONE)
+		{
+			break;
+		}
+		if (!TestTrue(*FString::Printf(TEXT("Part %d goes back in"), Next), WEAssemblyTests::Install(F, Next)))
+		{
+			F.Bench->CanStartInstall(F.Player, Reason, Next);
+			AddError(Reason.ToString());
+			break;
+		}
+	}
+	TestEqual(TEXT("Only the CD drive is missing"), Pc->GetItem().RemovedParts, 1 << F.Part(TEXT("CdDrive")));
+	TestFalse(TEXT("Counts as complete (the CD drive is optional)"), Pc->GetItem().IsPartiallyDisassembled());
+	TestTrue(TEXT("Untested"), Pc->GetItem().NeedsFunctionTest());
+	TestTrue(TEXT("Untested sells like a broken one"), Pc->GetItem().GetEstimatedValue() < Intact.GetEstimatedValue());
+	TestTrue(TEXT("Test runs"), WEAssemblyTests::RunTest(F));
+	TestFalse(TEXT("Works"), Pc->GetItem().IsBroken() || Pc->GetItem().NeedsFunctionTest());
+	TestTrue(TEXT("Worth a bit less without the CD drive"), Pc->GetItem().GetEstimatedValue() < Intact.GetEstimatedValue()
+		&& Pc->GetItem().GetEstimatedValue().GetCents() > Intact.GetEstimatedValue().GetCents() / 2);
+
+	// The rebuilt state survives a save.
+	FWEItemInstance Loaded;
+	TestTrue(TEXT("Save roundtrip"), FWESaveSystem::FromSaved(FWESaveSystem::ToSaved(Pc->GetItem()), Loaded));
+	TestTrue(TEXT("Same state after loading"), Loaded == Pc->GetItem());
+	TestTrue(TEXT("Save version 16"), UWESaveGame::CurrentVersion >= 16);
 	return true;
 }
 

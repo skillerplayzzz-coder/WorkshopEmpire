@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.18.1] – 2026-10-18 – Nachbesserungen nach Phase 18
+
+### Neu
+- PC wieder zusammenbauen: Ansicht „Zusammenbauen“ in der Arbeitsansicht, Teile aus Inventar oder Werkbanklager einsetzen und festschrauben, Reihenfolge wie beim echten PC
+- Funktionstest nach dem Zusammenbau: mit guten Teilen läuft der PC, defekte Teile werden genannt; ungetestete PCs verkaufen sich wie defekte
+- Transporter: Ladung wird einzeln von den Händen in den Laderaum getragen und einzeln wieder ausgeladen
+
+### Geändert
+- Alle selbst erzeugten Sounds durch freie Aufnahmen ersetzt (Pixabay, Kenney)
+- Geparkte Autos aus dem Kenney Car Kit (CC0, ohne Marken)
+- Werkbanklager 24 Plätze / 100 kg (vorher 12 / 60), große Werkbank 36 Plätze
+- CD-Laufwerk und Gehäuselüfter sind optional: ein PC ohne sie gilt als vollständig (etwas weniger wert)
+
+### Technisch
+- Speicherstand Version 16 (eingebaute Teile); 123 Automation-Tests; neuer Bilderlauf `-WEShots=P18R`
+
 ## [0.18.0] – 2026-10-18 – Phase 18: PC-System, Transporter, Charaktereditor, UI und Stadt
 
 ### Neu

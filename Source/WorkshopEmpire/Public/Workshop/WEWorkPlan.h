@@ -51,6 +51,8 @@ struct WORKSHOPEMPIRE_API FWEWorkPlan
 	TArray<FWEWorkTask> Tasks;
 	EWEToolType StepTool = EWEToolType::None;
 	bool bRepair = false;
+	/** Putting a part back in (reassembly): part first, then plugs, clips and screws. */
+	bool bInstall = false;
 
 	bool IsValid() const { return Tasks.Num() > 0; }
 	float GetTotalWeight() const;
@@ -71,9 +73,11 @@ namespace WEWorkPlan
 	WORKSHOPEMPIRE_API FWEWorkPlan ForRepair(const UWEItemDefinition* Def, const FWERepairStepInfo& Info);
 	/** Phase 18a: plan for one part of a device with a part layout: its real fasteners in their order, then the part itself. */
 	WORKSHOPEMPIRE_API FWEWorkPlan ForAssemblyPart(const UWEItemDefinition* Def, int32 Part);
+	/** Reassembly: the same part the other way round - set it in, then plugs, clips and screws (reverse order). */
+	WORKSHOPEMPIRE_API FWEWorkPlan ForAssemblyInstall(const UWEItemDefinition* Def, int32 Part);
 
-	/** "Schraube lösen", "Stecker ziehen" ... */
-	WORKSHOPEMPIRE_API FText GetTaskText(EWEWorkTaskKind Kind, bool bRepairInstall = false);
+	/** "Schraube lösen", "Stecker ziehen" ... (bInstall: "Schraube eindrehen", "Stecker einstecken" ...) */
+	WORKSHOPEMPIRE_API FText GetTaskText(EWEWorkTaskKind Kind, bool bInstall = false);
 	/** UI icon name (WEUI::IconTexture). */
 	WORKSHOPEMPIRE_API FName GetTaskIcon(EWEWorkTaskKind Kind);
 	WORKSHOPEMPIRE_API FName GetToolIcon(EWEToolType Tool);

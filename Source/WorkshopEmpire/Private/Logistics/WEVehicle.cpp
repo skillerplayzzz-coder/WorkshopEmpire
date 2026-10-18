@@ -314,8 +314,16 @@ bool AWEVehicle::LoadItem(AWEPickupItem* Item)
 		Holder->ReleaseHeldItem();
 	}
 	UE_LOG(LogWENet, Log, TEXT("%s: %s loaded"), *GetName(), *Item->GetDisplayName().ToString());
+	// Everyone sees it carried from where it was into the bay.
+	MulticastLoadedFrom(Item->GetItem().InstanceId, Item->GetActorLocation());
 	Item->Destroy();
 	return true;
+}
+
+FVector AWEVehicle::GetUnloadSpot(int32 Index) const
+{
+	// Behind the van (its back faces -X), side by side, a second row further back.
+	return GetActorTransform().TransformPosition(FVector(-Size.X * 0.5f - 90.f - (Index / 4) * 70.f, -Size.Y * 0.4f + (Index % 4) * 60.f, 50.f));
 }
 
 int32 AWEVehicle::UnloadBulky()
@@ -335,13 +343,42 @@ int32 AWEVehicle::UnloadBulky()
 		FWEItemInstance Taken;
 		if (GetStorage()->RemoveFromSlot(Slot.SlotIndex, Slot.Item.Quantity, Taken) == EWEInventoryResult::Success)
 		{
-			// Behind the van (its back faces -X), side by side.
-			const FVector At = GetActorTransform().TransformPosition(FVector(-Size.X * 0.5f - 90.f, -Size.Y * 0.4f + (Count % 4) * 60.f, 50.f));
-			AWEPickupItem::SpawnWorldItem(GetWorld(), Taken, FTransform(GetActorRotation(), At));
+			// One after another: each one is carried out of the bay first (the clients show that flight) and shows up
+			// on the ground when it gets there. It exists (hidden) right away, so a save in between keeps it.
+			AWEPickupItem* Out = AWEPickupItem::SpawnWorldItem(GetWorld(), Taken, FTransform(GetActorRotation(), GetUnloadSpot(Count)));
+			if (Out)
+			{
+				Out->SetActorHiddenInGame(true);
+				FTimerHandle Handle;
+				TWeakObjectPtr<AWEPickupItem> WeakOut(Out);
+				GetWorldTimerManager().SetTimer(Handle, [WeakOut]()
+				{
+					if (AWEPickupItem* Item = WeakOut.Get())
+					{
+						Item->SetActorHiddenInGame(false);
+					}
+				}, Count * FlightGap + FlightSeconds, false);
+			}
 			++Count;
 		}
 	}
 	return Count;
+}
+
+void AWEVehicle::MulticastLoadedFrom_Implementation(FGuid InstanceId, FVector_NetQuantize From)
+{
+	if (GetNetMode() == NM_DedicatedServer || !GetWorld())
+	{
+		return;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	// The stack may already be on its way from behind the van (the cargo arrived first): start it at the hands instead.
+	if (FCargoFlight* Flight = InFlights.Find(InstanceId); Flight && Now - Flight->Start < 0.3f)
+	{
+		Flight->From = From;
+		return;
+	}
+	PendingLoadFrom.Add(InstanceId, TPair<FVector, float>(From, Now));
 }
 
 void AWEVehicle::CycleTour()
@@ -882,8 +919,54 @@ void AWEVehicle::RebuildCargo()
 		return;
 	}
 	const TArray<FWEInventorySlotData> Slots = GetStorage()->GetAllSlots();
+	const UWorld* World = GetWorld();
+	const float Now = World ? World->GetTimeSeconds() : 0.f;
+	// Animate only real loading and unloading at the parked van (not the first build, not a tour coming back).
+	const bool bAnimate = World && LastCargoCount >= 0 && !bAway && !IsHidden() && Boxes;
+	// What left the bay: carried out one after another (bulky goods to their spot behind the van).
+	TSet<FGuid> NewIds;
+	for (const FWEInventorySlotData& Slot : Slots)
+	{
+		NewIds.Add(Slot.Item.InstanceId);
+	}
+	int32 OutIndex = 0;
+	for (int32 i = 0; i < CargoMeshes.Num() && i < CargoMeshIds.Num(); ++i)
+	{
+		UStaticMeshComponent* Old = CargoMeshes[i];
+		if (!bAnimate || !Old || NewIds.Contains(CargoMeshIds[i]) || InFlights.Contains(CargoMeshIds[i]))
+		{
+			continue;
+		}
+		UStaticMeshComponent* Ghost = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		Ghost->SetStaticMesh(Old->GetStaticMesh());
+		Ghost->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Ghost->SetMobility(EComponentMobility::Movable);
+		Ghost->SetUsingAbsoluteLocation(true);
+		Ghost->SetUsingAbsoluteRotation(true);
+		Ghost->SetUsingAbsoluteScale(true);
+		Ghost->SetupAttachment(Boxes);
+		Ghost->RegisterComponent();
+		Ghost->SetWorldTransform(Old->GetComponentTransform());
+		for (int32 m = 0; m < Old->GetNumMaterials(); ++m)
+		{
+			Ghost->SetMaterial(m, Old->GetMaterial(m));
+		}
+		FCargoFlight Flight;
+		Flight.Mesh = Ghost;
+		Flight.From = Old->GetComponentLocation();
+		// Bulky goods are put down where the server puts the real item; the rest goes to whoever took it (behind the van).
+		const bool bBulky = !Old->ComponentTags.Contains(TEXT("Fits"));
+		Flight.To = bBulky ? GetUnloadSpot(OutIndex++) : CargoLocalToWorld(FVector(WEVanLayout::CargoMinX - 110.f, 0.f, 100.f));
+		Flight.Rotation = Old->GetComponentRotation();
+		Flight.Start = bBulky ? Now + (OutIndex - 1) * FlightGap : FMath::Max(Now, NextFlightStart);
+		Flight.Duration = FlightSeconds;
+		OutFlights.Add(Flight);
+	}
 	for (UStaticMeshComponent* Cargo : CargoMeshes) { if (Cargo) { Cargo->DestroyComponent(); } }
+	const TArray<FGuid> OldIds = CargoMeshIds;
 	CargoMeshes.Reset();
+	CargoMeshIds.Reset();
+	const bool bFirstBuild = LastCargoCount < 0;
 	LastCargoCount = Slots.Num();
 	// One model per stack on the cargo floor, in rows from the bulkhead to the rear doors; big things are
 	// scaled down to their floor cell so the bay never overflows visually.
@@ -920,7 +1003,131 @@ void AWEVehicle::RebuildCargo()
 		{
 			WEPlaceholder::ApplyTint(Mesh, LoadObject<UMaterialInterface>(nullptr, WEPlaceholder::MaterialPath), Def->Tint);
 		}
+		if (Def->bFitsInInventory)
+		{
+			Mesh->ComponentTags.Add(TEXT("Fits"));
+		}
 		CargoMeshes.Add(Mesh);
+		const FGuid Id = Slot.Item.InstanceId;
+		CargoMeshIds.Add(Id);
+		// Still on its way in (the cargo changed meanwhile): the flight goes on with the new model.
+		if (FCargoFlight* Flight = InFlights.Find(Id))
+		{
+			Flight->Mesh = Mesh;
+			Flight->To = Mesh->GetRelativeLocation();
+			Flight->Rotation = Mesh->GetRelativeRotation();
+			continue;
+		}
+		if (bAnimate && !bFirstBuild && !OldIds.Contains(Id))
+		{
+			// New in the bay: carried in from the hands that loaded it (else from behind the van), one at a time.
+			FCargoFlight Flight;
+			Flight.Mesh = Mesh;
+			Flight.From = CargoLocalToWorld(FVector(CargoMinX - 110.f, 0.f, 100.f));
+			if (const TPair<FVector, float>* Pending = PendingLoadFrom.Find(Id); Pending && Now - Pending->Value < 3.f)
+			{
+				Flight.From = Pending->Key;
+			}
+			PendingLoadFrom.Remove(Id);
+			Flight.To = Mesh->GetRelativeLocation();
+			Flight.Rotation = Mesh->GetRelativeRotation();
+			Flight.Start = FMath::Max(Now, NextFlightStart);
+			Flight.Duration = FlightSeconds;
+			NextFlightStart = Flight.Start + FlightGap;
+			Mesh->SetVisibility(false);
+			InFlights.Add(Id, Flight);
+		}
+	}
+	if (InFlights.Num() > 0 || OutFlights.Num() > 0)
+	{
+		// The rear doors stay open until the last one is through.
+		float LastEnd = Now;
+		for (const TPair<FGuid, FCargoFlight>& F : InFlights) { LastEnd = FMath::Max(LastEnd, F.Value.Start + F.Value.Duration); }
+		for (const FCargoFlight& F : OutFlights) { LastEnd = FMath::Max(LastEnd, F.Start + F.Duration); }
+		RearOpenUntil = FMath::Max(RearOpenUntil, LastEnd + 1.f);
+		StartFlightTimer();
+	}
+}
+
+FVector AWEVehicle::CargoLocalToWorld(const FVector& VanLocal) const
+{
+	return Boxes ? Boxes->GetComponentTransform().TransformPosition(VanLocal * ModelScale) : GetActorLocation();
+}
+
+void AWEVehicle::StartFlightTimer()
+{
+	if (UWorld* World = GetWorld(); World && !World->GetTimerManager().IsTimerActive(FlightTimer))
+	{
+		World->GetTimerManager().SetTimer(FlightTimer, this, &AWEVehicle::TickFlights, 1.f / 60.f, true);
+	}
+}
+
+void AWEVehicle::TickFlights()
+{
+	UWorld* World = GetWorld();
+	if (!World || !Boxes)
+	{
+		return;
+	}
+	const float Now = World->GetTimeSeconds();
+	// The way through the rear doors: over the bumper, just inside the doors.
+	const FVector Doorway = CargoLocalToWorld(FVector(WEVanLayout::CargoMinX - 30.f, 0.f, WEVanLayout::CargoFloor + 55.f));
+	auto Ease = [](float A) { A = FMath::Clamp(A, 0.f, 1.f); return A * A * (3.f - 2.f * A); };
+	auto Arc = [](const FVector& A, const FVector& Via, const FVector& B, float T)
+	{
+		// Quadratic curve through the doorway area.
+		return A * FMath::Square(1.f - T) + Via * (2.f * (1.f - T) * T) + B * FMath::Square(T);
+	};
+	for (auto It = InFlights.CreateIterator(); It; ++It)
+	{
+		FCargoFlight& F = It.Value();
+		UStaticMeshComponent* Mesh = F.Mesh.Get();
+		if (!Mesh)
+		{
+			It.RemoveCurrent();
+			continue;
+		}
+		const float T = (Now - F.Start) / F.Duration;
+		if (T < 0.f)
+		{
+			Mesh->SetVisibility(false);
+			continue;
+		}
+		if (T >= 1.f)
+		{
+			Mesh->SetRelativeLocationAndRotation(F.To, F.Rotation);
+			Mesh->SetVisibility(true);
+			if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/SFX_PlaceItem.SFX_PlaceItem"), nullptr, LOAD_Quiet | LOAD_NoWarn))
+			{
+				UGameplayStatics::PlaySoundAtLocation(this, Sound, Mesh->GetComponentLocation(), 0.6f);
+			}
+			It.RemoveCurrent();
+			continue;
+		}
+		const FVector Target = Boxes->GetComponentTransform().TransformPosition(F.To);
+		Mesh->SetVisibility(true);
+		Mesh->SetWorldLocation(Arc(F.From, Doorway, Target, Ease(T)));
+		Mesh->SetRelativeRotation(F.Rotation);
+	}
+	for (int32 i = OutFlights.Num() - 1; i >= 0; --i)
+	{
+		FCargoFlight& F = OutFlights[i];
+		UStaticMeshComponent* Mesh = F.Mesh.Get();
+		const float T = (Now - F.Start) / F.Duration;
+		if (!Mesh || T >= 1.f)
+		{
+			if (Mesh)
+			{
+				Mesh->DestroyComponent();
+			}
+			OutFlights.RemoveAt(i);
+			continue;
+		}
+		Mesh->SetWorldLocation(Arc(F.From, Doorway, F.To, Ease(FMath::Max(T, 0.f))));
+	}
+	if (InFlights.Num() == 0 && OutFlights.Num() == 0)
+	{
+		World->GetTimerManager().ClearTimer(FlightTimer);
 	}
 }
 #undef LOCTEXT_NAMESPACE

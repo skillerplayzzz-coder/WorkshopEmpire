@@ -219,22 +219,59 @@ void AWEAssemblyView::UpdateState(float Now)
 		}
 		else if (!bOut && Vis.bOut)
 		{
-			// Back in (spare part installed, cancelled repair): at its place again.
+			// Back in (part put back, spare part installed, cancelled repair): at its place again.
 			Vis.bOut = false;
 			Vis.OutAt = -1.f;
 			Vis.bGone = false;
+			Vis.bInserted = false;
+			Vis.InsertedAt = -1.f;
 			if (Vis.Mesh)
 			{
 				Vis.Mesh->SetVisibility(true);
 				Vis.Mesh->SetRelativeTransform(FTransform::Identity);
+				Vis.Mesh->SetOverlayMaterial(nullptr);
+			}
+			if (Now > 0.f)
+			{
+				if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/SFX_PlaceItem.SFX_PlaceItem")))
+				{
+					UGameplayStatics::PlaySoundAtLocation(this, Sound, GetPartCenter(i), 0.7f);
+				}
 			}
 		}
 	}
+
+	// Reassembly: the part of the running install job (else the one the player picked) is shown in front of its place.
+	InstallingPart = B->IsInstallJob() ? B->GetActivePart() : (Parts.IsValidIndex(InstallPreview) && Parts[InstallPreview].bOut ? InstallPreview : INDEX_NONE);
 
 	// Fasteners done in the running hands-on job.
 	const bool bManual = B->IsManualWork();
 	const uint32 Mask = bManual ? B->GetTaskMask() : 0;
 	const FWEWorkPlan Plan = bManual ? B->GetWorkPlan(B->IsRepairJob()) : FWEWorkPlan();
+	for (int32 p = 0; p < Parts.Num(); ++p)
+	{
+		bool bIn = false;
+		for (int32 t = 0; t < Plan.Tasks.Num() && Plan.bInstall; ++t)
+		{
+			bIn |= Plan.Tasks[t].AssemblyPart == p && Plan.Tasks[t].Fastener == INDEX_NONE && (Mask & (1u << t)) != 0;
+		}
+		// A timed (automatic) install shows the part going in over the step.
+		if (!bManual && B->IsInstallJob() && B->GetActivePart() == p && B->GetProgress() > 0.4f)
+		{
+			bIn = true;
+		}
+		FPartVis& Vis = Parts[p];
+		if (bIn && !Vis.bInserted)
+		{
+			Vis.bInserted = true;
+			Vis.InsertedAt = Now;
+		}
+		else if (!bIn && Vis.bInserted && Vis.bOut)
+		{
+			Vis.bInserted = false;
+			Vis.InsertedAt = -1.f;
+		}
+	}
 	for (int32 p = 0; p < Parts.Num(); ++p)
 	{
 		for (int32 f = 0; f < Parts[p].Fasteners.Num(); ++f)
@@ -270,9 +307,27 @@ void AWEAssemblyView::AnimatePart(int32 Index, FPartVis& Vis, float Now)
 	const FWEAssemblyPart& Part = Assembly->Parts[Index];
 	AWEWorkbench* B = Bench.Get();
 	const FVector Pull = Part.PullDirection.GetSafeNormal() * Part.PullDistance;
+	const bool bInstalling = Vis.bOut && Index == InstallingPart;
 	if (Vis.Mesh)
 	{
-		if (!Vis.bOut)
+		if (bInstalling)
+		{
+			// Going back in: it waits in front of its place (lit up) and slides home along its mounting direction.
+			float P = 0.f;
+			if (Vis.bInserted)
+			{
+				P = FMath::Clamp(0.5f + (Now - Vis.InsertedAt) / SlideSeconds, 0.f, 1.f);
+			}
+			else if (ActivePart == Index && ActiveFastener == INDEX_NONE)
+			{
+				P = 0.5f * ActiveProgress;
+			}
+			const FVector Away = Pull * 1.8f + FVector(0.f, 0.f, 0.f);
+			Vis.Mesh->SetVisibility(true);
+			Vis.Mesh->SetRelativeTransform(FTransform(Away * (1.f - Ease(P))));
+			Vis.Mesh->SetOverlayMaterial(P < 1.f ? SelectMaterial.Get() : nullptr);
+		}
+		else if (!Vis.bOut)
 		{
 			// Held on the part itself: it starts to move along its way out.
 			const float P = ActivePart == Index && ActiveFastener == INDEX_NONE ? ActiveProgress : 0.f;
@@ -317,12 +372,19 @@ void AWEAssemblyView::AnimatePart(int32 Index, FPartVis& Vis, float Now)
 				WorldOffset = FMath::Lerp(Slid + Up, Target, A);
 				bDone = T >= SlideSeconds + LiftSeconds + AwaySeconds;
 			}
+			Vis.Mesh->SetRelativeRotation(FQuat::Identity);
 			Vis.Mesh->SetWorldLocation(Device.GetLocation() + WorldOffset);
 			if (bDone && !Part.bLaysBeside)
 			{
 				Vis.Mesh->SetVisibility(false);
 				Vis.bGone = true;
 			}
+		}
+		else if (Vis.Mesh->IsVisible())
+		{
+			// Out and stored away (again, after a reassembly preview).
+			Vis.Mesh->SetOverlayMaterial(nullptr);
+			Vis.Mesh->SetVisibility(false);
 		}
 	}
 	// Fasteners: done ones are out of the way; the one being worked on moves a little.
@@ -334,14 +396,42 @@ void AWEAssemblyView::AnimatePart(int32 Index, FPartVis& Vis, float Now)
 		{
 			continue;
 		}
+		const FWEFastener& F = Part.Fasteners[f];
+		const FVector Axis = F.Direction.GetSafeNormal();
+		if (bInstalling && Vis.bInserted)
+		{
+			// Reassembly: screws wait backed out and turn in, plugs go on, clips snap shut.
+			FV.Mesh->SetVisibility(true);
+			const bool bActive = ActivePart == Index && ActiveFastener == f && FV.DoneAt < 0.f;
+			const float In = FV.DoneAt >= 0.f ? Ease((Now - FV.DoneAt) / 0.45f) : (bActive ? 0.3f * ActiveProgress : 0.f);
+			FTransform T = FV.Rest;
+			switch (F.Kind)
+			{
+			case EWEFastenerKind::Screw:
+			case EWEFastenerKind::Thumbscrew:
+				T.SetLocation(FV.Rest.GetLocation() + Axis * 5.f * (1.f - In));
+				T.SetRotation(T.GetRotation() * FQuat(FVector::UpVector, FMath::DegreesToRadians(-1080.f * In)));
+				break;
+			case EWEFastenerKind::Plug:
+				T.SetLocation(FV.Rest.GetLocation() + Axis * 3.5f * (1.f - In));
+				break;
+			case EWEFastenerKind::Clip:
+			case EWEFastenerKind::Lever:
+			{
+				const float Max = F.Kind == EWEFastenerKind::Lever ? 80.f : 35.f;
+				T.SetRotation(T.GetRotation() * FQuat(FVector::RightVector, FMath::DegreesToRadians(-Max * (1.f - In))));
+				break;
+			}
+			}
+			FV.Mesh->SetRelativeTransform(FTransform(T.GetRotation(), T.GetLocation(), FV.Mesh->GetRelativeScale3D()));
+			continue;
+		}
 		if (Vis.bOut)
 		{
 			FV.Mesh->SetVisibility(false);
 			continue;
 		}
 		FV.Mesh->SetVisibility(true);
-		const FWEFastener& F = Part.Fasteners[f];
-		const FVector Axis = F.Direction.GetSafeNormal();
 		const bool bActive = ActivePart == Index && ActiveFastener == f && FV.DoneAt < 0.f;
 		const float P = bActive ? ActiveProgress : 0.f;
 		FTransform T = FV.Rest;

@@ -88,6 +88,10 @@ struct WORKSHOPEMPIRE_API FWEAssemblyPart
 	/** The device body itself: removing it uses the device up. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
 	bool bShell = false;
+
+	/** The device works without it (CD drive, case fan): the function test does not need it. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
+	bool bOptional = false;
 };
 
 /**
@@ -112,6 +116,21 @@ public:
 	/** First available part in list order (the order employees and "automatic" use), or INDEX_NONE. */
 	int32 GetDefaultPart(int32 RemovedMask) const;
 	bool IsComplete(int32 RemovedMask) const;
+
+	// --- Reassembly ---------------------------------------------------------------------------------------
+	/**
+	 * Part is out and can go back in now: the way to its place is open (everything it requires is still out) and
+	 * what it is mounted on is in (the parts that need it out first). Covers (service access) only need the way open.
+	 */
+	bool CanInstall(int32 Part, int32 RemovedMask) const;
+	/** Why Part cannot go back in yet ("Erst ausbauen: ..." / "Erst einbauen: ..."); empty if it can. */
+	FText GetInstallBlocker(int32 Part, int32 RemovedMask) const;
+	/** Parts the function test needs that are still out (not optional, not covers). */
+	TArray<FText> GetMissingForTest(int32 RemovedMask) const;
+	/** "Taken apart" count of the device (FWEItemInstance::DisassemblyStep): parts out, without the optional ones. */
+	uint8 CountTakenApart(int32 RemovedMask) const;
+	/** Optional parts that are out (they lower the value a little). */
+	int32 CountMissingOptional(int32 RemovedMask) const;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
 	TArray<FWEAssemblyPart> Parts;

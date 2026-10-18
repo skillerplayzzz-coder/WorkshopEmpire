@@ -17,6 +17,22 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## 0.18.1 – Nachbesserungen nach Phase 18 (Läufe vom 2026-10-18)
+
+Geprüft im Editor-Spielmodus und im gepackten Spiel (Development, `Builds/P18_Dev`).
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor (Win64 Development) | ✅ ohne Fehler |
+| Automation-Suite `WorkshopEmpire` | ✅ **123/123** (2 neue Tests, 2 alte an das größere Werkbanklager angepasst; 1 bekannte Warnung „fell out of the world“), Bericht `Saved/TestReports/All2` |
+| ↳ `Workshop.Assembly.ReassembleAndTest` | ✅ Grafikkarte raus und wieder rein (Karte und Schraube verbraucht), „ungetestet“, Test mit offenem Seitenteil, läuft; defekte Karte aus dem Inventar eingebaut → Test schlägt fehl, PC defekt, kein Endlos-Test, Grund nennt die Karte; ausgebaut ist sie wieder die defekte Karte; ohne Karte Einbau abgelehnt mit Begründung; Werkbanklager ≥ 24 Plätze |
+| ↳ `Workshop.Assembly.RebuildFromParts` | ✅ alles außer dem Gehäuse raus; Grafikkarte vor dem Mainboard abgelehnt („Mainboard“), CD-Laufwerk nicht wieder einbaubar, Test erst wenn alles Nötige drin ist; in umgekehrter Reihenfolge komplett zusammengebaut; nur das CD-Laufwerk fehlt und der PC gilt als vollständig; ungetestet weniger wert; Test bestanden; ohne CD-Laufwerk etwas weniger wert als vorher; Speicherstand (Version 16) behält den Zustand |
+| **Zusammenbauen und Lieferwagen** `-WEShots=P18R` (neu) | ✅ PC bis aufs Gehäuse zerlegt, in der Arbeitsansicht von Hand wieder zusammengebaut (48 Handgriffe), Funktionstest bestanden („Alter Computer läuft, Gebraucht“); Röhrenmonitor von der Hand in den Laderaum getragen; 4 Stapel nacheinander eingeladen; 5 sperrige Teile einzeln ausgeladen, danach alle sichtbar hinter dem Wagen. Im ersten Lauf mit dem defekten Start-PC schlug der Test erwartungsgemäß fehl (6 defekte Teile genannt) |
+| **Sounds** `build_audio.py` | ✅ 19/19 aus Pixabay- und Kenney-Aufnahmen gebaut; Pegel je Viertel geprüft (Loops gleichmäßig, keine Stille am Anfang). **Nicht angehört** (Testläufe ohne Ton) |
+| **Autos** `-WEShots=P175V` | ✅ Kenney-Autos an Straßen, Parkplatz und Werkstatt, ohne Marken |
+| **Gepacktes Spiel** mit P18R | ✅ 17 Bilder, Test bestanden, Ein-/Ausladen wie im Editor |
+| **Regression** Netzwerktests A/B … W/X, I/J, 4 Spieler, Spielläufe P5–P16, P175W, P175V, P18R, P13 + P13C, UI-Test in 4 Auflösungen | ✅ alle Läufe beendet, 0 Fehler; Smoke-Rollen melden BenchSlots=24 |
+
 ## Phase 18 – PC-System, Transporter, Charaktereditor, UI, Stadt (Läufe vom 2026-10-18)
 
 Geprüft im Editor-Spielmodus und im gepackten Spiel (Development, `Builds/P18_Dev`).
