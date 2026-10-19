@@ -17,7 +17,11 @@ enum class EWEContractKind : uint8
 	/** Customer wants items: deliver them from the inventory. */
 	Supply,
 	/** Customer brings a broken device (on the delivery pallet): repair it and hand it back. */
-	Repair
+	Repair,
+	/** Phase 19: customer wants a working PC that reaches a benchmark score (build it from parts). */
+	BuildPc,
+	/** Phase 19: customer brings a working PC that is too slow: swap parts until it reaches the score. */
+	UpgradePc
 };
 
 /** Blueprint for generated customer orders. */
@@ -73,6 +77,13 @@ struct WORKSHOPEMPIRE_API FWEContractTemplate
 	/** Phase 12: supply contract - the quantity is delivered this many times, each within DurationMinutes. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract", meta = (ClampMin = "1"))
 	int32 Rounds = 1;
+
+	/** Phase 19 (PC orders): the benchmark score the customer wants, picked between these two. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
+	int32 MinBenchmark = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Contract")
+	int32 MaxBenchmark = 0;
 };
 
 /** All order templates (one Data Asset). */
@@ -119,6 +130,10 @@ struct WORKSHOPEMPIRE_API FWEContract
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") bool bIndustrial = false;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") int32 Rounds = 1;
 	UPROPERTY(BlueprintReadOnly, Category = "Contract") int32 RoundsDone = 0;
+	/** Phase 19: PC orders - lowest benchmark score the delivered PC must reach. */
+	UPROPERTY(BlueprintReadOnly, Category = "Contract") int32 MinBenchmark = 0;
+
+	bool IsPcOrder() const { return Kind == EWEContractKind::BuildPc || Kind == EWEContractKind::UpgradePc; }
 
 	bool IsSupplyContract() const { return Rounds > 1; }
 	/** Industrial orders and supply contracts cost a penalty when they fail. */
@@ -167,6 +182,8 @@ public:
 
 	/** Repair orders: the customer's device is repaired (working, not taken apart). */
 	static bool IsRepairedCustomerItem(const FWEContract& Contract, const FWEItemInstance& Item);
+	/** Phase 19: PC orders - Item is a PC the customer takes (built: ours, working, fast enough; upgrade: theirs, fast enough). */
+	static bool IsDeliverablePc(const FWEContract& Contract, const FWEItemInstance& Item);
 
 	/** Supply orders: Item counts (right item, condition, quality, intact, not a customer's). */
 	static bool Matches(const FWEContract& Contract, const FWEItemInstance& Item);
@@ -197,6 +214,19 @@ public:
 
 	FWEOnContractsChanged OnContractsChanged;
 
+	// --- Phase 19: customer ratings --------------------------------------------------------------------
+	/** Average stars (1-5) of delivered orders, 0 when none yet. */
+	float GetAverageRating() const { return RatingCount > 0 ? RatingSum / static_cast<float>(RatingCount) : 0.f; }
+	int32 GetRatingCount() const { return RatingCount; }
+	int32 GetRatingSum() const { return RatingSum; }
+	int32 GetLastStars() const { return LastStars; }
+	/** Loading / tests. */
+	void SetRatings(int32 InSum, int32 InCount) { RatingSum = FMath::Max(0, InSum); RatingCount = FMath::Max(0, InCount); }
+	/** Stars for a delivered order (PC orders: benchmark against the minimum; repairs: quality; deliveries: on time). */
+	static int32 RateDelivery(const FWEContract& Contract, const FWEItemInstance* Delivered, float SecondsLeft);
+	/** Reward with the bonus for a good rating (4 stars +10 %, 5 stars +25 %). */
+	static FWEMoney RewardWithBonus(const FWEMoney& Reward, int32 Stars);
+
 	static constexpr int32 MaxOffers = 3;
 	static constexpr int32 MaxAccepted = 3;
 	/** Phase 12: industrial orders on their own board once the company is big enough. */
@@ -209,8 +239,12 @@ protected:
 	UFUNCTION()
 	void OnRep_Contracts();
 
-	/** Pays a delivered round / order; supply contracts continue with the next round. */
-	void CompleteDelivery(int32 Index, const FString& PlayerName);
+	/** Pays a delivered round / order; supply contracts continue with the next round. Stars: the customer's rating (0 = none). */
+	void CompleteDelivery(int32 Index, const FString& PlayerName, int32 Stars = 0);
+
+	UPROPERTY(Replicated) int32 RatingSum = 0;
+	UPROPERTY(Replicated) int32 RatingCount = 0;
+	UPROPERTY(Replicated) int32 LastStars = 0;
 	int32 GetCompanyTier() const;
 
 	UPROPERTY(EditAnywhere, Category = "Contracts")

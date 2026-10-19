@@ -39,6 +39,14 @@ struct WORKSHOPEMPIRE_API FWEUpgradeDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "0", Units = "kg"))
 	float InventoryExtraKg = 0.f;
 
+	/** Phase 19: extra slots in every player inventory (tool bag). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "0"))
+	int32 InventoryExtraSlots = 0;
+
+	/** Phase 19: tools weigh nothing in player inventories (tool bag). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects")
+	bool bToolsWeightless = false;
+
 	/** Disassembly speed factor (1.25 = 25 % faster). Multiplies with the tool speed. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade|Effects", meta = (ClampMin = "1"))
 	float WorkSpeedMultiplier = 1.f;

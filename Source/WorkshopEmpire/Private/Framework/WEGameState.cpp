@@ -1,4 +1,5 @@
 #include "Framework/WEGameState.h"
+#include "Economy/WEClassifiedsComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
@@ -25,4 +26,5 @@ AWEGameState::AWEGameState()
 	Milestones = CreateDefaultSubobject<UWEMilestoneComponent>(TEXT("Milestones"));
 	Tutorial = CreateDefaultSubobject<UWETutorialComponent>(TEXT("Tutorial"));
 	WorkshopStyle = CreateDefaultSubobject<UWEWorkshopStyleComponent>(TEXT("WorkshopStyle"));
+	Classifieds = CreateDefaultSubobject<UWEClassifiedsComponent>(TEXT("Classifieds"));
 }

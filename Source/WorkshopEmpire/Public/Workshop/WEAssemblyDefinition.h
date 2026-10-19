@@ -92,6 +92,10 @@ struct WORKSHOPEMPIRE_API FWEAssemblyPart
 	/** The device works without it (CD drive, case fan): the function test does not need it. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
 	bool bOptional = false;
+
+	/** Phase 19: better parts that fit the same place (variant 1, 2, 3); the part from the disassembly step is variant 0. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
+	TArray<TObjectPtr<class UWEItemDefinition>> Alternatives;
 };
 
 /**

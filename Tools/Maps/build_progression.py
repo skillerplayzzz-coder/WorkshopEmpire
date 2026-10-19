@@ -15,7 +15,7 @@ tools = unreal.AssetToolsHelpers.get_asset_tools()
 
 
 def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0.0, work_speed=1.0, light=1.0, unlocks=False, power_kw=0.0,
-            tier=0, staff=0):
+            tier=0, staff=0, inventory_slots=0, tools_weightless=False):
     u = unreal.WEUpgradeDefinition()
     u.set_editor_property("id", uid)
     u.set_editor_property("display_name", unreal.Text(name))
@@ -26,6 +26,8 @@ def upgrade(uid, name, desc, euros, requires=None, bench_slots=0, inventory_kg=0
     u.set_editor_property("required_upgrade", requires or "None")
     u.set_editor_property("bench_extra_slots", bench_slots)
     u.set_editor_property("inventory_extra_kg", inventory_kg)
+    u.set_editor_property("inventory_extra_slots", inventory_slots)
+    u.set_editor_property("tools_weightless", tools_weightless)
     u.set_editor_property("work_speed_multiplier", work_speed)
     u.set_editor_property("light_multiplier", light)
     u.set_editor_property("unlocks_actors", unlocks)
@@ -40,6 +42,8 @@ UPGRADES = [
     upgrade("BenchCabinet", "Werkbank-Unterschrank", "+6 Plätze im Werkbanklager.", 35, bench_slots=6),
     upgrade("SecondShelf", "Zweites Regal", "Ein weiteres Schwerlastregal mit 15 Plätzen neben dem Tor.", 60, unlocks=True),
     upgrade("ToolBelt", "Werkzeuggürtel und Tragegurt", "+10 kg Tragkraft im Inventar für alle Mitarbeiter.", 70, inventory_kg=10.0),
+    # Phase 19: tools stop taking weight and there is room for them.
+    upgrade("ToolBag", "Werkzeugtasche", "Für jeden eine Werkzeugtasche: +5 Inventarplätze, Werkzeuge wiegen nichts mehr.", 120, inventory_slots=5, tools_weightless=True),
     upgrade("WorkMat", "Arbeitsmatte und Magnetschale", "Schrauben gehen nicht mehr verloren: Zerlegen 25 % schneller.", 80,
             requires="BenchCabinet", work_speed=1.25),
     upgrade("ProBench", "Profi-Werkbankausstattung", "Druckluft, Ablagen und Licht: Zerlegen nochmals 25 % schneller, +6 Plätze.", 220,

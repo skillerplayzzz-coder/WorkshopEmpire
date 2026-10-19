@@ -38,6 +38,8 @@ public:
 	UWEMilestoneComponent* GetMilestones() const { return Milestones; }
 	class UWETutorialComponent* GetTutorial() const { return Tutorial; }
 	class UWEWorkshopStyleComponent* GetWorkshopStyle() const { return WorkshopStyle; }
+	/** Phase 19: Ferrit OS classifieds. */
+	class UWEClassifiedsComponent* GetClassifieds() const { return Classifieds; }
 
 protected:
 	/** Phase 17.5: tutorial and personalised look of the buildings. */
@@ -46,6 +48,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<class UWEWorkshopStyleComponent> WorkshopStyle;
+
+	UPROPERTY(VisibleAnywhere, Category = "Classifieds")
+	TObjectPtr<class UWEClassifiedsComponent> Classifieds;
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWECompanyComponent> Company;

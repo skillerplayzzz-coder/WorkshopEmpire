@@ -120,6 +120,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Tool", meta = (ClampMin = "0", Units = "kg"))
 	float CarryBonusKg = 0.f;
 
+	/** Phase 19: PC part performance for the benchmark (per piece; 0 = not counted). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing", meta = (ClampMin = "0"))
+	int32 BenchmarkPoints = 0;
+
 	/** Raw material content (for recycling machines later and as information). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Processing")
 	TArray<FWEMaterialAmount> Materials;

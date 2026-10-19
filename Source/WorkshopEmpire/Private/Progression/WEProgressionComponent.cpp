@@ -147,6 +147,30 @@ float UWEProgressionComponent::GetInventoryExtraKg() const
 	return Total;
 }
 
+int32 UWEProgressionComponent::GetInventoryExtraSlots() const
+{
+	int32 Total = 0;
+	for (const FName& Id : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* U = Catalog ? Catalog->Find(Id) : nullptr;
+		Total += U ? U->InventoryExtraSlots : 0;
+	}
+	return Total;
+}
+
+bool UWEProgressionComponent::AreToolsWeightless() const
+{
+	for (const FName& Id : OwnedUpgrades)
+	{
+		const FWEUpgradeDefinition* U = Catalog ? Catalog->Find(Id) : nullptr;
+		if (U && U->bToolsWeightless)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 float UWEProgressionComponent::GetWorkSpeedMultiplier() const
 {
 	float Total = 1.f;
@@ -322,7 +346,7 @@ void UWEProgressionComponent::ApplyEffects()
 	// Player inventories.
 	for (TActorIterator<AWEPlayerState> It(World); It; ++It)
 	{
-		It->ApplyInventoryBonus(GetInventoryExtraKg());
+		It->ApplyInventoryBonus(GetInventoryExtraKg(), GetInventoryExtraSlots(), AreToolsWeightless());
 	}
 
 	// Workshop lights (tagged in the map). The original brightness is cached so repeated calls never compound.

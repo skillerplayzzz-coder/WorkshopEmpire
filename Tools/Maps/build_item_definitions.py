@@ -262,9 +262,30 @@ ITEMS = [
      "Ein Kilo Konzentrat aus Gold, Silber und Palladium, aus Platinenschrott gewonnen. Scheideanstalten zahlen sehr gut.",
      C.RAW_MATERIAL, 1.0, 6500, True, 20, True, False, T.NONE, 1.0, CUBE, (0.12, 0.12, 0.08), (0.80, 0.68, 0.30),
      [(M.PRECIOUS_METAL, 0.05), (M.COPPER, 0.9)]),
+    # Phase 19: better PC parts for PC orders (fit the same places as the old ones, faster in the benchmark).
+    ("GraphicsCardPro", "GraphicsCardPro", "Grafikkarte (Mittelklasse)",
+     "Eine deutlich schnellere Grafikkarte mit zwei Lüftern. Macht aus dem alten PC einen brauchbaren Spielerechner.",
+     C.ELECTRONICS, 0.8, 6500, False, 1, True, False, T.NONE, 1.0, CUBE, (0.27, 0.12, 0.05), (0.12, 0.12, 0.14),
+     [(M.ELECTRONICS, 0.4), (M.ALUMINIUM, 0.3), (M.COPPER, 0.08), (M.PRECIOUS_METAL, 0.003)]),
+    ("RamModule8", "RamModule8", "Arbeitsspeicher (8 GB)",
+     "Ein Speicherriegel mit Kühlblech und doppelter Kapazität.",
+     C.ELECTRONICS, 0.04, 1600, False, 1, True, False, T.NONE, 1.0, CUBE, (0.14, 0.04, 0.03), (0.70, 0.15, 0.12),
+     [(M.ELECTRONICS, 0.03), (M.ALUMINIUM, 0.01), (M.PRECIOUS_METAL, 0.0005)]),
+    ("ProcessorFast", "ProcessorFast", "Prozessor (schnell)",
+     "Ein späteres, deutlich schnelleres Modell für denselben Sockel.",
+     C.ELECTRONICS, 0.03, 2200, False, 1, True, False, T.NONE, 1.0, CUBE, (0.05, 0.05, 0.01), (0.25, 0.30, 0.60),
+     [(M.ELECTRONICS, 0.02), (M.PRECIOUS_METAL, 0.001)]),
+    ("SsdFast", "SsdFast", "SSD (512 GB)",
+     "Eine größere, schnellere SSD im 2,5-Zoll-Format.",
+     C.ELECTRONICS, 0.07, 1400, False, 1, True, False, T.NONE, 1.0, CUBE, (0.10, 0.07, 0.01), (0.10, 0.25, 0.55),
+     [(M.ELECTRONICS, 0.05), (M.ALUMINIUM, 0.02)]),
 ]
 
 CARRY_BONUS = {"HandTruck": 30.0}
+
+# Phase 19: benchmark points per piece (what a part adds to a PC's score).
+BENCHMARK = {"GraphicsCard": 300, "GraphicsCardPro": 700, "RareGpu": 1000, "Processor": 400, "ProcessorFast": 800,
+             "RamModule": 150, "RamModule8": 300, "HardDrive": 50, "SsdDrive": 200, "SsdFast": 350}
 
 RARITY = {"RareGpu": unreal.WEItemRarity.RARE, "VintageRadio": unreal.WEItemRarity.RARE,
           "GoldCpu": unreal.WEItemRarity.VERY_RARE, "ServoMotor": unreal.WEItemRarity.RARE}
@@ -302,6 +323,7 @@ for (suffix, item_id, name, desc, cat, kg, cents, stack, max_stack, fits, repair
     da.set_editor_property("broken_value_multiplier", BROKEN_VALUE.get(suffix, 1.0))
     da.set_editor_property("rarity", RARITY.get(suffix, unreal.WEItemRarity.COMMON))
     da.set_editor_property("carry_bonus_kg", CARRY_BONUS.get(suffix, 0.0))
+    da.set_editor_property("benchmark_points", BENCHMARK.get(suffix, 0))
     items[suffix] = (da, path)
 
 
@@ -397,6 +419,7 @@ def build_pc_assembly():
         part.set_editor_property("lays_beside", spec.get("beside", False))
         part.set_editor_property("shell", spec.get("shell", False))
         part.set_editor_property("optional", spec.get("optional", False))
+        part.set_editor_property("alternatives", [items[a][0] for a in spec.get("alts", [])])
         parts.append(part)
     asm, asm_path = data_asset("/Game/WorkshopEmpire/Data/Assembly", "ASM_OldComputer", unreal.WEAssemblyDefinition)
     asm.set_editor_property("parts", parts)
@@ -479,7 +502,7 @@ GEN_ITEMS = {
     "ShredMetal", "CopperGranulate", "SteelBale", "AluBale", "CopperBale", "AluminiumIngot", "CopperIngot", "CopperWireSpool",
     "CopperCable", "ExtensionCable", "SteelBracketSet", "SheetMetalScrews", "Capacitors", "GoldCpu", "VintageRadio",
     "SolderingIron", "SolderingStation", "PalletBrackets", "PalletCables", "PreciousConcentrate",
-    "CpuCooler", "Processor", "HardDrive", "SsdDrive", "CaseFan",
+    "CpuCooler", "Processor", "HardDrive", "SsdDrive", "CaseFan", "GraphicsCardPro", "RamModule8", "ProcessorFast", "SsdFast",
 }
 for suffix, (da, path) in items.items():
     gen_path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{suffix}"

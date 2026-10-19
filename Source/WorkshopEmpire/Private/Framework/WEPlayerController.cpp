@@ -1,4 +1,5 @@
 #include "Framework/WEPlayerController.h"
+#include "Economy/WEClassifiedsComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "UI/WEMenuWidgets.h"
 #include "Online/WESessionSubsystem.h"
@@ -810,9 +811,9 @@ void AWEPlayerController::RequestDropFromInventory(UWEInventoryComponent* From, 
 	ServerDropFromInventory(From, Slot, Quantity);
 }
 
-void AWEPlayerController::RequestSort(UWEInventoryComponent* Inventory)
+void AWEPlayerController::RequestSort(UWEInventoryComponent* Inventory, uint8 Mode)
 {
-	ServerSortInventory(Inventory);
+	ServerSortInventory(Inventory, Mode);
 }
 
 void AWEPlayerController::ServerMoveItem_Implementation(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To, int32 ToSlot, int32 Quantity)
@@ -830,11 +831,11 @@ void AWEPlayerController::ServerDropFromInventory_Implementation(UWEInventoryCom
 	ExecuteDropFromInventory(From, Slot, Quantity);
 }
 
-void AWEPlayerController::ServerSortInventory_Implementation(UWEInventoryComponent* Inventory)
+void AWEPlayerController::ServerSortInventory_Implementation(UWEInventoryComponent* Inventory, uint8 Mode)
 {
 	if (CanUseInventory(Inventory))
 	{
-		Inventory->SortItems();
+		Inventory->SortItems(Mode);
 	}
 }
 
@@ -1142,4 +1143,75 @@ void AWEPlayerController::ClientWasKicked_Implementation(const FText& KickReason
 	}
 }
 
+
+// --- Phase 19: classifieds -----------------------------------------------------------------------------------------
+
+namespace
+{
+	FString ClassifiedResultText(EWEClassifiedResult Result)
+	{
+		switch (Result)
+		{
+		case EWEClassifiedResult::Accepted:  return TEXT("Abgemacht!");
+		case EWEClassifiedResult::Countered: return TEXT("Der Verkäufer macht ein Gegenangebot.");
+		case EWEClassifiedResult::Declined:  return TEXT("Viel zu wenig - der Verkäufer lehnt ab.");
+		case EWEClassifiedResult::Ignored:   return TEXT("Der Verkäufer antwortet nicht mehr.");
+		case EWEClassifiedResult::NoMoney:   return TEXT("Nicht genug Geld auf dem Firmenkonto.");
+		case EWEClassifiedResult::NotAllowed:return TEXT("Das lässt sich nicht inserieren.");
+		default:                             return TEXT("Die Anzeige gibt es nicht mehr.");
+		}
+	}
+}
+
+void AWEPlayerController::RequestClassifiedOffer(const FGuid& AdId, int64 Cents) { ServerClassifiedOffer(AdId, Cents); }
+void AWEPlayerController::RequestClassifiedAcceptCounter(const FGuid& AdId) { ServerClassifiedAcceptCounter(AdId); }
+void AWEPlayerController::RequestClassifiedList(UWEInventoryComponent* From, int32 Slot, int64 Cents) { ServerClassifiedList(From, Slot, Cents); }
+void AWEPlayerController::RequestClassifiedAcceptBuyer(const FGuid& ListingId) { ServerClassifiedAcceptBuyer(ListingId); }
+void AWEPlayerController::RequestClassifiedWithdraw(const FGuid& ListingId) { ServerClassifiedWithdraw(ListingId); }
+
+void AWEPlayerController::ServerClassifiedOffer_Implementation(FGuid AdId, int64 Cents)
+{
+	if (UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this))
+	{
+		ClientShowMessage(FText::FromString(ClassifiedResultText(Classifieds->MakeOffer(AdId, Cents, PlayerState ? PlayerState->GetPlayerName() : FString()))));
+	}
+}
+
+void AWEPlayerController::ServerClassifiedAcceptCounter_Implementation(FGuid AdId)
+{
+	if (UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this))
+	{
+		ClientShowMessage(FText::FromString(ClassifiedResultText(Classifieds->AcceptCounter(AdId, PlayerState ? PlayerState->GetPlayerName() : FString()))));
+	}
+}
+
+void AWEPlayerController::ServerClassifiedList_Implementation(UWEInventoryComponent* From, int32 Slot, int64 Cents)
+{
+	UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this);
+	// Own inventory or the workshop's storages (the PC is in the workshop).
+	if (Classifieds && From && (CanUseInventory(From) || AWETraderTerminal::IsWorkshopStorage(From)))
+	{
+		const EWEClassifiedResult Result = Classifieds->ListItem(From, Slot, Cents, PlayerState ? PlayerState->GetPlayerName() : FString());
+		ClientShowMessage(Result == EWEClassifiedResult::Accepted ? NSLOCTEXT("WEClassifieds", "Listed", "Anzeige aufgegeben – Interessenten melden sich hier.")
+			: FText::FromString(ClassifiedResultText(Result)));
+	}
+}
+
+void AWEPlayerController::ServerClassifiedAcceptBuyer_Implementation(FGuid ListingId)
+{
+	if (UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this))
+	{
+		Classifieds->AcceptBuyer(ListingId, PlayerState ? PlayerState->GetPlayerName() : FString());
+	}
+}
+
+void AWEPlayerController::ServerClassifiedWithdraw_Implementation(FGuid ListingId)
+{
+	UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this);
+	const AWECharacter* Me = GetPawn<AWECharacter>();
+	if (Classifieds)
+	{
+		Classifieds->Withdraw(ListingId, Me ? Me->GetPlayerInventory() : nullptr);
+	}
+}
 #undef LOCTEXT_NAMESPACE

@@ -21,6 +21,7 @@
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
+#include "Workshop/WEBenchmark.h"
 
 UWEContractComponent::UWEContractComponent()
 {
@@ -35,6 +36,9 @@ void UWEContractComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UWEContractComponent, Contracts);
+	DOREPLIFETIME(UWEContractComponent, RatingSum);
+	DOREPLIFETIME(UWEContractComponent, RatingCount);
+	DOREPLIFETIME(UWEContractComponent, LastStars);
 }
 
 void UWEContractComponent::BeginPlay()
@@ -90,8 +94,25 @@ const FWEContract* UWEContractComponent::FindContract(const FGuid& Id) const
 
 bool UWEContractComponent::IsRepairedCustomerItem(const FWEContract& Contract, const FWEItemInstance& Item)
 {
+	if (Contract.Kind == EWEContractKind::UpgradePc)
+	{
+		// Phase 19: the customer's own PC, complete, tested and fast enough.
+		return Contract.CustomerItemId.IsValid() && Item.InstanceId == Contract.CustomerItemId && !Item.IsPartiallyDisassembled()
+			&& WEBenchmark::Score(Item) >= Contract.MinBenchmark;
+	}
 	return Contract.CustomerItemId.IsValid() && Item.InstanceId == Contract.CustomerItemId && !Item.IsBroken()
-		&& Item.Condition <= Contract.MinCondition && Item.Repair.Faults == 0 && !Item.IsPartiallyDisassembled();
+		&& Item.Condition <= Contract.MinCondition && Item.Repair.Faults == 0 && !Item.IsPartiallyDisassembled() && !Item.NeedsFunctionTest();
+}
+
+bool UWEContractComponent::IsDeliverablePc(const FWEContract& Contract, const FWEItemInstance& Item)
+{
+	if (Contract.Kind == EWEContractKind::UpgradePc)
+	{
+		return IsRepairedCustomerItem(Contract, Item);
+	}
+	// Built from parts: one of ours, working, tested, fast enough.
+	return Contract.Kind == EWEContractKind::BuildPc && Item.Definition == Contract.Item && !Item.IsCustomerItem() && !Item.IsSaleProtected()
+		&& !Item.IsPartiallyDisassembled() && WEBenchmark::Score(Item) >= Contract.MinBenchmark;
 }
 
 bool UWEContractComponent::Matches(const FWEContract& Contract, const FWEItemInstance& Item)
@@ -109,6 +130,11 @@ int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const 
 	{
 		const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
 		return Held && IsRepairedCustomerItem(Contract, Held->GetItem()) ? 1 : 0;
+	}
+	if (Contract.IsPcOrder())
+	{
+		const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
+		return Held && IsDeliverablePc(Contract, Held->GetItem()) ? 1 : 0;
 	}
 	const UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr;
 	int32 Count = 0;
@@ -182,11 +208,24 @@ bool UWEContractComponent::AddOffer(int32 TemplateIndex, bool bIndustrial)
 	Contract.ExpiresAt = GetServerTime() + OfferLifetimeSeconds;
 	Contract.bIndustrial = Template.bIndustrial;
 	Contract.Rounds = FMath::Max(1, Template.Rounds);
+	if (Contract.IsPcOrder())
+	{
+		// Rounded to 50 points, as a customer would say it.
+		Contract.MinBenchmark = FMath::RoundToInt(FMath::RandRange(Template.MinBenchmark, FMath::Max(Template.MinBenchmark, Template.MaxBenchmark)) / 50.f) * 50;
+	}
 
 	// Reward: market value of exactly the minimum acceptable items, times the template factor.
 	const FWEItemInstance Reference = FWEItemInstance::Make(Template.Item, Contract.Quantity, Template.MinCondition, FMath::Max<uint8>(50, Template.MinQuality));
 	const FWEMoney Value = UWEMarketComponent::GetMarketValue(Reference, UWEMarketComponent::Get(this));
-	Contract.Reward = FWEMoney::FromCents(FMath::Max<int64>(100, FMath::RoundToInt64(Value.GetCents() * Template.RewardFactor)));
+	double Factor = Template.RewardFactor;
+	if (Contract.IsPcOrder())
+	{
+		// A faster PC pays more; an upgrade pays the parts and the work (the customer keeps the PC).
+		const int32 Stock = FMath::Max(1, WEBenchmark::StockScore(Template.Item));
+		const double Ratio = Contract.MinBenchmark / static_cast<double>(Stock);
+		Factor *= Contract.Kind == EWEContractKind::BuildPc ? FMath::Max(1.0, Ratio) : FMath::Max(0.35, Ratio - 0.6);
+	}
+	Contract.Reward = FWEMoney::FromCents(FMath::Max<int64>(100, FMath::RoundToInt64(Value.GetCents() * Factor)));
 
 	Contracts.Add(Contract);
 	OnRep_Contracts();
@@ -260,11 +299,18 @@ EWEContractResult UWEContractComponent::Accept(const FGuid& Id, const FString& P
 	{
 		return EWEContractResult::TooManyAccepted;
 	}
-	if (Contract->Kind == EWEContractKind::Repair)
+	if (Contract->Kind == EWEContractKind::Repair || Contract->Kind == EWEContractKind::UpgradePc)
 	{
 		// The customer drops the device off on the delivery pallet (or in front of the terminal).
 		FWEItemInstance Device = FWEItemInstance::Make(Contract->Item, 1, Contract->CustomerCondition, static_cast<uint8>(FMath::RandRange(30, 50)));
 		Device.Repair.SetFlag(FWERepairState::CustomerItem);
+		if (Contract->Kind == EWEContractKind::UpgradePc)
+		{
+			// Works, but too slow: parts may be swapped (the old ones stay in the workshop).
+			Device.Repair.SetFlag(FWERepairState::CustomerUpgrade);
+			Device.Repair.SetFlag(FWERepairState::FaultsRolled);
+			Device.Condition = EWEItemCondition::Used;
+		}
 		FTransform Drop(FVector(0.f, 0.f, 100.f));
 		if (AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld()))
 		{
@@ -308,16 +354,20 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 		return EWEContractResult::MissingItems;
 	}
 
-	if (Contract.Kind == EWEContractKind::Repair)
+	// Phase 19: the customer rates the job.
+	const AWEPickupItem* HeldNow = Character->GetHeldItem();
+	// (Plain deliveries of goods are not rated: the customer gets what was ordered.)
+	const int32 Stars = Contract.Kind != EWEContractKind::Supply ? RateDelivery(Contract, HeldNow ? &HeldNow->GetItem() : nullptr, Contract.ExpiresAt - GetServerTime()) : 0;
+	if (Contract.Kind == EWEContractKind::Repair || Contract.IsPcOrder())
 	{
-		// The repaired device goes back to the customer.
+		// The repaired / upgraded / built PC goes to the customer.
 		if (AWEPickupItem* Held = Character->ReleaseHeldItem())
 		{
 			Held->Destroy();
 		}
 	}
 	// Take exactly the requested amount from matching stacks.
-	int32 Remaining = Contract.Kind == EWEContractKind::Repair ? 0 : Contract.Quantity;
+	int32 Remaining = Contract.Kind == EWEContractKind::Repair || Contract.IsPcOrder() ? 0 : Contract.Quantity;
 	for (const FWEInventorySlotData& Slot : Inventory->GetAllSlots())
 	{
 		if (Remaining <= 0)
@@ -345,11 +395,37 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 		}
 	}
 	const APlayerState* PS = Character->GetPlayerState();
-	CompleteDelivery(Index, PS ? PS->GetPlayerName() : FString());
+	CompleteDelivery(Index, PS ? PS->GetPlayerName() : FString(), Stars);
 	return EWEContractResult::Success;
 }
 
-void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerName)
+int32 UWEContractComponent::RateDelivery(const FWEContract& Contract, const FWEItemInstance* Delivered, float SecondsLeft)
+{
+	int32 Stars = 4;
+	if (Contract.IsPcOrder() && Delivered)
+	{
+		Stars = WEBenchmark::StarsFor(WEBenchmark::Score(*Delivered), Contract.MinBenchmark);
+	}
+	else if (Contract.Kind == EWEContractKind::Repair && Delivered)
+	{
+		// A tidy, well-working device makes the customer happy.
+		Stars = Delivered->Quality >= 70 ? 5 : Delivered->Quality >= 50 ? 4 : 3;
+	}
+	// Last minute: one star less.
+	if (Contract.DeliverySeconds > 0.f && SecondsLeft < Contract.DeliverySeconds * 0.15f)
+	{
+		--Stars;
+	}
+	return FMath::Clamp(Stars, 1, 5);
+}
+
+FWEMoney UWEContractComponent::RewardWithBonus(const FWEMoney& Reward, int32 Stars)
+{
+	const double Bonus = Stars >= 5 ? 1.25 : Stars == 4 ? 1.1 : 1.0;
+	return FWEMoney::FromCents(FMath::RoundToInt64(Reward.GetCents() * Bonus));
+}
+
+void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerName, int32 Stars)
 {
 	UWECompanyComponent* Company = UWECompanyComponent::Get(this);
 	if (!Contracts.IsValidIndex(Index) || !Company)
@@ -367,8 +443,15 @@ void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerNa
 	{
 		Booking = FString::Printf(TEXT("%s: %s"), Contract.bIndustrial ? TEXT("Industrieauftrag") : TEXT("Auftrag"), *Contract.Title.ToString());
 	}
-	const FWEMoney Reward = Contract.Reward;
+	const FWEMoney Reward = Stars > 0 ? RewardWithBonus(Contract.Reward, Stars) : Contract.Reward;
 	const FString Title = Contract.Title.ToString();
+	if (Stars > 0)
+	{
+		RatingSum += Stars;
+		++RatingCount;
+		LastStars = Stars;
+		Booking += FString::Printf(TEXT(" (%d Sterne)"), Stars);
+	}
 	// Phase 16: long-term goals count every completed order (supply contracts once, at the last delivery) and collectors' pieces.
 	if (UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this))
 	{

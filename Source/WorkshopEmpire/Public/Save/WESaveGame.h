@@ -33,6 +33,30 @@ struct WORKSHOPEMPIRE_API FWESavedItem
 	UPROPERTY() int32 RemovedParts = 0;
 	/** Since save version 16: parts put back in (FWEItemInstance::InstalledParts). */
 	UPROPERTY() int64 InstalledParts = 0;
+	/** Since save version 17: which part variants are installed (FWEItemInstance::PartVariants). */
+	UPROPERTY() int32 PartVariants = 0;
+};
+
+/** Phase 19 (save version 17): something bought from the classifieds, still on its way. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedClassifiedDelivery
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FWESavedItem Item;
+	UPROPERTY() float RemainingSeconds = 0.f;
+};
+
+/** Phase 19 (save version 17): one of the company's own classified ads (the item waits in it). */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedListing
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FWESavedItem Item;
+	UPROPERTY() int64 PriceCents = 0;
+	UPROPERTY() int64 OfferCents = 0;
+	UPROPERTY() FString Buyer;
 };
 
 USTRUCT()
@@ -176,6 +200,8 @@ struct WORKSHOPEMPIRE_API FWESavedContract
 	UPROPERTY() bool bIndustrial = false;
 	UPROPERTY() int32 Rounds = 1;
 	UPROPERTY() int32 RoundsDone = 0;
+	/** Since save version 17: PC orders. */
+	UPROPERTY() int32 MinBenchmark = 0;
 };
 
 /** Since save version 6: one rolled offer of a terminal. */
@@ -262,7 +288,7 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 
 public:
 	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). 13: Phase 16 (company statistics, milestones). 14: Phase 17.5 (item marks, workshop look, tutorial, sold buildings via upgrades). 15: Phase 18a (parts out of devices, character, van cargo). */
-	static constexpr int32 CurrentVersion = 16;
+	static constexpr int32 CurrentVersion = 17;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -276,6 +302,12 @@ public:
 	UPROPERTY() int64 CompanyBalanceCents = -1;
 	UPROPERTY() TArray<float> MarketDemand;
 	UPROPERTY() TArray<FWESavedContract> Contracts;
+	/** Since save version 17: customer ratings (sum of stars, number of ratings). */
+	UPROPERTY() int32 RatingSum = 0;
+	UPROPERTY() int32 RatingCount = 0;
+	/** Since save version 17: classifieds the company bought (on the way) and its own ads. */
+	UPROPERTY() TArray<FWESavedClassifiedDelivery> ClassifiedDeliveries;
+	UPROPERTY() TArray<FWESavedListing> ClassifiedListings;
 	UPROPERTY() TArray<FWESavedStock> Stocks;
 
 	// Since version 4. Older saves: no upgrades, guide at its current step (bHasProgression false).

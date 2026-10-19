@@ -90,7 +90,10 @@ TRADERS = [
     ("DA_Trader_SpareParts", "Ersatzteil-Express", 20.0,
      [rate(C.SPARE_PART, 0.9), rate(C.ELECTRONICS, 0.9)],
      [stock("PowerSupply", 3, Q.USED, 55), stock("RamModule", 4, Q.USED, 55), stock("GraphicsCard", 1, Q.USED, 50), stock("Mainboard", 1, Q.USED, 50),
-      stock("Capacitors", 10, Q.NEW, 80), stock("CleaningKit", 10, Q.NEW, 80)]),
+      stock("Capacitors", 10, Q.NEW, 80), stock("CleaningKit", 10, Q.NEW, 80),
+      # Phase 19: upgrade parts for PC orders.
+      stock("GraphicsCardPro", 2, Q.NEW, 85), stock("RamModule8", 4, Q.NEW, 85), stock("ProcessorFast", 2, Q.NEW, 85), stock("SsdFast", 3, Q.NEW, 85),
+      stock("GraphicsCardPro", 1, Q.USED, 55, chance=0.5, q_spread=15)]),
     # Phase 7: sealed return pallets with unknown contents (open with [Q]).
     ("DA_Trader_Returns", "Retouren-Großhandel Paletti", 15.0,
      [],
@@ -106,7 +109,8 @@ for name, display, restock, buys, offers in TRADERS:
     eal.save_asset(path)
 
 
-def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=None, min_quality=0, min_tier=1, industrial=False, rounds=1):
+def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=None, min_quality=0, min_tier=1, industrial=False, rounds=1,
+             pc=None, bench=(0, 0)):
     t = unreal.WEContractTemplate()
     t.set_editor_property("title", unreal.Text(title))
     t.set_editor_property("min_quality", min_quality)
@@ -123,6 +127,11 @@ def template(title, suffix, lo, hi, min_condition, factor, minutes, repair_from=
     t.set_editor_property("min_tier", min_tier)
     t.set_editor_property("industrial", industrial)
     t.set_editor_property("rounds", rounds)
+    if pc:
+        # Phase 19: PC orders - build a PC ("build") or upgrade the customer's ("upgrade") to a benchmark score.
+        t.set_editor_property("kind", unreal.WEContractKind.BUILD_PC if pc == "build" else unreal.WEContractKind.UPGRADE_PC)
+        t.set_editor_property("min_benchmark", bench[0])
+        t.set_editor_property("max_benchmark", bench[1])
     return t
 
 
@@ -175,6 +184,12 @@ catalog.set_editor_property("templates", [
     template("Installateur-Kette: Liefervertrag Kabel", "PalletCables", 2, 2, Q.USED, 1.5, 30.0, min_tier=4, industrial=True, rounds=5),
     template("Großprojekt Stadtwerke: Kupferbarren", "CopperIngot", 20, 30, Q.USED, 1.6, 90.0, min_tier=5, industrial=True),
     template("Exportauftrag: Paletten Stahlwinkel", "PalletBrackets", 4, 4, Q.USED, 1.5, 40.0, min_tier=5, industrial=True, rounds=3),
+    # Phase 19: PC orders (appended). Stock old PC: about 1050 points; better parts add 250-700 each.
+    template("Rentner möchte einen PC fürs Internet", "OldComputer", 1, 1, Q.USED, 0.9, 45.0, pc="build", bench=(800, 950)),
+    template("Schülerin braucht einen Spiele-PC", "OldComputer", 1, 1, Q.USED, 1.0, 50.0, pc="build", bench=(1500, 1750)),
+    template("Streamer sucht einen schnellen PC", "OldComputer", 1, 1, Q.USED, 1.05, 60.0, pc="build", bench=(2000, 2300), min_tier=2),
+    template("PC aufrüsten: zu langsam für die Buchhaltung", "OldComputer", 1, 1, Q.USED, 1.0, 40.0, pc="upgrade", bench=(1250, 1400)),
+    template("PC aufrüsten: neue Spiele laufen nicht", "OldComputer", 1, 1, Q.USED, 1.0, 50.0, pc="upgrade", bench=(1600, 1900)),
 ])
 eal.save_asset(catalog_path)
 

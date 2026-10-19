@@ -55,18 +55,18 @@ PARTS = [
         plug((-3.6, 8.0, 14.55), MX, 0),
         screw((-4.4, 20.8, 14.0), MX, 1),
         clip((7.0, 7.4, 14.6), MX, (0, 1, 0), 2)],
-        requires=["SidePanel"], pull=MX, dist=7.0),
+        requires=["SidePanel"], pull=MX, dist=7.0, alts=["GraphicsCardPro", "RareGpu"]),
     dict(id="Ram", name="Arbeitsspeicher", fasteners=[
         clip((7.3, RAM_Y[0], 31.9), MX, (0, 0, -1)), clip((7.3, RAM_Y[0], 17.4), MX, (0, 0, 1)),
         clip((7.3, RAM_Y[1], 31.9), MX, (0, 0, -1)), clip((7.3, RAM_Y[1], 17.4), MX, (0, 0, 1))],
-        requires=["SidePanel"], pull=MX, dist=4.5),
+        requires=["SidePanel"], pull=MX, dist=4.5, alts=["RamModule8"]),
     dict(id="CpuCooler", name="CPU-Kühler", fasteners=[
         plug((7.3, 7.2, 31.6), MX, 0),
         clip((6.4, 12.0, 29.6), MX, (0, 0, -1), 1), clip((6.4, 12.0, 22.4), MX, (0, 0, 1), 1)],
         requires=["SidePanel"], pull=MX, dist=8.0),
     dict(id="Cpu", name="Prozessor", fasteners=[
         lever((7.2, 15.4, 23.2), MX, (0, 0, 1), 0)],
-        requires=["SidePanel", "CpuCooler"], pull=MX, dist=4.0),
+        requires=["SidePanel", "CpuCooler"], pull=MX, dist=4.0, alts=["ProcessorFast"]),
     dict(id="HardDrive", name="Festplatte", fasteners=[
         plug((-1.5, -6.0, 9.3), PY, 0), plug((2.8, -6.0, 9.3), PY, 0),
         screw((-6.65, -18.0, 9.3), MX, 1), screw((-6.65, -10.0, 9.3), MX, 1)],
@@ -74,7 +74,7 @@ PARTS = [
     dict(id="Ssd", name="SSD", fasteners=[
         plug((-1.0, -10.3, 13.35), PY, 0),
         screw((-6.65, -18.5, 13.3), MX, 1), screw((-6.65, -10.8, 13.3), MX, 1)],
-        requires=["SidePanel"], pull=PY, dist=6.0),
+        requires=["SidePanel"], pull=PY, dist=6.0, alts=["SsdFast"]),
     dict(id="CaseFan", name="Gehäuselüfter", fasteners=[
         plug((7.3, 17.0, 18.6), MX, 0),
         screw((-6.6, 22.0, 23.4), PY, 1), screw((0.6, 22.0, 23.4), PY, 1),

@@ -1,4 +1,5 @@
 #include "UI/WEUIKit.h"
+#include "Components/EditableTextBox.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -574,4 +575,21 @@ namespace WEUI
 		Target->SetRenderOpacity(E);
 		Target->SetRenderTranslation(FVector2D(0.f, Offset * (1.f - E)));
 	}
+}
+
+UEditableTextBox* WEUI::InputField(UWidgetTree* Tree, const FText& Value, const FText& Hint, int32 FontSize)
+{
+	UEditableTextBox* Field = Tree->ConstructWidget<UEditableTextBox>();
+	FEditableTextBoxStyle Style = FEditableTextBoxStyle::GetDefault();
+	Style.SetBackgroundImageNormal(Brush(Col::PanelDark, Col::LineStrong, 1.f, 3.f));
+	Style.SetBackgroundImageHovered(Brush(Col::PanelDark, Col::AccentDark, 1.f, 3.f));
+	Style.SetBackgroundImageFocused(Brush(Col::PanelDark, Col::Accent, 1.5f, 3.f));
+	Style.SetBackgroundImageReadOnly(Brush(Col::WithAlpha(Col::PanelDark, 0.6f), Col::Line, 1.f, 3.f));
+	Style.SetForegroundColor(FSlateColor(Col::Text));
+	Style.SetFont(Font(EFont::Body, FontSize));
+	Style.SetPadding(FMargin(9.f, 5.f));
+	Field->WidgetStyle = Style;
+	Field->SetText(Value);
+	Field->SetHintText(Hint);
+	return Field;
 }

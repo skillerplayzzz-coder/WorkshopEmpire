@@ -62,6 +62,8 @@ public:
 	// Combined effects of all owned upgrades.
 	int32 GetBenchExtraSlots() const;
 	float GetInventoryExtraKg() const;
+	int32 GetInventoryExtraSlots() const;
+	bool AreToolsWeightless() const;
 	float GetWorkSpeedMultiplier() const;
 	float GetLightMultiplier() const;
 	float GetPowerCapacityBonusKw() const;

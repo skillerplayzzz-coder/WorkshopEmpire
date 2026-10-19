@@ -510,7 +510,9 @@ bool FWERepairOrderTest::RunTest(const FString& Parameters)
 
 	const int64 Before = Company->GetBalance().GetCents();
 	TestEqual(TEXT("Deliver"), Terminal->DeliverContract(F.Player, Offer.Id, FGuid::NewGuid()), EWETradeResult::Success);
-	TestEqual(TEXT("Reward paid"), Company->GetBalance().GetCents(), Before + Offer.Reward.GetCents());
+	// Phase 19: the customer rates the repair; a good rating pays a bonus.
+	TestTrue(TEXT("Rated"), Contracts->GetLastStars() >= 1 && Contracts->GetRatingCount() == 1);
+	TestEqual(TEXT("Reward paid (with the rating bonus)"), Company->GetBalance().GetCents(), Before + UWEContractComponent::RewardWithBonus(Offer.Reward, Contracts->GetLastStars()).GetCents());
 	TestNull(TEXT("Hands empty"), F.Player->GetHeldItem());
 	TestFalse(TEXT("Device handed back (destroyed)"), IsValid(Device));
 	TestNull(TEXT("Order done"), Contracts->FindContract(Offer.Id));

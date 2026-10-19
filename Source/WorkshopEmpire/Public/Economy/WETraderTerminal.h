@@ -102,6 +102,9 @@ public:
 
 	// --- Server -------------------------------------------------------------------------------------
 
+	/** Phase 19: furniture storage in the workshop (bench, shelf, crate) - sellable from the PC. */
+	static bool IsWorkshopStorage(const UWEInventoryComponent* Inventory);
+	TArray<UWEInventoryComponent*> GetWorkshopStorages() const;
 	EWETradeResult SellFromInventory(AWECharacter* Character, UWEInventoryComponent* Inventory, int32 Slot, int32 Quantity, const FGuid& RequestId);
 	EWETradeResult SellHeldItem(AWECharacter* Character, const FGuid& RequestId);
 	EWETradeResult Buy(AWECharacter* Character, int32 OfferIndex, int32 Quantity, const FGuid& RequestId);

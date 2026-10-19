@@ -58,6 +58,8 @@ struct WORKSHOPEMPIRE_API FWEInstallNeed
 	int32 Count = 0;
 	/** The part itself (its condition goes into the device); otherwise hardware such as screws. */
 	bool bPart = false;
+	/** Phase 19: items that fit (the part first, then its better variants). */
+	TArray<const class UWEItemDefinition*> Accepts;
 };
 
 /** Replicated state of the current job. Clients compute progress locally from the server time. */
@@ -223,6 +225,8 @@ public:
 	/** Server only. Starts putting Part back in (timed; the hands-on variant goes through TryStartManualStep). */
 	bool TryStartInstall(AWECharacter* Character, int32 Part);
 	/** Finds Count of Item in the character's inventory, then in Storage (parts: best condition first). */
+	/** Best variant of Need the character has enough of (inventory, then bench storage), INDEX_NONE if none. */
+	static int32 PickInstallVariant(const AWECharacter* Character, const class UWEInventoryComponent* InStorage, const FWEInstallNeed& Need);
 	static bool FindInstallItems(const AWECharacter* Character, const class UWEInventoryComponent* InStorage, const UWEItemDefinition* Item,
 		int32 Count, TArray<TPair<class UWEInventoryComponent*, int32>>& OutSlots);
 

@@ -38,7 +38,11 @@ enum class EWETradeRowKind : uint8
 	/** Phase 17.5: a look for a building (button: apply). */
 	Style,
 	/** Phase 17.5: tutorial (buttons: start/restart, skip). */
-	Tutorial
+	Tutorial,
+	/** Phase 19 classifieds: a private seller's ad (buy, offer / take the counter offer), a stack to list, an own ad (accept buyer, withdraw). */
+	ClassifiedAd,
+	ClassifiedNew,
+	ClassifiedOwn
 };
 
 /** One line in a Ferrit OS list: picture, title, details, chips, price and up to two buttons. Built in C++. */
@@ -60,6 +64,8 @@ public:
 
 	EWETradeRowKind Kind = EWETradeRowKind::Info;
 	int32 InventorySlot = INDEX_NONE;
+	/** Phase 19: storage the sell row is from (none = the player inventory). */
+	TWeakObjectPtr<class UWEInventoryComponent> SourceInventory;
 	int32 Quantity = 0;
 	int32 OfferIndex = INDEX_NONE;
 	FGuid ContractId;
@@ -72,6 +78,9 @@ public:
 	uint8 MarkToClear = 0;
 	uint8 StyleCategory = 0;
 	FName StyleZone;
+	/** Phase 19: prices behind the two buttons (classifieds). */
+	int64 PriceA = 0;
+	int64 PriceB = 0;
 	/** Wrap width for the texts (0 = default). Set before Configure. */
 	float WrapOverride = 0.f;
 
@@ -114,7 +123,7 @@ class WORKSHOPEMPIRE_API UWETradeWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	enum class EApp : uint8 { Market, Auctions, Staff, Company, Orders, Finance, Style, Help, Count };
+	enum class EApp : uint8 { Market, Auctions, Staff, Company, Orders, Finance, Style, Help, Classifieds, Count };
 
 	void Setup(AWETraderTerminal* InTerminal);
 	void HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonIndex);
@@ -182,6 +191,7 @@ protected:
 	void BuildCompanyApp(UVerticalBox* Body);
 	void BuildStyleApp(UVerticalBox* Body);
 	void BuildHelpApp(UVerticalBox* Body);
+	void BuildClassifiedsApp(UVerticalBox* Body);
 
 	void Rebuild();
 	void RebuildMarket(const struct FWEMoney& Balance);
@@ -192,6 +202,9 @@ protected:
 	void RebuildCompany();
 	void RebuildStyle(const struct FWEMoney& Balance);
 	void RebuildHelp();
+	void RebuildClassifieds(const struct FWEMoney& Balance);
+	UFUNCTION() void HandleClassifiedsTab0();
+	UFUNCTION() void HandleClassifiedsTab1();
 
 	UWETradeRowWidget* AddRow(UScrollBox* List, float Wrap = 0.f);
 	void AddSection(UScrollBox* List, const FText& Title, FName IconName = NAME_None);
@@ -226,6 +239,7 @@ protected:
 	UFUNCTION() void HandleApp5();
 	UFUNCTION() void HandleApp6();
 	UFUNCTION() void HandleApp7();
+	UFUNCTION() void HandleApp8();
 	UFUNCTION() void HandleTask0();
 	UFUNCTION() void HandleTask1();
 	UFUNCTION() void HandleTask2();
@@ -234,6 +248,7 @@ protected:
 	UFUNCTION() void HandleTask5();
 	UFUNCTION() void HandleTask6();
 	UFUNCTION() void HandleTask7();
+	UFUNCTION() void HandleTask8();
 	UFUNCTION() void HandleClose0();
 	UFUNCTION() void HandleClose1();
 	UFUNCTION() void HandleClose2();
@@ -242,6 +257,7 @@ protected:
 	UFUNCTION() void HandleClose5();
 	UFUNCTION() void HandleClose6();
 	UFUNCTION() void HandleClose7();
+	UFUNCTION() void HandleClose8();
 	UFUNCTION() void HandleMin0();
 	UFUNCTION() void HandleMin1();
 	UFUNCTION() void HandleMin2();
@@ -250,6 +266,7 @@ protected:
 	UFUNCTION() void HandleMin5();
 	UFUNCTION() void HandleMin6();
 	UFUNCTION() void HandleMin7();
+	UFUNCTION() void HandleMin8();
 	void TaskClicked(EApp App);
 
 	UPROPERTY(Transient) TObjectPtr<AWETraderTerminal> Terminal;
@@ -320,6 +337,13 @@ protected:
 	int32 StyleCategory = 0;
 	// Help
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> HelpList;
+	// Classifieds (Phase 19)
+	UPROPERTY(Transient) TObjectPtr<class UWidgetSwitcher> ClassifiedPages;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> ClassifiedTabButtons;
+	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> ClassifiedTabLabels;
+	UPROPERTY(Transient) TArray<TObjectPtr<UImage>> ClassifiedTabIcons;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> AdsList;
+	UPROPERTY(Transient) TObjectPtr<UScrollBox> OwnAdsList;
 
 	FString LastSignature;
 	float ClockAccumulated = 1.f;

@@ -16,13 +16,14 @@ void AWEPlayerState::BeginPlay()
 	// Players joining later get the company's inventory upgrades right away.
 	if (const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this))
 	{
-		ApplyInventoryBonus(Progression->GetInventoryExtraKg());
+		ApplyInventoryBonus(Progression->GetInventoryExtraKg(), Progression->GetInventoryExtraSlots(), Progression->AreToolsWeightless());
 	}
 }
 
-void AWEPlayerState::ApplyInventoryBonus(float ExtraKg)
+void AWEPlayerState::ApplyInventoryBonus(float ExtraKg, int32 ExtraSlots, bool bToolsWeightless)
 {
-	Inventory->Configure(NSLOCTEXT("WEPlayerState", "Inventory", "Inventar"), BaseSlots, BaseWeightKg + FMath::Max(0.f, ExtraKg));
+	Inventory->Configure(NSLOCTEXT("WEPlayerState", "Inventory", "Inventar"), BaseSlots + FMath::Max(0, ExtraSlots), BaseWeightKg + FMath::Max(0.f, ExtraKg));
+	Inventory->SetToolsWeightless(bToolsWeightless);
 	Inventory->NotifyChanged();
 }
 

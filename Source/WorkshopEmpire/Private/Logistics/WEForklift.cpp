@@ -8,6 +8,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Player/WECharacter.h"
 #include "WELog.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Workshop/WEBuildComponent.h"
 
 #define LOCTEXT_NAMESPACE "WEForklift"
@@ -21,7 +23,13 @@ AWEForklift::AWEForklift()
 	RequiredUpgrade = TEXT("Forklift");
 	Forks = CreateDefaultSubobject<USceneComponent>(TEXT("Forks"));
 	Forks->SetupAttachment(RootComponent);
-	Forks->SetRelativeLocation(FVector(125.f, 0.f, 20.f));
+	// Phase 19: on the fork blades of the modelled forklift (Tools/Assets/build_forklift.py).
+	Forks->SetRelativeLocation(FVector(62.f, 0.f, -6.f));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Model(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_Forklift.SM_Gen_Forklift"));
+	if (Model.Succeeded())
+	{
+		VisualMesh = Model.Object;
+	}
 }
 
 void AWEForklift::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

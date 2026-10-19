@@ -59,12 +59,22 @@ bool UWEInventoryComponent::HasAuthorityToModify() const
 
 // --- Queries -----------------------------------------------------------------------------------------
 
+float UWEInventoryComponent::UnitWeightOf(const FWEItemInstance& Item) const
+{
+	// Tool bag (upgrade): tools in a player inventory weigh nothing.
+	if (bToolsWeightless && Item.Definition && Item.Definition->ToolType != EWEToolType::None)
+	{
+		return 0.f;
+	}
+	return Item.GetUnitWeightKg();
+}
+
 float UWEInventoryComponent::GetTotalWeightKg() const
 {
 	float Total = 0.f;
 	for (const FWEInventoryEntry& Entry : Inventory.Entries)
 	{
-		Total += Entry.Item.GetTotalWeightKg();
+		Total += UnitWeightOf(Entry.Item) * Entry.Item.Quantity;
 	}
 	return Total;
 }
@@ -130,7 +140,7 @@ int32 UWEInventoryComponent::GetAddableQuantity(const FWEItemInstance& Item) con
 	}
 
 	// Weight limit.
-	const float UnitWeight = Item.GetUnitWeightKg();
+	const float UnitWeight = UnitWeightOf(Item);
 	const float FreeWeight = MaxWeightKg - GetTotalWeightKg();
 	const int32 ByWeight = UnitWeight > KINDA_SMALL_NUMBER ? FMath::FloorToInt32((FreeWeight + KINDA_SMALL_NUMBER) / UnitWeight) : Item.Quantity;
 	if (ByWeight <= 0)
@@ -197,7 +207,7 @@ EWEInventoryResult UWEInventoryComponent::TryAddItem(const FWEItemInstance& Item
 	const int32 Addable = GetAddableQuantity(Item);
 	if (Addable <= 0)
 	{
-		const bool bWeight = Item.GetUnitWeightKg() > MaxWeightKg - GetTotalWeightKg();
+		const bool bWeight = UnitWeightOf(Item) > MaxWeightKg - GetTotalWeightKg();
 		return bWeight ? EWEInventoryResult::TooHeavy : EWEInventoryResult::NoSpace;
 	}
 
@@ -285,7 +295,7 @@ EWEInventoryResult UWEInventoryComponent::MoveItem(int32 FromSlot, UWEInventoryC
 
 	const FWEItemInstance SourceItem = Source->Item;
 	const int32 Amount = (Quantity <= 0) ? SourceItem.Quantity : FMath::Min(Quantity, SourceItem.Quantity);
-	const float AmountWeight = SourceItem.GetUnitWeightKg() * Amount;
+	const float AmountWeight = Target->UnitWeightOf(SourceItem) * Amount;
 	const bool bCrossInventory = Target != this;
 	const FWEItemInstance* TargetItem = Target->GetItemInSlot(ToSlot);
 
@@ -308,10 +318,10 @@ EWEInventoryResult UWEInventoryComponent::MoveItem(int32 FromSlot, UWEInventoryC
 		// Merge as much as fits into the target stack.
 		const int32 Room = SourceItem.Definition->GetMaxStackSize() - TargetItem->Quantity;
 		int32 Moved = FMath::Min(Amount, Room);
-		if (bCrossInventory && SourceItem.GetUnitWeightKg() > KINDA_SMALL_NUMBER)
+		if (bCrossInventory && Target->UnitWeightOf(SourceItem) > KINDA_SMALL_NUMBER)
 		{
 			const float Free = Target->MaxWeightKg - Target->GetTotalWeightKg();
-			Moved = FMath::Min(Moved, FMath::FloorToInt32((Free + KINDA_SMALL_NUMBER) / SourceItem.GetUnitWeightKg()));
+			Moved = FMath::Min(Moved, FMath::FloorToInt32((Free + KINDA_SMALL_NUMBER) / Target->UnitWeightOf(SourceItem)));
 		}
 		if (Moved <= 0)
 		{
@@ -334,8 +344,8 @@ EWEInventoryResult UWEInventoryComponent::MoveItem(int32 FromSlot, UWEInventoryC
 	const FWEItemInstance Other = *TargetItem;
 	if (bCrossInventory)
 	{
-		const float TargetAfter = Target->GetTotalWeightKg() - Other.GetTotalWeightKg() + SourceItem.GetTotalWeightKg();
-		const float SourceAfter = GetTotalWeightKg() - SourceItem.GetTotalWeightKg() + Other.GetTotalWeightKg();
+		const float TargetAfter = Target->GetTotalWeightKg() - Target->UnitWeightOf(Other) * Other.Quantity + Target->UnitWeightOf(SourceItem) * SourceItem.Quantity;
+		const float SourceAfter = GetTotalWeightKg() - UnitWeightOf(SourceItem) * SourceItem.Quantity + UnitWeightOf(Other) * Other.Quantity;
 		if (TargetAfter > Target->MaxWeightKg + KINDA_SMALL_NUMBER || SourceAfter > MaxWeightKg + KINDA_SMALL_NUMBER)
 		{
 			return EWEInventoryResult::TooHeavy;
@@ -382,7 +392,7 @@ int32 UWEInventoryComponent::TransferAllTo(UWEInventoryComponent* Target)
 	return Moved;
 }
 
-void UWEInventoryComponent::SortItems()
+void UWEInventoryComponent::SortItems(uint8 Mode)
 {
 	if (!HasAuthorityToModify())
 	{
@@ -417,8 +427,25 @@ void UWEInventoryComponent::SortItems()
 		}
 	}
 
-	Items.Sort([](const FWEItemInstance& A, const FWEItemInstance& B)
+	Items.Sort([Mode](const FWEItemInstance& A, const FWEItemInstance& B)
 	{
+		// Phase 19: other orders - by name, by value (most valuable first), by weight (heaviest first).
+		if (Mode == 1)
+		{
+			const int32 ByName = A.GetDisplayName().CompareTo(B.GetDisplayName());
+			if (ByName != 0)
+			{
+				return ByName < 0;
+			}
+		}
+		else if (Mode == 2 && A.GetEstimatedValue() != B.GetEstimatedValue())
+		{
+			return A.GetEstimatedValue() > B.GetEstimatedValue();
+		}
+		else if (Mode == 3 && !FMath::IsNearlyEqual(A.GetTotalWeightKg(), B.GetTotalWeightKg()))
+		{
+			return A.GetTotalWeightKg() > B.GetTotalWeightKg();
+		}
 		if (A.Definition->Category != B.Definition->Category)
 		{
 			return A.Definition->Category < B.Definition->Category;

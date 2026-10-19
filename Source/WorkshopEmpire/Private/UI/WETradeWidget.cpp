@@ -1,4 +1,7 @@
 #include "UI/WETradeWidget.h"
+#include "Economy/WEClassifiedsComponent.h"
+#include "Components/UniformGridPanel.h"
+#include "Workshop/WEBenchmark.h"
 #include "WELog.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 
@@ -206,6 +209,7 @@ FText UWETradeWidget::AppTitle(EApp App)
 	case EApp::Finance:  return LOCTEXT("AppFinance", "Finanzen");
 	case EApp::Style:    return LOCTEXT("AppStyle", "Gestaltung");
 	case EApp::Help:     return LOCTEXT("AppHelp", "Hilfe");
+	case EApp::Classifieds: return LOCTEXT("AppClassifieds", "Kleinanzeigen");
 	default:             return FText::GetEmpty();
 	}
 }
@@ -222,6 +226,7 @@ FName UWETradeWidget::AppIcon(EApp App)
 	case EApp::Finance:  return TEXT("Chart");
 	case EApp::Style:    return TEXT("Roller");
 	case EApp::Help:     return TEXT("Bulb");
+	case EApp::Classifieds: return TEXT("Sell");
 	default:             return TEXT("Window");
 	}
 }
@@ -238,6 +243,7 @@ FLinearColor UWETradeWidget::AppColor(EApp App)
 	case EApp::Finance:  return Col::Hex(0x2E9D9A);
 	case EApp::Style:    return Col::Hex(0xC9573D);
 	case EApp::Help:     return Col::Hex(0x7A8086);
+	case EApp::Classifieds: return Col::Hex(0x2F8F5B);
 	default:             return Col::OsBlue;
 	}
 }
@@ -295,8 +301,11 @@ void UWETradeWidget::BuildDesktop()
 	Desktop = WidgetTree->ConstructWidget<UCanvasPanel>();
 	AddV(Column, Desktop, FMargin(), HAlign_Fill, true);
 
-	UVerticalBox* Icons = WidgetTree->ConstructWidget<UVerticalBox>();
-	const TArray<EApp> Order = { EApp::Market, EApp::Orders, EApp::Auctions, EApp::Staff, EApp::Finance, EApp::Company, EApp::Style, EApp::Help };
+	// Phase 19: nine apps - the icons stand in two columns (five per column, like a real desktop).
+	UUniformGridPanel* Icons = WidgetTree->ConstructWidget<UUniformGridPanel>();
+	Icons->SetSlotPadding(FMargin(0.f, 0.f, 6.f, 6.f));
+	int32 IconIndex = 0;
+	const TArray<EApp> Order = { EApp::Market, EApp::Orders, EApp::Classifieds, EApp::Auctions, EApp::Staff, EApp::Finance, EApp::Company, EApp::Style, EApp::Help };
 	for (const EApp App : Order)
 	{
 		UButton* Tile = WidgetTree->ConstructWidget<UButton>();
@@ -311,7 +320,8 @@ void UWETradeWidget::BuildDesktop()
 		Label->SetShadowColorAndOpacity(Col::WithAlpha(FLinearColor::Black, 0.8f));
 		AddV(Inner, Label, FMargin(0.f, 5.f, 0.f, 0.f), HAlign_Center);
 		Tile->SetContent(Inner);
-		AddV(Icons, Sized(WidgetTree, Tile, 118.f, 0.f), FMargin(0.f, 0.f, 0.f, 6.f));
+		Icons->AddChildToUniformGrid(Sized(WidgetTree, Tile, 118.f, 0.f), IconIndex % 5, IconIndex / 5);
+		++IconIndex;
 		switch (App)
 		{
 		case EApp::Market:   Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp0); break;
@@ -321,7 +331,7 @@ void UWETradeWidget::BuildDesktop()
 		case EApp::Orders:   Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp4); break;
 		case EApp::Finance:  Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp5); break;
 		case EApp::Style:    Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp6); break;
-		case EApp::Help:     Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp7); break;
+		case EApp::Help:     Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp7); break; case EApp::Classifieds: Tile->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp8); break;
 		default: break;
 		}
 	}
@@ -423,7 +433,7 @@ void UWETradeWidget::BuildStartMenu()
 		case 4: B->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp4); break;
 		case 5: B->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp5); break;
 		case 6: B->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp6); break;
-		default: B->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp7); break;
+		case 7: B->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp7); break; default: B->OnClicked.AddDynamic(this, &UWETradeWidget::HandleApp8); break;
 		}
 		AddV(Menu, B, FMargin(4.f, 0.f));
 	}
@@ -510,7 +520,7 @@ void UWETradeWidget::CreateWindow(EApp App)
 	case 4: Min->OnClicked.AddDynamic(this, &UWETradeWidget::HandleMin4); Close->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClose4); break;
 	case 5: Min->OnClicked.AddDynamic(this, &UWETradeWidget::HandleMin5); Close->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClose5); break;
 	case 6: Min->OnClicked.AddDynamic(this, &UWETradeWidget::HandleMin6); Close->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClose6); break;
-	default: Min->OnClicked.AddDynamic(this, &UWETradeWidget::HandleMin7); Close->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClose7); break;
+	case 7: Min->OnClicked.AddDynamic(this, &UWETradeWidget::HandleMin7); Close->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClose7); break; default: Min->OnClicked.AddDynamic(this, &UWETradeWidget::HandleMin8); Close->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClose8); break;
 	}
 	AddH(TitleRow, Min, FMargin(0.f, 0.f, 2.f, 0.f));
 	AddH(TitleRow, Close);
@@ -525,9 +535,9 @@ void UWETradeWidget::CreateWindow(EApp App)
 
 	// Size: most of the desktop right of the icons, a little cascaded.
 	const FVector2D Desk = GetDesktopSize();
-	W.Size = FVector2D(FMath::Clamp(Desk.X - 240.f, 640.f, 1560.f), FMath::Clamp(Desk.Y - 70.f, 420.f, 900.f));
+	W.Size = FVector2D(FMath::Clamp(Desk.X - 380.f, 640.f, 1560.f), FMath::Clamp(Desk.Y - 70.f, 420.f, 900.f));
 	const float Cascade = (OpenedCount++ % 5) * 26.f;
-	W.Position = FVector2D(FMath::Max(130.f, (Desk.X - W.Size.X) * 0.5f + 40.f) + Cascade, FMath::Max(12.f, (Desk.Y - W.Size.Y) * 0.5f) + Cascade * 0.6f);
+	W.Position = FVector2D(FMath::Max(270.f, (Desk.X - W.Size.X) * 0.5f + 110.f) + Cascade, FMath::Max(12.f, (Desk.Y - W.Size.Y) * 0.5f) + Cascade * 0.6f);
 	if (UCanvasPanelSlot* S = Desktop->AddChildToCanvas(W.Frame))
 	{
 		S->SetPosition(W.Position);
@@ -545,7 +555,7 @@ void UWETradeWidget::CreateWindow(EApp App)
 	case EApp::Orders:   BuildOrdersApp(W.Body); break;
 	case EApp::Finance:  BuildFinanceApp(W.Body); break;
 	case EApp::Style:    BuildStyleApp(W.Body); break;
-	case EApp::Help:     BuildHelpApp(W.Body); break;
+	case EApp::Help:     BuildHelpApp(W.Body); break; case EApp::Classifieds: BuildClassifiedsApp(W.Body); break;
 	default: break;
 	}
 
@@ -560,7 +570,7 @@ void UWETradeWidget::CreateWindow(EApp App)
 	case 4: W.TaskButton->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTask4); break;
 	case 5: W.TaskButton->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTask5); break;
 	case 6: W.TaskButton->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTask6); break;
-	default: W.TaskButton->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTask7); break;
+	case 7: W.TaskButton->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTask7); break; default: W.TaskButton->OnClicked.AddDynamic(this, &UWETradeWidget::HandleTask8); break;
 	}
 	AddH(TaskButtons, W.TaskButton, FMargin(0.f, 0.f, 4.f, 0.f));
 }
@@ -692,7 +702,7 @@ void UWETradeWidget::TaskClicked(EApp App)
 
 void UWETradeWidget::ShowPage(int32 Page)
 {
-	static const EApp Map[] = { EApp::Market, EApp::Auctions, EApp::Staff, EApp::Company, EApp::Orders, EApp::Finance, EApp::Style, EApp::Help };
+	static const EApp Map[] = { EApp::Market, EApp::Auctions, EApp::Staff, EApp::Company, EApp::Orders, EApp::Finance, EApp::Style, EApp::Help, EApp::Classifieds };
 	if (Page >= 0 && Page < UE_ARRAY_COUNT(Map))
 	{
 		OpenApp(Map[Page]);
@@ -882,8 +892,7 @@ void UWETradeWidget::RebuildMarket(const FWEMoney& Balance)
 	{
 		(SlotData.Item.IsSaleProtected() || SlotData.Item.IsCustomerItem() ? Kept : Goods).Add(SlotData);
 	}
-	AddSection(SellList, LOCTEXT("SecGoods", "Verkaufsware im Inventar"), TEXT("Tag"));
-	for (const FWEInventorySlotData& SlotData : Goods)
+	auto AddSellRow = [this](const FWEInventorySlotData& SlotData, UWEInventoryComponent* Source)
 	{
 		FWEItemInstance One = SlotData.Item;
 		One.Quantity = 1;
@@ -893,6 +902,7 @@ void UWETradeWidget::RebuildMarket(const FWEMoney& Balance)
 		const bool bStack = SlotData.Item.Quantity > 1;
 		UWETradeRowWidget* Row = AddRow(SellList);
 		Row->InventorySlot = SlotData.SlotIndex;
+		Row->SourceInventory = Source;
 		Row->SetPicture(ItemIcon(SlotData.Item.Definition), CategoryIcon(static_cast<uint8>(SlotData.Item.Definition->Category)), Col::TextDim);
 		Row->Configure(this, EWETradeRowKind::Sell,
 			bStack ? FText::Format(LOCTEXT("Stack", "{0}  ×{1}"), SlotData.Item.GetDisplayName(), FText::AsNumber(SlotData.Item.Quantity)) : SlotData.Item.GetDisplayName(),
@@ -913,10 +923,38 @@ void UWETradeWidget::RebuildMarket(const FWEMoney& Balance)
 		{
 			Row->AddChip(LOCTEXT("ChipValuable", "Wertvoll – Rückfrage"), Col::Accent);
 		}
-	}
-	if (Goods.Num() == 0)
+	};
+	AddSection(SellList, LOCTEXT("SecGoods", "Verkaufsware im Inventar"), TEXT("Tag"));
+	for (const FWEInventorySlotData& SlotData : Goods)
 	{
-		AddInfo(SellList, LOCTEXT("NothingToSell", "Nichts zu verkaufen"), LOCTEXT("NothingToSellDetail", "Zerlege Gegenstände an der Werkbank und nimm die Teile ins Inventar."));
+		AddSellRow(SlotData, nullptr);
+	}
+	// Phase 19: goods lying in the workshop's storages, sold straight from there.
+	int32 StoredGoods = 0;
+	for (UWEInventoryComponent* Storage : Terminal->GetWorkshopStorages())
+	{
+		TArray<FWEInventorySlotData> Stored;
+		for (const FWEInventorySlotData& SlotData : Storage->GetAllSlots())
+		{
+			if (!SlotData.Item.IsSaleProtected() && !SlotData.Item.IsCustomerItem())
+			{
+				Stored.Add(SlotData);
+			}
+		}
+		if (Stored.Num() == 0)
+		{
+			continue;
+		}
+		AddSection(SellList, FText::Format(LOCTEXT("SecStorage", "Im Lager: {0}"), Storage->GetDisplayName()), TEXT("Box"));
+		for (const FWEInventorySlotData& SlotData : Stored)
+		{
+			AddSellRow(SlotData, Storage);
+		}
+		StoredGoods += Stored.Num();
+	}
+	if (Goods.Num() == 0 && StoredGoods == 0)
+	{
+		AddInfo(SellList, LOCTEXT("NothingToSell", "Nichts zu verkaufen"), LOCTEXT("NothingToSellDetail", "Zerlege Gegenstände an der Werkbank – was im Werkbanklager oder in einem Regal liegt, kann hier direkt verkauft werden."));
 	}
 	if (Kept.Num() > 0)
 	{
@@ -1012,6 +1050,140 @@ void UWETradeWidget::RebuildMarket(const FWEMoney& Balance)
 	}
 }
 
+// --- App: Kleinanzeigen (Phase 19) ----------------------------------------------------------------------------------
+
+void UWETradeWidget::BuildClassifiedsApp(UVerticalBox* Body)
+{
+	ClassifiedPages = MakeTabs(Body, { LOCTEXT("TabAds", "Angebote"), LOCTEXT("TabOwnAds", "Meine Anzeigen") },
+		{ TEXT("Search"), TEXT("Sell") }, ClassifiedTabButtons, ClassifiedTabLabels, ClassifiedTabIcons);
+	ClassifiedTabButtons[0]->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClassifiedsTab0);
+	ClassifiedTabButtons[1]->OnClicked.AddDynamic(this, &UWETradeWidget::HandleClassifiedsTab1);
+	UVerticalBox* AdsPage = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddV(AdsPage, Text(WidgetTree, LOCTEXT("AdsHint", "Gebrauchtes von privat: zum Angebotspreis kaufen oder weniger bieten – der Verkäufer nimmt an, macht ein Gegenangebot oder lehnt ab. Gekauftes kommt mit der Post auf die Lieferpalette."),
+		11, Col::TextDim, EFont::Body, 900.f), FMargin(0.f, 0.f, 0.f, 8.f));
+	AdsList = MakeList(AdsPage);
+	ClassifiedPages->AddChild(AdsPage);
+	UVerticalBox* OwnPage = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddV(OwnPage, Text(WidgetTree, LOCTEXT("OwnAdsHint", "Eigene Anzeigen: Interessenten melden sich mit Angeboten – je fairer der Preis, desto schneller. Inseriert wird aus dem Inventar oder den Lagern der Werkstatt."),
+		11, Col::TextDim, EFont::Body, 900.f), FMargin(0.f, 0.f, 0.f, 8.f));
+	OwnAdsList = MakeList(OwnPage);
+	ClassifiedPages->AddChild(OwnPage);
+	SelectTab(ClassifiedPages, ClassifiedTabButtons, ClassifiedTabLabels, ClassifiedTabIcons, 0);
+}
+
+void UWETradeWidget::HandleClassifiedsTab0() { SelectTab(ClassifiedPages, ClassifiedTabButtons, ClassifiedTabLabels, ClassifiedTabIcons, 0); }
+void UWETradeWidget::HandleClassifiedsTab1() { SelectTab(ClassifiedPages, ClassifiedTabButtons, ClassifiedTabLabels, ClassifiedTabIcons, 1); }
+
+void UWETradeWidget::RebuildClassifieds(const FWEMoney& Balance)
+{
+	const UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this);
+	if (!AdsList || !OwnAdsList || !Classifieds)
+	{
+		return;
+	}
+	const float Now = Classifieds->GetServerTime();
+	auto Round50 = [](double Cents) { return FMath::Max<int64>(50, FMath::RoundToInt64(Cents / 50.0) * 50); };
+
+	// Offers from private sellers, and what is on its way.
+	AdsList->ClearChildren();
+	if (Classifieds->GetDeliveries().Num() > 0)
+	{
+		AddSection(AdsList, LOCTEXT("SecPost", "Unterwegs zur Lieferpalette"), TEXT("Truck"));
+		for (const FWEClassifiedDelivery& D : Classifieds->GetDeliveries())
+		{
+			AddInfo(AdsList, D.Item.GetDisplayName(), FText::Format(LOCTEXT("PostEta", "kommt in etwa {0} s"), FText::AsNumber(FMath::Max(0, FMath::CeilToInt(D.ArrivesAt - Now)))));
+		}
+	}
+	AddSection(AdsList, LOCTEXT("SecAds", "Aktuelle Anzeigen"), TEXT("Search"));
+	for (const FWEClassified& Ad : Classifieds->GetAds())
+	{
+		UWETradeRowWidget* Row = AddRow(AdsList);
+		Row->ContractId = Ad.Id;
+		const bool bCounter = !Ad.Counter.IsZero();
+		const bool bSilent = Ad.Offers >= UWEClassifiedsComponent::MaxOffersPerAd;
+		Row->PriceA = Ad.Asking.GetCents();
+		Row->PriceB = bCounter ? Ad.Counter.GetCents() : Round50(Ad.Asking.GetCents() * 0.75);
+		Row->SetPicture(ItemIcon(Ad.Item.Definition), CategoryIcon(static_cast<uint8>(Ad.Item.Definition->Category)), Col::TextDim);
+		Row->Configure(this, EWETradeRowKind::ClassifiedAd, Ad.Item.GetDisplayName(),
+			FText::Format(LOCTEXT("AdDetail", "{0} – „{1}“"), FText::FromString(Ad.Seller), FText::FromString(Ad.Text)),
+			MoneyText(Ad.Asking), FText::Format(LOCTEXT("AdBuy", "Kaufen {0}"), MoneyText(Ad.Asking)), Balance >= Ad.Asking,
+			bSilent ? LOCTEXT("AdSilent", "Keine Antwort") : bCounter ? FText::Format(LOCTEXT("AdCounter", "Gegenangebot {0} annehmen"), MoneyText(Ad.Counter))
+				: FText::Format(LOCTEXT("AdOffer", "{0} bieten"), MoneyText(FWEMoney::FromCents(Row->PriceB))),
+			!bSilent && Balance.GetCents() >= Row->PriceB);
+		Row->AddChip(WEItems::GetConditionText(Ad.Item.Condition), WEItems::GetConditionColor(Ad.Item.Condition));
+		const FWEMoney Value = UWEMarketComponent::GetMarketValue(Ad.Item, UWEMarketComponent::Get(this));
+		Row->AddChip(FText::Format(LOCTEXT("AdValue", "Marktwert {0}"), MoneyText(Value)), Ad.Asking <= Value ? Col::Good : Col::TextDim);
+		if (bCounter)
+		{
+			Row->AddChip(LOCTEXT("AdCounterChip", "Gegenangebot"), Col::Accent);
+		}
+		Row->AddChip(FText::Format(LOCTEXT("AdMinutes", "noch {0} min"), FText::AsNumber(FMath::Max(0, FMath::CeilToInt((Ad.ExpiresAt - Now) / 60.f)))), Col::TextMuted);
+	}
+	if (Classifieds->GetAds().Num() == 0)
+	{
+		AddInfo(AdsList, LOCTEXT("NoAds", "Gerade keine Anzeigen"), LOCTEXT("NoAdsDetail", "Neue Anzeigen kommen laufend dazu."));
+	}
+
+	// Own ads, and what could be listed.
+	OwnAdsList->ClearChildren();
+	AddSection(OwnAdsList, LOCTEXT("SecOwn", "Meine Anzeigen"), TEXT("Sell"));
+	for (const FWEOwnListing& L : Classifieds->GetListings())
+	{
+		UWETradeRowWidget* Row = AddRow(OwnAdsList);
+		Row->ContractId = L.Id;
+		Row->SetPicture(ItemIcon(L.Item.Definition), CategoryIcon(static_cast<uint8>(L.Item.Definition->Category)), Col::TextDim);
+		Row->Configure(this, EWETradeRowKind::ClassifiedOwn,
+			L.Item.Quantity > 1 ? FText::Format(LOCTEXT("OwnStack", "{0}  ×{1}"), L.Item.GetDisplayName(), FText::AsNumber(L.Item.Quantity)) : L.Item.GetDisplayName(),
+			L.Offer.IsZero() ? LOCTEXT("OwnWaiting", "Noch kein Angebot – Interessenten melden sich hier.") : FText::Format(LOCTEXT("OwnOffer", "{0} bietet {1}"), FText::FromString(L.Buyer), MoneyText(L.Offer)),
+			MoneyText(L.Price), L.Offer.IsZero() ? LOCTEXT("OwnNoOffer", "Warten …") : FText::Format(LOCTEXT("OwnAccept", "Für {0} verkaufen"), MoneyText(L.Offer)), !L.Offer.IsZero(),
+			LOCTEXT("OwnWithdraw", "Zurückziehen"), true);
+		if (!L.Offer.IsZero())
+		{
+			Row->AddChip(FText::Format(LOCTEXT("OwnShare", "{0} % vom Preis"), FText::AsNumber(FMath::RoundToInt(100.0 * L.Offer.GetCents() / FMath::Max<int64>(1, L.Price.GetCents())))), Col::Info);
+		}
+	}
+	if (Classifieds->GetListings().Num() == 0)
+	{
+		AddInfo(OwnAdsList, LOCTEXT("NoOwn", "Noch keine eigenen Anzeigen"), LOCTEXT("NoOwnDetail", "Unten etwas auswählen und inserieren – zum Marktwert oder etwas darüber."));
+	}
+	if (Classifieds->GetListings().Num() >= UWEClassifiedsComponent::MaxListings)
+	{
+		return;
+	}
+	const AWECharacter* Character = Cast<AWECharacter>(GetOwningPlayerPawn());
+	TArray<UWEInventoryComponent*> Sources;
+	Sources.Add(Character ? Character->GetPlayerInventory() : nullptr);
+	if (Terminal)
+	{
+		Sources.Append(Terminal->GetWorkshopStorages());
+	}
+	AddSection(OwnAdsList, LOCTEXT("SecListable", "Inserieren"), TEXT("Plus"));
+	for (UWEInventoryComponent* Source : Sources)
+	{
+		for (const FWEInventorySlotData& SlotData : Source ? Source->GetAllSlots() : TArray<FWEInventorySlotData>())
+		{
+			if (SlotData.Item.IsSaleProtected() || SlotData.Item.IsCustomerItem() || !SlotData.Item.Definition)
+			{
+				continue;
+			}
+			const int64 Value = FMath::Max<int64>(50, UWEMarketComponent::GetMarketValue(SlotData.Item, UWEMarketComponent::Get(this)).GetCents());
+			UWETradeRowWidget* Row = AddRow(OwnAdsList);
+			Row->InventorySlot = SlotData.SlotIndex;
+			Row->SourceInventory = Source;
+			Row->PriceA = Round50(Value * 1.15);
+			Row->PriceB = Round50(Value * 0.9);
+			Row->SetPicture(ItemIcon(SlotData.Item.Definition), CategoryIcon(static_cast<uint8>(SlotData.Item.Definition->Category)), Col::TextDim);
+			Row->Configure(this, EWETradeRowKind::ClassifiedNew,
+				SlotData.Item.Quantity > 1 ? FText::Format(LOCTEXT("NewStack", "{0}  ×{1}"), SlotData.Item.GetDisplayName(), FText::AsNumber(SlotData.Item.Quantity)) : SlotData.Item.GetDisplayName(),
+				FText::Format(LOCTEXT("NewDetail", "{0} · Marktwert {1}"), Source->GetDisplayName(), MoneyText(FWEMoney::FromCents(Value))), FText::GetEmpty(),
+				FText::Format(LOCTEXT("NewHigh", "Für {0} inserieren"), MoneyText(FWEMoney::FromCents(Row->PriceA))), true,
+				FText::Format(LOCTEXT("NewQuick", "Schnell: {0}"), MoneyText(FWEMoney::FromCents(Row->PriceB))), true);
+			Row->SetButtonKinds(EButton::Secondary, EButton::Secondary);
+			Row->AddChip(WEItems::GetConditionText(SlotData.Item.Condition), WEItems::GetConditionColor(SlotData.Item.Condition));
+		}
+	}
+}
+
 // --- App: Aufträge -------------------------------------------------------------------------------------------------
 
 void UWETradeWidget::BuildOrdersApp(UVerticalBox* Body)
@@ -1035,6 +1207,12 @@ void UWETradeWidget::RebuildOrders()
 		return;
 	}
 	const float Now = Contracts->GetServerTime();
+	// Phase 19: what customers think of the workshop.
+	if (Contracts->GetRatingCount() > 0)
+	{
+		AddInfo(ContractList, FText::Format(LOCTEXT("RatingTitle", "Kundenbewertung: {0} von 5 Sternen"), FText::AsNumber(FMath::RoundToFloat(Contracts->GetAverageRating() * 10.f) / 10.f)),
+			FText::Format(LOCTEXT("RatingDetail", "{0} Bewertungen · 4 Sterne bringen 10 %, 5 Sterne 25 % mehr Lohn"), FText::AsNumber(Contracts->GetRatingCount())));
+	}
 	for (const bool bAcceptedPass : { true, false })
 	{
 		bool bHeader = false;
@@ -1055,14 +1233,29 @@ void UWETradeWidget::RebuildOrders()
 			UWETradeRowWidget* Row = AddRow(ContractList);
 			Row->ContractId = Contract.Id;
 			Row->bContractAccepted = bAccepted;
-			Row->SetPicture(ItemIcon(Contract.Item), Contract.Kind == EWEContractKind::Repair ? FName(TEXT("Repair")) : FName(TEXT("Box")), Col::TextDim);
+			Row->SetPicture(ItemIcon(Contract.Item), Contract.Kind == EWEContractKind::Supply ? FName(TEXT("Box")) : FName(TEXT("Repair")), Col::TextDim);
 			const FText ItemName = Contract.Item ? Contract.Item->DisplayName : FText::GetEmpty();
-			const FText Detail = Contract.Kind == EWEContractKind::Repair
-				? FText::Format(bAccepted ? LOCTEXT("RepairContractAccepted", "Reparieren: {0} – liegt auf der Palette, repariert in der Hand abliefern") : LOCTEXT("RepairContractOpen", "Reparieren: {0}"),
-					FText::Format(LOCTEXT("RepairItem", "{0}, {1}"), ItemName, WEItems::GetConditionText(Contract.CustomerCondition)))
-				: FText::Format(LOCTEXT("ContractDetail", "{0}× {1}, mindestens {2}{3}"), FText::AsNumber(Contract.Quantity), ItemName,
+			FText Detail;
+			if (Contract.Kind == EWEContractKind::BuildPc)
+			{
+				Detail = FText::Format(LOCTEXT("BuildPcDetail", "Funktionierenden PC zusammenbauen, getestet, Benchmark mindestens {0} Punkte – in der Hand abliefern"), FText::AsNumber(Contract.MinBenchmark));
+			}
+			else if (Contract.Kind == EWEContractKind::UpgradePc)
+			{
+				Detail = FText::Format(bAccepted ? LOCTEXT("UpgradePcAccepted", "Kunden-PC steht auf der Palette: Teile tauschen, testen, Benchmark mindestens {0} Punkte. Altteile bleiben bei dir.")
+					: LOCTEXT("UpgradePcOpen", "PC aufrüsten auf mindestens {0} Punkte (Altteile bleiben bei dir)"), FText::AsNumber(Contract.MinBenchmark));
+			}
+			else if (Contract.Kind == EWEContractKind::Repair)
+			{
+				Detail = FText::Format(bAccepted ? LOCTEXT("RepairContractAccepted", "Reparieren: {0} – liegt auf der Palette, repariert in der Hand abliefern") : LOCTEXT("RepairContractOpen", "Reparieren: {0}"),
+					FText::Format(LOCTEXT("RepairItem", "{0}, {1}"), ItemName, WEItems::GetConditionText(Contract.CustomerCondition)));
+			}
+			else
+			{
+				Detail = FText::Format(LOCTEXT("ContractDetail", "{0}× {1}, mindestens {2}{3}"), FText::AsNumber(Contract.Quantity), ItemName,
 					WEItems::GetConditionText(Contract.MinCondition),
 					Contract.Rounds > 1 ? FText::Format(LOCTEXT("RoundsTag", " · Liefervertrag {0}/{1}, je Lieferung"), FText::AsNumber(Contract.RoundsDone + 1), FText::AsNumber(Contract.Rounds)) : FText::GetEmpty());
+			}
 			Row->Configure(this, EWETradeRowKind::Contract, Contract.Title, Detail, MoneyText(Contract.Reward),
 				bAccepted ? FText::Format(LOCTEXT("Deliver", "Abliefern {0}/{1}"), FText::AsNumber(FMath::Min(Have, Contract.Quantity)), FText::AsNumber(Contract.Quantity)) : LOCTEXT("Accept", "Annehmen"),
 				bAccepted ? Have >= Contract.Quantity : true);
@@ -1074,6 +1267,16 @@ void UWETradeWidget::RebuildOrders()
 			if (Contract.bIndustrial)
 			{
 				Row->AddChip(LOCTEXT("IndustrialTag", "Industrie"), Col::Accent);
+			}
+			if (Contract.IsPcOrder())
+			{
+				Row->AddChip(FText::Format(LOCTEXT("BenchChip", "≥ {0} Punkte"), FText::AsNumber(Contract.MinBenchmark)), Col::Info);
+				if (const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr; bAccepted && Held && Held->GetItem().Definition == Contract.Item)
+				{
+					const int32 Score = WEBenchmark::Score(Held->GetItem());
+					Row->AddChip(Score > 0 ? FText::Format(LOCTEXT("HeldScore", "In der Hand: {0}"), FText::AsNumber(Score)) : LOCTEXT("HeldUntested", "In der Hand: nicht getestet"),
+						Score >= Contract.MinBenchmark ? Col::Good : Col::Bad);
+				}
 			}
 			if (!Contract.GetPenalty().IsZero() && bAccepted)
 			{
@@ -1647,7 +1850,43 @@ FString UWETradeWidget::BuildSignature() const
 				<< TEXT("c") << static_cast<int32>(SlotData.Item.Condition) << TEXT("m") << SlotData.Item.Marks << TEXT(",");
 		}
 	}
+	if (const UWEClassifiedsComponent* Classifieds = IsAppOpen(EApp::Classifieds) ? UWEClassifiedsComponent::Get(this) : nullptr)
+	{
+		const float ClassifiedNow = Classifieds->GetServerTime();
+		for (const FWEClassified& Ad : Classifieds->GetAds())
+		{
+			Sig << TEXT("|ad:") << Ad.Id.A << Ad.Counter.GetCents() << TEXT(",") << Ad.Offers << TEXT(",") << FMath::CeilToInt((Ad.ExpiresAt - ClassifiedNow) / 60.f);
+		}
+		for (const FWEClassifiedDelivery& D : Classifieds->GetDeliveries())
+		{
+			Sig << TEXT("|dl:") << FMath::CeilToInt((D.ArrivesAt - ClassifiedNow) / 5.f);
+		}
+		for (const FWEOwnListing& L : Classifieds->GetListings())
+		{
+			Sig << TEXT("|ol:") << L.Id.A << L.Offer.GetCents();
+		}
+	}
+	if (Terminal && (IsAppOpen(EApp::Market) || IsAppOpen(EApp::Classifieds)))
+	{
+		// Goods in the workshop storages are on the sell list too.
+		for (const UWEInventoryComponent* Storage : Terminal->GetWorkshopStorages())
+		{
+			Sig << TEXT("|s");
+			for (const FWEInventorySlotData& SlotData : Storage->GetAllSlots())
+			{
+				Sig << SlotData.SlotIndex << GetNameSafe(SlotData.Item.Definition) << SlotData.Item.Quantity << SlotData.Item.Marks << TEXT(",");
+			}
+		}
+	}
 	Sig << TEXT("|held:") << (Character && Character->GetHeldItem() ? *Character->GetHeldItem()->GetName() : TEXT("-"));
+	if (const UWEContractComponent* Ratings = UWEContractComponent::Get(this))
+	{
+		Sig << TEXT("|rt:") << Ratings->GetRatingSum() << TEXT("/") << Ratings->GetRatingCount();
+	}
+	if (const AWEPickupItem* HeldPc = Character ? Character->GetHeldItem() : nullptr)
+	{
+		Sig << TEXT("|hb:") << WEBenchmark::Score(HeldPc->GetItem()) << HeldPc->GetItem().RemovedParts;
+	}
 	if (const AWEPickupItem* HeldItem = Character ? Character->GetHeldItem() : nullptr)
 	{
 		Sig << TEXT("c") << static_cast<int32>(HeldItem->GetItem().Condition) << TEXT("q") << HeldItem->GetItem().Quality;
@@ -1770,6 +2009,7 @@ void UWETradeWidget::Rebuild()
 	RebuildCompany();
 	RebuildStyle(Balance);
 	RebuildHelp();
+	RebuildClassifieds(Balance);
 	if (TrayBalance)
 	{
 		TrayBalance->SetText(MoneyText(Balance));
@@ -1981,6 +2221,7 @@ void UWETradeWidget::HandleApp4() { OpenApp(EApp::Orders); }
 void UWETradeWidget::HandleApp5() { OpenApp(EApp::Finance); }
 void UWETradeWidget::HandleApp6() { OpenApp(EApp::Style); }
 void UWETradeWidget::HandleApp7() { OpenApp(EApp::Help); }
+void UWETradeWidget::HandleApp8() { OpenApp(EApp::Classifieds); }
 void UWETradeWidget::HandleTask0() { TaskClicked(EApp::Market); }
 void UWETradeWidget::HandleTask1() { TaskClicked(EApp::Auctions); }
 void UWETradeWidget::HandleTask2() { TaskClicked(EApp::Staff); }
@@ -1989,6 +2230,7 @@ void UWETradeWidget::HandleTask4() { TaskClicked(EApp::Orders); }
 void UWETradeWidget::HandleTask5() { TaskClicked(EApp::Finance); }
 void UWETradeWidget::HandleTask6() { TaskClicked(EApp::Style); }
 void UWETradeWidget::HandleTask7() { TaskClicked(EApp::Help); }
+void UWETradeWidget::HandleTask8() { TaskClicked(EApp::Classifieds); }
 void UWETradeWidget::HandleClose0() { CloseApp(EApp::Market); }
 void UWETradeWidget::HandleClose1() { CloseApp(EApp::Auctions); }
 void UWETradeWidget::HandleClose2() { CloseApp(EApp::Staff); }
@@ -1997,6 +2239,7 @@ void UWETradeWidget::HandleClose4() { CloseApp(EApp::Orders); }
 void UWETradeWidget::HandleClose5() { CloseApp(EApp::Finance); }
 void UWETradeWidget::HandleClose6() { CloseApp(EApp::Style); }
 void UWETradeWidget::HandleClose7() { CloseApp(EApp::Help); }
+void UWETradeWidget::HandleClose8() { CloseApp(EApp::Classifieds); }
 void UWETradeWidget::HandleMin0() { MinimizeApp(EApp::Market); }
 void UWETradeWidget::HandleMin1() { MinimizeApp(EApp::Auctions); }
 void UWETradeWidget::HandleMin2() { MinimizeApp(EApp::Staff); }
@@ -2005,6 +2248,7 @@ void UWETradeWidget::HandleMin4() { MinimizeApp(EApp::Orders); }
 void UWETradeWidget::HandleMin5() { MinimizeApp(EApp::Finance); }
 void UWETradeWidget::HandleMin6() { MinimizeApp(EApp::Style); }
 void UWETradeWidget::HandleMin7() { MinimizeApp(EApp::Help); }
+void UWETradeWidget::HandleMin8() { MinimizeApp(EApp::Classifieds); }
 
 // --- Row actions ----------------------------------------------------------------------------------------------------------
 
@@ -2021,11 +2265,12 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 	{
 	case EWETradeRowKind::Sell:
 	{
-		const FWEItemInstance* Item = Inventory ? Inventory->GetItemInSlot(Row->InventorySlot) : nullptr;
+		UWEInventoryComponent* From = Row->SourceInventory.IsValid() ? Row->SourceInventory.Get() : Inventory;
+		const FWEItemInstance* Item = From ? From->GetItemInSlot(Row->InventorySlot) : nullptr;
 		const int32 Quantity = ButtonIndex == 1 ? 1 : 0;
 		const int32 SellSlot = Row->InventorySlot;
 		TWeakObjectPtr<AWETraderTerminal> WeakTerminal = Terminal.Get();
-		auto Sell = [PC, WeakTerminal, Inventory, SellSlot, Quantity]() { if (WeakTerminal.IsValid()) { PC->RequestSell(WeakTerminal.Get(), Inventory, SellSlot, Quantity); } };
+		auto Sell = [PC, WeakTerminal, From, SellSlot, Quantity]() { if (WeakTerminal.IsValid()) { PC->RequestSell(WeakTerminal.Get(), From, SellSlot, Quantity); } };
 		if (Item && Item->NeedsSaleConfirmation())
 		{
 			FWEItemInstance Selling = *Item;
@@ -2132,6 +2377,37 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 	}
 	case EWETradeRowKind::Style:
 		PC->RequestApplyStyle(Terminal, Row->StyleZone, Row->StyleCategory, Row->OfferIndex);
+		break;
+	case EWETradeRowKind::ClassifiedAd:
+		if (ButtonIndex == 1)
+		{
+			PC->RequestClassifiedOffer(Row->ContractId, Row->PriceA);
+		}
+		else if (const UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(this))
+		{
+			const FWEClassified* Ad = Classifieds->GetAds().FindByPredicate([Row](const FWEClassified& A) { return A.Id == Row->ContractId; });
+			if (Ad && !Ad->Counter.IsZero())
+			{
+				PC->RequestClassifiedAcceptCounter(Row->ContractId);
+			}
+			else
+			{
+				PC->RequestClassifiedOffer(Row->ContractId, Row->PriceB);
+			}
+		}
+		break;
+	case EWETradeRowKind::ClassifiedNew:
+		PC->RequestClassifiedList(Row->SourceInventory.Get(), Row->InventorySlot, ButtonIndex == 1 ? Row->PriceA : Row->PriceB);
+		break;
+	case EWETradeRowKind::ClassifiedOwn:
+		if (ButtonIndex == 1)
+		{
+			PC->RequestClassifiedAcceptBuyer(Row->ContractId);
+		}
+		else
+		{
+			PC->RequestClassifiedWithdraw(Row->ContractId);
+		}
 		break;
 	case EWETradeRowKind::Tutorial:
 		PC->RequestTutorial(ButtonIndex == 1 ? 0 : 1);

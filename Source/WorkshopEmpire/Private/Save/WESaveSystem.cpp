@@ -1,6 +1,7 @@
 #include "Save/WESaveSystem.h"
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WEAssemblyDefinition.h"
+#include "Economy/WEClassifiedsComponent.h"
 #include "Framework/WEGameMode.h"
 
 #include "Economy/WEAuctionComponent.h"
@@ -90,6 +91,7 @@ FWESavedItem FWESaveSystem::ToSaved(const FWEItemInstance& Item)
 	Saved.Marks = Item.Marks;
 	Saved.RemovedParts = Item.RemovedParts;
 	Saved.InstalledParts = Item.InstalledParts;
+	Saved.PartVariants = Item.PartVariants;
 	return Saved;
 }
 
@@ -114,6 +116,7 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 	OutItem.Marks = Saved.Marks & (FWEItemInstance::Favorite | FWEItemInstance::Locked | FWEItemInstance::ReleasedForSale);
 	OutItem.RemovedParts = Saved.RemovedParts;
 	OutItem.InstalledParts = Definition->HasAssembly() ? Saved.InstalledParts : 0;
+	OutItem.PartVariants = Definition->HasAssembly() ? Saved.PartVariants : 0;
 	if (Definition->HasAssembly())
 	{
 		const int32 NumParts = Definition->Disassembly->NumSteps();
@@ -358,6 +361,27 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	}
 	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(World))
 	{
+		Save->RatingSum = Contracts->GetRatingSum();
+		Save->RatingCount = Contracts->GetRatingCount();
+		// Phase 19: what was bought from the classifieds and is still on its way, and the company's own ads.
+		if (const UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(World))
+		{
+			const float ClassifiedNow = Classifieds->GetServerTime();
+			for (const FWEClassifiedDelivery& D : Classifieds->GetDeliveries())
+			{
+				FWESavedClassifiedDelivery& Saved = Save->ClassifiedDeliveries.AddDefaulted_GetRef();
+				Saved.Item = ToSaved(D.Item);
+				Saved.RemainingSeconds = FMath::Max(0.f, D.ArrivesAt - ClassifiedNow);
+			}
+			for (const FWEOwnListing& L : Classifieds->GetListings())
+			{
+				FWESavedListing& Saved = Save->ClassifiedListings.AddDefaulted_GetRef();
+				Saved.Item = ToSaved(L.Item);
+				Saved.PriceCents = L.Price.GetCents();
+				Saved.OfferCents = L.Offer.GetCents();
+				Saved.Buyer = L.Buyer;
+			}
+		}
 		const float Now = Contracts->GetServerTime();
 		for (const FWEContract& Contract : Contracts->GetContracts())
 		{
@@ -379,6 +403,7 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 			Saved.Rounds = Contract.Rounds;
 			Saved.RoundsDone = Contract.RoundsDone;
 			Saved.MinQuality = Contract.MinQuality;
+			Saved.MinBenchmark = Contract.MinBenchmark;
 		}
 	}
 	for (TActorIterator<AWETraderTerminal> It(World); It; ++It)
@@ -783,7 +808,8 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 				Contract.ExpiresAt = Now + Saved.RemainingSeconds;
 				Contract.DeliverySeconds = Saved.DeliverySeconds;
 				Contract.AcceptedBy = Saved.AcceptedBy;
-				Contract.Kind = Saved.Kind == 1 ? EWEContractKind::Repair : EWEContractKind::Supply;
+				Contract.Kind = Saved.Kind <= static_cast<uint8>(EWEContractKind::UpgradePc) ? static_cast<EWEContractKind>(Saved.Kind) : EWEContractKind::Supply;
+				Contract.MinBenchmark = Saved.MinBenchmark;
 				Contract.CustomerCondition = Saved.CustomerCondition;
 				Contract.CustomerItemId = Saved.CustomerItemId;
 			Contract.bIndustrial = Saved.bIndustrial;
@@ -796,6 +822,36 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 				}
 			}
 			Contracts->SetContracts(Restored);
+			Contracts->SetRatings(Save->RatingSum, Save->RatingCount);
+		}
+		if (UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(World))
+		{
+			const float ClassifiedNow = Classifieds->GetServerTime();
+			TArray<FWEClassifiedDelivery> Deliveries;
+			for (const FWESavedClassifiedDelivery& Saved : Save->ClassifiedDeliveries)
+			{
+				FWEClassifiedDelivery D;
+				if (FromSaved(Saved.Item, D.Item))
+				{
+					D.ArrivesAt = ClassifiedNow + Saved.RemainingSeconds;
+					Deliveries.Add(D);
+				}
+			}
+			TArray<FWEOwnListing> Listings;
+			for (const FWESavedListing& Saved : Save->ClassifiedListings)
+			{
+				FWEOwnListing L;
+				if (FromSaved(Saved.Item, L.Item))
+				{
+					L.Id = FGuid::NewGuid();
+					L.Price = FWEMoney::FromCents(Saved.PriceCents);
+					L.Offer = FWEMoney::FromCents(Saved.OfferCents);
+					L.Buyer = Saved.Buyer;
+					L.NextBuyerAt = ClassifiedNow + 20.f;
+					Listings.Add(L);
+				}
+			}
+			Classifieds->SetState(Deliveries, Listings);
 		}
 	}
 

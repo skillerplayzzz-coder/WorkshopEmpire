@@ -117,6 +117,13 @@ public:
 	/** Moves every stack from a container into the player inventory (as much as fits). */
 	void RequestTakeAll(UWEInventoryComponent* From);
 
+	/** Phase 19: Ferrit OS classifieds (the server checks money, access and the seller's answer). */
+	void RequestClassifiedOffer(const FGuid& AdId, int64 Cents);
+	void RequestClassifiedAcceptCounter(const FGuid& AdId);
+	void RequestClassifiedList(UWEInventoryComponent* From, int32 Slot, int64 Cents);
+	void RequestClassifiedAcceptBuyer(const FGuid& ListingId);
+	void RequestClassifiedWithdraw(const FGuid& ListingId);
+
 	/** Server-side execution of RequestTakeAll (public for tests). */
 	bool ExecuteTakeAll(UWEInventoryComponent* From);
 	void RequestDeliverContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
@@ -156,7 +163,8 @@ public:
 	void RequestMoveItem(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To, int32 ToSlot, int32 Quantity);
 	void RequestQuickTransfer(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To);
 	void RequestDropFromInventory(UWEInventoryComponent* From, int32 Slot, int32 Quantity);
-	void RequestSort(UWEInventoryComponent* Inventory);
+	/** Mode: 0 category, 1 name, 2 value, 3 weight (Phase 19). */
+	void RequestSort(UWEInventoryComponent* Inventory, uint8 Mode = 0);
 	/** Phase 17.5: favourite / lock / release-for-sale marks on a stack (FWEItemInstance::EMarks). */
 	void RequestSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet);
 	bool ExecuteSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet);
@@ -193,7 +201,7 @@ protected:
 	void ServerDropFromInventory(UWEInventoryComponent* From, int32 Slot, int32 Quantity);
 
 	UFUNCTION(Server, Reliable)
-	void ServerSortInventory(UWEInventoryComponent* Inventory);
+	void ServerSortInventory(UWEInventoryComponent* Inventory, uint8 Mode);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetItemMarks(UWEInventoryComponent* Inventory, int32 Slot, uint8 Mask, bool bSet);
@@ -274,6 +282,12 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerTakeAll(UWEInventoryComponent* From);
+
+	UFUNCTION(Server, Reliable) void ServerClassifiedOffer(FGuid AdId, int64 Cents);
+	UFUNCTION(Server, Reliable) void ServerClassifiedAcceptCounter(FGuid AdId);
+	UFUNCTION(Server, Reliable) void ServerClassifiedList(UWEInventoryComponent* From, int32 Slot, int64 Cents);
+	UFUNCTION(Server, Reliable) void ServerClassifiedAcceptBuyer(FGuid ListingId);
+	UFUNCTION(Server, Reliable) void ServerClassifiedWithdraw(FGuid ListingId);
 
 	UFUNCTION(Server, Reliable)
 	void ServerDeliverContract(class AWETraderTerminal* Terminal, FGuid ContractId, FGuid RequestId);

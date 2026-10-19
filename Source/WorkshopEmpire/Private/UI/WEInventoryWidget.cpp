@@ -21,6 +21,8 @@
 #include "Items/WEPickupItem.h"
 #include "Player/WECharacter.h"
 #include "UI/WEInventorySlotWidget.h"
+#include "Components/EditableTextBox.h"
+#include "Workshop/WEBenchmark.h"
 
 #define LOCTEXT_NAMESPACE "WEInventoryWidget"
 
@@ -172,6 +174,11 @@ void UWEInventoryWidget::BuildPanel(FWEInventoryPanel& Panel, UWEInventoryCompon
 	Panel.WeightBar->SetWidgetStyle(WEInvStyle::BarStyle());
 	AddV(Panel.Root, Sized(WidgetTree, Panel.WeightBar, 0.f, 4.f), FMargin(0.f, 0.f, 0.f, 10.f));
 
+	// Phase 19: search (dims everything that does not match).
+	Panel.Search = InputField(WidgetTree, FText::GetEmpty(), LOCTEXT("SearchHint", "Suchen …"), 12);
+	Panel.Search->OnTextChanged.AddDynamic(this, bIsPlayer ? &UWEInventoryWidget::HandleSearchPlayer : &UWEInventoryWidget::HandleSearchContainer);
+	AddV(Panel.Root, Panel.Search, FMargin(0.f, 0.f, 0.f, 8.f));
+
 	Panel.Grid = WidgetTree->ConstructWidget<UUniformGridPanel>();
 	Panel.Grid->SetSlotPadding(FMargin(2.f));
 	AddV(Panel.Root, Panel.Grid);
@@ -191,6 +198,10 @@ void UWEInventoryWidget::BuildPanel(FWEInventoryPanel& Panel, UWEInventoryCompon
 		TakeAll->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleTakeAll);
 		AddH(Buttons, TakeAll, FMargin(0.f, 0.f, 6.f, 0.f));
 	}
+	UButton* Mode = Button(WidgetTree, SortModeText(0), EButton::Ghost, TEXT("ChevronDown"), 11, &Panel.SortLabel);
+	Mode->SetToolTipText(LOCTEXT("SortModeTip", "Sortierreihenfolge wechseln"));
+	Mode->OnClicked.AddDynamic(this, bIsPlayer ? &UWEInventoryWidget::HandleSortModePlayer : &UWEInventoryWidget::HandleSortModeContainer);
+	AddH(Buttons, Mode, FMargin(0.f, 0.f, 6.f, 0.f));
 	UButton* Sort = Button(WidgetTree, LOCTEXT("Sort", "Sortieren"), EButton::Secondary, TEXT("Grip"), 12);
 	Sort->OnClicked.AddDynamic(this, bIsPlayer ? &UWEInventoryWidget::HandleSortPlayer : &UWEInventoryWidget::HandleSortContainer);
 	AddH(Buttons, Sort);
@@ -216,6 +227,62 @@ void UWEInventoryWidget::RefreshPanel(FWEInventoryPanel& Panel)
 	{
 		SlotWidget->Refresh();
 	}
+	ApplyFilter(Panel);
+}
+
+void UWEInventoryWidget::ApplyFilter(FWEInventoryPanel& Panel)
+{
+	// Matches by name, category, condition or tool; empty slots fade out too while searching.
+	const FString Needle = Panel.Filter.TrimStartAndEnd();
+	for (UWEInventorySlotWidget* SlotWidget : Panel.Slots)
+	{
+		const FWEItemInstance* Item = Panel.Inventory ? Panel.Inventory->GetItemInSlot(SlotWidget->GetSlotIndex()) : nullptr;
+		bool bMatch = Needle.IsEmpty();
+		if (!bMatch && Item && Item->Definition)
+		{
+			bMatch = Item->GetDisplayName().ToString().Contains(Needle) || WEItems::GetCategoryText(Item->Definition->Category).ToString().Contains(Needle)
+				|| WEItems::GetConditionText(Item->Condition).ToString().Contains(Needle)
+				|| (Item->Definition->ToolType != EWEToolType::None && WEItems::GetToolText(Item->Definition->ToolType).ToString().Contains(Needle));
+		}
+		SlotWidget->SetRenderOpacity(bMatch ? 1.f : 0.22f);
+	}
+}
+
+FText UWEInventoryWidget::SortModeText(uint8 Mode)
+{
+	switch (Mode)
+	{
+	case 1:  return LOCTEXT("SortName", "Nach Name");
+	case 2:  return LOCTEXT("SortValue", "Nach Wert");
+	case 3:  return LOCTEXT("SortWeight", "Nach Gewicht");
+	default: return LOCTEXT("SortCategory", "Nach Art");
+	}
+}
+
+void UWEInventoryWidget::HandleSearchPlayer(const FText& Value)
+{
+	PlayerPanel.Filter = Value.ToString();
+	ApplyFilter(PlayerPanel);
+}
+
+void UWEInventoryWidget::HandleSearchContainer(const FText& Value)
+{
+	ContainerPanel.Filter = Value.ToString();
+	ApplyFilter(ContainerPanel);
+}
+
+void UWEInventoryWidget::HandleSortModePlayer()
+{
+	PlayerPanel.SortMode = (PlayerPanel.SortMode + 1) % 4;
+	if (PlayerPanel.SortLabel) { PlayerPanel.SortLabel->SetText(SortModeText(PlayerPanel.SortMode)); }
+	Play(this, ESound::Toggle, 0.35f);
+}
+
+void UWEInventoryWidget::HandleSortModeContainer()
+{
+	ContainerPanel.SortMode = (ContainerPanel.SortMode + 1) % 4;
+	if (ContainerPanel.SortLabel) { ContainerPanel.SortLabel->SetText(SortModeText(ContainerPanel.SortMode)); }
+	Play(this, ESound::Toggle, 0.35f);
 }
 
 void UWEInventoryWidget::Setup(UWEInventoryComponent* PlayerInventory, UWEInventoryComponent* Container)
@@ -350,6 +417,12 @@ void UWEInventoryWidget::RefreshDetails()
 	RowLine(LOCTEXT("RowQty", "Menge"), FText::AsNumber(Item->Quantity));
 	RowLine(LOCTEXT("RowWeight", "Gewicht"), AWEPickupItem::FormatWeight(Item->GetTotalWeightKg()));
 	RowLine(LOCTEXT("RowValue", "Schätzwert"), MoneyText(Item->GetEstimatedValue()), Col::Money);
+	if (Def->HasAssembly())
+	{
+		// Phase 19: how fast the PC is (only known once it works and is tested).
+		const int32 Score = WEBenchmark::Score(*Item);
+		RowLine(LOCTEXT("RowBench", "Benchmark"), Score > 0 ? FText::Format(LOCTEXT("BenchPts", "{0} Punkte"), FText::AsNumber(Score)) : LOCTEXT("BenchUnknown", "unbekannt (erst testen)"), Score > 0 ? Col::Info : Col::TextMuted);
+	}
 	if (Def->ToolType != EWEToolType::None)
 	{
 		RowLine(LOCTEXT("RowTool", "Werkzeug"), FText::Format(LOCTEXT("ToolSpeed", "{0} · Tempo ×{1}"), WEItems::GetToolText(Def->ToolType),
@@ -506,7 +579,7 @@ void UWEInventoryWidget::HandleSortPlayer()
 {
 	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
 	{
-		PC->RequestSort(PlayerPanel.Inventory);
+		PC->RequestSort(PlayerPanel.Inventory, PlayerPanel.SortMode);
 	}
 }
 
@@ -522,7 +595,7 @@ void UWEInventoryWidget::HandleSortContainer()
 {
 	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
 	{
-		PC->RequestSort(ContainerPanel.Inventory);
+		PC->RequestSort(ContainerPanel.Inventory, ContainerPanel.SortMode);
 	}
 }
 

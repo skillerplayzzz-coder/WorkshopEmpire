@@ -105,6 +105,10 @@ public:
 	bool AcceptsBulky() const { return bAcceptsBulky; }
 	float GetMaxWeightKg() const { return MaxWeightKg; }
 	float GetTotalWeightKg() const;
+	/** Weight of one unit of Item here (Phase 19: tools weigh nothing in a player inventory with the tool bag). */
+	float UnitWeightOf(const FWEItemInstance& Item) const;
+	void SetToolsWeightless(bool bInWeightless) { bToolsWeightless = bInWeightless; }
+	bool AreToolsWeightless() const { return bToolsWeightless; }
 	const FText& GetDisplayName() const { return DisplayName; }
 
 	/** Setup (constructors / before play). */
@@ -142,7 +146,7 @@ public:
 	int32 TransferAllTo(UWEInventoryComponent* Target);
 
 	/** Merges stacks and orders by category, name, condition. */
-	void SortItems();
+	void SortItems(uint8 Mode = 0);
 
 	/** Phase 17.5: sets or clears protection marks (FWEItemInstance::EMarks) on the stack in Slot. Server only. */
 	EWEInventoryResult SetSlotMarks(int32 Slot, uint8 Mask, bool bSet);
@@ -172,6 +176,7 @@ protected:
 	float MaxWeightKg = 25.f;
 
 	bool bAcceptsBulky = false;
+	bool bToolsWeightless = false;
 
 	UPROPERTY(EditAnywhere, Category = "Inventory")
 	FText DisplayName;

@@ -28,6 +28,7 @@
 #include "Workshop/WEWorkPlan.h"
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Workshop/WEAssemblyView.h"
+#include "Workshop/WEBenchmark.h"
 
 #define LOCTEXT_NAMESPACE "WEWorkbench"
 
@@ -338,7 +339,11 @@ bool AWEWorkbench::CanStartStep(const AWECharacter* Character, FText& OutReason,
 		OutReason = LOCTEXT("HandsFull", "Hände sind voll");
 		return false;
 	}
-	if (PlacedItem->GetItem().IsCustomerItem())
+	// Customer devices are not taken apart - except a PC brought in for an upgrade (its parts may be swapped, not the case).
+	const bool bUpgradeOrder = PlacedItem->GetItem().Repair.HasFlag(FWERepairState::CustomerUpgrade);
+	const UWEAssemblyDefinition* PartLayout = GetAssembly();
+	const int32 PartIndex = Part != INDEX_NONE ? Part : GetNextStepIndex();
+	if (PlacedItem->GetItem().IsCustomerItem() && (!bUpgradeOrder || !PartLayout || !PartLayout->Parts.IsValidIndex(PartIndex) || PartLayout->Parts[PartIndex].bShell))
 	{
 		OutReason = LOCTEXT("CustomerNoDisassembly", "Kundengerät – nicht zerlegen");
 		return false;
@@ -463,6 +468,7 @@ void AWEWorkbench::CompleteActiveStep()
 		bFinished = Assembly->IsComplete(Source.RemovedParts);
 		// The part took its state with it: a fault it had (or a part that was put in later) is no longer in the device.
 		Source.SetInstalledCondition(Work.StepIndex, INDEX_NONE);
+		Source.SetPartVariant(Work.StepIndex, 0);
 		if (const UWERepairDefinition* Repair = Source.Definition->CanBeRepaired() ? Source.Definition->Repair.Get() : nullptr)
 		{
 			for (const FWEDisassemblyOutput& Out : Step->Outputs)
@@ -524,16 +530,23 @@ TArray<FWEItemInstance> AWEWorkbench::GenerateOutputs(const FWEDisassemblyStep& 
 			continue;
 		}
 		int32 Quantity = Random.RandRange(FMath::Min(Output.MinQuantity, Output.MaxQuantity), FMath::Max(Output.MinQuantity, Output.MaxQuantity));
-		// A part that was put in during reassembly comes out the way it went in.
+		// A part that was put in during reassembly comes out the way it went in (the better variant too).
 		const int32 InstalledCondition = Output.bInheritCondition ? Source.GetInstalledCondition(Part) : INDEX_NONE;
 		if (InstalledCondition != INDEX_NONE)
 		{
+			UWEItemDefinition* OutItem = Output.Item;
+			const UWEAssemblyDefinition* Assembly = Source.Definition->HasAssembly() ? Source.Definition->Assembly.Get() : nullptr;
+			const int32 Variant = Source.GetPartVariant(Part);
+			if (Assembly && Assembly->Parts.IsValidIndex(Part) && Variant > 0 && Assembly->Parts[Part].Alternatives.IsValidIndex(Variant - 1) && Assembly->Parts[Part].Alternatives[Variant - 1])
+			{
+				OutItem = Assembly->Parts[Part].Alternatives[Variant - 1];
+			}
 			const EWEItemCondition Condition = static_cast<EWEItemCondition>(FMath::Clamp(InstalledCondition, 0, static_cast<int32>(EWEItemCondition::Scrap)));
 			const uint8 Quality = static_cast<uint8>(FMath::Clamp(static_cast<int32>(Source.Quality) + Random.RandRange(-5, 5), 0, 100));
 			for (int32 Remaining = Quantity; Remaining > 0;)
 			{
-				const int32 Count = FMath::Min(Remaining, Output.Item->GetMaxStackSize());
-				Result.Add(FWEItemInstance::Make(Output.Item, Count, Condition, Quality));
+				const int32 Count = FMath::Min(Remaining, OutItem->GetMaxStackSize());
+				Result.Add(FWEItemInstance::Make(OutItem, Count, Condition, Quality));
 				Remaining -= Count;
 			}
 			continue;
@@ -687,6 +700,14 @@ TArray<FWEInstallNeed> AWEWorkbench::GetInstallNeeds(const UWEItemDefinition* De
 			Need.Item = Out.Item;
 			Need.Count = FMath::Max(1, Out.MinQuantity);
 			Need.bPart = Out.bInheritCondition;
+			Need.Accepts.Add(Out.Item);
+			if (Need.bPart)
+			{
+				for (const TObjectPtr<UWEItemDefinition>& Alt : Assembly->Parts[Part].Alternatives)
+				{
+					Need.Accepts.Add(Alt.Get());
+				}
+			}
 		}
 	}
 	return Needs;
@@ -701,7 +722,7 @@ bool AWEWorkbench::IsReinstallable(int32 Part) const
 bool AWEWorkbench::HasInstallablePart() const
 {
 	const UWEAssemblyDefinition* Assembly = GetAssembly();
-	if (!Assembly || PlacedItem->GetItem().IsCustomerItem())
+	if (!Assembly || (PlacedItem->GetItem().IsCustomerItem() && !PlacedItem->GetItem().Repair.HasFlag(FWERepairState::CustomerUpgrade)))
 	{
 		return false;
 	}
@@ -763,6 +784,20 @@ bool AWEWorkbench::FindInstallItems(const AWECharacter* Character, const UWEInve
 	return Found >= Count;
 }
 
+int32 AWEWorkbench::PickInstallVariant(const AWECharacter* Character, const UWEInventoryComponent* InStorage, const FWEInstallNeed& Need)
+{
+	// The best variant there is enough of goes in (a better graphics card before the old one).
+	for (int32 v = Need.Accepts.Num() - 1; v >= 0; --v)
+	{
+		TArray<TPair<UWEInventoryComponent*, int32>> Slots;
+		if (Need.Accepts[v] && FindInstallItems(Character, InStorage, Need.Accepts[v], Need.Count, Slots))
+		{
+			return v;
+		}
+	}
+	return INDEX_NONE;
+}
+
 bool AWEWorkbench::CanStartInstall(const AWECharacter* Character, FText& OutReason, int32 Part) const
 {
 	const UWEAssemblyDefinition* Assembly = GetAssembly();
@@ -772,7 +807,7 @@ bool AWEWorkbench::CanStartInstall(const AWECharacter* Character, FText& OutReas
 		return false;
 	}
 	const FWEItemInstance& Item = PlacedItem->GetItem();
-	if (Item.IsCustomerItem())
+	if (Item.IsCustomerItem() && !Item.Repair.HasFlag(FWERepairState::CustomerUpgrade))
 	{
 		OutReason = LOCTEXT("CustomerNoBuild", "Kundengerät – nicht umbauen");
 		return false;
@@ -812,10 +847,10 @@ bool AWEWorkbench::CanStartInstall(const AWECharacter* Character, FText& OutReas
 	TArray<FString> Missing;
 	for (const FWEInstallNeed& Need : Needs)
 	{
-		TArray<TPair<UWEInventoryComponent*, int32>> Slots;
-		if (!FindInstallItems(Character, Storage, Need.Item, Need.Count, Slots))
+		if (PickInstallVariant(Character, Storage, Need) == INDEX_NONE)
 		{
-			Missing.Add(Need.Count > 1 ? FString::Printf(TEXT("%d× %s"), Need.Count, *Need.Item->DisplayName.ToString()) : Need.Item->DisplayName.ToString());
+			const FString Name = Need.Accepts.Num() > 1 ? FString::Printf(TEXT("%s (oder besser)"), *Need.Item->DisplayName.ToString()) : Need.Item->DisplayName.ToString();
+			Missing.Add(Need.Count > 1 ? FString::Printf(TEXT("%d× %s"), Need.Count, *Name) : Name);
 		}
 	}
 	if (Missing.Num() > 0)
@@ -866,24 +901,32 @@ void AWEWorkbench::CompleteInstall(AWECharacter* Worker)
 	FWEItemInstance Item = PlacedItem->GetItem();
 	const TArray<FWEInstallNeed> Needs = GetInstallNeeds(Item.Definition, Part);
 	// Everything has to be there (it may have been moved away while working); then it is used up.
+	TArray<int32> Variants;
 	for (const FWEInstallNeed& Need : Needs)
 	{
-		TArray<TPair<UWEInventoryComponent*, int32>> Slots;
-		if (!FindInstallItems(Worker, Storage, Need.Item, Need.Count, Slots))
+		const int32 Variant = PickInstallVariant(Worker, Storage, Need);
+		if (Variant == INDEX_NONE)
 		{
 			ShowMessage(Worker, FText::Format(LOCTEXT("InstallGone", "Fehlt: {0}"), Need.Item->DisplayName));
 			RaiseEvent(EWEWorkbenchEvent::StepCancelled);
 			return;
 		}
+		Variants.Add(Variant);
 	}
 	int32 Worst = INDEX_NONE;
 	int32 QualitySum = 0;
 	int32 Units = 0;
+	int32 PartVariant = 0;
 	FText PartName;
-	for (const FWEInstallNeed& Need : Needs)
+	for (int32 n = 0; n < Needs.Num(); ++n)
 	{
+		const FWEInstallNeed& Need = Needs[n];
+		if (Need.bPart)
+		{
+			PartVariant = Variants[n];
+		}
 		TArray<TPair<UWEInventoryComponent*, int32>> Slots;
-		FindInstallItems(Worker, Storage, Need.Item, Need.Count, Slots);
+		FindInstallItems(Worker, Storage, Need.Accepts[Variants[n]], Need.Count, Slots);
 		int32 Left = Need.Count;
 		for (const TPair<UWEInventoryComponent*, int32>& Slot : Slots)
 		{
@@ -909,6 +952,7 @@ void AWEWorkbench::CompleteInstall(AWECharacter* Worker)
 	if (Units > 0)
 	{
 		Item.SetInstalledCondition(Part, Worst);
+		Item.SetPartVariant(Part, PartVariant);
 		// The device's quality follows its parts.
 		const int32 Inside = FMath::Max(1, Assembly->Parts.Num() - FMath::CountBits(static_cast<uint32>(Item.RemovedParts)) - 1);
 		Item.Quality = static_cast<uint8>(FMath::Clamp((Item.Quality * Inside + QualitySum / Units) / (Inside + 1), 0, 100));
@@ -1489,6 +1533,11 @@ void AWEWorkbench::CompleteRepairStep(AWECharacter* Worker)
 			Message = FText::Format(bRebuilt ? LOCTEXT("TestPassedBuilt", "Funktionstest bestanden: {0} läuft ({1}, Qualität {2} %)")
 				: LOCTEXT("TestPassed", "Funktionstest bestanden: {0} läuft wieder ({1}, Qualität {2} %)"),
 				Name, WEItems::GetConditionText(Item.Condition), FText::AsNumber(Item.Quality));
+			if (const int32 Bench = WEBenchmark::Score(Item); Bench > 0)
+			{
+				// Phase 19: a PC also shows how fast it is.
+				Message = FText::Format(LOCTEXT("TestBenchmark", "{0} · Benchmark {1} Punkte"), Message, FText::AsNumber(Bench));
+			}
 			UE_LOG(LogWENet, Log, TEXT("%s: %s %s"), *GetName(), *Name.ToString(), bRebuilt ? TEXT("rebuilt and tested") : TEXT("repaired"));
 			if (bWasBroken || !bRebuilt)
 			{

@@ -1,4 +1,7 @@
 #include "Economy/WETraderTerminal.h"
+#include "World/WEPlaceholderProp.h"
+#include "Machines/WEMachine.h"
+#include "Logistics/WEVehicle.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Economy/WEAuctionComponent.h"
@@ -438,6 +441,25 @@ FText AWETraderTerminal::ProtectedText(const FWEItemInstance& Item)
 	return FText::Format(LOCTEXT("ProtTool", "{0} ist deine Ausrüstung – erst zum Verkauf freigeben"), Item.GetDisplayName());
 }
 
+bool AWETraderTerminal::IsWorkshopStorage(const UWEInventoryComponent* Inventory)
+{
+	const AWEPlaceholderProp* Prop = Inventory ? Cast<AWEPlaceholderProp>(Inventory->GetOwner()) : nullptr;
+	// Furniture storage only: not the van cargo (tours sell it), not machine buffers.
+	return Prop && Prop->HasStorage() && Prop->GetStorage() == Inventory && !Prop->IsHidden() && !Prop->IsA<AWEVehicle>() && !Prop->IsA<AWEMachine>();
+}
+
+TArray<UWEInventoryComponent*> AWETraderTerminal::GetWorkshopStorages() const
+{
+	TArray<UWEInventoryComponent*> Result;
+	for (TActorIterator<AWEPlaceholderProp> It(GetWorld()); It; ++It)
+	{
+		if (IsWorkshopStorage(It->GetStorage()))
+		{
+			Result.Add(It->GetStorage());
+		}
+	}
+	return Result;
+}
 EWETradeResult AWETraderTerminal::SellFromInventory(AWECharacter* Character, UWEInventoryComponent* Inventory, int32 Slot, int32 Quantity, const FGuid& RequestId)
 {
 	UWECompanyComponent* Company = UWECompanyComponent::Get(this);
@@ -449,7 +471,9 @@ EWETradeResult AWETraderTerminal::SellFromInventory(AWECharacter* Character, UWE
 	{
 		return EWETradeResult::OutOfReach;
 	}
-	const FWEItemInstance* Item = Inventory && Inventory->CanBeAccessedBy(Character) ? Inventory->GetItemInSlot(Slot) : nullptr;
+	// Phase 19: goods in the workshop's own storages (bench, shelves) can be sold from the PC without carrying them over.
+	const bool bAccess = Inventory && (Inventory->CanBeAccessedBy(Character) || IsWorkshopStorage(Inventory));
+	const FWEItemInstance* Item = bAccess ? Inventory->GetItemInSlot(Slot) : nullptr;
 	if (!Item)
 	{
 		return EWETradeResult::InvalidItem;

@@ -28,6 +28,8 @@ struct FWEMoney;
  * Widgets use these helpers instead of picking colours and fonts on their own, so the game looks the same
  * everywhere and can be restyled in one place.
  */
+class UEditableTextBox;
+
 namespace WEUI
 {
 	/** Colours (sRGB hex, converted to linear). */
@@ -130,6 +132,8 @@ namespace WEUI
 	WORKSHOPEMPIRE_API UWidget* KeyCap(UWidgetTree* Tree, const FText& Key, int32 Size = 12);
 	/** Coloured chip with a short label ("Selten", "Gesperrt"). */
 	WORKSHOPEMPIRE_API UBorder* Chip(UWidgetTree* Tree, const FText& Label, const FLinearColor& Color, UTextBlock** OutText = nullptr);
+	/** Phase 19: single-line text input in the kit style (search fields, prices). */
+	WORKSHOPEMPIRE_API UEditableTextBox* InputField(UWidgetTree* Tree, const FText& Value, const FText& Hint, int32 FontSize = 13);
 
 	// --- Layout helpers ---------------------------------------------------------------------------------------
 	WORKSHOPEMPIRE_API UVerticalBoxSlot* AddV(UVerticalBox* Box, UWidget* Child, const FMargin& Padding = FMargin(), EHorizontalAlignment HAlign = HAlign_Fill, bool bFill = false);

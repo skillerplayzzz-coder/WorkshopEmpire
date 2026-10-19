@@ -21,7 +21,7 @@ public:
 	UWEInventoryComponent* GetInventory() const { return Inventory; }
 
 	/** Capacity bonus from company upgrades (applied on every machine). */
-	void ApplyInventoryBonus(float ExtraKg);
+	void ApplyInventoryBonus(float ExtraKg, int32 ExtraSlots = 0, bool bToolsWeightless = false);
 
 	/** The listen-server host (shown in the player list; only the host saves and kicks). */
 	bool IsHost() const { return bIsHost; }

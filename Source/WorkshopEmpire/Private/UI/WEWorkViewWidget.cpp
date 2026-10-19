@@ -396,7 +396,8 @@ bool UWEWorkViewWidget::CanDisassemble() const
 {
 	const AWEWorkbench* B = Bench.Get();
 	const AWEPickupItem* Item = B ? B->GetPlacedItem() : nullptr;
-	return Item && Item->GetItem().Definition && Item->GetItem().Definition->CanBeDisassembled() && B->GetNextStep() && !Item->GetItem().IsCustomerItem();
+	return Item && Item->GetItem().Definition && Item->GetItem().Definition->CanBeDisassembled() && B->GetNextStep()
+		&& (!Item->GetItem().IsCustomerItem() || Item->GetItem().Repair.HasFlag(FWERepairState::CustomerUpgrade));
 }
 
 bool UWEWorkViewWidget::CanRepair() const

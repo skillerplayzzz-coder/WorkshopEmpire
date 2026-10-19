@@ -22,6 +22,8 @@ struct WORKSHOPEMPIRE_API FWERepairState
 		Diagnosed    = 1 << 1,
 		Refurbished  = 1 << 2,
 		CustomerItem = 1 << 3,
+		/** Phase 19: a customer's PC for an upgrade order - parts may be swapped. */
+		CustomerUpgrade = 1 << 5,
 		/** Parts were put back into a device with a part layout: it needs a function test before it counts as working. */
 		NeedsTest    = 1 << 4
 	};
@@ -113,6 +115,18 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 			InstalledParts |= int64(FMath::Clamp(ConditionIndex + 1, 0, 15)) << (Part * 4);
 		}
 	}
+	/** Phase 19: which variant sits in each part place (2 bits per part, 0 = the device's normal part, see FWEAssemblyPart::Alternatives). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
+	int32 PartVariants = 0;
+	int32 GetPartVariant(int32 Part) const { return Part >= 0 && Part < MaxInstalledParts ? (PartVariants >> (Part * 2)) & 0x3 : 0; }
+	void SetPartVariant(int32 Part, int32 Variant)
+	{
+		if (Part >= 0 && Part < MaxInstalledParts)
+		{
+			PartVariants &= ~(0x3 << (Part * 2));
+			PartVariants |= (FMath::Clamp(Variant, 0, 3) << (Part * 2));
+		}
+	}
 	/** Some installed part is broken (condition "Beschädigt" or worse). */
 	bool HasBrokenInstalledPart() const;
 	bool NeedsFunctionTest() const { return Repair.HasFlag(FWERepairState::NeedsTest); }
@@ -176,6 +190,6 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	{
 		return Definition == Other.Definition && InstanceId == Other.InstanceId && Quantity == Other.Quantity
 			&& Condition == Other.Condition && Quality == Other.Quality && DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair
-			&& Marks == Other.Marks && RemovedParts == Other.RemovedParts && InstalledParts == Other.InstalledParts;
+			&& Marks == Other.Marks && RemovedParts == Other.RemovedParts && InstalledParts == Other.InstalledParts && PartVariants == Other.PartVariants;
 	}
 };

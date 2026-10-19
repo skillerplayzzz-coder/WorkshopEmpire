@@ -30,6 +30,11 @@ struct FWEInventoryPanel
 	UPROPERTY(Transient) TObjectPtr<UProgressBar> WeightBar;
 	UPROPERTY(Transient) TObjectPtr<UUniformGridPanel> Grid;
 	UPROPERTY(Transient) TArray<TObjectPtr<UWEInventorySlotWidget>> Slots;
+	/** Phase 19: search field (dims what does not match) and the order the sort button uses. */
+	UPROPERTY(Transient) TObjectPtr<class UEditableTextBox> Search;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> SortLabel;
+	FString Filter;
+	uint8 SortMode = 0;
 };
 
 /**
@@ -72,6 +77,12 @@ protected:
 	UFUNCTION() void HandleSortPlayer();
 	UFUNCTION() void HandleSortContainer();
 	UFUNCTION() void HandleTakeAll();
+	UFUNCTION() void HandleSearchPlayer(const FText& Value);
+	UFUNCTION() void HandleSearchContainer(const FText& Value);
+	UFUNCTION() void HandleSortModePlayer();
+	UFUNCTION() void HandleSortModeContainer();
+	void ApplyFilter(FWEInventoryPanel& Panel);
+	static FText SortModeText(uint8 Mode);
 	UFUNCTION() void HandleMenuDrop();
 	UFUNCTION() void HandleMenuDropOne();
 	UFUNCTION() void HandleMenuFavorite();

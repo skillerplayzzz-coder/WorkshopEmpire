@@ -2,6 +2,7 @@
 
 #include "Items/WEItemDefinition.h"
 #include "Workshop/WEAssemblyDefinition.h"
+#include "Workshop/WEBenchmark.h"
 
 FWEItemInstance FWEItemInstance::Make(UWEItemDefinition* InDefinition, int32 InQuantity, EWEItemCondition InCondition, uint8 InQuality)
 {
@@ -19,7 +20,7 @@ bool FWEItemInstance::CanStackWith(const FWEItemInstance& Other) const
 	// Marks must match: a locked stack never swallows loose goods (and the other way round).
 	return Definition && Definition == Other.Definition && Definition->bStackable && Condition == Other.Condition
 		&& DisassemblyStep == Other.DisassemblyStep && Repair == Other.Repair && Marks == Other.Marks && RemovedParts == Other.RemovedParts
-		&& InstalledParts == Other.InstalledParts;
+		&& InstalledParts == Other.InstalledParts && PartVariants == Other.PartVariants;
 }
 
 bool FWEItemInstance::IsPersonalEquipment() const
@@ -57,6 +58,11 @@ FWEMoney FWEItemInstance::GetEstimatedValue() const
 		// A broken complex device is worth much less than a working one (repairing must pay off).
 		// Rebuilt but not tested yet: nobody knows whether it runs, so it sells like a broken one.
 		Factor *= Definition->BrokenValueMultiplier;
+	}
+	if (!IsBroken() && !NeedsFunctionTest())
+	{
+		// Phase 19: better parts (graphics card, processor ...) make a working PC worth more.
+		Factor *= WEBenchmark::ValueFactor(*this);
 	}
 	if (Definition->HasAssembly() && RemovedParts != 0)
 	{
