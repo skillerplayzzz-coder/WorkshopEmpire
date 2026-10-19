@@ -143,6 +143,9 @@ protected:
 	void RunVanShots();
 	/** After Phase 18: PC put back together and tested in the work view, goods carried into and out of the van. */
 	void RunReassemblyShots();
+	/** Phase 19: wardrobe in the creator (-WEShots=P19C), night, customers, classifieds, orders, mirror (-WEShots=P19G). */
+	void RunPhase19Shots();
+	void RunPhase19GameShots();
 	void WorkViewTick();
 	FTimerHandle WorkViewTimer;
 	int32 WorkViewTasks = 0;

@@ -156,7 +156,13 @@ void UWEInventorySlotWidget::Refresh()
 		FallbackIcon->SetColorAndOpacity(Item->Definition->Tint * 0.6f + FLinearColor(0.35f, 0.35f, 0.35f, 1.f));
 		FallbackIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
-	NameText->SetText(Item->GetDisplayName());
+	// Phase 19: long names end in "…" instead of being cut off at both edges (the full name is in the details).
+	FString Short = Item->GetDisplayName().ToString();
+	if (Short.Len() > 12)
+	{
+		Short = Short.Left(11).TrimEnd() + TEXT("…");
+	}
+	NameText->SetText(FText::FromString(Short));
 	QuantityText->SetText(Item->Quantity > 1 ? FText::Format(LOCTEXT("Qty", "{0}×"), FText::AsNumber(Item->Quantity)) : FText::GetEmpty());
 	ConditionStrip->SetBrushColor(WEItems::GetConditionColor(Item->Condition));
 	FavoriteBadge->SetVisibility(Item->IsFavorite() ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);

@@ -282,6 +282,32 @@ void UWEContractComponent::UpdateContracts()
 	}
 }
 
+bool UWEContractComponent::AddWalkInRepair(const FText& Title, const FWEItemInstance& Device, const FWEMoney& Reward, const FString& PlayerName)
+{
+	const int32 Accepted = Contracts.FilterByPredicate([](const FWEContract& C) { return C.State == EWEContractState::Accepted && !C.bIndustrial; }).Num();
+	if (!GetOwner()->HasAuthority() || !Device.Definition || Accepted >= MaxAccepted + 1)
+	{
+		return false;
+	}
+	FWEContract Contract;
+	Contract.Id = FGuid::NewGuid();
+	Contract.Title = Title;
+	Contract.Item = Device.Definition;
+	Contract.Kind = EWEContractKind::Repair;
+	Contract.CustomerCondition = Device.Condition;
+	Contract.MinCondition = EWEItemCondition::Used;
+	Contract.Quantity = 1;
+	Contract.Reward = Reward;
+	Contract.State = EWEContractState::Accepted;
+	Contract.AcceptedBy = PlayerName;
+	Contract.DeliverySeconds = 45.f * 60.f;
+	Contract.ExpiresAt = GetServerTime() + Contract.DeliverySeconds;
+	Contract.CustomerItemId = Device.InstanceId;
+	Contracts.Add(Contract);
+	OnRep_Contracts();
+	return true;
+}
+
 EWEContractResult UWEContractComponent::Accept(const FGuid& Id, const FString& PlayerName)
 {
 	FWEContract* Contract = Contracts.FindByPredicate([&Id](const FWEContract& C) { return C.Id == Id; });

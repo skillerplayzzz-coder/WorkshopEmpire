@@ -145,6 +145,22 @@ float knee = KneePads * front * (abs(zN - 0.29) < 0.03 ? 1.0 : 0.0);
 float pocket = PocketBand * front * ((zN > 0.585 && zN < 0.635 && ax < 13.0) ? 1.0 : 0.0);
 float grain = 0.93 + 0.07 * frac(sin(dot(floor(P.xz * 1.7), float2(12.9898, 78.233))) * 43758.5453);
 float3 c = Skin;
+// Phase 19 faces: stubble on the jaw, freckles on the cheeks and nose, lipstick and blush (EyeZ = eye height).
+float fx = abs(P.x);
+float dz = P.z - EyeZ;
+float hashS = frac(sin(dot(floor(float2(P.x, P.z) * 9.0), float2(12.9898, 78.233))) * 43758.5453);
+float lipD = abs(dz + LipOffset);
+float mouth = (lipD < 1.1 && fx < 2.9) ? 1.0 : 0.0;
+float jaw = smoothstep(-13.9, -12.9, dz) * (1.0 - smoothstep(-5.6, -4.2, dz)) * smoothstep(2.0, 4.5, P.y) * (1.0 - smoothstep(6.6, 8.0, fx));
+float nose = (fx < 2.0 && dz > -5.8) ? 1.0 : 0.0;
+c = lerp(c, StubbleColor, Stubble * jaw * (1.0 - nose) * (1.0 - mouth) * (hashS > 0.4 ? 0.55 : 0.3));
+float hashF = frac(sin(dot(floor(float2(P.x, P.z) * 5.5), float2(39.346, 11.135))) * 24634.6345);
+float cheeks = smoothstep(-5.8, -4.8, dz) * (1.0 - smoothstep(-2.6, -1.6, dz)) * (1.0 - smoothstep(4.6, 5.8, fx)) * smoothstep(4.5, 6.5, P.y);
+c = lerp(c, c * float3(0.68, 0.5, 0.38), Freckles * cheeks * (hashF > 0.87 ? 0.75 : 0.0));
+float lips = (lipD < 0.95 && fx < 2.6 - lipD * 1.1 && P.y > 5.5) ? 1.0 : 0.0;
+c = lerp(c, LipColor, Makeup * lips * 0.8);
+float blush = (fx > 2.8 && fx < 6.4 && dz > -5.2 && dz < -2.0 && P.y > 3.5) ? 1.0 : 0.0;
+c = lerp(c, c * float3(1.12, 0.8, 0.8), Makeup * blush * 0.55);
 c = lerp(c, Pants * (1.0 - 0.35 * knee) * grain, pants);
 c = lerp(c, Shirt * (1.0 - 0.25 * pocket) * grain, shirt);
 float stripe = Stripes * saturate((abs(zN - 0.30) < 0.012 ? 1.0 : 0.0) + (abs(zN - 0.665) < 0.012 ? 1.0 : 0.0)) * saturate(pants + shirt);
@@ -173,7 +189,7 @@ def avatar_material(meshes):
     custom.set_editor_property("code", AVATAR_HLSL)
     custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT4)
     names = ["P", "Skin", "Height", "FrontSign", "ShoeZ", "WaistZ", "NeckZ", "ArmZ", "TorsoX", "SleeveX", "PantsOn", "ShirtOn",
-             "KneePads", "PocketBand", "Stripes", "Zipper", "Pants", "Shirt", "Shoe", "Accent"]
+             "KneePads", "PocketBand", "Stripes", "Zipper", "EyeZ", "Stubble", "Freckles", "Makeup", "LipOffset", "Pants", "Shirt", "Shoe", "Accent", "StubbleColor", "LipColor"]
     inputs = []
     for n in names:
         ci = unreal.CustomInput()
@@ -181,8 +197,10 @@ def avatar_material(meshes):
         inputs.append(ci)
     custom.set_editor_property("inputs", inputs)
     defaults = {"Height": 182.0, "FrontSign": 1.0, "ShoeZ": 0.05, "WaistZ": 0.56, "NeckZ": 0.82, "ArmZ": 0.70, "TorsoX": 20.0, "SleeveX": 34.0,
-                "PantsOn": 1.0, "ShirtOn": 1.0, "KneePads": 0.0, "PocketBand": 0.0, "Stripes": 0.0, "Zipper": 0.0}
-    colors = {"Pants": (0.12, 0.16, 0.28), "Shirt": (0.5, 0.5, 0.5), "Shoe": (0.05, 0.05, 0.05), "Accent": (0.8, 0.8, 0.7)}
+                "PantsOn": 1.0, "ShirtOn": 1.0, "KneePads": 0.0, "PocketBand": 0.0, "Stripes": 0.0, "Zipper": 0.0,
+                "EyeZ": 168.0, "Stubble": 0.0, "Freckles": 0.0, "Makeup": 0.0, "LipOffset": 7.0}
+    colors = {"Pants": (0.12, 0.16, 0.28), "Shirt": (0.5, 0.5, 0.5), "Shoe": (0.05, 0.05, 0.05), "Accent": (0.8, 0.8, 0.7),
+              "StubbleColor": (0.05, 0.035, 0.025), "LipColor": (0.45, 0.06, 0.08)}
     # Pre-skinned positions exist only in the vertex shader: carried over with a vertex interpolator.
     interp = mel.create_material_expression(m, unreal.MaterialExpressionVertexInterpolator, -1200, -600)
     mel.connect_material_expressions(pos, "", interp, "")

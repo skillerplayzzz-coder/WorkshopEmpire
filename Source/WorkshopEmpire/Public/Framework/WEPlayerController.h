@@ -59,7 +59,16 @@ public:
 	void RequestWorkCancel(class AWEWorkbench* Bench);
 
 	/** Any full-screen menu (inventory, trade, pause, work view) open. */
-	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen() || IsPauseMenuOpen() || IsWorkViewOpen(); }
+	bool IsMenuOpen() const { return IsInventoryOpen() || IsTradeOpen() || IsPauseMenuOpen() || IsWorkViewOpen() || IsMirrorOpen(); }
+
+	// --- Phase 19: the mirror (look editor in game) ---------------------------------------------------
+	void OpenMirror();
+	void CloseMirror();
+	bool IsMirrorOpen() const;
+	class UWEMirrorWidget* GetMirrorWidget() const { return MirrorWidget; }
+	/** Server -> owning client: open the look editor at the mirror. */
+	UFUNCTION(Client, Reliable)
+	void ClientOpenMirror();
 
 	// --- Pause menu and session (Phase 13) ----------------------------------------------------------
 
@@ -320,6 +329,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class UWEPauseMenuWidget> PauseMenuWidget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UWEMirrorWidget> MirrorWidget;
 
 	FTimerHandle LeaveTimer;
 };

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.19.0] – 2026-10-19 – Phase 19: Aufträge, Kleinanzeigen, Tag und Nacht, Kleidung, Spiegel
+
+### Neu
+- **PC-Aufträge**: Kunden wollen einen funktionierenden PC mit Mindest-Benchmark oder lassen ihren PC aufrüsten. Neue Teile (Grafikkarte Pro, 8-GB-Speicher, schneller Prozessor, schnelle SSD) passen in dieselben Plätze; nach dem Funktionstest zeigt der PC seine Punkte. Abgelieferte Aufträge bekommen 1–5 Sterne, 4★ +10 %, 5★ +25 %.
+- **Kleinanzeigen** im Ferrit OS: gebrauchte Sachen von Privatleuten kaufen, handeln (Angebot, Gegenangebot), eigene Sachen inserieren und an Käufer verkaufen.
+- **Tag und Nacht**: Sonne zieht über den Himmel, abends Mondlicht und Straßenlaternen, Öffnungszeiten 8–19 Uhr, Uhr im HUD (Sonne/Mond) und im Ferrit OS.
+- **Laufkundschaft** am Tor: bringt Geräte zur Reparatur, will etwas verkaufen oder ein Teil kaufen; [E] annehmen, [Q] wegschicken. Alle Spieler bekommen eine Meldung, wenn jemand wartet.
+- **Echte Kleidung**: Overall, Polo mit Chino, Hoodie mit Kapuze und Jeans, T-Shirt mit Arbeitshose und Knieschonern, Jacke mit Stehkragen und Hose; Sneaker, Arbeitsschuhe, Stiefel – für Mann und Frau.
+- **Mehr Gesichter**: Schnurrbart, Kinnbart, Dreitagebart, Sommersprossen, Make-up (8 Männer-, 5 Frauengesichter).
+- **Spiegel** in der Werkstatt: du siehst dich selbst und änderst dort mit [E] Kleidung, Gesicht und Frisur – die Mitspieler sehen es sofort.
+- **Komfort**: Suchen und Sortieren in jedem Lager, Verkaufen direkt aus Werkbank- und Regallagern, Upgrade „Werkzeugtasche“ (+5 Plätze, Werkzeuge wiegen nichts).
+
+### Geändert
+- Gabelstapler mit eigenem Modell (Gegengewicht, Sitz, Lenkrad, Schutzdach, Hubmast, Gabeln) und neuem Stellplatz.
+- Oberfläche: weiche Schatten und runde Ecken bei Inventar, Menüs, Pause und Spiegel; Zahlen deutsch geschrieben („1.550“, „2,5 kg“).
+
+### Behoben
+- Ferrit OS zeigte die Uhrzeit des echten Computers.
+- Gabelstapler stand im Werkzeugkasten und im Verteilerkasten.
+- Lange Namen in Inventarfeldern wurden an beiden Rändern abgeschnitten (jetzt „…“).
+- Beschriftungen in schmalen Einstellungszeilen liefen unter die Pfeile.
+
+### Technisch
+- Speicherstand Version 17 (Teile-Varianten, Bewertungen, Kleinanzeigen, Uhrzeit); 129 Automation-Tests; neue Bilderläufe `-WEShots=P19C` und `P19G`.
+- Git LFS für große Dateien, lokales Backup-Repository.
 ## [0.18.1] – 2026-10-18 – Nachbesserungen nach Phase 18
 
 ### Neu

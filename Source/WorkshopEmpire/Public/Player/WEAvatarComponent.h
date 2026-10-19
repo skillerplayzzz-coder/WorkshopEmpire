@@ -7,6 +7,7 @@
 
 class UMaterialInstanceDynamic;
 class UPoseableMeshComponent;
+class USkeletalMesh;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
 
@@ -39,6 +40,8 @@ public:
 
 	/** Tests: number of bones carried over from the driver. */
 	int32 GetMappedBoneCount() const { return Map.Num(); }
+	/** Tests and shots: the garments worn (piece names). */
+	TArray<FName> GetGarments() const;
 
 protected:
 	void BuildBody();
@@ -46,11 +49,15 @@ protected:
 	void Retarget();
 	void ApplyMaterials();
 	USkeletalMeshComponent* MakeFollower(const TCHAR* MeshName);
+	USkeletalMeshComponent* MakeFollower(USkeletalMesh* Mesh);
+	/** A garment of Tools/Assets/build_clothing.py (tagged with its piece name). */
+	USkeletalMeshComponent* MakeClothing(const TCHAR* Piece);
 	UStaticMeshComponent* MakeAccessory(const TCHAR* Name);
 
 	UPROPERTY(Transient) TObjectPtr<USkeletalMeshComponent> Driver;
 	UPROPERTY(Transient) TObjectPtr<UPoseableMeshComponent> Body;
 	UPROPERTY(Transient) TArray<TObjectPtr<USceneComponent>> Parts;
+	UPROPERTY(Transient) TArray<TObjectPtr<USkeletalMeshComponent>> Clothes;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInstanceDynamic> BodyMaterial;
 	UPROPERTY(Transient) TArray<TObjectPtr<UMaterialInstanceDynamic>> HairMaterials;
 

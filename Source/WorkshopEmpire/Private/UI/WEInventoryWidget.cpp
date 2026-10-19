@@ -91,10 +91,10 @@ void UWEInventoryWidget::NativeOnInitialized()
 	AddV(Details, DetailRows, FMargin(0.f, 8.f, 0.f, 0.f));
 	DetailProtection = Text(WidgetTree, FText::GetEmpty(), 12, Col::Info, EFont::Strong, 260.f);
 	AddV(Details, DetailProtection, FMargin(0.f, 10.f, 0.f, 0.f));
-	UBorder* DetailsFrame = Box(WidgetTree, Col::Panel, FMargin(16.f, 14.f), Col::Line, 2.f);
+	UBorder* DetailsFrame = WindowPanel(WidgetTree, FMargin(16.f, 14.f), Col::Panel);
 	DetailsFrame->SetContent(Sized(WidgetTree, Details, 270.f, 0.f));
-	DetailsCard = DetailsFrame;
-	AddH(Row, DetailsFrame, FMargin(10.f, 0.f, 0.f, 0.f), false, VAlign_Fill);
+	DetailsCard = Shadowed(WidgetTree, DetailsFrame, 12.f);
+	AddH(Row, DetailsCard, FMargin(-6.f, 0.f, 0.f, 0.f), false, VAlign_Fill);
 
 	// Key hints.
 	UHorizontalBox* Hints = WidgetTree->ConstructWidget<UHorizontalBox>();
@@ -156,8 +156,8 @@ void UWEInventoryWidget::BuildPanel(FWEInventoryPanel& Panel, UWEInventoryCompon
 	Panel.Inventory = Inventory;
 	Panel.Slots.Reset();
 
-	UBorder* Frame = Box(WidgetTree, Col::Panel, FMargin(16.f, 14.f), Col::Line, 2.f);
-	AddH(Columns_Box, Frame, FMargin(0.f, 0.f, 10.f, 0.f), false, VAlign_Fill);
+	UBorder* Frame = WindowPanel(WidgetTree, FMargin(16.f, 14.f), Col::Panel);
+	AddH(Columns_Box, Shadowed(WidgetTree, Frame, 12.f), FMargin(0.f, 0.f, -6.f, 0.f), false, VAlign_Fill);
 	Panel.Root = WidgetTree->ConstructWidget<UVerticalBox>();
 	Frame->SetContent(Panel.Root);
 
@@ -421,7 +421,7 @@ void UWEInventoryWidget::RefreshDetails()
 	{
 		// Phase 19: how fast the PC is (only known once it works and is tested).
 		const int32 Score = WEBenchmark::Score(*Item);
-		RowLine(LOCTEXT("RowBench", "Benchmark"), Score > 0 ? FText::Format(LOCTEXT("BenchPts", "{0} Punkte"), FText::AsNumber(Score)) : LOCTEXT("BenchUnknown", "unbekannt (erst testen)"), Score > 0 ? Col::Info : Col::TextMuted);
+		RowLine(LOCTEXT("RowBench", "Benchmark"), Score > 0 ? FText::Format(LOCTEXT("BenchPts", "{0} Punkte"), WEBenchmark::PointsText(Score)) : LOCTEXT("BenchUnknown", "unbekannt (erst testen)"), Score > 0 ? Col::Info : Col::TextMuted);
 	}
 	if (Def->ToolType != EWEToolType::None)
 	{

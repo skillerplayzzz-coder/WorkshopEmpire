@@ -129,3 +129,13 @@ namespace WEBenchmark
 		return Ratio < 1.f ? 1 : Ratio < 1.1f ? 3 : Ratio < 1.3f ? 4 : 5;
 	}
 }
+
+FText WEBenchmark::PointsText(int32 Points)
+{
+	FString Digits = FString::FromInt(FMath::Abs(Points));
+	for (int32 i = Digits.Len() - 3; i > 0; i -= 3)
+	{
+		Digits.InsertAt(i, TEXT('.'));
+	}
+	return FText::FromString(Points < 0 ? TEXT("-") + Digits : Digits);
+}

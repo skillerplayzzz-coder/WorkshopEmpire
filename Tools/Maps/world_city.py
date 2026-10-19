@@ -136,6 +136,7 @@ def lamp(x, y, toward_yaw, lights=True):
         lc.set_editor_property("outer_cone_angle", 66.0)
         lc.set_light_color(unreal.LinearColor(1.0, 0.72, 0.42, 1.0))
         lc.set_editor_property("cast_shadows", False)
+        l.set_editor_property("tags", ["StreetLight"])  # Phase 19: on from dusk to dawn
 
 
 # --- Borders --------------------------------------------------------------------------------------------------
@@ -292,6 +293,7 @@ def gas_station():
         lc.set_intensity(4000.0)
         lc.set_attenuation_radius(900.0)
         lc.set_editor_property("cast_shadows", False)
+        light.set_editor_property("tags", ["StreetLight"])  # Phase 19: on from dusk to dawn
     # Shop with a glass front, an ice box and an air pump; the price sign at the corner.
     wn.facade_building("GasShop", 8100.0, 9050.0, 500.0, 700.0, 380.0, "PaintedBrick", -1.0, shutters=0)
     box(None, (8575.0, 498.0, 0.0), (700.0, 6.0, 240.0), "Glass", collide=False)

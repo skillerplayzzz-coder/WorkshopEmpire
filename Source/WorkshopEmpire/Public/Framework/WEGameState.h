@@ -40,6 +40,8 @@ public:
 	class UWEWorkshopStyleComponent* GetWorkshopStyle() const { return WorkshopStyle; }
 	/** Phase 19: Ferrit OS classifieds. */
 	class UWEClassifiedsComponent* GetClassifieds() const { return Classifieds; }
+	/** Phase 19: time of day and opening hours. */
+	class UWEDayNightComponent* GetDayNight() const { return DayNight; }
 
 protected:
 	/** Phase 17.5: tutorial and personalised look of the buildings. */
@@ -51,6 +53,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Classifieds")
 	TObjectPtr<class UWEClassifiedsComponent> Classifieds;
+
+	UPROPERTY(VisibleAnywhere, Category = "DayNight")
+	TObjectPtr<class UWEDayNightComponent> DayNight;
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWECompanyComponent> Company;

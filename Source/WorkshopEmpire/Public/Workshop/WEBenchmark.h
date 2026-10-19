@@ -30,4 +30,7 @@ namespace WEBenchmark
 
 	/** 1-5 stars for a delivered PC: how far it beats the customer's minimum. */
 	WORKSHOPEMPIRE_API int32 StarsFor(int32 InScore, int32 Required);
+
+	/** "1.550" - points written the German way, whatever the system language. */
+	WORKSHOPEMPIRE_API FText PointsText(int32 Points);
 }

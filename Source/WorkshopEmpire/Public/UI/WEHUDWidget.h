@@ -90,6 +90,9 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UWidget> PowerRow;
 	UPROPERTY(Transient) TObjectPtr<UProgressBar> PowerBar;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> PowerText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> ClockText;
+	UPROPERTY(Transient) TObjectPtr<UImage> ClockIcon;
+	int8 bClockShowsDay = -1;
 
 	// Objective card (top left)
 	UPROPERTY(Transient) TObjectPtr<UWidget> ObjectiveCard;

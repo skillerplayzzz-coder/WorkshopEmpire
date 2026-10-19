@@ -2,8 +2,7 @@
 
 ## Aktuelle Phase
 
-**Phase 17.5 – Visual Overhaul, Gameplay Polish & Immersion: abgeschlossen, wartet auf Mikes Freigabe.**
-Phase 18 wurde nicht begonnen.
+**Phase 19 – Verbesserungen nach Mikes Auswahl (0.19.0): abgeschlossen, wartet auf Mikes Praxistest.**
 
 ## Abgeschlossen
 
@@ -167,19 +166,28 @@ Phase 18 wurde nicht begonnen.
 - Sounds: alle selbst erzeugten Sounds ersetzt (15 Pixabay-Aufnahmen, 5 Kenney-Sounds, Quellen in `Docs/ASSET_SOURCES.md`)
 - Geparkte Autos: Kenney Car Kit (CC0, ohne Marken) statt eigener Klötzchen-Modelle
 
+### Phase 19 – Verbesserungen nach Mikes Auswahl (0.19.0, 2026-10-19)
+- PC-Aufträge: PCs bauen oder aufrüsten mit Mindest-Benchmark; bessere Teile (Grafikkarte Pro, 8-GB-Riegel, schneller Prozessor, schnelle SSD) passen in dieselben Plätze; Sterne-Bewertung mit Bonus
+- Kleinanzeigen im Ferrit OS: von Privatleuten kaufen (handeln), eigene Sachen inserieren
+- Tag und Nacht mit Öffnungszeiten, Mondlicht und Straßenlaternen; Laufkundschaft am Tor (Reparatur, Ankauf, Verkauf)
+- Figur: echte Kleidungsmodelle (12 je Körper), 8 Männer- und 5 Frauengesichter, Spiegel in der Werkstatt zum Umziehen
+- Komfort: Suchen und Sortieren in Lagern, Verkaufen direkt aus den Werkstattlagern, Werkzeugtasche
+- Gabelstapler als echtes Modell, weg aus der Ecke
+- Oberfläche: Schatten, runde Ecken, Sonne/Mond-Uhr, Spielzeit im Ferrit OS, deutsche Zahlen, kürzere Namen in Inventarfeldern
+- Sicherung: Git LFS für große Dateien, lokales Backup-Repository `G:\Backups\WorkshopEmpire.git`
 ## Offene Aufgaben
 
 - Mike: Praxistest Phase 18 und 0.18.1 (PC zerlegen und wieder zusammenbauen, Funktionstest, Transporter beladen, neue Sounds anhören, Autos)
-- Noch nicht umgesetzt (Phase 18 Wunschliste): Spiegel in der Werkstatt; echte Kleidungsmodelle (die Kleidung ist auf den Körper gemalt, kein eigenes Kleidungsnetz, keine Kapuze); nur ein Gesicht je Geschlecht (Varianten über Brauen, Bart, Hautton)
+- Mike: Praxistest Phase 19 (PC-Aufträge, Kleinanzeigen, Tag/Nacht, Laufkundschaft, Kleidung und Spiegel)
+- Mike: für ein Online-Backup ein GitHub-Konto bzw. privates Repository nennen; Git LFS auch für Visual Studio installieren (git-lfs.com), damit VS große Dateien pushen kann
 - Sounds: ausgewählt nach Titel, Länge und Pegel; im Spiel noch nicht angehört (kein Audio im Testlauf). Was nicht passt, wird auf Hinweis getauscht
 
 - Mike: Praxistest Phase 17.5 (Arbeitsansicht – fühlt sich das Schrauben gut an? Ferrit OS, Gestaltung, Tutorial, Koop an einer Werkbank)
 - Mike: Praxistest Phase 16 (fühlt sich das Tempo richtig an? die Simulation ersetzt keinen echten Spieler) und weiterhin Phase 15 (Klang) sowie Steam mit einem Freund
 - Mike: eigene Steam App ID vor einer Veröffentlichung (GAME_DESIGN.md §7)
 - Mike: offene Produktentscheidungen in GAME_DESIGN.md §7 (u. a. persönliches Konto im Koop – bisher nur Firmenkonto umgesetzt)
-- Git LFS ist nicht installiert; seit Phase 15 liegen ca. 760 MB Content im normalen Git. Vor einem Remote-Repository LFS einrichten
-- Später: Remote-Repository für Backups
-- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Spielerinventar nur an den Besitzer replizieren; Suchfeld für große Lager; Werkzeugtasche; Verkaufen direkt aus Werkbank-/Regallager; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, mehrere Standorte; Grafik: eigene Maschinenmodelle statt lackierter Blöcke, Hängelampen in den Hallen, UI-Klickgeräusche und Aufprallgeräusche für Gegenstände (Kenney-Sounds sind schon importiert), Arbeitskleidung statt Mannequin-Optik
+- Git LFS gilt für neue große Dateien seit 0.19.0; ältere Commits bleiben unverändert (kein Umschreiben der Historie)
+- Vorgemerkt: Sprint als `FSavedMove`-Flag; Physics Handle für schwere Objekte; Spielerinventar nur an den Besitzer replizieren; Reparatur weiterer Geräte (Motor, Haushaltsgeräte) mit eigenen Ersatzteilen; schwere Auktionsposten (Motoren) jetzt mit Sackkarre denkbar; Einrasten an Wänden im Baumodus; Stromausfall/Sicherung statt nur Warten; Förderbänder: Verteiler/Weiche, Bänder an Wänden entlang, Nachbarsuche cachen; Mitarbeiter: weitere Rollen (Reparaturtechniker, Produktionsarbeiter, Werkstattleiter), Mitarbeiter fahren den Gabelstapler, kleiner/großer LKW; Expansion: mehrere Standorte, Wagen sichtbar zum Hallentor, mehrere Standorte; Grafik: eigene Maschinenmodelle statt lackierter Blöcke, Hängelampen in den Hallen, UI-Klickgeräusche und Aufprallgeräusche für Gegenstände (Kenney-Sounds sind schon importiert)
 
 ## Bekannte Fehler
 
@@ -191,4 +199,4 @@ Phase 18 – Release-Vorbereitung (laut Spezifikation), erst nach Mikes Freigabe
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-19 (0.19.0): 129/129 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.

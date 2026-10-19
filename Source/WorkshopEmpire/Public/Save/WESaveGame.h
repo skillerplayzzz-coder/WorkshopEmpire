@@ -308,6 +308,9 @@ public:
 	/** Since save version 17: classifieds the company bought (on the way) and its own ads. */
 	UPROPERTY() TArray<FWESavedClassifiedDelivery> ClassifiedDeliveries;
 	UPROPERTY() TArray<FWESavedListing> ClassifiedListings;
+	/** Since save version 17: day and time of day. */
+	UPROPERTY() int32 Day = 1;
+	UPROPERTY() float MinuteOfDay = 540.f;
 	UPROPERTY() TArray<FWESavedStock> Stocks;
 
 	// Since version 4. Older saves: no upgrades, guide at its current step (bHasProgression false).

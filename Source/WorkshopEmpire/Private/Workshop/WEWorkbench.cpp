@@ -1536,7 +1536,7 @@ void AWEWorkbench::CompleteRepairStep(AWECharacter* Worker)
 			if (const int32 Bench = WEBenchmark::Score(Item); Bench > 0)
 			{
 				// Phase 19: a PC also shows how fast it is.
-				Message = FText::Format(LOCTEXT("TestBenchmark", "{0} · Benchmark {1} Punkte"), Message, FText::AsNumber(Bench));
+				Message = FText::Format(LOCTEXT("TestBenchmark", "{0} · Benchmark {1} Punkte"), Message, WEBenchmark::PointsText(Bench));
 			}
 			UE_LOG(LogWENet, Log, TEXT("%s: %s %s"), *GetName(), *Name.ToString(), bRebuilt ? TEXT("rebuilt and tested") : TEXT("repaired"));
 			if (bWasBroken || !bRebuilt)

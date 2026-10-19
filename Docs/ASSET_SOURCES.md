@@ -95,3 +95,14 @@ Mike hat am 2026-10-18 die Liste freigegeben („sound ok und b“). Die selbst 
 Ebenfalls geladen, noch nicht verwendet: `Pixabay/electric-screwdriver.mp3` (spinopel), `Pixabay/trash-compactor-compression.mp3` (freesound_community). Zusammen 15 Dateien, 15,6 MB.
 
 **Geparkte Autos:** Kenney „Car Kit“ 3.1 (`kenney_car-kit.zip`, 4,8 MB, CC0), entpackt nach `SourceArt/Kenney/CarKit`. Importiert mit `Tools/Assets/import_cars.py` nach `Content/WorkshopEmpire/Art/Import/KenneyCars`: sedan, sedan-sports, hatchback-sports, suv, suv-luxury, van, delivery, truck (ohne Marken). Die selbst gebauten Autos `SM_Gen_CarSedan*/CarPickup*` werden nicht mehr platziert.
+
+## Phase 19 (2026-10-19)
+
+Keine neuen Fremd-Assets im Spiel. Alles Neue ist im Projekt selbst erzeugt:
+
+- **Kleidung** (`Characters/Quaternius/Clothing/SK_<Male|Female>_*`, 12 Teile je Körper): aus den Quaternius-Körpern (CC0) mit `Tools/Assets/build_clothing.py` geschnitten und geformt; Stoffmaterial `M_WECloth` prozedural.
+- **Schnurrbart und Kinnbart** (`Hair/Hair_Moustache`, `Hair/Hair_Goatee`): aus dem Quaternius-Vollbart (CC0) geschnitten, gleiches Skript.
+- **Gabelstapler** `SM_Gen_Forklift` (`Tools/Assets/build_forklift.py`), **neue PC-Teile** (`Tools/Assets/build_pc_upgrades.py`), **Spiegel** (Würfel aus der Engine, Material `M_WEMirror`, `Tools/Assets/build_mirror.py`).
+- **Icons** Sonne, Mond und der weiche Panel-Schatten `T_PanelShadow`: `Tools/UI/make_icons.py`.
+
+Werkzeug (nicht im Spiel): **Git LFS 3.8.0** (github.com/git-lfs/git-lfs, MIT-Lizenz), heruntergeladen nach `F:\Spiele\_gitlfs` für große Dateien im Repository und die Sicherung.

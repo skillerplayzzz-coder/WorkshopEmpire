@@ -8,11 +8,20 @@ namespace WELookData
 {
 	const TCHAR* ProfileSlot = TEXT("WEProfile");
 
+	/** Faces of the female body: no beards, make-up instead. */
+	const TArray<FText>& FemaleFaces()
+	{
+		static const TArray<FText> Faces = { LOCTEXT("FFaceA", "Kräftige Brauen"), LOCTEXT("FFaceB", "Feine Brauen"), LOCTEXT("FFaceC", "Sommersprossen"),
+			LOCTEXT("FFaceD", "Geschminkt"), LOCTEXT("FFaceE", "Geschminkt, Sommersprossen") };
+		return Faces;
+	}
+
 	const TArray<FText>& Options(EWELookField Field)
 	{
 		static const TArray<FText> Body = { LOCTEXT("Male", "Männlich"), LOCTEXT("Female", "Weiblich") };
 		static const TArray<FText> Face = { LOCTEXT("FaceA", "Kräftige Brauen"), LOCTEXT("FaceB", "Feine Brauen"), LOCTEXT("FaceC", "Vollbart"),
-			LOCTEXT("FaceD", "Vollbart, feine Brauen") };
+			LOCTEXT("FaceD", "Vollbart, feine Brauen"), LOCTEXT("FaceE", "Dreitagebart"), LOCTEXT("FaceF", "Schnurrbart"), LOCTEXT("FaceG", "Kinnbart"),
+			LOCTEXT("FaceH", "Sommersprossen") };
 		static const TArray<FText> Skin = { LOCTEXT("Skin0", "Sehr hell"), LOCTEXT("Skin1", "Hell"), LOCTEXT("Skin2", "Mittel"), LOCTEXT("Skin3", "Dunkel"),
 			LOCTEXT("Skin4", "Sehr dunkel") };
 		static const TArray<FText> Hair = { LOCTEXT("Hair0", "Keine Haare"), LOCTEXT("Hair1", "Seitenscheitel"), LOCTEXT("Hair2", "Kurz rasiert"),
@@ -86,9 +95,10 @@ void FWECharacterLook::Clamp()
 		const EWELookField Field = static_cast<EWELookField>(f);
 		Set(Field, static_cast<uint8>(FMath::Clamp<int32>(Get(Field), 0, FMath::Max(0, WELook::NumOptions(Field) - 1))));
 	}
-	if (Body == 1 && Face >= 2)
+	// Women: the male faces with beards become the first female ones.
+	if (Body == 1 && Face >= WELookData::FemaleFaces().Num())
 	{
-		Face -= 2;
+		Face -= WELookData::FemaleFaces().Num();
 	}
 }
 
@@ -138,16 +148,38 @@ FText WELook::GetFieldName(EWELookField Field)
 	}
 }
 
-FText WELook::GetOptionName(EWELookField Field, int32 Option)
+int32 WELook::NumOptionsFor(EWELookField Field, int32 Body)
 {
-	const TArray<FText>& List = WELookData::Options(Field);
+	return Field == EWELookField::Face && Body == 1 ? WELookData::FemaleFaces().Num() : NumOptions(Field);
+}
+
+WELook::FFace WELook::GetFace(const FWECharacterLook& Look)
+{
+	FFace F;
+	if (Look.Body == 1)
+	{
+		F.bFineBrows = Look.Face >= 1;
+		F.bFreckles = Look.Face == 2 || Look.Face == 4;
+		F.bMakeup = Look.Face >= 3;
+		return F;
+	}
+	F.bFineBrows = Look.Face == 1 || Look.Face == 3;
+	F.Beard = Look.Face == 2 || Look.Face == 3 ? TEXT("Hair_Beard") : Look.Face == 5 ? TEXT("Hair_Moustache") : Look.Face == 6 ? TEXT("Hair_Goatee") : nullptr;
+	F.bStubble = Look.Face == 4;
+	F.bFreckles = Look.Face == 7;
+	return F;
+}
+
+FText WELook::GetOptionName(EWELookField Field, int32 Option, int32 Body)
+{
+	const TArray<FText>& List = Field == EWELookField::Face && Body == 1 ? WELookData::FemaleFaces() : WELookData::Options(Field);
 	return List.IsValidIndex(Option) ? List[Option] : FText::GetEmpty();
 }
 
 void WELook::Step(FWECharacterLook& Look, EWELookField Field, int32 Direction)
 {
-	// Women get the two brow styles only (no beard).
-	const int32 Count = Field == EWELookField::Face && Look.Body == 1 ? 2 : FMath::Max(1, NumOptions(Field));
+	// Women have their own face list (no beards).
+	const int32 Count = FMath::Max(1, NumOptionsFor(Field, Look.Body));
 	Look.Set(Field, static_cast<uint8>((Look.Get(Field) + (Direction >= 0 ? 1 : -1) + Count) % Count));
 	Look.Clamp();
 }

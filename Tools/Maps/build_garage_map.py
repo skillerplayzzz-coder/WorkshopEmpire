@@ -238,6 +238,8 @@ terminal.set_editor_property("traders", [
     unreal.load_asset("/Game/WorkshopEmpire/Data/Economy/DA_Trader_Returns"),
 ])
 spawn(unreal.WEDeliveryZone, (320, -220, 6), label="DeliveryPallet", folder="World")
+# Phase 19: wall mirror (see yourself, change clothes and face with [E]).
+spawn(unreal.WEMirror, (230, 300, 45), (0.0, -90.0, 0.0), "Mirror", "World")
 # --- Build area: furniture may be placed anywhere inside the garage (Phase 8) ---------------------------
 spawn(unreal.WEBuildArea, (0, 0, 150), label="BuildArea_Garage", folder="World")
 # --- Scrap heap outside, to the side of the door (Phase 7) ---------------------------------------------
@@ -249,7 +251,8 @@ staff_spawn.set_editor_property("tags", ["WE_StaffSpawn"])
 # Company van outside the door, forklift in the corner by the bench (both hidden until bought).
 # Phase 17.5: the van parks nose to the street, so it drives out through the lot gate.
 spawn(unreal.WEVehicle, (780, -560, 0), (0.0, -90.0, 0.0), label="CompanyVan", folder="Logistics")
-spawn(unreal.WEForklift, (-290, -215, 0), label="Forklift", folder="Logistics")
+# Phase 19: moved out of the corner (it stood in the toolbox and the utility box).
+spawn(unreal.WEForklift, (-110, -195, 0), label="Forklift", folder="Logistics")
 # Navigation for employees (rebuilt at runtime when furniture moves, see DefaultEngine.ini).
 nav = spawn(unreal.NavMeshBoundsVolume, (1000, 700, 150), label="NavBounds", folder="Staff")
 nav.set_actor_scale3d(unreal.Vector(23.0, 21.0, 4.0))  # garage, yard and all buildings of Phase 12

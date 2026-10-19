@@ -2,6 +2,7 @@
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Economy/WEClassifiedsComponent.h"
+#include "World/WEDayNightComponent.h"
 #include "Framework/WEGameMode.h"
 
 #include "Economy/WEAuctionComponent.h"
@@ -361,6 +362,11 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 	}
 	if (const UWEContractComponent* Contracts = UWEContractComponent::Get(World))
 	{
+		if (const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(World))
+		{
+			Save->Day = Clock->GetDay();
+			Save->MinuteOfDay = Clock->GetMinuteOfDay();
+		}
 		Save->RatingSum = Contracts->GetRatingSum();
 		Save->RatingCount = Contracts->GetRatingCount();
 		// Phase 19: what was bought from the classifieds and is still on its way, and the company's own ads.
@@ -823,6 +829,10 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 			}
 			Contracts->SetContracts(Restored);
 			Contracts->SetRatings(Save->RatingSum, Save->RatingCount);
+			if (UWEDayNightComponent* Clock = UWEDayNightComponent::Get(World); Clock && Save->SaveVersion >= 17)
+			{
+				Clock->SetTime(Save->Day, Save->MinuteOfDay);
+			}
 		}
 		if (UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(World))
 		{

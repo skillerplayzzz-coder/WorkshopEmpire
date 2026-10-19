@@ -1,4 +1,5 @@
 #include "UI/WETradeWidget.h"
+#include "World/WEDayNightComponent.h"
 #include "Economy/WEClassifiedsComponent.h"
 #include "Components/UniformGridPanel.h"
 #include "Workshop/WEBenchmark.h"
@@ -1238,12 +1239,12 @@ void UWETradeWidget::RebuildOrders()
 			FText Detail;
 			if (Contract.Kind == EWEContractKind::BuildPc)
 			{
-				Detail = FText::Format(LOCTEXT("BuildPcDetail", "Funktionierenden PC zusammenbauen, getestet, Benchmark mindestens {0} Punkte – in der Hand abliefern"), FText::AsNumber(Contract.MinBenchmark));
+				Detail = FText::Format(LOCTEXT("BuildPcDetail", "Funktionierenden PC zusammenbauen, getestet, Benchmark mindestens {0} Punkte – in der Hand abliefern"), WEBenchmark::PointsText(Contract.MinBenchmark));
 			}
 			else if (Contract.Kind == EWEContractKind::UpgradePc)
 			{
 				Detail = FText::Format(bAccepted ? LOCTEXT("UpgradePcAccepted", "Kunden-PC steht auf der Palette: Teile tauschen, testen, Benchmark mindestens {0} Punkte. Altteile bleiben bei dir.")
-					: LOCTEXT("UpgradePcOpen", "PC aufrüsten auf mindestens {0} Punkte (Altteile bleiben bei dir)"), FText::AsNumber(Contract.MinBenchmark));
+					: LOCTEXT("UpgradePcOpen", "PC aufrüsten auf mindestens {0} Punkte (Altteile bleiben bei dir)"), WEBenchmark::PointsText(Contract.MinBenchmark));
 			}
 			else if (Contract.Kind == EWEContractKind::Repair)
 			{
@@ -1270,7 +1271,7 @@ void UWETradeWidget::RebuildOrders()
 			}
 			if (Contract.IsPcOrder())
 			{
-				Row->AddChip(FText::Format(LOCTEXT("BenchChip", "≥ {0} Punkte"), FText::AsNumber(Contract.MinBenchmark)), Col::Info);
+				Row->AddChip(FText::Format(LOCTEXT("BenchChip", "≥ {0} Punkte"), WEBenchmark::PointsText(Contract.MinBenchmark)), Col::Info);
 				if (const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr; bAccepted && Held && Held->GetItem().Definition == Contract.Item)
 				{
 					const int32 Score = WEBenchmark::Score(Held->GetItem());
@@ -2059,8 +2060,11 @@ void UWETradeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	if (ClockAccumulated >= 1.f && TrayClock)
 	{
 		ClockAccumulated = 0.f;
-		const FDateTime Now = FDateTime::Now();
-		TrayClock->SetText(FText::FromString(FString::Printf(TEXT("%02d:%02d"), Now.GetHour(), Now.GetMinute())));
+		// Phase 19: the time of the game world, not of the real computer.
+		if (const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this))
+		{
+			TrayClock->SetText(FText::Format(LOCTEXT("TrayClock", "Tag {0} · {1}"), FText::AsNumber(Clock->GetDay()), Clock->GetClockText()));
+		}
 	}
 	// Rebuild only when something visible changed (keeps buttons stable under the mouse).
 	const FString Signature = BuildSignature();

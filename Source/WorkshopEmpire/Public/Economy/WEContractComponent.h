@@ -191,6 +191,7 @@ public:
 	// --- Server only ------------------------------------------------------------------------------
 
 	void SetCatalog(UWEContractCatalog* InCatalog) { Catalog = InCatalog; }
+	UWEContractCatalog* GetCatalog() const { return Catalog; }
 
 	/** Removes expired contracts and tops the offers up. Runs on a timer; public for tests. */
 	void UpdateContracts();
@@ -203,6 +204,8 @@ public:
 	/** Items in Storage that would count for Contract. */
 	static int32 CountInStorage(const FWEContract& Contract, const class UWEInventoryComponent* Storage);
 
+	/** Phase 19: a walk-in customer's repair, accepted at the door (Device is already marked as the customer's). False if too many orders run. */
+	bool AddWalkInRepair(const FText& Title, const FWEItemInstance& Device, const FWEMoney& Reward, const FString& PlayerName);
 	EWEContractResult Accept(const FGuid& Id, const FString& PlayerName);
 	EWEContractResult Deliver(const FGuid& Id, AWECharacter* Character);
 

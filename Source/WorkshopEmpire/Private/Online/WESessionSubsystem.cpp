@@ -1,4 +1,5 @@
 #include "Online/WESessionSubsystem.h"
+#include "Internationalization/Internationalization.h"
 
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -49,6 +50,11 @@ namespace WESession
 void UWESessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+	// Phase 19: numbers, dates and times the German way ("1.550", "2,5 kg"), like the texts. Not in the editor (tests).
+	if (!GIsEditor)
+	{
+		FInternationalization::Get().SetCurrentLocale(TEXT("de-DE"));
+	}
 
 	GConfig->GetString(WESession::ConfigSection, TEXT("PlayerName"), LANPlayerName, GGameUserSettingsIni);
 	if (LANPlayerName.IsEmpty())

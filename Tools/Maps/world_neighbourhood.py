@@ -222,6 +222,7 @@ def street_lamps(xs, lights=True, folder="Neighbourhood"):
             lc.set_editor_property("outer_cone_angle", 66.0)
             lc.set_light_color(unreal.LinearColor(1.0, 0.72, 0.42, 1.0))  # sodium-ish
             lc.set_editor_property("cast_shadows", False)
+            l.set_editor_property("tags", ["StreetLight"])  # Phase 19: on from dusk to dawn
 
 # --- Fence --------------------------------------------------------------------------------------------
 def fence_line(a, b, gap=None, folder="Fence"):

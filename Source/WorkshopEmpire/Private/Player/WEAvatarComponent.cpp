@@ -82,6 +82,42 @@ namespace WEAvatar
 	// Look tables.
 	const FLinearColor HairColors[] = { FLinearColor(0.02f, 0.018f, 0.016f), FLinearColor(0.07f, 0.04f, 0.02f), FLinearColor(0.18f, 0.11f, 0.05f),
 		FLinearColor(0.55f, 0.42f, 0.22f), FLinearColor(0.35f, 0.10f, 0.03f), FLinearColor(0.36f, 0.36f, 0.36f) };
+	/** Garments of an outfit (Tools/Assets/build_clothing.py) and of the shoes. */
+	const TCHAR* const OutfitPieces[][2] = { { TEXT("Overall"), nullptr }, { TEXT("Polo"), TEXT("Chinos") }, { TEXT("Hoodie"), TEXT("Jeans") },
+		{ TEXT("TShirt"), TEXT("WorkPants") }, { TEXT("Jacket"), TEXT("Trousers") } };
+	const TCHAR* const ShoePieces[] = { TEXT("Sneakers"), TEXT("WorkShoes"), TEXT("Boots") };
+
+	USkeletalMesh* ClothingMesh(bool bFemale, const TCHAR* Piece)
+	{
+		const FString Name = FString::Printf(TEXT("SK_%s_%s"), bFemale ? TEXT("Female") : TEXT("Male"), Piece);
+		return Load<USkeletalMesh>(FString::Printf(TEXT("%s/Clothing/%s.%s"), Root, *Name, *Name));
+	}
+
+	/** Colours of the three slots (main, accent, trim) of a garment; the main colour of tops is the chosen one. */
+	struct FClothColors
+	{
+		FLinearColor Slot[3];
+		float Pattern = 0.f;  // 0 plain, 1 denim twill, 2 knit rib
+	};
+
+	FClothColors ClothColors(const FString& Piece, const FLinearColor& Main)
+	{
+		const FLinearColor Metal(0.55f, 0.55f, 0.52f), Leather(0.09f, 0.055f, 0.03f), Black(0.03f, 0.03f, 0.03f);
+		if (Piece == TEXT("Overall"))   { return { { Main, FLinearColor(0.9f, 0.88f, 0.55f), FLinearColor(0.06f, 0.06f, 0.06f) }, 0.f }; }
+		if (Piece == TEXT("Polo"))      { return { { Main, Main * 0.82f, FLinearColor(0.85f, 0.84f, 0.8f) }, 0.f }; }
+		if (Piece == TEXT("Chinos"))    { return { { FLinearColor(0.42f, 0.36f, 0.25f), Leather, Metal }, 1.f }; }
+		if (Piece == TEXT("Hoodie"))    { return { { Main, Main * 0.78f, Main }, 2.f }; }
+		if (Piece == TEXT("Jeans"))     { return { { FLinearColor(0.09f, 0.15f, 0.30f), FLinearColor(0.55f, 0.38f, 0.12f), Leather }, 1.f }; }
+		if (Piece == TEXT("TShirt"))    { return { { Main, Main * 0.8f, Main }, 0.f }; }
+		if (Piece == TEXT("WorkPants")) { return { { FLinearColor(0.17f, 0.17f, 0.18f), FLinearColor(0.11f, 0.11f, 0.12f), Black }, 1.f }; }
+		if (Piece == TEXT("Jacket"))    { return { { Main, FLinearColor(0.04f, 0.04f, 0.04f), Main * 0.65f }, 0.f }; }
+		if (Piece == TEXT("Trousers"))  { return { { FLinearColor(0.12f, 0.12f, 0.14f), Black, Metal }, 0.f }; }
+		if (Piece == TEXT("Sneakers"))  { return { { FLinearColor(0.75f, 0.75f, 0.74f), FLinearColor(0.9f, 0.9f, 0.88f), FLinearColor(0.85f, 0.85f, 0.85f) }, 0.f }; }
+		if (Piece == TEXT("WorkShoes")) { return { { FLinearColor(0.10f, 0.07f, 0.05f), FLinearColor(0.02f, 0.02f, 0.02f), FLinearColor(0.07f, 0.05f, 0.035f) }, 0.f }; }
+		if (Piece == TEXT("Boots"))     { return { { FLinearColor(0.28f, 0.17f, 0.08f), FLinearColor(0.03f, 0.03f, 0.03f), FLinearColor(0.12f, 0.08f, 0.04f) }, 0.f }; }
+		return { { Main, Main, Main }, 0.f };
+	}
+
 	const TCHAR* HairStyles[] = { nullptr, TEXT("Hair_SimpleParted"), TEXT("Hair_Buzzed"), TEXT("Hair_BuzzedFemale"), TEXT("Hair_Long"), TEXT("Hair_Buns") };
 	const FLinearColor OutfitColors[] = { FLinearColor(0.08f, 0.18f, 0.45f), FLinearColor(0.32f, 0.33f, 0.35f), FLinearColor(0.12f, 0.30f, 0.14f),
 		FLinearColor(0.50f, 0.08f, 0.06f), FLinearColor(0.035f, 0.035f, 0.04f) };
@@ -136,9 +172,38 @@ void UWEAvatarComponent::ApplyLook(const FWECharacterLook& InLook)
 	BuildBody();
 }
 
+USkeletalMeshComponent* UWEAvatarComponent::MakeClothing(const TCHAR* Piece)
+{
+	USkeletalMesh* Mesh = Piece ? WEAvatar::ClothingMesh(Look.Body == 1, Piece) : nullptr;
+	USkeletalMeshComponent* C = MakeFollower(Mesh);
+	if (C)
+	{
+		C->ComponentTags.Add(FName(Piece));
+		Clothes.Add(C);
+	}
+	return C;
+}
+
+TArray<FName> UWEAvatarComponent::GetGarments() const
+{
+	TArray<FName> Out;
+	for (const USkeletalMeshComponent* Cloth : Clothes)
+	{
+		if (Cloth && Cloth->ComponentTags.Num() > 0)
+		{
+			Out.Add(Cloth->ComponentTags[0]);
+		}
+	}
+	return Out;
+}
+
 USkeletalMeshComponent* UWEAvatarComponent::MakeFollower(const TCHAR* MeshName)
 {
-	USkeletalMesh* Mesh = MeshName ? WEAvatar::HairMesh(MeshName) : nullptr;
+	return MakeFollower(MeshName ? WEAvatar::HairMesh(MeshName) : nullptr);
+}
+
+USkeletalMeshComponent* UWEAvatarComponent::MakeFollower(USkeletalMesh* Mesh)
+{
 	if (!Mesh || !Body)
 	{
 		return nullptr;
@@ -148,6 +213,7 @@ USkeletalMeshComponent* UWEAvatarComponent::MakeFollower(const TCHAR* MeshName)
 	C->SetupAttachment(Body);
 	C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	C->SetOwnerNoSee(bOwnerNoSee);
+	C->bCastHiddenShadow = Body->bCastHiddenShadow;
 	C->RegisterComponent();
 	C->SetLeaderPoseComponent(Body);
 	Parts.Add(C);
@@ -187,6 +253,7 @@ void UWEAvatarComponent::BuildBody()
 		if (Part) { Part->DestroyComponent(); }
 	}
 	Parts.Reset();
+	Clothes.Reset();
 	HairMaterials.Reset();
 	const bool bFemale = Look.Body == 1;
 	USkeletalMesh* Mesh = WEAvatar::BodyMesh(bFemale);
@@ -224,11 +291,18 @@ void UWEAvatarComponent::BuildBody()
 		Driver->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 		Driver->SetHiddenInGame(true);
 	}
-	MakeFollower(Look.Face == 1 || Look.Face == 3 ? TEXT("Eyebrows_Female") : TEXT("Eyebrows_Regular"));
-	if (Look.Face >= 2 && !bFemale)
+	const WELook::FFace Face = WELook::GetFace(Look);
+	MakeFollower(Face.bFineBrows ? TEXT("Eyebrows_Female") : TEXT("Eyebrows_Regular"));
+	if (Face.Beard && !bFemale)
 	{
-		MakeFollower(TEXT("Hair_Beard"));
+		MakeFollower(Face.Beard);
 	}
+	// Phase 19: real clothes over the body (the painted clothes of the body material stay underneath).
+	for (const TCHAR* Piece : WEAvatar::OutfitPieces[FMath::Clamp<int32>(Look.Outfit, 0, UE_ARRAY_COUNT(WEAvatar::OutfitPieces) - 1)])
+	{
+		MakeClothing(Piece);
+	}
+	MakeClothing(WEAvatar::ShoePieces[FMath::Clamp<int32>(Look.Shoes, 0, UE_ARRAY_COUNT(WEAvatar::ShoePieces) - 1)]);
 	if (Look.Hair > 0 && Look.Hair < UE_ARRAY_COUNT(WEAvatar::HairStyles))
 	{
 		MakeFollower(WEAvatar::HairStyles[Look.Hair]);
@@ -285,7 +359,7 @@ void UWEAvatarComponent::ApplyMaterials()
 	}
 	for (USceneComponent* Part : Parts)
 	{
-		if (USkeletalMeshComponent* Follower = Cast<USkeletalMeshComponent>(Part))
+		if (USkeletalMeshComponent* Follower = Cast<USkeletalMeshComponent>(Part); Follower && !Clothes.Contains(Follower))
 		{
 			const FString Name = Follower->GetSkeletalMeshAsset() ? Follower->GetSkeletalMeshAsset()->GetName() : FString();
 			HairMID(Follower, Name.Contains(TEXT("Long")) || Name.Contains(TEXT("Buns")) || Name.Contains(TEXT("Female")) && Name.Contains(TEXT("Eyebrows")), false);
@@ -302,8 +376,30 @@ void UWEAvatarComponent::ApplyMaterials()
 			}
 		}
 	}
-	UE_LOG(LogWorkshopEmpire, Display, TEXT("Avatar %s: look %s, %d slots, body material %s"), *GetNameSafe(GetOwner()), *Look.ToString(), Slots.Num(),
-		BodyMaterial ? *BodyMaterial->GetName() : TEXT("none"));
+	// Clothes: one fabric instance per slot.
+	UMaterialInterface* ClothBase = WEAvatar::Load<UMaterialInterface>(WEAvatar::AssetPath(TEXT(""), TEXT("M_WECloth")).Replace(TEXT("//"), TEXT("/")));
+	const FLinearColor MainColor = WEAvatar::OutfitColors[FMath::Clamp<int32>(Look.OutfitColor, 0, 4)];
+	for (USkeletalMeshComponent* Cloth : Clothes)
+	{
+		if (!Cloth || !ClothBase || Cloth->ComponentTags.Num() == 0)
+		{
+			continue;
+		}
+		const WEAvatar::FClothColors Colors = WEAvatar::ClothColors(Cloth->ComponentTags[0].ToString(), MainColor);
+		for (int32 i = 0; i < Cloth->GetNumMaterials() && i < 3; ++i)
+		{
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(ClothBase, this);
+			MID->SetVectorParameterValue(TEXT("Tint"), Colors.Slot[i]);
+			MID->SetScalarParameterValue(TEXT("Pattern"), i == 0 ? Colors.Pattern : 0.f);
+			// Buckles and reflective stripes shine a little.
+			const bool bShiny = Colors.Slot[i].Equals(FLinearColor(0.55f, 0.55f, 0.52f)) || Colors.Slot[i].Equals(FLinearColor(0.9f, 0.88f, 0.55f));
+			MID->SetScalarParameterValue(TEXT("Roughness"), bShiny ? 0.35f : 0.86f);
+			MID->SetScalarParameterValue(TEXT("Metallic"), Colors.Slot[i].Equals(FLinearColor(0.55f, 0.55f, 0.52f)) ? 0.9f : 0.f);
+			Cloth->SetMaterial(i, MID);
+		}
+	}
+	UE_LOG(LogWorkshopEmpire, Display, TEXT("Avatar %s: look %s, %d slots, body material %s, %d garments"), *GetNameSafe(GetOwner()), *Look.ToString(), Slots.Num(),
+		BodyMaterial ? *BodyMaterial->GetName() : TEXT("none"), Clothes.Num());
 	if (!BodyMaterial)
 	{
 		return;
@@ -320,6 +416,15 @@ void UWEAvatarComponent::ApplyMaterials()
 		FString::Printf(TEXT("%s/Superhero_%s_FullBody/Textures"), *Gender, *Gender), FString::Printf(TEXT("T_Superhero_%s_Roughness"), *Gender))));
 	BodyMaterial->SetScalarParameterValue(TEXT("SkinBlend"), WEAvatar::SkinBlend[Skin]);
 	BodyMaterial->SetVectorParameterValue(TEXT("SkinTint"), WEAvatar::SkinTint[Skin]);
+	// Face details (Phase 19): eye height of each body, stubble in the hair colour, freckles, make-up.
+	const WELook::FFace Face = WELook::GetFace(Look);
+	BodyMaterial->SetScalarParameterValue(TEXT("EyeZ"), bFemale ? 163.4f : 168.0f);
+	BodyMaterial->SetScalarParameterValue(TEXT("LipOffset"), bFemale ? 6.6f : 7.0f);
+	BodyMaterial->SetScalarParameterValue(TEXT("Stubble"), Face.bStubble ? 1.f : 0.f);
+	BodyMaterial->SetScalarParameterValue(TEXT("Freckles"), Face.bFreckles ? 1.f : 0.f);
+	BodyMaterial->SetScalarParameterValue(TEXT("Makeup"), Face.bMakeup ? 1.f : 0.f);
+	BodyMaterial->SetVectorParameterValue(TEXT("StubbleColor"), HairColor * 0.8f);
+	BodyMaterial->SetVectorParameterValue(TEXT("LipColor"), FLinearColor(0.42f, 0.05f, 0.08f));
 	// Body proportions for the clothes regions.
 	const float Height = bFemale ? 178.f : 182.f;
 	BodyMaterial->SetScalarParameterValue(TEXT("Height"), Height);

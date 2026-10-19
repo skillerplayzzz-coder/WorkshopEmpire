@@ -213,6 +213,9 @@ ICONS = {
                           seg(16.8, 6, 16.8, 13.5, 2.2), seg(19, 13.5, 21, 10.5, 2.2)),
     "Search": lambda: union(ring(10, 10, 6, S * 1.1), seg(14.5, 14.5, 20.5, 20.5, 2.4)),
     "Clock": lambda: union(ring(12, 12, 9.2, S), seg(12, 12, 12, 6.5, S), seg(12, 12, 16, 14, S)),
+    # Phase 19: day and night in the HUD clock.
+    "Sun": lambda: union(circle(12, 12, 4.6), *[seg(12 + 7.2 * math.cos(math.radians(a)), 12 + 7.2 * math.sin(math.radians(a)), 12 + 10 * math.cos(math.radians(a)), 12 + 10 * math.sin(math.radians(a)), S) for a in range(0, 360, 45)]),
+    "Moon": lambda: sub(circle(11.5, 12, 8.6), circle(16, 9, 7.4)),
     "Home": lambda: union(sub(poly([(12, 3), (21.5, 11.5), (19, 11.5), (19, 21), (5, 21), (5, 11.5), (2.5, 11.5)]), rbox(12, 17.5, 2.2, 3.6))),
     "Trash": lambda: union(sub(poly([(5.5, 7.5), (18.5, 7.5), (17, 21), (7, 21)]), seg(10, 10.5, 10.5, 18, 1.3), seg(14, 10.5, 13.5, 18, 1.3)),
                            rbox(12, 5.5, 8, 1.1, 0.4), rbox(12, 3.6, 2.6, 1.0, 0.4)),
@@ -329,9 +332,27 @@ def wallpaper():
     write_png(os.path.join(OUT, "T_FerritWallpaper.png"), w, h, rows)
 
 
+def panel_shadow():
+    """Phase 19: 64x64 soft shadow for panels, drawn as a 9-slice box (16-px soft border, solid middle)."""
+    n, m = 64, 16
+    rows = []
+    for y in range(n):
+        row = bytearray()
+        for x in range(n):
+            dx = max(m - x - 0.5, 0.0, x + 0.5 - (n - m))
+            dy = max(m - y - 0.5, 0.0, y + 0.5 - (n - m))
+            d = math.hypot(dx, dy) / m
+            t = max(0.0, 1.0 - d)
+            a = t * t * (3 - 2 * t) * 0.6
+            row += bytes((0, 0, 0, int(round(a * 255))))
+        rows.append(row)
+    write_png(os.path.join(OUT, "T_PanelShadow.png"), n, n, rows)
+
+
 def main():
     for name, make in ICONS.items():
         render_icon(name, make())
+    panel_shadow()
     hazard_stripe()
     os_logo()
     wallpaper()

@@ -44,17 +44,32 @@ bool FWELookOptionsTest::RunTest(const FString& Parameters)
 	WELook::Step(Look, EWELookField::Outfit, -1);
 	TestEqual(TEXT("Wraps back"), static_cast<int32>(Look.Outfit), WELook::NumOptions(EWELookField::Outfit) - 1);
 
-	// Women: brows only, no beard (stepping and clamping both keep it so).
+	// Phase 19: eight male faces (beards, stubble, freckles), five female ones (no beard; freckles, make-up).
+	TestTrue(TEXT("At least 8 male faces"), WELook::NumOptionsFor(EWELookField::Face, 0) >= 8);
+	TestTrue(TEXT("At least 5 female faces"), WELook::NumOptionsFor(EWELookField::Face, 1) >= 5);
+	for (int32 o = 0; o < WELook::NumOptionsFor(EWELookField::Face, 1); ++o)
+	{
+		TestFalse(TEXT("Female face named"), WELook::GetOptionName(EWELookField::Face, o, 1).IsEmpty());
+	}
 	Look.Body = 0;
+	Look.Face = 5;
+	TestTrue(TEXT("Moustache"), WELook::GetFace(Look).Beard && FString(WELook::GetFace(Look).Beard) == TEXT("Hair_Moustache"));
+	Look.Face = 7;
+	TestTrue(TEXT("Freckles"), WELook::GetFace(Look).bFreckles && !WELook::GetFace(Look).Beard);
 	Look.Face = 3;
 	WELook::Step(Look, EWELookField::Body, 1);
 	TestEqual(TEXT("Female"), static_cast<int32>(Look.Body), 1);
-	TestTrue(TEXT("No beard after switching to female"), Look.Face < 2);
-	for (int32 i = 0; i < 5; ++i)
+	TestTrue(TEXT("No beard after switching to female"), WELook::GetFace(Look).Beard == nullptr);
+	for (int32 i = 0; i < 7; ++i)
 	{
 		WELook::Step(Look, EWELookField::Face, 1);
-		TestTrue(TEXT("Female faces stay beardless"), Look.Face < 2);
+		TestTrue(TEXT("Female faces stay beardless and valid"), WELook::GetFace(Look).Beard == nullptr && Look.Face < WELook::NumOptionsFor(EWELookField::Face, 1));
 	}
+	Look.Face = 7;
+	Look.Clamp();
+	TestTrue(TEXT("Clamp maps a male face into the female list"), Look.Face < WELook::NumOptionsFor(EWELookField::Face, 1));
+	Look.Face = 3;
+	TestTrue(TEXT("Make-up"), WELook::GetFace(Look).bMakeup);
 	FWECharacterLook Bad;
 	Bad.Hair = 200;
 	Bad.Skin = 99;
@@ -121,8 +136,18 @@ bool FWEAvatarBuildTest::RunTest(const FString& Parameters)
 	}
 	TestTrue(TEXT("Most bones are driven by the mannequin"), Avatar->GetMappedBoneCount() >= 40);
 	TestTrue(TEXT("Body mesh set"), Avatar->GetBody()->GetSkinnedAsset() != nullptr);
+	// Phase 19: real clothes as follower meshes - the outfit and the shoes.
+	Look.Outfit = 2;
+	Look.Shoes = 2;
+	Preview->SetLook(Look);
+	const TArray<FName> Garments = Avatar->GetGarments();
+	TestTrue(TEXT("Hoodie, jeans and boots worn"), Garments.Contains(TEXT("Hoodie")) && Garments.Contains(TEXT("Jeans")) && Garments.Contains(TEXT("Boots")));
+	Look.Outfit = 0;
+	Preview->SetLook(Look);
+	TestTrue(TEXT("Overall is one piece + shoes"), Avatar->GetGarments().Num() == 2 && Avatar->GetGarments().Contains(TEXT("Overall")));
 	Look.Body = 1;
 	Preview->SetLook(Look);
+	TestTrue(TEXT("Female clothes too"), Avatar->GetGarments().Num() == 2);
 	TestTrue(TEXT("Female body"), Avatar->GetBody() && Avatar->GetBody()->GetSkinnedAsset() && Avatar->GetBody()->GetSkinnedAsset()->GetName().Contains(TEXT("Female")));
 	return true;
 }

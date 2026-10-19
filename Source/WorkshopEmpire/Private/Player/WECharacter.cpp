@@ -193,6 +193,34 @@ void AWECharacter::ApplySavedLook(const FWECharacterLook& Saved)
 	bLookFromSave = true;
 }
 
+void AWECharacter::ChangeLookAuthority(const FWECharacterLook& NewLook)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	bLookFromSave = false;
+	SetLookAuthority(NewLook);
+	bLookFromSave = true; // later profile messages do not undo it
+}
+
+void AWECharacter::RequestChangeLook(const FWECharacterLook& NewLook)
+{
+	if (HasAuthority())
+	{
+		ChangeLookAuthority(NewLook);
+	}
+	else
+	{
+		ServerChangeLook(NewLook);
+	}
+}
+
+void AWECharacter::ServerChangeLook_Implementation(const FWECharacterLook& NewLook)
+{
+	ChangeLookAuthority(NewLook);
+}
+
 void AWECharacter::OnRep_Look()
 {
 	ApplyPlayerLook();

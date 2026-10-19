@@ -42,7 +42,7 @@ icons = os.path.join(SRC, "Icons")
 for f in sorted(os.listdir(icons)):
     if f.endswith(".png"):
         count += import_png(os.path.join(icons, f), f"{DEST}/Icons")
-for f, tiling in (("T_HazardStripe.png", True), ("T_FerritLogo.png", False), ("T_FerritWallpaper.png", False)):
+for f, tiling in (("T_HazardStripe.png", True), ("T_FerritLogo.png", False), ("T_FerritWallpaper.png", False), ("T_PanelShadow.png", False)):
     count += import_png(os.path.join(SRC, f), DEST, tiling)
 # Item icons rendered by the game (-WEBakeIcons) land in Saved/ItemIcons.
 baked = os.path.join(ROOT, "Saved", "ItemIcons")

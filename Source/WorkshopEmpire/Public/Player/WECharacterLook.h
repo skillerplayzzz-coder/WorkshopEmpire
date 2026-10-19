@@ -31,7 +31,7 @@ struct WORKSHOPEMPIRE_API FWECharacterLook
 	GENERATED_BODY()
 
 	UPROPERTY() uint8 Body = 0;        // 0 male, 1 female
-	UPROPERTY() uint8 Face = 0;        // brows / beard
+	UPROPERTY() uint8 Face = 0;        // brows, beard, freckles, make-up (the list depends on the body)
 	UPROPERTY() uint8 Skin = 1;
 	UPROPERTY() uint8 Hair = 1;        // 0 = none
 	UPROPERTY() uint8 HairColor = 1;
@@ -56,7 +56,20 @@ namespace WELook
 {
 	WORKSHOPEMPIRE_API int32 NumOptions(EWELookField Field);
 	WORKSHOPEMPIRE_API FText GetFieldName(EWELookField Field);
-	WORKSHOPEMPIRE_API FText GetOptionName(EWELookField Field, int32 Option);
+	WORKSHOPEMPIRE_API FText GetOptionName(EWELookField Field, int32 Option, int32 Body = 0);
+	/** Options of a field for this body (faces: women have no beards but make-up). */
+	WORKSHOPEMPIRE_API int32 NumOptionsFor(EWELookField Field, int32 Body);
+
+	/** What a face option shows (Phase 19). */
+	struct FFace
+	{
+		bool bFineBrows = false;
+		const TCHAR* Beard = nullptr;  // follower mesh: Hair_Beard, Hair_Moustache, Hair_Goatee
+		bool bStubble = false;
+		bool bFreckles = false;
+		bool bMakeup = false;
+	};
+	WORKSHOPEMPIRE_API FFace GetFace(const FWECharacterLook& Look);
 	/** Steps one field (wraps around) and keeps the look valid. */
 	WORKSHOPEMPIRE_API void Step(FWECharacterLook& Look, EWELookField Field, int32 Direction);
 	/** A random but sensible look (new players without a profile). */

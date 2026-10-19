@@ -1,4 +1,6 @@
 #include "UI/WEHUDWidget.h"
+#include "Engine/Texture2D.h"
+#include "World/WEDayNightComponent.h"
 
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Blueprint/WidgetTree.h"
@@ -198,6 +200,13 @@ void UWEHUDWidget::BuildStatusCard()
 	AddH(Power, PowerText);
 	PowerRow = Power;
 	AddV(Box, Power, FMargin(0.f, 5.f, 0.f, 0.f), HAlign_Right);
+	// Phase 19: day, time and opening hours.
+	UHorizontalBox* Clock = WidgetTree->ConstructWidget<UHorizontalBox>();
+	ClockIcon = Icon(WidgetTree, TEXT("Clock"), 13.f, Col::TextDim);
+	AddH(Clock, ClockIcon, FMargin(0.f, 0.f, 6.f, 0.f));
+	ClockText = Text(WidgetTree, FText::GetEmpty(), 11, Col::TextDim, EFont::Strong);
+	AddH(Clock, ClockText);
+	AddV(Box, Clock, FMargin(0.f, 5.f, 0.f, 0.f), HAlign_Right);
 	StatusCard = Card(WidgetTree, Box, FLinearColor::Transparent, FMargin(14.f, 8.f, 14.f, 9.f));
 	Place(Canvas, StatusCard, FAnchors(1.f, 0.f), FVector2D(1.f, 0.f), FVector2D(-22.f, 18.f));
 }
@@ -569,6 +578,23 @@ void UWEHUDWidget::UpdateStatus()
 	else
 	{
 		PowerRow->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (const UWEDayNightComponent* DayNight = UWEDayNightComponent::Get(this); DayNight && ClockText)
+	{
+		ClockText->SetText(FText::Format(LOCTEXT("ClockFmt", "Tag {0} · {1} · {2}"), FText::AsNumber(DayNight->GetDay()), DayNight->GetClockText(), DayNight->GetOpeningText()));
+		ClockText->SetColorAndOpacity(FSlateColor(DayNight->IsOpen() ? Col::Good : Col::TextDim));
+		// Sun by day, moon by night.
+		const bool bDay = DayNight->GetDaylight() > 0.05f;
+		if (ClockIcon && bClockShowsDay != static_cast<int8>(bDay))
+		{
+			bClockShowsDay = static_cast<int8>(bDay);
+			if (UTexture2D* Tex = IconTexture(bDay ? FName(TEXT("Sun")) : FName(TEXT("Moon"))))
+			{
+				ClockIcon->SetBrushFromTexture(Tex);
+				ClockIcon->SetDesiredSizeOverride(FVector2D(13.f, 13.f));
+			}
+			ClockIcon->SetColorAndOpacity(bDay ? Col::Accent : Col::Info);
+		}
 	}
 }
 

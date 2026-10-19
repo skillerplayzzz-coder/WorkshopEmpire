@@ -17,6 +17,20 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## 0.19.0 – Phase 19: Verbesserungen nach Mikes Auswahl (Läufe vom 2026-10-19)
+
+Geprüft im Editor-Spielmodus und im gepackten Spiel (Development, `Builds/P19_Dev`). Während der Läufe lief auf demselben Rechner ein zweiter Unreal-Editor (anderes Projekt); die gemessenen Bildraten sind deshalb nicht aussagekräftig.
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor und Paket (Win64 Development) | ✅ ohne Fehler |
+| Automation-Suite `WorkshopEmpire` | ✅ **129/129** (1 bekannte Warnung „fell out of the world“), Bericht `Saved/TestReports/All19`; neu u. a. PC-Aufträge (Benchmark, Varianten, Sterne), Kleinanzeigen, Tag/Nacht und Laufkundschaft, Gesichter und Kleidung am Avatar |
+| **Kleiderschrank** `-WEShots=P19C` (neu, Hauptmenü) | ✅ 29 Bilder: beide Körper in allen 5 Outfits (vorne, dreimal von hinten), 8 Männer- und 5 Frauengesichter; jedes Outfit trägt die richtigen Kleidungsmodelle (Protokoll) |
+| **Spiel** `-WEShots=P19G` (neu) | ✅ 10 Bilder: Spiegel zeigt die Figur, Umziehen am Spiegel wirkt sofort, Laufkunde kommt ans Tor, Kleinanzeigen, PC-Aufträge mit Punkten („1.750“), Abend, Nacht mit Mond und Straßenlampen, Gabelstapler am neuen Platz |
+| **Gepacktes Spiel** P19G und P19C | ✅ gleiche Bilder, 0 Fehler, deutsches Zahlenformat aktiv |
+| **Regression** Netzwerktests A/B … W/X, I/J, 4 Spieler (5. abgewiesen), Spielläufe P5–P16, P175W, P175V, P18R, P19G, P19C, P13 + P13C, UI-Test in 4 Auflösungen | ✅ alle beendet, 0 Fehler. Beim UI-Test 2560×1440 meldete „A strafes“ einmal FAIL (Bewegungstest bei voller GPU), im Wiederholungslauf 17/17 ok |
+| Gefundene und behobene Fehler | Ferrit OS zeigte die Uhrzeit des echten PCs; Zahlen im englischen Format („1,550“); Laufkunden warteten unbemerkt hinter dem geschlossenen Tor (jetzt Meldung an alle); Gabelstapler stand im Werkzeugkasten; lange Namen im Inventarfeld an beiden Seiten abgeschnitten; Beschriftungen in schmalen Einstellungszeilen liefen unter die Pfeile; Nacht war schwarz bzw. später taghell blau (jetzt eigenes Mondlicht, dunkler Himmel) |
+| **Nicht geprüft** | Echtes Spielgefühl über einen ganzen Spieltag, Ton, Steam |
 ## 0.18.1 – Nachbesserungen nach Phase 18 (Läufe vom 2026-10-18)
 
 Geprüft im Editor-Spielmodus und im gepackten Spiel (Development, `Builds/P18_Dev`).

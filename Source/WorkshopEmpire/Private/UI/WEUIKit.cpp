@@ -8,6 +8,8 @@
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/Image.h"
+#include "Components/Overlay.h"
+#include "Components/OverlaySlot.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
@@ -113,6 +115,40 @@ namespace WEUI
 		return B;
 	}
 
+	UWidget* Shadowed(UWidgetTree* Tree, UWidget* Panel, float Spread)
+	{
+		UOverlay* O = Tree->ConstructWidget<UOverlay>();
+		UImage* Shadow = Tree->ConstructWidget<UImage>();
+		FSlateBrush B;
+		B.SetResourceObject(UITexture(TEXT("T_PanelShadow")));
+		B.DrawAs = ESlateBrushDrawType::Box;
+		B.Margin = FMargin(0.25f);
+		B.ImageSize = FVector2D(64.f, 64.f);
+		Shadow->SetBrush(B);
+		Shadow->SetVisibility(ESlateVisibility::HitTestInvisible);
+		if (UOverlaySlot* S = O->AddChildToOverlay(Shadow))
+		{
+			S->SetHorizontalAlignment(HAlign_Fill);
+			S->SetVerticalAlignment(VAlign_Fill);
+		}
+		if (UOverlaySlot* S = O->AddChildToOverlay(Panel))
+		{
+			S->SetHorizontalAlignment(HAlign_Fill);
+			S->SetVerticalAlignment(VAlign_Fill);
+			// The light comes from above: a little more shadow below.
+			S->SetPadding(FMargin(Spread, Spread * 0.7f, Spread, Spread * 1.3f));
+		}
+		return O;
+	}
+
+	UBorder* WindowPanel(UWidgetTree* Tree, const FMargin& Padding, const FLinearColor& Fill)
+	{
+		UBorder* B = Tree->ConstructWidget<UBorder>();
+		B->SetBrush(Brush(Fill, Col::WithAlpha(Col::LineStrong, 0.85f), 1.f, 6.f));
+		B->SetPadding(Padding);
+		return B;
+	}
+
 	static FSlateSound SlateSound(ESound Kind)
 	{
 		FSlateSound S;
@@ -127,7 +163,7 @@ namespace WEUI
 	{
 		FButtonStyle S;
 		FLinearColor Normal = Col::Raised, Hover = Col::RaisedHover, Pressed = Col::Panel, Outline = Col::Line, HoverOutline = Col::LineStrong;
-		float Radius = 2.f;
+		float Radius = 4.f;
 		FMargin Padding(14.f, 7.f);
 		switch (Kind)
 		{

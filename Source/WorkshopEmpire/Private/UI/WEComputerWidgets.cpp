@@ -1,4 +1,5 @@
 #include "UI/WEComputerWidgets.h"
+#include "World/WEDayNightComponent.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -80,9 +81,12 @@ void UWEDesktopIdleWidget::NativeTick(const FGeometry& MyGeometry, float InDelta
 		return;
 	}
 	Accumulated = 0.f;
-	const FDateTime Now = FDateTime::Now();
-	ClockText->SetText(FText::FromString(FString::Printf(TEXT("%02d:%02d"), Now.GetHour(), Now.GetMinute())));
-	DateText->SetText(FText::AsDate(Now, EDateTimeStyle::Long));
+	// Phase 19: the lock screen shows the time of the game world.
+	if (const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this))
+	{
+		ClockText->SetText(Clock->GetClockText());
+		DateText->SetText(FText::Format(LOCTEXT("GameDay", "Tag {0} · {1}"), FText::AsNumber(Clock->GetDay()), Clock->GetOpeningText()));
+	}
 	const FString User = Terminal.IsValid() ? Terminal->UserName : FString();
 	StatusText->SetText(bLocalUse ? LOCTEXT("InUseMe", "Angemeldet")
 		: !User.IsEmpty() ? FText::Format(LOCTEXT("InUse", "In Benutzung: {0}"), FText::FromString(User))

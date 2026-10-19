@@ -147,7 +147,10 @@ void UWESettingRow::NativeOnInitialized()
 	RowIcon = Icon(WidgetTree, TEXT("Gear"), 18.f, Col::TextDim);
 	AddH(Row, RowIcon, FMargin(0.f, 0.f, 10.f, 0.f));
 	LabelText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong);
-	AddH(Row, LabelText, FMargin(), true);
+	// Phase 19: a long label in a narrow card ends in "…" instead of running under the arrows.
+	LabelText->SetClipping(EWidgetClipping::ClipToBounds);
+	LabelText->SetTextOverflowPolicy(ETextOverflowPolicy::Ellipsis);
+	AddH(Row, LabelText, FMargin(0.f, 0.f, 4.f, 0.f), true);
 	UButton* Left = Button(WidgetTree, FText::GetEmpty(), EButton::Icon, TEXT("ChevronLeft"), 12);
 	Left->OnClicked.AddDynamic(this, &UWESettingRow::HandleLeft);
 	AddH(Row, Left);
@@ -568,14 +571,14 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	AddV(Creator, Confirm, FMargin(0.f, 12.f, 0.f, 0.f), HAlign_Left);
 	Pages->AddChild(Creator);
 
-	UBorder* Card = Box(WidgetTree, Col::Hex(0x121519, 0.95f), FMargin(26.f, 22.f), Col::WithAlpha(Col::LineStrong, 0.8f), 3.f);
+	UBorder* Card = WindowPanel(WidgetTree, FMargin(26.f, 22.f), Col::Hex(0x121519, 0.95f));
 	Card->SetContent(Sized(WidgetTree, CardBox, 660.f, 600.f));
-	PageCard = Card;
-	if (UOverlaySlot* S = Root->AddChildToOverlay(Card))
+	PageCard = Shadowed(WidgetTree, Card);
+	if (UOverlaySlot* S = Root->AddChildToOverlay(PageCard))
 	{
 		S->SetHorizontalAlignment(HAlign_Right);
 		S->SetVerticalAlignment(VAlign_Center);
-		S->SetPadding(FMargin(0.f, 0.f, 70.f, 0.f));
+		S->SetPadding(FMargin(0.f, 0.f, 52.f, 0.f));
 	}
 	ShowPage(0);
 	IntroAnim.Duration = 0.5f;
@@ -734,7 +737,7 @@ void UWEMainMenuWidget::RefreshLook()
 	for (int32 f = 0; f < LookRows.Num(); ++f)
 	{
 		const EWELookField Field = static_cast<EWELookField>(f);
-		LookRows[f]->SetValue(WELook::GetOptionName(Field, EditLook.Get(Field)));
+		LookRows[f]->SetValue(WELook::GetOptionName(Field, EditLook.Get(Field), EditLook.Body));
 	}
 	if (AWEAvatarPreview* P = Preview.Get())
 	{
@@ -1037,10 +1040,10 @@ void UWEPauseMenuWidget::NativeOnInitialized()
 
 	AddH(Columns, Sized(WidgetTree, Pages, 520.f, 560.f), FMargin(), false, VAlign_Top);
 
-	UBorder* Frame = Box(WidgetTree, Col::Panel, FMargin(30.f, 26.f), Col::WithAlpha(Col::LineStrong, 0.8f), 3.f);
+	UBorder* Frame = WindowPanel(WidgetTree, FMargin(30.f, 26.f), Col::Panel);
 	Frame->SetContent(Columns);
-	Card = Frame;
-	Root->SetContent(Frame);
+	Card = Shadowed(WidgetTree, Frame);
+	Root->SetContent(Card);
 }
 
 void UWEPauseMenuWidget::NativeConstruct()

@@ -32,6 +32,7 @@
 #include "UI/WEHUDWidget.h"
 #include "UI/WEInventoryWidget.h"
 #include "UI/WETradeWidget.h"
+#include "UI/WEMirrorWidget.h"
 #include "Economy/WETraderTerminal.h"
 #include "WELog.h"
 
@@ -1056,6 +1057,55 @@ void AWEPlayerController::ClosePauseMenu()
 		PauseMenuWidget->RemoveFromParent();
 	}
 	if (!IsInventoryOpen() && !IsTradeOpen())
+	{
+		SetInputMode(FInputModeGameOnly());
+		SetShowMouseCursor(false);
+		ResetIgnoreLookInput();
+		ResetIgnoreMoveInput();
+	}
+}
+
+// --- Mirror (Phase 19) -----------------------------------------------------------------------------------
+
+bool AWEPlayerController::IsMirrorOpen() const
+{
+	return MirrorWidget && MirrorWidget->IsInViewport();
+}
+
+void AWEPlayerController::ClientOpenMirror_Implementation()
+{
+	OpenMirror();
+}
+
+void AWEPlayerController::OpenMirror()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	CloseInventory();
+	CloseTrade();
+	CloseWorkView();
+	ClosePauseMenu();
+	if (!MirrorWidget)
+	{
+		MirrorWidget = CreateWidget<UWEMirrorWidget>(this, UWEMirrorWidget::StaticClass());
+	}
+	if (MirrorWidget && !MirrorWidget->IsInViewport())
+	{
+		MirrorWidget->AddToViewport(15);
+		EnterMenuInputMode(MirrorWidget);
+	}
+}
+
+void AWEPlayerController::CloseMirror()
+{
+	if (!IsMirrorOpen())
+	{
+		return;
+	}
+	MirrorWidget->RemoveFromParent();
+	if (!IsInventoryOpen() && !IsTradeOpen() && !IsPauseMenuOpen())
 	{
 		SetInputMode(FInputModeGameOnly());
 		SetShowMouseCursor(false);

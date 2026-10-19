@@ -95,6 +95,10 @@ public:
 	/** Server: set the look (the local player sends its profile look when it takes control). */
 	void SetLookAuthority(const FWECharacterLook& NewLook);
 	class UWEAvatarComponent* GetAvatar() const { return Avatar; }
+	/** Phase 19 mirror: server - a change made in game (wins over the profile, stays in the save). */
+	void ChangeLookAuthority(const FWECharacterLook& NewLook);
+	/** Phase 19 mirror: owning client - change the look now. */
+	void RequestChangeLook(const FWECharacterLook& NewLook);
 
 protected:
 	virtual void BeginPlay() override;
@@ -143,6 +147,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetLook(const FWECharacterLook& NewLook);
+
+	UFUNCTION(Server, Reliable)
+	void ServerChangeLook(const FWECharacterLook& NewLook);
 
 	UFUNCTION()
 	void OnRep_Look();

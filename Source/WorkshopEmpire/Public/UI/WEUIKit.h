@@ -80,6 +80,10 @@ namespace WEUI
 	/** Flat box brush with a thin outline; Radius 0-3 keeps the hard industrial edge. */
 	WORKSHOPEMPIRE_API FSlateBrush Brush(const FLinearColor& Fill, const FLinearColor& Outline = FLinearColor::Transparent, float OutlineWidth = 0.f, float Radius = 2.f);
 	WORKSHOPEMPIRE_API UBorder* Box(UWidgetTree* Tree, const FLinearColor& Fill, const FMargin& Padding, const FLinearColor& Outline = FLinearColor::Transparent, float Radius = 2.f);
+	/** Phase 19 glow-up: a soft drop shadow around a panel (returns the wrapper to add to the layout instead of the panel). */
+	WORKSHOPEMPIRE_API UWidget* Shadowed(UWidgetTree* Tree, UWidget* Panel, float Spread = 18.f);
+	/** Phase 19 glow-up: a big window panel - rounded, a faint top light, a soft shadow. */
+	WORKSHOPEMPIRE_API UBorder* WindowPanel(UWidgetTree* Tree, const FMargin& Padding, const FLinearColor& Fill);
 
 	enum class EButton : uint8
 	{
