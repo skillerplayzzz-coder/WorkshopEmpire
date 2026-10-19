@@ -13,6 +13,8 @@
 
 #define LOCTEXT_NAMESPACE "WEMirror"
 
+static TAutoConsoleVariable<int32> CVarMirrorProjection(TEXT("we.MirrorProjection"), 1, TEXT("Mirror: 1 = off-centre projection through the glass, 0 = plain view (debug)."));
+
 namespace WEMirrorData
 {
 	const TCHAR* GlassMaterialPath = TEXT("/Game/WorkshopEmpire/Materials/M_WEMirror.M_WEMirror");
@@ -89,6 +91,9 @@ void AWEMirror::BeginPlay()
 	Target->InitAutoFormat(Width, FMath::RoundToInt(Width * GlassSize.Y / FMath::Max(1.f, GlassSize.X)));
 	Target->UpdateResourceImmediate(true);
 	Capture->TextureTarget = Target;
+	// The capture looks through its own glass from behind: never draw the mirror into its own picture.
+	Capture->HiddenComponents.Add(Glass);
+	Capture->HiddenComponents.Add(Frame);
 	if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, WEMirrorData::GlassMaterialPath))
 	{
 		GlassMaterial = UMaterialInstanceDynamic::Create(Base, this);
@@ -107,13 +112,43 @@ void AWEMirror::CaptureNow()
 	{
 		return;
 	}
-	// Where the glass is in the world: the material maps the picture onto it mirrored.
+	// 0.19.1: a real mirror. The capture sits at the viewer's eye mirrored behind the glass and looks through the glass
+	// rectangle (off-centre projection); its near plane lies just in front of the glass, so the wall behind is cut away.
+	// What it sees changes with where the player stands, like in a real mirror.
+	const FVector N = GetActorForwardVector();
+	const FVector Up = GetActorUpVector();
+	const FVector Center = Glass->GetComponentLocation() + N * 0.2f;
+	FVector Eye = Center + N * 150.f;
+	FRotator ViewRot;
+	if (const APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+	{
+		PC->GetPlayerViewPoint(Eye, ViewRot);
+	}
+	const float Dist = FMath::Max(FVector::DotProduct(Eye - Center, N), 10.f);
+	const FVector Mirrored = Eye - N * (FVector::DotProduct(Eye - Center, N) + Dist);
+	Capture->SetWorldLocationAndRotation(Mirrored, FRotationMatrix::MakeFromXZ(N, Up).Rotator());
+	const FVector Right = Capture->GetRightVector();
+	const FVector Rel = Center - Mirrored;
+	const float Cx = FVector::DotProduct(Rel, Right);
+	const float Cy = FVector::DotProduct(Rel, Up);
+	const float Near = FMath::Max(Dist - 2.f, 1.f);
+	const float S = Near / Dist;
+	const float L = (Cx - GlassSize.X * 0.5f) * S, R = (Cx + GlassSize.X * 0.5f) * S;
+	const float B = (Cy - GlassSize.Y * 0.5f) * S, T = (Cy + GlassSize.Y * 0.5f) * S;
+	// Reversed-Z projection with an infinite far plane (like the engine's), shifted onto the glass.
+	Capture->bUseCustomProjectionMatrix = CVarMirrorProjection.GetValueOnGameThread() != 0;
+	Capture->CustomProjectionMatrix = FMatrix(
+		FPlane(2.f * Near / (R - L), 0.f, 0.f, 0.f),
+		FPlane(0.f, 2.f * Near / (T - B), 0.f, 0.f),
+		FPlane(-(R + L) / (R - L), -(T + B) / (T - B), 0.f, 1.f),
+		FPlane(0.f, 0.f, Near, 0.f));
+	// Where the glass is in the world: the material lays the picture onto it (it flips left/right for the old
+	// fixed view - the opposite "right" undoes that, the reflection itself already is mirrored).
 	if (GlassMaterial)
 	{
-		const FTransform& T = Glass->GetComponentTransform();
-		GlassMaterial->SetVectorParameterValue(TEXT("Center"), FLinearColor(T.GetLocation()));
-		GlassMaterial->SetVectorParameterValue(TEXT("Right"), FLinearColor(GetActorRightVector()));
-		GlassMaterial->SetVectorParameterValue(TEXT("Up"), FLinearColor(GetActorUpVector()));
+		GlassMaterial->SetVectorParameterValue(TEXT("Center"), FLinearColor(Center));
+		GlassMaterial->SetVectorParameterValue(TEXT("Right"), FLinearColor(-Right));
+		GlassMaterial->SetVectorParameterValue(TEXT("Up"), FLinearColor(Up));
 		GlassMaterial->SetVectorParameterValue(TEXT("Size"), FLinearColor(GlassSize.X, GlassSize.Y, 0.f));
 	}
 	Capture->CaptureScene();

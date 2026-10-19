@@ -19,6 +19,9 @@
 #include "World/WEDayNightComponent.h"
 #include "World/WEMirror.h"
 #include "Logistics/WEForklift.h"
+#include "TimerManager.h"
+#include "Workshop/WEWorkbench.h"
+#include "Items/WEItemDefinition.h"
 
 void UWEDevAutomationComponent::RunPhase19Shots()
 {
@@ -222,6 +225,27 @@ void UWEDevAutomationComponent::RunPhase19GameShots()
 		}
 	});
 	ShotFrom(44.5f, FVector(120.f, -20.f, 150.f), FVector(-110.f, -195.f, 90.f), TEXT("10_Gabelstapler"));
-	Schedule(48.5f, [this, Log]() { Log(TEXT("end")); Quit(); });
+	// 6) 0.19.1: a CRT monitor in the work view (the cover and the board used to be a grey plate and a huge green slab).
+	Schedule(48.6f, [PC]()
+	{
+		if (PC)
+		{
+			PC->ServerDevGiveItem(TEXT("Screwdriver"), 1, EWEItemCondition::Used);
+			PC->ServerDevGiveItem(TEXT("SideCutter"), 1, EWEItemCondition::Used);
+			PC->ServerDevGiveItem(TEXT("CrtMonitor"), 1, EWEItemCondition::Used);
+		}
+	});
+	Schedule(49.4f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindNearestItem(TEXT("Monitor"))); } });
+	Schedule(50.2f, [this]() { TeleportToBench(0.f); });
+	Schedule(51.0f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(51.6f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(52.6f, [this]() { if (AWEWorkbench* B = FindBench(); B && B->GetPlacedItem()) { LookAtPoint(B->GetPlacedItem()->GetActorLocation()); } });
+	Schedule(53.2f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(54.8f, [this]() { Shot(TEXT("11_Monitor_Zerlegen")); });
+	Schedule(55.2f, [this]() { GetWorld()->GetTimerManager().SetTimer(WorkViewTimer, this, &UWEDevAutomationComponent::WorkViewTick, 0.2f, true); });
+	Schedule(60.0f, [this]() { Shot(TEXT("12_Monitor_Platine")); });
+	Schedule(66.0f, [this]() { Shot(TEXT("13_Monitor_Weiter")); });
+	Schedule(66.5f, [this, PC]() { GetWorld()->GetTimerManager().ClearTimer(WorkViewTimer); if (PC) { PC->CloseWorkView(); } });
+	Schedule(67.5f, [this, Log]() { Log(TEXT("end")); Quit(); });
 #endif
 }

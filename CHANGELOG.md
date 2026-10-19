@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1] – 2026-10-19 – Nachbesserungen nach Mikes Spielvideo
+
+### Geändert
+- **Normale Körper statt Superhelden:** Arme, Schultern, Brust und Beine der Figuren sind schmaler (Kopf, Hände und Füße unverändert); alle Kleidungsstücke sind neu aus diesen Körpern geschnitten, Hoodie und Jacke etwas weniger weit.
+- **Echter Spiegel:** Das Spiegelbild hängt jetzt davon ab, wo du stehst und hinschaust, wie bei einem echten Spiegel.
+- **Bewegungsunschärfe** fast ausgeschaltet (das Bild verwischte bei jeder Mausbewegung).
+- **Zerlegen von Monitor, Radio & Co.:** Die Rückwand hat das Material des Geräts statt einer grauen Platte, Platinen und Bauteile sind kleiner und liegen im Gerät statt herauszuragen.
 ## [0.19.0] – 2026-10-19 – Phase 19: Aufträge, Kleinanzeigen, Tag und Nacht, Kleidung, Spiegel
 
 ### Neu

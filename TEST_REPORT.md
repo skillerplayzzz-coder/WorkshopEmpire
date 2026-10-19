@@ -17,6 +17,15 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## 0.19.1 – Nachbesserungen nach Mikes Spielvideo (Läufe vom 2026-10-19)
+
+| Test | Ergebnis |
+|---|---|
+| Video ausgewertet | 5:42 min, Bild für Bild: muskelbepackte Figuren, Spiegel ohne Perspektive, starke Bewegungsunschärfe, graue Platte und riesige Platine beim Monitor |
+| Automation-Suite `WorkshopEmpire` | ✅ **129/129** (1 bekannte Warnung), Bericht `Saved/TestReports/All191` |
+| `-WEShots=P19C` / `P19G` | ✅ 29 / 13 Bilder, 0 Fehler; Spiegel zeigt die Figur aus der Blickrichtung des Spielers, neue Bilder vom Monitor in der Arbeitsansicht |
+| P175W, P18R, P6, P15 | ✅ alle beendet, 0 Fehler |
+| Gepacktes Spiel (`F:\Spiele\WORKSHOP EMPIRE\Builds\P191_Dev`) P19G | ✅ 13 Bilder, 0 Fehler |
 ## 0.19.0 – Phase 19: Verbesserungen nach Mikes Auswahl (Läufe vom 2026-10-19)
 
 Geprüft im Editor-Spielmodus und im gepackten Spiel (Development, `Builds/P19_Dev`). Während der Läufe lief auf demselben Rechner ein zweiter Unreal-Editor (anderes Projekt); die gemessenen Bildraten sind deshalb nicht aussagekräftig.

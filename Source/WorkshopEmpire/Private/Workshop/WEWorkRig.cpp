@@ -207,8 +207,15 @@ void AWEWorkRig::RebuildPlan()
 			break;
 		case EWEWorkTaskKind::Lid:
 		{
-			const FLinearColor LidTint = DeviceTint * 0.62f; // a little darker than the housing, so the cover reads as a separate panel
-			AddMesh(Piece, Cube, FVector(Half.X * 2.f * 0.88f / 100.f, Half.Y * 2.f * 0.88f / 100.f, 0.008f), Flat, FVector(0.f, 0.f, 0.4f), &LidTint);
+			// 0.19.1: the cover is made of the device's own housing material (a plain grey plate looked foreign), a little
+			// smaller than the top so the housing edge stays visible around it.
+			const FLinearColor LidTint = DeviceTint * 0.62f;
+			UStaticMeshComponent* LidMesh = AddMesh(Piece, Cube, FVector(Half.X * 2.f * 0.8f / 100.f, Half.Y * 2.f * 0.8f / 100.f, 0.005f), Flat, FVector(0.f, 0.f, 0.3f), &LidTint);
+			const UStaticMeshComponent* Housing = Item ? Item->FindComponentByClass<UStaticMeshComponent>() : nullptr;
+			if (UMaterialInterface* HousingMat = Housing ? Housing->GetMaterial(0) : nullptr)
+			{
+				LidMesh->SetMaterial(0, HousingMat);
+			}
 			break;
 		}
 		case EWEWorkTaskKind::PullPart:
@@ -217,8 +224,9 @@ void AWEWorkRig::RebuildPlan()
 			UStaticMesh* PartMesh = Task.Part && Task.Part->WorldMesh ? Task.Part->WorldMesh.Get() : Cube.Get();
 			const FBox PartBox = PartMesh->GetBoundingBox();
 			const float Size = FMath::Max(PartBox.GetSize().GetMax(), 1.f);
-			const float Target = FMath::Clamp(FMath::Min(Half.X, Half.Y) * 0.9f, 6.f, 30.f);
-			UStaticMeshComponent* C = AddMesh(Piece, PartMesh, FVector(Target / Size), Flat, FVector::ZeroVector, Task.Part && Task.Part->WorldMesh ? nullptr : &DeviceTint);
+			// 0.19.1: smaller and sunk into the device (a board as big as the whole monitor stuck out of it).
+			const float Target = FMath::Clamp(FMath::Min(Half.X, Half.Y) * 0.55f, 5.f, 18.f);
+			UStaticMeshComponent* C = AddMesh(Piece, PartMesh, FVector(Target / Size), Flat, FVector(0.f, 0.f, -FMath::Min(Half.Z * 0.35f, 6.f)), Task.Part && Task.Part->WorldMesh ? nullptr : &DeviceTint);
 			if (Task.Part && Task.Part->WorldMesh && Task.Part->Surface != EWESurface::Placeholder)
 			{
 				WEPlaceholder::ApplyTint(C, BaseMaterial, Task.Part->Tint);
@@ -348,6 +356,10 @@ void AWEWorkRig::Tick(float DeltaSeconds)
 			if (C->ComponentTags.Num() > 0)
 			{
 				Offset.InitFromString(C->ComponentTags[0].ToString());
+			}
+			if (bDone && Task.Kind == EWEWorkTaskKind::PullPart)
+			{
+				Offset = FVector::ZeroVector; // out of the device: lies on the tray
 			}
 			C->SetVisibility(bVisible);
 			C->SetWorldLocation(Location + Offset);

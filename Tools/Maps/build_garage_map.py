@@ -97,6 +97,9 @@ pp_set(pp, "white_temp", 6200.0)
 pp_set(pp, "color_contrast", unreal.Vector4(1.04, 1.04, 1.04, 1.0))
 pp_set(pp, "color_saturation", unreal.Vector4(0.95, 0.95, 0.95, 1.0))
 pp_set(pp, "scene_fringe_intensity", 0.0)
+# After Mike's play video (0.19.1): the default motion blur smeared the whole picture on every mouse turn.
+pp_set(pp, "motion_blur_amount", 0.1)
+pp_set(pp, "motion_blur_max", 2.0)
 # Local exposure keeps the sunlit floor patches by the door from burning out while the eye is adapted to the workshop.
 pp_set(pp, "local_exposure_highlight_contrast_scale", 0.6)
 pp_set(pp, "local_exposure_shadow_contrast_scale", 0.85)

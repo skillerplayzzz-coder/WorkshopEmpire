@@ -26,6 +26,12 @@ namespace WEAvatar
 
 	USkeletalMesh* BodyMesh(bool bFemale)
 	{
+		// 0.19.1: the everyday body (build_clothing.py slims the superhero body; the clothes are cut from it).
+		const TCHAR* Slim = bFemale ? TEXT("SK_Female_Body") : TEXT("SK_Male_Body");
+		if (USkeletalMesh* Everyday = Load<USkeletalMesh>(FString::Printf(TEXT("%s/Clothing/%s.%s"), Root, Slim, Slim)))
+		{
+			return Everyday;
+		}
 		const TCHAR* Name = bFemale ? TEXT("Superhero_Female_FullBody") : TEXT("Superhero_Male_FullBody");
 		return Load<USkeletalMesh>(AssetPath(FString::Printf(TEXT("%s/%s/SkeletalMeshes"), bFemale ? TEXT("Female") : TEXT("Male"), Name), Name));
 	}

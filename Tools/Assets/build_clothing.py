@@ -83,7 +83,13 @@ class Body:
     def __init__(self, gender):
         self.gender = gender
         name = f"Superhero_{gender}_FullBody"
-        self.asset = unreal.load_asset(f"{DEST}/{gender}/{name}/SkeletalMeshes/{name}")
+        self.load(unreal.load_asset(f"{DEST}/{gender}/{name}/SkeletalMeshes/{name}"))
+
+    def load(self, asset):
+        gender = self.gender
+        self.asset = asset
+        if hasattr(self, "_axes"):
+            del self._axes
         self.skeleton = self.asset.get_editor_property("skeleton")
         self.mesh = self.copy()
         self.verts = [(v.x, v.y, v.z) for v in L.convert_vector_list_to_array(pick(Q.get_all_vertex_positions(self.mesh, False), unreal.GeometryScriptVectorList))]
@@ -184,6 +190,77 @@ class Body:
         return {"c": (cx, cy, z), "r": bins, "front": max(p[1] for p in pts), "back": min(p[1] for p in pts),
                 "minx": min(p[0] for p in pts), "maxx": max(p[0] for p in pts)}
 
+
+# --- Everyday bodies (0.19.1) --------------------------------------------------------------------------------------
+SLIM = {"Male": {"arm": 0.70, "leg": 0.88, "torso": 0.84}, "Female": {"arm": 0.80, "leg": 0.92, "torso": 0.90}}
+
+
+def smoothstep(e0, e1, x):
+    t = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
+def part_weights(b, o):
+    """How much a body point belongs to an arm, a leg and the torso (the same split the clothes use)."""
+    d, H = b.d, b.d["H"]
+    crotch = b.axes()["crotch"]
+    ax = abs(o[0])
+    wa = smoothstep(d["TorsoX"] - 3.0, d["TorsoX"] + 4.0, ax) * (1.0 if o[2] / H > d["ArmZ"] - 0.03 else 0.0)
+    wl = smoothstep(crotch + 3.0, crotch - 5.0, o[2]) * (1.0 - wa)
+    if o[2] > crotch - 8.0:
+        wl *= smoothstep(1.5, 6.0, ax)
+    return wa, wl, max(0.0, 1.0 - wa - wl)
+
+
+def slim_body(b):
+    """The Quaternius bodies are superheroes (huge shoulders, arms and chest) - with clothes on they looked like
+    stuffed puppets. Every point moves towards its limb or torso axis; head, hands and feet stay as they are,
+    so hair, beards, hats and glasses still fit. Same vertices, same skin weights, same skeleton."""
+    d, H = b.d, b.d["H"]
+    f = SLIM[b.gender]
+    m = b.copy()
+    out = []
+    for o in b.verts:
+        wa, wl, wt = part_weights(b, o)
+        acc, wsum = [0.0, 0.0, 0.0], 0.0
+        for kind, w in (("arm", wa), ("leg", wl), ("torso", wt)):
+            if w <= 0.0:
+                continue
+            a, dr, r, along = b.radial(o, kind)
+            base = (o[0], a[1], a[2]) if kind == "arm" else (a[0], a[1], o[2])
+            rr = r * f[kind]
+            p = (base[0] + dr[0] * rr, base[1] + dr[1] * rr, base[2] + dr[2] * rr)
+            acc = [acc[i] + p[i] * w for i in range(3)]
+            wsum += w
+        slimmed = tuple(c / wsum for c in acc) if wsum > 0 else o
+        # Kept as they are: head and neck top, hands, feet.
+        keep = max(smoothstep(d["NeckZ"] * H - 2.0, d["NeckZ"] * H + 6.0, o[2]) if abs(o[0]) < d["TorsoX"] else 0.0,
+                   smoothstep(d["Long"] - 4.0, d["Long"] + 2.0, abs(o[0])) if o[2] / H > d["ArmZ"] - 0.05 else 0.0,
+                   smoothstep(12.0, 6.0, o[2]))
+        out.append(tuple(slimmed[i] + (o[i] - slimmed[i]) * keep for i in range(3)))
+    E.set_all_mesh_vertex_positions(m, pick(L.convert_array_to_vector_list([unreal.Vector(*p) for p in out]), unreal.GeometryScriptVectorList))
+    so = unreal.GeometryScriptSplitNormalsOptions()
+    so.set_editor_property("split_by_opening_angle", True)
+    so.set_editor_property("opening_angle_deg", 60.0)
+    N.compute_split_normals(m, so, unreal.GeometryScriptCalculateNormalsOptions())
+    path = f"{OUT}/SK_{b.gender}_Body"
+    if eal.does_asset_exist(path):
+        eal.delete_asset(path)
+    opts = unreal.GeometryScriptCreateNewSkeletalMeshAssetOptions()
+    opts.set_editor_property("enable_recompute_tangents", True)
+    mats = {}
+    for sm in b.asset.get_editor_property("materials"):
+        mats[str(sm.get_editor_property("material_slot_name"))] = sm.get_editor_property("material_interface")
+    opts.set_editor_property("materials", mats)
+    sk = first(NEW.create_new_skeletal_mesh_asset_from_mesh(m, b.skeleton, path, opts))
+    if not sk:
+        unreal.log_error(f"WE_CLOTH {path}: not created")
+        return None
+    eal.save_asset(path)
+    slots = [str(s.get_editor_property("material_slot_name")) for s in sk.get_editor_property("materials")]
+    xs = [p[0] for p in out]
+    unreal.log(f"WE_CLOTH slim body {path}: slots {slots}, width {min(xs):.1f}..{max(xs):.1f}")
+    return sk
 
 # --- Regions (body space: Z up, the figure looks along +Y, arms along X in the T-pose) -------------------------------
 def shirt_region(d, sleeve, hem, neck):
@@ -449,7 +526,7 @@ def wardrobe(b):
     # 2: hoodie (hood, kangaroo pocket, drawstrings, ribbed hem and cuffs) + jeans.
     g = Garment(b, "Hoodie")
     rib = lambda p: 1 if (p[2] / H < W - 0.012 or abs(p[0]) > d["Long"] - 5.0) else 0  # noqa: E731
-    g.cut(shirt_region(d, d["Long"], W - 0.03, d["NeckZ"] + 0.012), tube(2.6, 0, 0), 0.5, rib)
+    g.cut(shirt_region(d, d["Long"], W - 0.03, d["NeckZ"] + 0.012), tube(2.0, 0, 0), 0.5, rib)
     nx, ny, nz = neck["c"]
     g.sphere(0, (nx, neck["back"] - 3.0, d["NeckZ"] * H + 0.5), 10.0, scale=(1.3, 0.8, 0.6))
     g.ring(0, neck, 2.6, 3.4, 1.4, z=d["NeckZ"] * H + 1.5)
@@ -482,7 +559,7 @@ def wardrobe(b):
     # 4: jacket (stand-up collar, zip, pockets, hem band) + trousers with a belt.
     g = Garment(b, "Jacket")
     hem = lambda p: 2 if p[2] / H < W - 0.045 else 0  # noqa: E731
-    g.cut(shirt_region(d, d["Long"] + 1.0, W - 0.06, d["NeckZ"] + 0.01), tube(3.0, 0, 0), 0.6, hem)
+    g.cut(shirt_region(d, d["Long"] + 1.0, W - 0.06, d["NeckZ"] + 0.01), tube(2.4, 0, 0), 0.6, hem)
     g.ring(0, neck, 3.2, 6.0, 1.4, z=d["NeckZ"] * H + 1.8)
     zip_strip(g, 1, (W - 0.06) * H, d["NeckZ"] * H, 3.7, 1.0)
     for s in (-1, 1):
@@ -625,7 +702,11 @@ def cloth_material():
 def main():
     cloth_material()
     for gender in ("Male", "Female"):
-        wardrobe(Body(gender))
+        b = Body(gender)
+        sk = slim_body(b)
+        if sk:
+            b.load(sk)  # the clothes are cut from the everyday body
+        wardrobe(b)
     beard_variants()
     unreal.SystemLibrary.quit_editor()
 
