@@ -581,7 +581,14 @@ void UWEHUDWidget::UpdateStatus()
 	}
 	if (const UWEDayNightComponent* DayNight = UWEDayNightComponent::Get(this); DayNight && ClockText)
 	{
-		ClockText->SetText(FText::Format(LOCTEXT("ClockFmt", "Tag {0} · {1} · {2}"), FText::AsNumber(DayNight->GetDay()), DayNight->GetClockText(), DayNight->GetOpeningText()));
+		FText Clock = FText::Format(LOCTEXT("ClockFmtWeather", "Tag {0} · {1} · {2} · {3}"), FText::AsNumber(DayNight->GetDay()), DayNight->GetClockText(), DayNight->GetOpeningText(), DayNight->GetWeatherText());
+		// Phase 20: coffee boost left.
+		if (const AWECharacter* Me = Cast<AWECharacter>(GetOwningPlayerPawn()); Me && Me->HasCoffeeBoost())
+		{
+			const int32 Left = FMath::CeilToInt(Me->GetCoffeeBoostRemaining());
+			Clock = FText::Format(LOCTEXT("ClockCoffee", "{0} · Kaffee {1}:{2}"), Clock, FText::AsNumber(Left / 60), FText::FromString(FString::Printf(TEXT("%02d"), Left % 60)));
+		}
+		ClockText->SetText(Clock);
 		ClockText->SetColorAndOpacity(FSlateColor(DayNight->IsOpen() ? Col::Good : Col::TextDim));
 		// Sun by day, moon by night.
 		const bool bDay = DayNight->GetDaylight() > 0.05f;

@@ -16,6 +16,7 @@ namespace WESettings
 		bool bInvertY = false;
 		float FieldOfView = 90.f;       // 70 - 110
 		float MasterVolume = 1.f;       // 0 - 1
+		float MotionBlur = 0.2f;        // 0 - 1 (Phase 20; 0.2 = the look of the maps)
 		FIntPoint Resolution = FIntPoint(1920, 1080);
 		int32 WindowMode = 0;           // 0 fullscreen, 1 windowed fullscreen, 2 window
 		bool bVSync = true;

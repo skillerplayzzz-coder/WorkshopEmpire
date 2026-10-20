@@ -4,6 +4,9 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Player/WEMannequin.h"
+#include "Player/WEAvatarComponent.h"
+#include "Player/WECharacterLook.h"
+#include "Workshop/WEBrandComponent.h"
 #include "Player/WEFootstepComponent.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/StaticMesh.h"
@@ -71,6 +74,8 @@ AWEEmployee::AWEEmployee()
 	WEMannequin::Configure(GetMesh(), WEEmployeeConst::CapsuleHalfHeight);
 	CreateDefaultSubobject<UWEFootstepComponent>(TEXT("Footsteps"))->VolumeMultiplier = 0.45f;
 	CarriedMesh = MakePart(TEXT("Carried"), Cube.Object, FVector(42.f, 0.f, 8.f), FVector(0.3f));
+	Avatar = CreateDefaultSubobject<UWEAvatarComponent>(TEXT("Avatar"));
+	Avatar->SetupAttachment(GetCapsuleComponent());
 	CarriedMesh->SetVisibility(false);
 }
 
@@ -92,6 +97,11 @@ void AWEEmployee::BeginPlay()
 {
 	Super::BeginPlay();
 	OnRep_Visuals();
+	// Phase 20: new work clothes colour when the company changes its brand.
+	if (UWEBrandComponent* Brand = UWEBrandComponent::Get(this))
+	{
+		Brand->OnBrandChanged.AddWeakLambda(this, [this]() { OnRep_Visuals(); });
+	}
 	// Only the server steers; clients just see the replicated movement.
 	SetActorTickEnabled(HasAuthority());
 }
@@ -110,6 +120,21 @@ void AWEEmployee::OnRep_Visuals()
 	// Manny or Quinn by name, so the same person always looks the same on every machine.
 	WEMannequin::ApplyBody(GetMesh(), GetTypeHash(Profile.Name) % 2 == 1);
 	WEMannequin::Tint(GetMesh(), Tint);
+	// Phase 20: the same person always looks the same (face, hair by name), in the work overall of the company.
+	if (Avatar && GetNetMode() != NM_DedicatedServer && !Profile.Name.IsEmpty())
+	{
+		FWECharacterLook Look = WELook::Random(static_cast<int32>(GetTypeHash(Profile.Name)));
+		Look.Body = GetTypeHash(Profile.Name) % 2 == 1 ? 1 : 0;
+		Look.Outfit = 0;
+		Look.OutfitColor = UWEBrandComponent::GetBrandOf(this).WorkwearColor;
+		Look.Shoes = 1;
+		Look.Glasses = 0;
+		Look.Clamp();
+		WEMannequin::ApplyBody(GetMesh(), Look.Body == 1);
+		Avatar->SetDriver(GetMesh());
+		Avatar->SetShowCompanyLogo(true);
+		Avatar->ApplyLook(Look);
+	}
 	const UWEItemDefinition* Def = Carried.Definition;
 	CarriedMesh->SetVisibility(Def != nullptr && !bAway);
 	if (Def)

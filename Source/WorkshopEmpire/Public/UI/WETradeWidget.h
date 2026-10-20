@@ -130,6 +130,8 @@ public:
 
 	/** Phase 4-12 page numbers (tests and dev runs): 0 market, 1 auctions, 2 staff, 3 company; 4-7 orders, finance, style, help. */
 	void ShowPage(int32 Page);
+	/** Tabs of the "Gestaltung" app (4 = company logo); also used by the dev shots. */
+	void ShowStyleTab(int32 Tab);
 	void OpenApp(EApp App);
 	void CloseApp(EApp App);
 	bool IsAppOpen(EApp App) const;
@@ -229,6 +231,12 @@ protected:
 	UFUNCTION() void HandleStyleCat1();
 	UFUNCTION() void HandleStyleCat2();
 	UFUNCTION() void HandleStyleCat3();
+	UFUNCTION() void HandleStyleCat4();
+	UFUNCTION() void HandleBrandApplyName();
+	/** Phase 20: the logo editor (fifth tab of "Gestaltung"). */
+	void BuildBrandEditor();
+	void RefreshBrandEditor();
+	void StepBrand(int32 Field, int32 Direction);
 	UFUNCTION() void HandleStyleZoneNext();
 	UFUNCTION() void HandleBuyFilterNext();
 	UFUNCTION() void HandleApp0();
@@ -335,6 +343,12 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> StyleList;
 	int32 StyleZoneIndex = 0;
 	int32 StyleCategory = 0;
+	UPROPERTY(Transient) TArray<TObjectPtr<class UWESettingRow>> BrandRows;
+	UPROPERTY(Transient) TObjectPtr<class UEditableTextBox> BrandNameBox;
+	UPROPERTY(Transient) TObjectPtr<UImage> BrandPreviewIcon;
+	UPROPERTY(Transient) TObjectPtr<UBorder> BrandPreviewBox;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> BrandPreviewName;
+	bool bBrandEditorBuilt = false;
 	// Help
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> HelpList;
 	// Classifieds (Phase 19)

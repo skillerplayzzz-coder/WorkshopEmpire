@@ -17,6 +17,23 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## 0.20.0 – Phase 20: Werkstatt-Ausbau und Release-Vorbereitung (Läufe vom 2026-10-19/20)
+
+Geprüft im Editor-Spielmodus, im gepackten Spiel (Development, `Builds/P20_Dev`) und im Shipping-Build (`Builds/P20_Shipping`). Auf demselben Rechner lief ein zweiter Unreal-Editor (anderes Projekt); Bildraten sind nicht aussagekräftig.
+
+| Test | Ergebnis |
+|---|---|
+| Build Editor, Development- und Shipping-Paket | ✅ ohne Fehler |
+| Automation-Suite `WorkshopEmpire` | ✅ **130/130** (1 bekannte Warnung „fell out of the world“), Bericht `Saved/TestReports/All20`; neu `Repair.Phase20DevicesRealData`: Fernseher, Kofferradio, Spielkonsole und Akkuschrauber mit den echten Daten vollständig repariert, jedes Ersatzteil beim Händler erhältlich |
+| **Spiel** `-WEShots=P20` (neu, 21 Bilder) | ✅ Logo am Tor, Transporter und Firmenschild; Logo-Editor im Ferrit OS, neue Marke wirkt sofort überall (Name „SCHRAUBWERK MÜLLER“); Mitarbeiter als Figuren im grünen Overall mit Logo; Kaffee: 0,50 € abgebucht, Laufen 300 → 345, Arbeit ×1,2, Restzeit an der Uhr; Radio spielt, [Q] wechselt den Titel; Katze sitzt, wird gestreichelt (schnurrt), schläft, läuft; Regen im Hof (≈1200 Tropfen), unter dem Dach trocken und gedämpft; Gewitter bei Nacht mit Blitz; Einstellungen mit Schiebereglern; Taste „Benutzen“ auf G, dann auf F (tauscht mit „Untersuchen“), zurückgesetzt auf E – die Steuerung nimmt die neue Taste sofort |
+| **Wetter-Kurzlauf** `-WEShots=P20W` | ✅ Regen und Gewitter am Tag: graue Wolkendecke, weiche Schatten, Regenstriche sichtbar |
+| **Trailer** `-WEShots=P20T` + `make_trailer.ps1` | ✅ 1350 Bilder (feste 30 fps), Video 52 s, 1920×1080, H.264 + AAC, Titel, 9 Szenen mit Untertiteln, Abspann, Musik, Regen und Donner |
+| **Shipping-Build** | ✅ startet ins Hauptmenü; Speicherort `%LOCALAPPDATA%\WorkshopEmpire\Saved` (Grundlage der Auto-Cloud-Pfade) |
+| **Gepacktes Spiel** (Development, `Builds/P20_Dev`) P20 | ✅ 21 Bilder, 0 Fehler, gleiche Protokollwerte wie im Editor (Kaffee, Radio, Katze, Regen drinnen/draußen, Blitz, Tastenbelegung) |
+| **Regression** Netzwerktests A/B … W/X, I/J, 4 Spieler (5. abgewiesen), Spielläufe P5–P16, P175W, P175V, P18R, P19G, P19C, P20, P13 + P13C, UI-Test in 4 Auflösungen | ✅ alle beendet, 0 Fehler. UI-Test 1920×1080 meldete zweimal „A strafes: FAIL“: die Katze stand dem Spieler im Weg. Behoben (die Katze blockiert keine Figuren mehr), danach 17/17 ok in 1920×1080 und 1280×720 |
+| Gefundene und behobene Fehler | Logo auf der Brust von der Tasche verdeckt; Regen anfangs unsichtbar (zu dünn) und blieb an unsichtbaren Volumen hängen; Himmel blieb bei Regen blau, Belichtung glich die dunklere Sonne aus; Warnung „mehrere gerichtete Lichter“ beim Blitz; Katze lief nach „Laufen“ nicht los; Schieberegler schnitten die Beschriftung ab; Kupferkabel für die Radio-Reparatur war nirgends zu kaufen |
+| **Nicht geprüft** | Steam-Cloud-Synchronisation und Start über Steam mit eigener App ID (braucht Mikes Steamworks-Konto); Ton im Spiel (Testläufe ohne Abhören); echtes Spielgefühl über einen ganzen Spieltag |
+
 ## 0.19.1 – Nachbesserungen nach Mikes Spielvideo (Läufe vom 2026-10-19)
 
 | Test | Ergebnis |

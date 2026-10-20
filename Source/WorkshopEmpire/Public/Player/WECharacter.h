@@ -34,6 +34,8 @@ public:
 	UCameraComponent* GetFirstPersonCamera() const { return FirstPersonCamera; }
 	UWEInteractionComponent* GetInteractionComponent() const { return InteractionComponent; }
 	const UWEInputConfig* GetInputConfig() const { return InputConfig; }
+	/** Phase 20: key rebinding changes the live mapping context. */
+	UWEInputConfig* GetMutableInputConfig() const { return InputConfig; }
 
 	// --- Carrying ---------------------------------------------------------------------------
 
@@ -132,7 +134,23 @@ public:
 	/** Phase 18c: [V] third person (see your own character) / first person. */
 	void SetThirdPerson(bool bOn);
 	bool IsThirdPerson() const { return bThirdPerson; }
+
+	/** Phase 20 coffee machine. Server: walk 15 % faster and work 20 % faster for Seconds. */
+	void GiveCoffeeBoost(float Seconds);
+	/** Seconds of coffee boost left (every machine). */
+	float GetCoffeeBoostRemaining() const;
+	bool HasCoffeeBoost() const { return GetCoffeeBoostRemaining() > 0.f; }
+	/** Work speed factor from the coffee (1 or 1.2). */
+	float GetWorkBoost() const { return HasCoffeeBoost() ? CoffeeWorkFactor : 1.f; }
+	static constexpr float CoffeeWalkFactor = 1.15f;
+	static constexpr float CoffeeWorkFactor = 1.2f;
 protected:
+	/** Server world time when the coffee boost ends. */
+	UPROPERTY(ReplicatedUsing = OnRep_CoffeeBoost)
+	float CoffeeBoostEnd = 0.f;
+	UFUNCTION()
+	void OnRep_CoffeeBoost();
+	FTimerHandle CoffeeTimer;
 	bool bThirdPerson = false;
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<class USpringArmComponent> ThirdPersonBoom;

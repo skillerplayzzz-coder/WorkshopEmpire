@@ -35,6 +35,10 @@ public:
 	UPoseableMeshComponent* GetBody() const { return Body; }
 	/** Same visibility rules as the driver had (first person: the owner does not see his own body). */
 	void SetOwnerNoSee(bool bNoSee);
+	/** Phase 20: players and employees wear the company logo on the overall (customers do not). */
+	void SetShowCompanyLogo(bool bShow);
+	/** Phase 20: forces the look to be rebuilt (the brand colour of work clothes changed). */
+	void Rebuild() { BuildBody(); }
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -65,6 +69,7 @@ protected:
 	bool bHasLook = false;
 	int32 BuiltBody = -1;
 	bool bOwnerNoSee = false;
+	bool bShowCompanyLogo = false;
 
 	struct FBoneMap
 	{

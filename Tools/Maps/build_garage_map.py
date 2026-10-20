@@ -347,7 +347,16 @@ prop_model("metal_jerrycan", (600, -395, 0), 0.0)
 prop_model("portable_generator", (980, -420, 0), 120.0)
 prop_model("plastic_crate_01", (650, 330, 0), 25.0)
 prop_model("plastic_crate_01", (650, 330, 26), 10.0)
-prop_model("security_light", (424, 0, 300), 0.0, collide=False)
+prop_model("security_light", (424, -150, 300), 0.0, collide=False)
+# Phase 20: the company logo above the garage door (follows the brand chosen in the Ferrit OS).
+door_logo = spawn(unreal.WELogoActor, (423, 0, 284), (0.0, 0.0, 0.0), "LogoDoor", "World")
+door_logo.get_component_by_class(unreal.WELogoComponent).set_editor_property("size", 52.0)
+door_logo.get_component_by_class(unreal.WELogoComponent).set_editor_property("show_name", False)
+# Phase 20: workshop atmosphere - radio and coffee machine on the ends of the workbench, the workshop cat "Schraube".
+spawn(unreal.WEWorkshopRadio, (-385, 80, 90), (0.0, 90.0, 0.0), "WorkshopRadio", "Atmosphere")
+spawn(unreal.WECoffeeMachine, (-380, -78, 90), (0.0, 90.0, 0.0), "CoffeeMachine", "Atmosphere")
+cat = spawn(unreal.WEWorkshopCat, (20, 60, 25), (0.0, 200.0, 0.0), "WorkshopCat", "Atmosphere")
+cat.set_editor_property("wander_half_extent", unreal.Vector2D(330.0, 240.0))
 
 # --- Neighbourhood (Phase 17.5): street, power lines, fence, neighbours, clutter, props that come with growth ---
 import os, sys

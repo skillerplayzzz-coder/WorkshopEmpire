@@ -577,4 +577,86 @@ bool FWERepairSaveTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWERepairPhase20DevicesTest, "WorkshopEmpire.Repair.Phase20DevicesRealData", Flags)
+bool FWERepairPhase20DevicesTest::RunTest(const FString& Parameters)
+{
+	// Phase 20: television, radio, game console and cordless drill are repaired like the PC, with their own faults and
+	// spare parts that the spare parts dealer sells.
+	const UWETraderDefinition* Dealer = LoadObject<UWETraderDefinition>(nullptr, TEXT("/Game/WorkshopEmpire/Data/Economy/DA_Trader_SpareParts.DA_Trader_SpareParts"));
+	TestNotNull(TEXT("Spare parts dealer"), Dealer);
+	for (const TCHAR* Id : { TEXT("OldTelevision"), TEXT("PortableRadio"), TEXT("GameConsole"), TEXT("CordlessDrill") })
+	{
+		UWEItemDefinition* Def = LoadObject<UWEItemDefinition>(nullptr, *FString::Printf(TEXT("/Game/WorkshopEmpire/Data/Items/DA_Item_%s.DA_Item_%s"), Id, Id));
+		if (!TestNotNull(FString::Printf(TEXT("%s exists"), Id), Def) || !TestTrue(FString::Printf(TEXT("%s repairable"), Id), Def->bRepairable && Def->Repair != nullptr))
+		{
+			continue;
+		}
+		const UWERepairDefinition* Repair = Def->Repair;
+		TestTrue(FString::Printf(TEXT("%s has own faults"), Id), Repair->Faults.Num() >= 2);
+		for (const FWERepairFault& Fault : Repair->Faults)
+		{
+			if (!TestNotNull(FString::Printf(TEXT("%s: part of '%s'"), Id, *Fault.DisplayName.ToString()), Fault.Part.Get()))
+			{
+				continue;
+			}
+			const bool bSold = Dealer && Dealer->Stock.ContainsByPredicate([&Fault](const FWETraderStockEntry& E) { return E.Item == Fault.Part; });
+			TestTrue(FString::Printf(TEXT("%s: spare part %s is sold by the dealer"), Id, *Fault.Part->ItemId.ToString()), bSold);
+		}
+
+		// Full repair at a bench with the real data: diagnose, exchange every broken part, test.
+		FWETestWorld TW;
+		AWEGameState* GameState = TW.SpawnGameState<AWEGameState>();
+		GameState->GetContracts()->SetCatalog(nullptr);
+		AWEWorkbench* Bench = TW.Spawn<AWEWorkbench>(FVector(150.f, 0.f, 0.f));
+		Bench->SetRandomSeed(7);
+		AWECharacter* Player = SpawnPlayer(TW, FVector(0.f, 0.f, 100.f));
+		auto Give = [Player](UWEItemDefinition* Item, int32 Quantity)
+		{
+			int32 Added = 0;
+			Player->GetPlayerInventory()->TryAddItem(FWEItemInstance::Make(Item, Quantity, EWEItemCondition::Used, 70), Added);
+		};
+		TSet<EWEToolType> Tools = { Repair->DiagnoseTool, Repair->TestTool };
+		for (const FWERepairFault& Fault : Repair->Faults)
+		{
+			Tools.Add(Fault.Tool);
+			if (Fault.Part)
+			{
+				Give(Fault.Part, 2);
+			}
+		}
+		for (const EWEToolType Type : Tools)
+		{
+			if (Type != EWEToolType::None)
+			{
+				Give(WERepairTests::Tool(*FString::Printf(TEXT("P20Tool_%d"), static_cast<int32>(Type)), Type), 1);
+			}
+		}
+		AWEPickupItem* Device = AWEPickupItem::SpawnWorldItem(TW.World, FWEItemInstance::Make(Def, 1, EWEItemCondition::Defective, 40), FTransform(FVector(100.f, -100.f, 30.f)));
+		Bench->PlaceItem(Device);
+		if (!TestTrue(FString::Printf(TEXT("%s placed on the bench"), Id), Bench->GetPlacedItem() == Device))
+		{
+			continue;
+		}
+		int32 Steps = 0;
+		FText Reason;
+		while (Steps < 12)
+		{
+			const EWERepairStepKind Kind = Bench->GetNextRepairStep(Reason).Kind;
+			if (Kind == EWERepairStepKind::None || Kind == EWERepairStepKind::Refurbish)
+			{
+				break;
+			}
+			if (!TestTrue(FString::Printf(TEXT("%s step %d (%d) starts: %s"), Id, Steps, static_cast<int32>(Kind), *Reason.ToString()), Bench->TryStartRepairStep(Player)))
+			{
+				break;
+			}
+			Bench->CompleteActiveStep();
+			++Steps;
+		}
+		TestTrue(FString::Printf(TEXT("%s: at least diagnose, remove, install, test"), Id), Steps >= 4);
+		TestEqual(FString::Printf(TEXT("%s works again"), Id), Device->GetItem().Condition, EWEItemCondition::Used);
+		TestEqual(FString::Printf(TEXT("%s has no faults left"), Id), static_cast<int32>(Device->GetItem().Repair.Faults), 0);
+	}
+	return true;
+}
 #endif // WITH_DEV_AUTOMATION_TESTS

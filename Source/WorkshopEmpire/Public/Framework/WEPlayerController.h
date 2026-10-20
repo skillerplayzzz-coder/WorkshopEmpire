@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "Items/WEItemTypes.h"
+#include "Workshop/WEBrandComponent.h"
 #include "WEPlayerController.generated.h"
 
 class UWEHUDWidget;
@@ -110,6 +111,10 @@ public:
 	void RequestClearBuilding(class AWETraderTerminal* Terminal, FName UpgradeId);
 	/** Phase 17.5: personalise a building (paint, floor, lighting, door) from the workshop PC. */
 	void RequestApplyStyle(class AWETraderTerminal* Terminal, FName Zone, uint8 Category, int32 Option);
+	/** Phase 20: new company logo / work clothes colour (free). */
+	void RequestSetBrand(const FWECompanyBrand& Brand);
+	UFUNCTION(Server, Reliable)
+	void ServerSetBrand(const FWECompanyBrand& Brand);
 	/** Phase 17.5 tutorial: 0 = start / restart, 1 = skip. */
 	void RequestTutorial(uint8 Action);
 	/** Phase 17.5 tutorial: things only the client sees (inventory opened, work view, PC). */

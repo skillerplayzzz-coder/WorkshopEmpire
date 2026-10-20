@@ -52,11 +52,20 @@ public:
 	/** Phase 18c: rows outside the settings page (character creator) call this instead of the panel. */
 	void SetupCallback(TFunction<void(int32 Direction)> InOnStep, const FText& Label, FName IconName);
 	void SetValue(const FText& Value);
+	/** Phase 20: shows a slider (Min-Max) beside the arrows; moving it calls the panel's SetFromSlider. */
+	void EnableSlider(float Min, float Max, float StepSize);
+	void SetSliderValue(float Value);
+	bool HasSlider() const { return bSlider; }
 
 protected:
 	virtual void NativeOnInitialized() override;
 	UFUNCTION() void HandleLeft();
 	UFUNCTION() void HandleRight();
+	UFUNCTION() void HandleSlider(float Value);
+	UPROPERTY(Transient) TObjectPtr<class USlider> Slider;
+	UPROPERTY(Transient) TObjectPtr<class USizeBox> ValueBox;
+	bool bSlider = false;
+	bool bSettingSlider = false;
 
 	UPROPERTY(Transient) TObjectPtr<UWESettingsPanel> Owner;
 	TFunction<void(int32)> OnStep;
@@ -64,6 +73,27 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> LabelText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ValueText;
 	int32 Index = 0;
+};
+
+/** Phase 20: one rebindable key in the settings ("Benutzen   [ E ]"); click, then press the new key. */
+UCLASS()
+class WORKSHOPEMPIRE_API UWEKeyBindRow : public UUserWidget
+{
+	GENERATED_BODY()
+
+public:
+	void Setup(UWESettingsPanel* InOwner, int32 InEntry, const FText& Label);
+	void SetKeyText(const FText& Key, bool bWaiting);
+
+protected:
+	virtual void NativeOnInitialized() override;
+	UFUNCTION() void HandleClicked();
+
+	UPROPERTY(Transient) TObjectPtr<UWESettingsPanel> Owner;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> LabelText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> KeyText;
+	UPROPERTY(Transient) TObjectPtr<UButton> KeyButton;
+	int32 Entry = 0;
 };
 
 /**
@@ -77,18 +107,32 @@ class WORKSHOPEMPIRE_API UWESettingsPanel : public UUserWidget
 
 public:
 	void Step(int32 Index, int32 Direction);
+	/** Phase 20: a slider row moved. */
+	void SetFromSlider(int32 Index, float Value);
 	void Reload();
 	const WESettings::FValues& GetValues() const { return Values; }
+	/** Phase 20 key rows: wait for the next key for this entry. */
+	void BeginKeyCapture(int32 Entry);
+	bool IsCapturingKey() const { return CaptureEntry != INDEX_NONE; }
+	/** Tests: assign a key as if it was pressed while capturing. */
+	bool CaptureKey(const FKey& Key);
 
 protected:
 	virtual void NativeOnInitialized() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	void Refresh();
+	void RefreshKeys();
 	UFUNCTION() void HandleApply();
 	UFUNCTION() void HandleDefaults();
+	UFUNCTION() void HandleResetKeys();
 
-	enum ERow : int32 { Quality, Resolution, WindowMode, VSync, FrameLimit, UIScale, Mouse, InvertY, Fov, Volume, Count };
+	enum ERow : int32 { Quality, Resolution, WindowMode, VSync, FrameLimit, MotionBlur, UIScale, Mouse, InvertY, Fov, Volume, Count };
 
 	UPROPERTY(Transient) TArray<TObjectPtr<UWESettingRow>> Rows;
+	UPROPERTY(Transient) TArray<TObjectPtr<class UWEKeyBindRow>> KeyRows;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> KeyStatusText;
+	int32 CaptureEntry = INDEX_NONE;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> StatusText;
 	WESettings::FValues Values;
 	int32 QualityLevel = 2;
@@ -198,6 +242,8 @@ public:
 	int32 GetListedPlayers() const { return ListedPlayers; }
 	/** Right side: settings (true) or the session (false). */
 	void ShowSettings(bool bShow);
+	/** Phase 20 shots and tests. */
+	UWESettingsPanel* GetSettingsPanel() const { return Settings; }
 
 protected:
 	virtual void NativeOnInitialized() override;

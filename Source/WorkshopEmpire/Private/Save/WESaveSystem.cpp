@@ -3,6 +3,7 @@
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Economy/WEClassifiedsComponent.h"
 #include "World/WEDayNightComponent.h"
+#include "Workshop/WEBrandComponent.h"
 #include "Framework/WEGameMode.h"
 
 #include "Economy/WEAuctionComponent.h"
@@ -366,6 +367,12 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		{
 			Save->Day = Clock->GetDay();
 			Save->MinuteOfDay = Clock->GetMinuteOfDay();
+		}
+		// Phase 20: the brand.
+		if (const UWEBrandComponent* Brand = UWEBrandComponent::Get(World))
+		{
+			Save->bHasBrand = true;
+			Save->Brand = Brand->GetBrand();
 		}
 		Save->RatingSum = Contracts->GetRatingSum();
 		Save->RatingCount = Contracts->GetRatingCount();
@@ -829,6 +836,10 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 			}
 			Contracts->SetContracts(Restored);
 			Contracts->SetRatings(Save->RatingSum, Save->RatingCount);
+			if (UWEBrandComponent* Brand = UWEBrandComponent::Get(World); Brand && Save->bHasBrand && Save->SaveVersion >= 18)
+			{
+				Brand->SetBrand(Save->Brand);
+			}
 			if (UWEDayNightComponent* Clock = UWEDayNightComponent::Get(World); Clock && Save->SaveVersion >= 17)
 			{
 				Clock->SetTime(Save->Day, Save->MinuteOfDay);

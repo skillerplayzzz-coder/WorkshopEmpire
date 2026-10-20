@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.20.0] – 2026-10-20 – Phase 20: Werkstatt-Ausbau und Release-Vorbereitung
+
+### Neu
+- **Firmenlogo:** Im Ferrit OS unter Gestaltung → Firmenlogo wählst du Symbol (12), Symbolfarbe, Hintergrund, Farbe der Arbeitskleidung und den Firmennamen. Das Logo erscheint über dem Tor, am Firmenschild, auf beiden Seiten des Transporters und auf dem Overall; jede Änderung gilt sofort für alle Mitspieler und wird gespeichert.
+- **Mitarbeiter als echte Figuren:** gleiche Körper, Gesichter und Kleidung wie Spieler und Kunden, im Overall in deiner Firmenfarbe mit Logo.
+- **Neue Reparaturen:** Fernseher, Kofferradio, Spielkonsole und Akkuschrauber mit eigenen Fehlern und Ersatzteilen (Lautsprecher, Laufwerk, Akku, Kohlebürsten u. a.), zu kaufen beim Ersatzteilhändler; Laufkunden und Aufträge bringen die Geräte.
+- **Werkstattradio** auf der Werkbank mit 6 Funk-Titeln: [E] an/aus, [Q] nächster Titel, alle Mitspieler hören dasselbe.
+- **Kaffeemaschine:** für 0,50 € drei Minuten 15 % schneller laufen und 20 % schneller arbeiten, Restzeit an der Uhr.
+- **Werkstattkatze „Schraube“:** streift durch die Werkstatt, setzt sich, schläft schnurrend, miaut; [E] streicheln.
+- **Wetter:** klar, bewölkt, Regen und Gewitter mit Blitz und Donner; graue Wolkendecke, weiche Schatten, unter dem Dach trocken und gedämpft. Das Wetter steht an der HUD-Uhr.
+- **Einstellungen:** Schieberegler für Bewegungsunschärfe (neu), Sichtfeld, Mausempfindlichkeit, UI-Größe und Lautstärke; alle wichtigen Tasten frei belegbar (belegte Tasten werden getauscht, „Tasten zurücksetzen“).
+- **Release-Vorbereitung:** Shipping-Build, ein Skript trägt die eigene Steam App ID überall ein, Steam-Cloud-Pfade für die Spielstände, Upload-Vorlagen und ein 52-Sekunden-Trailer aus echten Spielszenen (Anleitung `Docs/RELEASE_STEAM.md`).
+
+### Geändert
+- Kupferkabel gibt es jetzt auch beim Ersatzteilhändler.
+- Speicherstand Version 18 (Firmenmarke); ältere Spielstände laden weiter.
+
 ## [0.19.1] – 2026-10-19 – Nachbesserungen nach Mikes Spielvideo
 
 ### Geändert

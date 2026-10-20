@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/Ticker.h"
 #include "Components/ActorComponent.h"
 #include "InputCoreTypes.h"
 #include "WEDevAutomationComponent.generated.h"
@@ -146,6 +147,12 @@ protected:
 	/** Phase 19: wardrobe in the creator (-WEShots=P19C), night, customers, classifieds, orders, mirror (-WEShots=P19G). */
 	void RunPhase19Shots();
 	void RunPhase19GameShots();
+	/** Phase 20: brand and logo, employees as figures, repairs, atmosphere, settings (-WEShots=P20). */
+	void RunPhase20Shots();
+	TWeakObjectPtr<class ACameraActor> CatCamera;
+	/** Phase 20 trailer: camera moves through the scenes, every frame saved (-WEShots=P20T). */
+	void RunTrailer();
+	FTSTicker::FDelegateHandle TrailerTicker;
 	void WorkViewTick();
 	FTimerHandle WorkViewTimer;
 	int32 WorkViewTasks = 0;

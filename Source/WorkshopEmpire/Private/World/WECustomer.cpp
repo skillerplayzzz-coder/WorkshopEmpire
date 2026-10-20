@@ -396,9 +396,9 @@ namespace WEWalkIn
 		const FVector Exit(DoorAt.X + (FMath::RandBool() ? -900.f : 1500.f), -1290.f, DoorAt.Z);
 
 		// What they want.
-		static const TCHAR* RepairItems[] = { TEXT("OldComputer"), TEXT("CrtMonitor") };
-		static const TCHAR* SellItems[] = { TEXT("OldComputer"), TEXT("CrtMonitor"), TEXT("VintageRadio"), TEXT("ElectricMotor"), TEXT("CableBox") };
-		static const TCHAR* BuyItems[] = { TEXT("RamModule"), TEXT("GraphicsCard"), TEXT("PowerSupply"), TEXT("SsdDrive"), TEXT("CopperCable"), TEXT("Processor") };
+		static const TCHAR* RepairItems[] = { TEXT("OldComputer"), TEXT("CrtMonitor"), TEXT("OldTelevision"), TEXT("PortableRadio"), TEXT("GameConsole"), TEXT("CordlessDrill") };
+		static const TCHAR* SellItems[] = { TEXT("OldComputer"), TEXT("CrtMonitor"), TEXT("VintageRadio"), TEXT("ElectricMotor"), TEXT("CableBox"), TEXT("PortableRadio"), TEXT("GameConsole"), TEXT("OldTelevision") };
+		static const TCHAR* BuyItems[] = { TEXT("RamModule"), TEXT("GraphicsCard"), TEXT("PowerSupply"), TEXT("SsdDrive"), TEXT("CopperCable"), TEXT("Processor"), TEXT("Speaker"), TEXT("DrillBattery") };
 		static const TCHAR* Names[] = { TEXT("Herr Krause"), TEXT("Frau Yilmaz"), TEXT("Herr Schulte"), TEXT("Frau Becker"), TEXT("Tom"), TEXT("Frau Novak"),
 			TEXT("Herr Albers"), TEXT("Leonie"), TEXT("Herr Okafor"), TEXT("Frau Brandt") };
 		const int32 Roll = FMath::RandRange(0, 99);

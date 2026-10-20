@@ -69,6 +69,12 @@ AWEFx::FSettings AWEFx::GetSettings(EWEFxKind Kind)
 		S.Life = 9.f; S.LifeJitter = 0.4f; S.SizeStart = 0.004f; S.SizeEnd = 0.004f; S.FadeIn = 0.3f;
 		S.bGlow = true; S.Color = FLinearColor(1.f, 0.9f, 0.75f); S.Intensity = 3.f;
 		break;
+	case EWEFxKind::Rain:
+		S.BurstCount = 0; S.SpawnRate = 1300.f; S.Speed = 1000.f; S.SpeedJitter = 0.15f; S.Spread = 0.03f; S.Gravity = -300.f; S.Drag = 0.f;
+		S.Life = 2.3f; S.LifeJitter = 0.05f; S.SizeStart = 0.014f; S.SizeEnd = 0.014f; S.Stretch = 0.0004f; S.FadeIn = 0.04f;
+		S.bSphere = false; S.Color = FLinearColor(0.7f, 0.75f, 0.82f); S.Opacity = 0.45f;
+		S.MaxParticles = 2000; S.bFallDown = true; S.bKillAtGround = true;
+		break;
 	default:
 		break;
 	}
@@ -151,7 +157,7 @@ void AWEFx::Init(EWEFxKind InKind, const FVector& Direction, const FLinearColor&
 
 void AWEFx::SpawnParticle()
 {
-	if (Particles.Num() >= WEFxConst::MaxParticles)
+	if (Particles.Num() >= Settings.MaxParticles)
 	{
 		return;
 	}
@@ -160,12 +166,43 @@ void AWEFx::SpawnParticle()
 	P.Position = SpawnBox.IsNearlyZero() ? Base
 		: Base + FVector(Random.FRandRange(-SpawnBox.X, SpawnBox.X), Random.FRandRange(-SpawnBox.Y, SpawnBox.Y), Random.FRandRange(-SpawnBox.Z, SpawnBox.Z));
 	// Direction inside a cone (Spread 1 = any direction of the hemisphere around the emit direction).
-	const FVector Dir = Settings.Spread >= 1.f ? Random.GetUnitVector()
-		: FMath::VRandCone(bLoop ? GetActorUpVector() : EmitDirection, FMath::DegreesToRadians(90.f * Settings.Spread));
+	const FVector Axis = bLoop ? (Settings.bFallDown ? -FVector::UpVector : GetActorUpVector()) : EmitDirection;
+	const FVector Dir = Settings.Spread >= 1.f ? Random.GetUnitVector() : FMath::VRandCone(Axis, FMath::DegreesToRadians(90.f * Settings.Spread));
 	const float Speed = Settings.Speed * Scale * (1.f + Random.FRandRange(-Settings.SpeedJitter, Settings.SpeedJitter));
 	P.Velocity = Dir * Speed;
 	P.Life = Settings.Life * (1.f + Random.FRandRange(-Settings.LifeJitter, Settings.LifeJitter));
 	P.SizeFactor = Random.FRandRange(0.7f, 1.3f);
+	if (Settings.bKillAtGround)
+	{
+		// Rain: one trace per drop finds where it lands (ground, roof, van) - no rain inside buildings.
+		FHitResult Hit;
+		FCollisionQueryParams Query(SCENE_QUERY_STAT(WERainDrop), false, this);
+		// Blocking hits only (trigger volumes and build areas let the rain through).
+		P.KillZ = GetWorld()->LineTraceSingleByChannel(Hit, P.Position, P.Position - FVector(0.f, 0.f, 6000.f), ECC_Visibility, Query)
+			? Hit.ImpactPoint.Z : 0.f;
+		if (P.KillZ >= P.Position.Z - 1.f)
+		{
+			Particles.Pop(EAllowShrinking::No);
+		}
+	}
+}
+
+AWEFx* AWEFx::Spawn(const UObject* WorldContext, EWEFxKind Kind, const FVector& Location)
+{
+	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	if (!World || Kind == EWEFxKind::None || World->GetNetMode() == NM_DedicatedServer)
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Params.ObjectFlags |= RF_Transient;
+	AWEFx* Fx = World->SpawnActor<AWEFx>(AWEFx::StaticClass(), FTransform(Location), Params);
+	if (Fx)
+	{
+		Fx->Init(Kind, FVector::UpVector, FLinearColor::White, 1.f, true);
+	}
+	return Fx;
 }
 
 void AWEFx::Tick(float DeltaSeconds)
@@ -174,7 +211,7 @@ void AWEFx::Tick(float DeltaSeconds)
 	const float Dt = FMath::Min(DeltaSeconds, 0.05f);
 	if (bLoop && bEmitting && Settings.SpawnRate > 0.f)
 	{
-		SpawnAccumulator += Dt * Settings.SpawnRate * FMath::Clamp(Scale, 0.3f, 3.f);
+		SpawnAccumulator += Dt * Settings.SpawnRate * FMath::Clamp(Scale, 0.3f, 3.f) * RateScale;
 		while (SpawnAccumulator >= 1.f)
 		{
 			SpawnAccumulator -= 1.f;
@@ -193,6 +230,14 @@ void AWEFx::Tick(float DeltaSeconds)
 		P.Velocity.Z += Settings.Gravity * Dt;
 		P.Velocity *= FMath::Max(0.f, 1.f - Settings.Drag * Dt);
 		P.Position += P.Velocity * Dt;
+		if (Settings.bKillAtGround)
+		{
+			if (P.Position.Z < P.KillZ)
+			{
+				Particles.RemoveAtSwap(i);
+				continue;
+			}
+		}
 		if (Settings.Bounce > 0.f && P.Position.Z < FloorZ + 1.f && P.Velocity.Z < 0.f)
 		{
 			P.Position.Z = FloorZ + 1.f;

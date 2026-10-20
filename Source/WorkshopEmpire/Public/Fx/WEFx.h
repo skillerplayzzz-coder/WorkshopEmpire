@@ -24,7 +24,9 @@ enum class EWEFxKind : uint8
 	/** Orange embers rising (furnace mouth). */
 	Embers,
 	/** White steam / heat haze rising and fading (furnace, press hydraulics). */
-	Steam
+	Steam,
+	/** Phase 20: rain streaks falling around the camera (weather). */
+	Rain
 };
 
 /**
@@ -81,7 +83,13 @@ public:
 		FLinearColor Color = FLinearColor::White;
 		float Intensity = 1.f;        // glow
 		float Opacity = 0.4f;         // smoke
+		int32 MaxParticles = 160;
+		bool bFallDown = false;       // loop: emits downwards instead of up
+		bool bKillAtGround = false;   // dies where it hits the world below its spawn point (ground, roofs, vans)
 	};
+	/** Rain: the world-space effect that follows the view; Rate scales the spawn rate (0 = dry). */
+	static AWEFx* Spawn(const UObject* WorldContext, EWEFxKind Kind, const FVector& Location);
+	void SetRateScale(float InRate) { RateScale = FMath::Max(0.f, InRate); }
 	static FSettings GetSettings(EWEFxKind Kind);
 
 protected:
@@ -96,6 +104,7 @@ protected:
 		float Age = 0.f;
 		float Life = 1.f;
 		float SizeFactor = 1.f;
+		float KillZ = -UE_BIG_NUMBER;
 	};
 
 	UPROPERTY(VisibleAnywhere, Category = "Fx")
@@ -111,6 +120,7 @@ protected:
 	bool bLoop = false;
 	bool bEmitting = true;
 	TArray<FParticle> Particles;
+	float RateScale = 1.f;
 	FRandomStream Random;
 };
 

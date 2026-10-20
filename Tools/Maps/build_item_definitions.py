@@ -54,7 +54,7 @@ ITEMS = [
      [(M.STEEL, 0.12), (M.PLASTIC, 0.03)]),
     ("CordlessDrill", "CordlessDrill", "Akkuschrauber",
      "Schraubt deutlich schneller als jeder Handschraubendreher.",
-     C.POWER_TOOL, 1.3, 4500, False, 1, True, False, T.SCREWDRIVER, 2.5, CUBE, (0.22, 0.07, 0.18), (0.15, 0.55, 0.20),
+     C.POWER_TOOL, 1.3, 4500, False, 1, True, True, T.SCREWDRIVER, 2.5, CUBE, (0.22, 0.07, 0.18), (0.15, 0.55, 0.20),
      [(M.STEEL, 0.4), (M.PLASTIC, 0.6), (M.ELECTRONICS, 0.3)]),
     ("Toolbox", "Toolbox", "Werkzeugkiste",
      "Eine Metallkiste für Handwerkzeug. Im Moment fast leer.",
@@ -279,8 +279,36 @@ ITEMS = [
      "Eine größere, schnellere SSD im 2,5-Zoll-Format.",
      C.ELECTRONICS, 0.07, 1400, False, 1, True, False, T.NONE, 1.0, CUBE, (0.10, 0.07, 0.01), (0.10, 0.25, 0.55),
      [(M.ELECTRONICS, 0.05), (M.ALUMINIUM, 0.02)]),
+    # Phase 20: more devices to repair or part out, and their spare parts.
+    ("OldTelevision", "OldTelevision", "Röhrenfernseher",
+     "Ein schwerer Fernseher aus den 90ern. Oft sind nur Kondensatoren oder der Lautsprecher hinüber.",
+     C.ELECTRONICS, 24.0, 5500, False, 1, False, True, T.NONE, 1.0, CUBE, (0.60, 0.45, 0.48), (0.18, 0.18, 0.19),
+     [(M.GLASS, 12.0), (M.PLASTIC, 5.0), (M.COPPER, 1.5), (M.ELECTRONICS, 1.5), (M.STEEL, 2.0)]),
+    ("PortableRadio", "PortableRadio", "Kofferradio",
+     "Radio mit Kassettendeck und Griff. Rauscht, knackt oder bleibt stumm – meist ist es eine Kleinigkeit.",
+     C.ELECTRONICS, 2.5, 2800, False, 1, True, True, T.NONE, 1.0, CUBE, (0.36, 0.10, 0.22), (0.45, 0.45, 0.48),
+     [(M.PLASTIC, 1.4), (M.ELECTRONICS, 0.5), (M.COPPER, 0.2), (M.STEEL, 0.3)]),
+    ("GameConsole", "GameConsole", "Spielkonsole (gebraucht)",
+     "Eine Konsole mit Controller. Laufwerk und Lüfter geben bei solchen Geräten gern als Erstes auf.",
+     C.ELECTRONICS, 3.2, 7000, False, 1, True, True, T.NONE, 1.0, CUBE, (0.30, 0.26, 0.07), (0.10, 0.10, 0.11),
+     [(M.PLASTIC, 1.6), (M.ELECTRONICS, 0.8), (M.STEEL, 0.6), (M.PRECIOUS_METAL, 0.002)]),
+    ("Speaker", "Speaker", "Lautsprecher",
+     "Ein runder Breitbandlautsprecher mit Magnet. Passt in Radios und Fernseher.",
+     C.SPARE_PART, 0.4, 350, False, 1, True, False, T.NONE, 1.0, CUBE, (0.13, 0.13, 0.05), (0.10, 0.10, 0.10),
+     [(M.STEEL, 0.25), (M.COPPER, 0.05), (M.PLASTIC, 0.1)]),
+    ("DiscDrive", "DiscDrive", "Konsolen-Laufwerk",
+     "Ersatzlaufwerk für Spielkonsolen. Liest wieder jede Scheibe.",
+     C.SPARE_PART, 0.6, 1200, False, 1, True, False, T.NONE, 1.0, CUBE, (0.18, 0.15, 0.04), (0.70, 0.72, 0.75),
+     [(M.STEEL, 0.4), (M.ELECTRONICS, 0.15), (M.PLASTIC, 0.05)]),
+    ("DrillBattery", "DrillBattery", "Akku (18 V)",
+     "Ein Wechselakku für Akkuschrauber. Hält wieder eine ganze Schicht.",
+     C.SPARE_PART, 0.5, 1800, False, 1, True, False, T.NONE, 1.0, CUBE, (0.11, 0.08, 0.07), (0.10, 0.10, 0.10),
+     [(M.ELECTRONICS, 0.3), (M.PLASTIC, 0.2)]),
+    ("CarbonBrushes", "CarbonBrushes", "Kohlebürsten-Set",
+     "Zwei Kohlebürsten mit Federn – der klassische Verschleiß bei Elektrowerkzeug.",
+     C.SPARE_PART, 0.03, 250, True, 10, True, False, T.NONE, 1.0, CUBE, (0.07, 0.05, 0.02), (0.15, 0.15, 0.15),
+     [(M.COPPER, 0.01), (M.STEEL, 0.02)]),
 ]
-
 CARRY_BONUS = {"HandTruck": 30.0}
 
 # Phase 19: benchmark points per piece (what a part adds to a PC's score).
@@ -291,7 +319,7 @@ RARITY = {"RareGpu": unreal.WEItemRarity.RARE, "VintageRadio": unreal.WEItemRari
           "GoldCpu": unreal.WEItemRarity.VERY_RARE, "ServoMotor": unreal.WEItemRarity.RARE}
 
 # Broken complex devices are worth much less than working ones, so that repairing pays off (Phase 6).
-BROKEN_VALUE = {"OldComputer": 0.42, "CrtMonitor": 0.5}
+BROKEN_VALUE = {"OldComputer": 0.42, "CrtMonitor": 0.5, "OldTelevision": 0.45, "PortableRadio": 0.4, "GameConsole": 0.35, "CordlessDrill": 0.4}
 
 items = {}
 for (suffix, item_id, name, desc, cat, kg, cents, stack, max_stack, fits, repair, tool, speed, mesh, scale, tint, mats) in ITEMS:
@@ -374,8 +402,33 @@ SEQUENCES = {
     "CableBox": [
         step("Kabel sortieren", T.NONE, 3.0, [out("CopperCable", 4, 6), out("PlasticParts", 1, 2)]),
     ],
+    # Phase 20: television, radio, console and the cordless drill.
+    "OldTelevision": [
+        step("Rückwand abschrauben", T.SCREWDRIVER, 3.0, [out("SheetMetalScrews", 4, 6), out("PlasticParts", 3, 4)]),
+        step("Lautsprecher ausbauen", T.SCREWDRIVER, 1.5, [out("Speaker", 1, inherit=True), out("SheetMetalScrews", 2)]),
+        step("Platine ausbauen", T.SCREWDRIVER, 2.5, [out("ElectronicScrap", 3, 5)]),
+        step("Ablenkspule abtrennen", T.SIDE_CUTTER, 2.5, [out("CopperCable", 3, 4)]),
+        step("Bildröhre zerlegen", T.NONE, 5.0, [out("GlassCullet", 10, 12), out("SteelScrap", 2)]),
+    ],
+    "PortableRadio": [
+        step("Gehäuse aufschrauben", T.SCREWDRIVER, 2.0, [out("SheetMetalScrews", 4), out("PlasticParts", 2)]),
+        step("Lautsprecher ausbauen", T.NONE, 1.0, [out("Speaker", 1, inherit=True)]),
+        step("Platine ausbauen", T.SCREWDRIVER, 1.5, [out("ElectronicScrap", 1, 2)]),
+        step("Kabel abtrennen", T.SIDE_CUTTER, 1.0, [out("CopperCable", 1)]),
+    ],
+    "GameConsole": [
+        step("Gehäuse öffnen", T.SCREWDRIVER, 2.0, [out("SheetMetalScrews", 6), out("PlasticParts", 2)]),
+        step("Laufwerk ausbauen", T.SCREWDRIVER, 2.0, [out("DiscDrive", 1, inherit=True), out("SheetMetalScrews", 2)]),
+        step("Lüfter ausbauen", T.SCREWDRIVER, 1.5, [out("CaseFan", 1, inherit=True)]),
+        step("Platine ausbauen", T.SCREWDRIVER, 2.5, [out("ElectronicScrap", 2, 3), out("SteelScrap", 1)]),
+    ],
+    "CordlessDrill": [
+        step("Akku abnehmen", T.NONE, 0.8, [out("DrillBattery", 1, inherit=True)]),
+        step("Gehäuse aufschrauben", T.SCREWDRIVER, 1.5, [out("SheetMetalScrews", 5), out("PlasticParts", 1)]),
+        step("Kohlebürsten entnehmen", T.NONE, 1.0, [out("CarbonBrushes", 1)]),
+        step("Motor und Getriebe zerlegen", T.SIDE_CUTTER, 2.0, [out("CopperCable", 1), out("SteelScrap", 1)]),
+    ],
 }
-
 for suffix, steps in SEQUENCES.items():
     dis, dis_path = data_asset(DIS_FOLDER, f"DIS_{suffix}", unreal.WEDisassemblyDefinition)
     dis.set_editor_property("steps", steps)
@@ -460,8 +513,26 @@ REPAIRS = {
         fault("Kondensatoren aufgebläht", "Alte Kondensatoren auslöten", "Neue Kondensatoren einlöten", "Capacitors", T.SOLDERING_IRON, 4.0, 4.0, 3.0, False),
         fault("Netzkabel gebrochen", "Kaputtes Netzkabel abtrennen", "Neues Kabel anschließen", "CopperCable", T.SIDE_CUTTER, 2.0, 2.0, 2.0, False),
     ], diagnose_s=3.0, test_s=2.0),
+    # Phase 20.
+    "OldTelevision": dict(faults=[
+        fault("Kondensatoren aufgebläht", "Alte Kondensatoren auslöten", "Neue Kondensatoren einlöten", "Capacitors", T.SOLDERING_IRON, 4.0, 4.0, 3.0, False),
+        fault("Lautsprecher defekt", "Kaputten Lautsprecher ausbauen", "Ersatz-Lautsprecher einbauen", "Speaker", T.SCREWDRIVER, 2.0, 2.0, 2.0),
+    ], diagnose_s=3.5, test_s=2.5),
+    "PortableRadio": dict(faults=[
+        fault("Lautsprecher defekt", "Kaputten Lautsprecher ausbauen", "Ersatz-Lautsprecher einsetzen", "Speaker", T.NONE, 1.0, 1.0, 3.0),
+        fault("Kondensatoren aufgebläht", "Alte Kondensatoren auslöten", "Neue Kondensatoren einlöten", "Capacitors", T.SOLDERING_IRON, 3.0, 3.0, 2.0, False),
+        fault("Antennenkabel gebrochen", "Kaputtes Kabel abtrennen", "Neues Kabel anlöten", "CopperCable", T.SIDE_CUTTER, 1.0, 1.5, 1.0, False),
+    ], diagnose_s=2.5, test_s=1.5),
+    "GameConsole": dict(faults=[
+        fault("Laufwerk liest nicht", "Defektes Laufwerk ausbauen", "Ersatz-Laufwerk einbauen", "DiscDrive", T.SCREWDRIVER, 2.0, 2.0, 3.0),
+        fault("Lüfter blockiert", "Blockierten Lüfter ausbauen", "Ersatz-Lüfter einbauen", "CaseFan", T.SCREWDRIVER, 1.5, 1.5, 2.0),
+        fault("Netzteil-Kondensatoren defekt", "Alte Kondensatoren auslöten", "Neue Kondensatoren einlöten", "Capacitors", T.SOLDERING_IRON, 3.5, 3.5, 1.0, False),
+    ], diagnose_s=3.0, test_s=2.0),
+    "CordlessDrill": dict(faults=[
+        fault("Akku tiefentladen", "Alten Akku abnehmen", "Neuen Akku aufschieben", "DrillBattery", T.NONE, 0.8, 0.8, 3.0),
+        fault("Kohlebürsten verschlissen", "Alte Kohlebürsten entnehmen", "Neue Kohlebürsten einsetzen", "CarbonBrushes", T.SCREWDRIVER, 2.0, 2.0, 2.0, False),
+    ], diagnose_s=2.0, test_s=1.5),
 }
-
 for suffix, spec in REPAIRS.items():
     rep, rep_path = data_asset(REP_FOLDER, f"REP_{suffix}", unreal.WERepairDefinition)
     rep.set_editor_property("faults", spec["faults"])
@@ -486,7 +557,7 @@ MODEL_ITEMS = {
     "CordlessDrill": ("Drill_01", 22.0), "Multimeter": ("retro_multimeter", 22.0), "DigitalMultimeter": ("retro_multimeter", 17.0),
     "BitRatchet": ("ratchet_wrench", 22.0), "CrtMonitor": ("Television_01", 42.0), "Toolbox": ("metal_toolbox", 45.0),
     "HandTruck": ("hand_truck", 120.0), "CableBox": ("cardboard_box_01", 45.0), "MaintenanceKit": ("oil_tin", 22.0),
-    "CleaningKit": ("lubricant_spray", 18.0), "ReturnPalletElectronics": ("wooden_crate_01", 80.0), "ReturnPalletTools": ("wooden_crate_01", 80.0),
+    "CleaningKit": ("lubricant_spray", 18.0), "OldTelevision": ("Television_01", 60.0), "ReturnPalletElectronics": ("wooden_crate_01", 80.0), "ReturnPalletTools": ("wooden_crate_01", 80.0),
 }
 SURFACE_ITEMS = {
     "OldComputer": S.PAINTED_METAL, "ElectricMotor": S.PAINTED_METAL, "IndustrialMotorLarge": S.PAINTED_METAL, "ServoMotor": S.PAINTED_METAL,
@@ -503,6 +574,7 @@ GEN_ITEMS = {
     "CopperCable", "ExtensionCable", "SteelBracketSet", "SheetMetalScrews", "Capacitors", "GoldCpu", "VintageRadio",
     "SolderingIron", "SolderingStation", "PalletBrackets", "PalletCables", "PreciousConcentrate",
     "CpuCooler", "Processor", "HardDrive", "SsdDrive", "CaseFan", "GraphicsCardPro", "RamModule8", "ProcessorFast", "SsdFast",
+    "PortableRadio", "GameConsole", "Speaker", "DiscDrive", "DrillBattery", "CarbonBrushes",
 }
 for suffix, (da, path) in items.items():
     gen_path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{suffix}"

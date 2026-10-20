@@ -175,7 +175,18 @@
 - Gabelstapler als echtes Modell, weg aus der Ecke
 - Oberfläche: Schatten, runde Ecken, Sonne/Mond-Uhr, Spielzeit im Ferrit OS, deutsche Zahlen, kürzere Namen in Inventarfeldern
 - Sicherung: Git LFS für große Dateien, lokales Backup-Repository `G:\Backups\WorkshopEmpire.git`
+
+### Phase 20 – Werkstatt-Ausbau und Release-Vorbereitung (0.20.0, 2026-10-20)
+- Firmenlogo-Editor im Ferrit OS (Symbol, Farben, Arbeitskleidung, Name); Logo über dem Tor, am Firmenschild, auf dem Transporter und auf dem Overall
+- Mitarbeiter als echte Figuren (Körper, Gesichter, Kleidung wie Spieler und Kunden) im Overall in der Firmenfarbe
+- Reparatur von Fernseher, Kofferradio, Spielkonsole und Akkuschrauber mit eigenen Fehlern und Ersatzteilen
+- Atmosphäre: Werkstattradio mit 6 Funk-Titeln, Kaffeemaschine (3 min schneller), Werkstattkatze „Schraube“, Wetter mit Regen und Gewitter
+- Einstellungen: Schieberegler, Bewegungsunschärfe, frei belegbare Tasten
+- Release: Shipping-Build, Steam-App-ID-Skript, Steam-Cloud-Pfade, Upload-Vorlagen, Trailer aus Spielszenen (`Docs/RELEASE_STEAM.md`)
 ## Offene Aufgaben
+
+- Mike: Steamworks-Konto anlegen und die eigene App ID eintragen (`Tools/Release/set_steam_appid.ps1`), Auto-Cloud im Backend einstellen; Cloud-Sync ist erst damit testbar
+- Mike: Praxistest Phase 20 (Logo-Editor, Mitarbeiter, neue Reparaturen, Radio, Kaffee, Katze, Wetter, Tastenbelegung, Trailer ansehen)
 
 - Mike: Praxistest Phase 18 und 0.18.1 (PC zerlegen und wieder zusammenbauen, Funktionstest, Transporter beladen, neue Sounds anhören, Autos)
 - Mike: Praxistest Phase 19 (PC-Aufträge, Kleinanzeigen, Tag/Nacht, Laufkundschaft, Kleidung und Spiegel)
@@ -195,8 +206,8 @@ Keine.
 
 ## Nächste Schritte (nach Freigabe)
 
-Phase 18 – Release-Vorbereitung (laut Spezifikation), erst nach Mikes Freigabe.
+Veröffentlichung auf Steam: App ID, Auto-Cloud und Shopseite durch Mike (Anleitung `Docs/RELEASE_STEAM.md`), danach Shipping-Build mit der echten ID packen und hochladen.
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-19 (0.19.0): 129/129 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-20 (0.20.0): 130/130 Automation-Tests, Regression grün, gepacktes Spiel (Development und Shipping) geprüft. Davor 2026-10-19 (0.19.0): 129/129 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.

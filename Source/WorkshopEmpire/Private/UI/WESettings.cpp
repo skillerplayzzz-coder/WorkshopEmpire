@@ -29,7 +29,9 @@ namespace WESettings
 			GConfig->GetBool(Section, TEXT("InvertY"), V.bInvertY, GGameUserSettingsIni);
 			GConfig->GetFloat(Section, TEXT("FieldOfView"), V.FieldOfView, GGameUserSettingsIni);
 			GConfig->GetFloat(Section, TEXT("MasterVolume"), V.MasterVolume, GGameUserSettingsIni);
+			GConfig->GetFloat(Section, TEXT("MotionBlur"), V.MotionBlur, GGameUserSettingsIni);
 		}
+		V.MotionBlur = FMath::Clamp(V.MotionBlur, 0.f, 1.f);
 		V.UIScale = FMath::Clamp(V.UIScale, 0.8f, 1.3f);
 		V.MouseSensitivity = FMath::Clamp(V.MouseSensitivity, 0.2f, 3.f);
 		V.FieldOfView = FMath::Clamp(V.FieldOfView, 70.f, 110.f);
@@ -58,6 +60,11 @@ namespace WESettings
 		if (IConsoleVariable* Invert = Console.FindConsoleVariable(TEXT("we.InvertY")))
 		{
 			Invert->Set(V.bInvertY, ECVF_SetByGameSetting);
+		}
+		// Motion blur: overrides the strength of the post process volumes (0.2 = 0.1, as the maps are set up; 0 = off).
+		if (IConsoleVariable* Blur = Console.FindConsoleVariable(TEXT("r.MotionBlur.Amount")))
+		{
+			Blur->Set(V.MotionBlur * 0.5f, ECVF_SetByGameSetting);
 		}
 		if (IConsoleVariable* Fov = Console.FindConsoleVariable(TEXT("we.FieldOfView")))
 		{
@@ -93,6 +100,7 @@ namespace WESettings
 			GConfig->SetBool(Section, TEXT("InvertY"), V.bInvertY, GGameUserSettingsIni);
 			GConfig->SetFloat(Section, TEXT("FieldOfView"), V.FieldOfView, GGameUserSettingsIni);
 			GConfig->SetFloat(Section, TEXT("MasterVolume"), V.MasterVolume, GGameUserSettingsIni);
+			GConfig->SetFloat(Section, TEXT("MotionBlur"), V.MotionBlur, GGameUserSettingsIni);
 			GConfig->Flush(false, GGameUserSettingsIni);
 		}
 		if (UGameUserSettings* S = GEngine ? GEngine->GetGameUserSettings() : nullptr)

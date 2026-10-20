@@ -106,3 +106,23 @@ Keine neuen Fremd-Assets im Spiel. Alles Neue ist im Projekt selbst erzeugt:
 - **Icons** Sonne, Mond und der weiche Panel-Schatten `T_PanelShadow`: `Tools/UI/make_icons.py`.
 
 Werkzeug (nicht im Spiel): **Git LFS 3.8.0** (github.com/git-lfs/git-lfs, MIT-Lizenz), heruntergeladen nach `F:\Spiele\_gitlfs` für große Dateien im Repository und die Sicherung.
+
+## Phase 20 (2026-10-19/20)
+
+Neue Fremd-Assets (alle **CC0**, OpenGameArt.org, heruntergeladen nach `SourceArt/OpenGameArt`, mit ffmpeg nach `SourceArt/OpenGameArt/Wav` in Mono-WAV umgewandelt und mit `Tools/Assets/import_phase20_audio.py` nach `/Game/WorkshopEmpire/Audio/P20` importiert):
+
+| Asset im Spiel | Quelle | Autor | Lizenz |
+|---|---|---|---|
+| `SFX_Radio1` … `SFX_Radio6` (Werkstattradio), Trailermusik „Make Money“ | „Funk (Collection)“, https://opengameart.org/content/funk-collection | Holizna | CC0 |
+| `SFX_RainLoop` (Regen) | „Rain (loopable)“, https://opengameart.org/content/rain-loopable | Ylmir | CC0 |
+| `SFX_Thunder` (Donner, zwei Schnitte) | „Rain + Long Thunder“, https://opengameart.org/content/rain-long-thunder | WuxiaScrub | CC0 |
+| `SFX_cat_*` (Schnurren, Miauen) | „Cat Purr & Meow“, https://opengameart.org/content/cat-purr-meow | Kerzoven | CC0 |
+
+Im Projekt selbst erzeugt:
+
+- **Reparierbare Geräte und Ersatzteile** `SM_Gen_PortableRadio`, `GameConsole`, `Speaker`, `DiscDrive`, `DrillBattery`, `CarbonBrushes` (`Tools/Assets/build_repair_devices.py`); der Fernseher nutzt das vorhandene CC0-Modell `Television_01`.
+- **Kaffeemaschine und Werkstattkatze** `SM_Gen_CoffeeMachine`, `SM_Gen_Cat*` sowie die Materialien `MI_Prop_Fur*`, `NosePink`, `CatEye`, `Coffee` (`Tools/Assets/build_atmosphere_models.py`).
+- **Firmenlogo-Material** `M_WELogo` (`Tools/Assets/build_mirror.py`), Symbole aus den vorhandenen UI-Icons.
+- **Regen** als Partikel im eigenen FX-System, Wolken und Himmel über die Engine-Komponenten (Volumetric Cloud, Sky Atmosphere).
+
+Werkzeug (nicht im Spiel): **ffmpeg 9.0.2** (gyan.dev „essentials“-Build, GPL), nach `F:\Spiele\_tools\ffmpeg` – Audio umwandeln/schneiden, Trailer schneiden.

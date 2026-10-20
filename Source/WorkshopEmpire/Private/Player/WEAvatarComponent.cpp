@@ -8,6 +8,7 @@
 #include "Engine/Texture2D.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "WELog.h"
+#include "Workshop/WELogoComponent.h"
 
 namespace WEAvatar
 {
@@ -162,6 +163,22 @@ void UWEAvatarComponent::SetOwnerNoSee(bool bNoSee)
 		{
 			P->SetOwnerNoSee(bNoSee);
 		}
+		else if (UWELogoComponent* Logo = Cast<UWELogoComponent>(Part))
+		{
+			Logo->SetLogoOwnerNoSee(bNoSee);
+		}
+	}
+}
+
+void UWEAvatarComponent::SetShowCompanyLogo(bool bShow)
+{
+	if (bShowCompanyLogo != bShow)
+	{
+		bShowCompanyLogo = bShow;
+		if (bHasLook)
+		{
+			BuildBody();
+		}
 	}
 }
 
@@ -309,6 +326,27 @@ void UWEAvatarComponent::BuildBody()
 		MakeClothing(Piece);
 	}
 	MakeClothing(WEAvatar::ShoePieces[FMath::Clamp<int32>(Look.Shoes, 0, UE_ARRAY_COUNT(WEAvatar::ShoePieces) - 1)]);
+	// Phase 20: company logo on the chest of the work overall.
+	if (bShowCompanyLogo && Look.Outfit == 0 && Body && Body->GetSkinnedAsset())
+	{
+		const FReferenceSkeleton& Ref = Body->GetSkinnedAsset()->GetRefSkeleton();
+		const FName Bone = Ref.FindBoneIndex(TEXT("spine_03")) != INDEX_NONE ? FName(TEXT("spine_03")) : FName(TEXT("spine_02"));
+		const int32 BoneIndex = Ref.FindBoneIndex(Bone);
+		if (BoneIndex != INDEX_NONE)
+		{
+			const TArray<FTransform> CS = WEAvatar::RefComponentSpace(Ref);
+			// Body space (T-pose, looking along +Y): on the chest opposite the pocket, on the overall's surface.
+			const FTransform InBody(FRotator(0.f, 90.f, 0.f), bFemale ? FVector(-7.f, 14.1f, 126.f) : FVector(-7.5f, 13.6f, 131.f));
+			UWELogoComponent* Logo = NewObject<UWELogoComponent>(GetOwner(), NAME_None, RF_Transient);
+			Logo->Size = 8.f;
+			Logo->bShowName = false;
+			Logo->SetupAttachment(Body, Bone);
+			Logo->RegisterComponent();
+			Logo->SetRelativeTransform(InBody * CS[BoneIndex].Inverse());
+			Logo->SetLogoOwnerNoSee(bOwnerNoSee);
+			Parts.Add(Logo);
+		}
+	}
 	if (Look.Hair > 0 && Look.Hair < UE_ARRAY_COUNT(WEAvatar::HairStyles))
 	{
 		MakeFollower(WEAvatar::HairStyles[Look.Hair]);

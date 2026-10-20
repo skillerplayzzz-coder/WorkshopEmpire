@@ -76,7 +76,12 @@ TRADERS = [
       stock("GraphicsCard", 1, Q.USED, 55, chance=0.5, cond_spread=1, q_spread=15),
       stock("CordlessDrill", 1, Q.USED, 50, 0.9, chance=0.35, cond_spread=1, q_spread=15),
       stock("VintageRadio", 1, Q.DAMAGED, 50, 1.1, chance=0.1, q_spread=15),
-      stock("RareGpu", 1, Q.DAMAGED, 45, 1.15, chance=0.05, q_spread=10)]),
+      stock("RareGpu", 1, Q.DAMAGED, 45, 1.15, chance=0.05, q_spread=10),
+      # Phase 20: more devices to repair.
+      stock("OldTelevision", 1, Q.DEFECTIVE, 40, chance=0.6, q_spread=15),
+      stock("PortableRadio", 2, Q.DEFECTIVE, 40, chance=0.7, cond_spread=1, q_spread=15),
+      stock("GameConsole", 1, Q.DEFECTIVE, 40, chance=0.5, q_spread=15),
+      stock("CordlessDrill", 1, Q.DEFECTIVE, 40, 0.8, chance=0.5, q_spread=15)]),
     ("DA_Trader_ToolShop", "Werkzeug-Versand Hammerl", 30.0,
      [rate(C.TOOL, 0.7), rate(C.POWER_TOOL, 0.7)],
      [stock("Screwdriver", 5, Q.NEW, 80), stock("SideCutter", 3, Q.NEW, 80), stock("CordlessDrill", 2, Q.NEW, 85),
@@ -93,7 +98,10 @@ TRADERS = [
       stock("Capacitors", 10, Q.NEW, 80), stock("CleaningKit", 10, Q.NEW, 80),
       # Phase 19: upgrade parts for PC orders.
       stock("GraphicsCardPro", 2, Q.NEW, 85), stock("RamModule8", 4, Q.NEW, 85), stock("ProcessorFast", 2, Q.NEW, 85), stock("SsdFast", 3, Q.NEW, 85),
-      stock("GraphicsCardPro", 1, Q.USED, 55, chance=0.5, q_spread=15)]),
+      stock("GraphicsCardPro", 1, Q.USED, 55, chance=0.5, q_spread=15),
+      # Phase 20: parts for televisions, radios, consoles and cordless drills.
+      stock("Speaker", 4, Q.NEW, 80), stock("DiscDrive", 2, Q.NEW, 80), stock("DrillBattery", 3, Q.NEW, 85), stock("CarbonBrushes", 6, Q.NEW, 85),
+      stock("CaseFan", 3, Q.NEW, 80), stock("CopperCable", 6, Q.USED, 70)]),
     # Phase 7: sealed return pallets with unknown contents (open with [Q]).
     ("DA_Trader_Returns", "Retouren-Großhandel Paletti", 15.0,
      [],
@@ -190,6 +198,13 @@ catalog.set_editor_property("templates", [
     template("Streamer sucht einen schnellen PC", "OldComputer", 1, 1, Q.USED, 1.05, 60.0, pc="build", bench=(2000, 2300), min_tier=2),
     template("PC aufrüsten: zu langsam für die Buchhaltung", "OldComputer", 1, 1, Q.USED, 1.0, 40.0, pc="upgrade", bench=(1250, 1400)),
     template("PC aufrüsten: neue Spiele laufen nicht", "OldComputer", 1, 1, Q.USED, 1.0, 50.0, pc="upgrade", bench=(1600, 1900)),
+    # Phase 20: repairs of more devices (appended).
+    template("Fernseher zeigt kein Bild mehr", "OldTelevision", 1, 1, Q.USED, 0.55, 35.0, repair_from=Q.DEFECTIVE),
+    template("Kofferradio bleibt stumm", "PortableRadio", 1, 1, Q.USED, 0.65, 25.0, repair_from=Q.DEFECTIVE),
+    template("Konsole liest keine Spiele mehr", "GameConsole", 1, 1, Q.USED, 0.5, 35.0, repair_from=Q.DEFECTIVE),
+    template("Handwerker: Akkuschrauber dreht nicht", "CordlessDrill", 1, 1, Q.USED, 0.6, 25.0, repair_from=Q.DEFECTIVE),
+    template("Bastler sucht ein funktionierendes Kofferradio", "PortableRadio", 1, 1, Q.USED, 1.2, 40.0),
+    template("Jugendzentrum sucht eine Spielkonsole", "GameConsole", 1, 1, Q.USED, 1.15, 45.0, min_quality=40),
 ])
 eal.save_asset(catalog_path)
 

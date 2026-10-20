@@ -72,5 +72,49 @@ def main():
     unreal.log("WE_MIRROR material " + PATH)
 
 
+# --- Phase 20: company logo plate (UWELogoComponent) ----------------------------------------------------------------
+LOGO_PATH = f"{FOLDER}/M_WELogo"
+LOGO_HLSL = """
+float2 p = (UV - 0.5) / 0.74 + 0.5;
+float inside = (p.x >= 0.0 && p.x <= 1.0 && p.y >= 0.0 && p.y <= 1.0) ? 1.0 : 0.0;
+float a = Icon.SampleLevel(IconSampler, saturate(p), 0).a * inside;
+float edge = max(abs(UV.x - 0.5), abs(UV.y - 0.5));
+float rim = smoothstep(0.455, 0.47, edge);
+float3 c = lerp(Background, SymbolColor, a);
+return lerp(c, SymbolColor, rim * 0.85);
+"""
+
+
+def logo_material():
+    if eal.does_asset_exist(LOGO_PATH):
+        eal.delete_asset(LOGO_PATH)
+    m = tools.create_asset("M_WELogo", FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    tex = mel.create_material_expression(m, unreal.MaterialExpressionTextureObjectParameter, -900, -200)
+    tex.set_editor_property("parameter_name", "Icon")
+    tex.set_editor_property("texture", unreal.load_asset("/Game/WorkshopEmpire/UI/Icons/T_Icon_Wrench"))
+    uv = mel.create_material_expression(m, unreal.MaterialExpressionTextureCoordinate, -900, -350)
+    custom = mel.create_material_expression(m, unreal.MaterialExpressionCustom, -500, -200)
+    custom.set_editor_property("code", LOGO_HLSL)
+    custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    inputs = []
+    for n in ("UV", "Icon", "SymbolColor", "Background"):
+        ci = unreal.CustomInput()
+        ci.set_editor_property("input_name", n)
+        inputs.append(ci)
+    custom.set_editor_property("inputs", inputs)
+    mel.connect_material_expressions(uv, "", custom, "UV")
+    mel.connect_material_expressions(tex, "", custom, "Icon")
+    mel.connect_material_expressions(vec(m, "SymbolColor", (0.87, 0.4, 0.03, 1), -900, 0), "RGB", custom, "SymbolColor")
+    mel.connect_material_expressions(vec(m, "Background", (0.01, 0.012, 0.015, 1), -900, 150), "RGB", custom, "Background")
+    mel.connect_material_property(custom, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    rough = mel.create_material_expression(m, unreal.MaterialExpressionConstant, -300, 100)
+    rough.set_editor_property("r", 0.55)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    m.set_editor_property("two_sided", False)
+    mel.recompile_material(m)
+    eal.save_asset(LOGO_PATH)
+    unreal.log("WE_MIRROR material " + LOGO_PATH)
+
 main()
+logo_material()
 unreal.SystemLibrary.quit_editor()

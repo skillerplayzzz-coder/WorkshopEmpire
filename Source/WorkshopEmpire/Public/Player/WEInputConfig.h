@@ -89,4 +89,40 @@ public:
 	/** Phase 18c: [V] first / third person. */
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> ViewAction;
+
+	/** Phase 20: the action of a rebindable key (WEKeys entry id), or null. */
+	UInputAction* GetActionForBinding(FName Id) const;
+	/** Phase 20: puts the player's own keys (WEKeys) into the mapping context. */
+	void ApplyKeyBindings();
+
+private:
+	/** Index of each rebindable key's mapping in MappingContext. */
+	TMap<FName, int32> BindingIndex;
 };
+
+/**
+ * Phase 20: freely assignable keys. Each entry is one key of one action (moving has four); the player's choice is
+ * stored in GameUserSettings.ini, section [WorkshopEmpire.Keys], and applied to every local character at once.
+ */
+namespace WEKeys
+{
+	struct FEntry
+	{
+		FName Id;
+		FText Label;
+		FKey Default;
+	};
+
+	WORKSHOPEMPIRE_API const TArray<FEntry>& GetEntries();
+	/** The key in use for an entry (own choice or default). */
+	WORKSHOPEMPIRE_API FKey GetKey(FName Id);
+	/**
+	 * Assigns Key to Id and saves. If another entry had that key, the two swap; OutSwapped names it (else NAME_None).
+	 * Escape, the left mouse button and gamepad keys are refused (returns false).
+	 */
+	WORKSHOPEMPIRE_API bool SetKey(FName Id, const FKey& Key, FName& OutSwapped);
+	WORKSHOPEMPIRE_API void ResetAll();
+	/** Re-maps the keys of all local characters now. */
+	WORKSHOPEMPIRE_API void ApplyLive();
+	WORKSHOPEMPIRE_API FText GetLabel(FName Id);
+}

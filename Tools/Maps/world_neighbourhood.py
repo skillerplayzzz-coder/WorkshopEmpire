@@ -249,6 +249,9 @@ def fence_line(a, b, gap=None, folder="Fence"):
             p.set_actor_scale3d(unreal.Vector(step / 200.0, 1.0, 1.0))
 
 
+MENU_ONLY = [False]
+
+
 def lot_fence():
     x0, x1, y0, y1 = LOT
     fence_line((x0, y0), (x1, y0), gap=(GATE[0] - x0, GATE[1] - x0))
@@ -260,7 +263,16 @@ def lot_fence():
     place("ConcreteBarrier", (GATE[1] + 170.0, y0 + 60.0, 0.0), 0.0)
     sign_x = GATE[0] - 60.0
     place("CompanySign", (sign_x, y0 - 40.0, 0.0), 0.0)
-    sign_text(sign_x, y0 - 40.0 - 6.0, ("WERKSTATT", "ANKAUF · REPARATUR · RECYCLING"))
+    # Phase 20: the company logo and name instead of a fixed "WERKSTATT" (follows the brand from the Ferrit OS).
+    if not MENU_ONLY[0]:
+        logo = eas.spawn_actor_from_class(unreal.WELogoActor, unreal.Vector(sign_x, y0 - 40.0 - 7.0, 292.0), unreal.Rotator(roll=0.0, pitch=0.0, yaw=-90.0))
+        logo.set_folder_path("Neighbourhood")
+        comp = logo.get_component_by_class(unreal.WELogoComponent)
+        comp.set_editor_property("size", 30.0)
+        comp.set_editor_property("name_height", 18.0)
+        sign_text(sign_x, y0 - 40.0 - 6.0, ("", "ANKAUF · REPARATUR · RECYCLING"))
+    else:
+        sign_text(sign_x, y0 - 40.0 - 6.0, ("WERKSTATT", "ANKAUF · REPARATUR · RECYCLING"))
 
 
 def sign_text(x, y, lines, tags=None, folder="Neighbourhood"):
@@ -395,6 +407,7 @@ def growth_props():
 
 
 def build_all(menu=False):
+    MENU_ONLY[0] = menu
     import world_city
     street(world_city.MAIN_LENGTH, world_city.main_street_gaps())
     xs = [-4000.0, -2400.0, -800.0, 1500.0, 3000.0, 4500.0]  # none in front of the gate (the van drives out there)

@@ -42,6 +42,7 @@ public:
 	class UWEClassifiedsComponent* GetClassifieds() const { return Classifieds; }
 	/** Phase 19: time of day and opening hours. */
 	class UWEDayNightComponent* GetDayNight() const { return DayNight; }
+	class UWEBrandComponent* GetBrand() const { return Brand; }
 
 protected:
 	/** Phase 17.5: tutorial and personalised look of the buildings. */
@@ -56,6 +57,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "DayNight")
 	TObjectPtr<class UWEDayNightComponent> DayNight;
+
+	UPROPERTY(VisibleAnywhere, Category = "Brand")
+	TObjectPtr<class UWEBrandComponent> Brand;
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWECompanyComponent> Company;

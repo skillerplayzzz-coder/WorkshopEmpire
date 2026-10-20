@@ -1,5 +1,7 @@
 #include "Player/WECharacter.h"
 
+#include "GameFramework/GameStateBase.h"
+
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -109,6 +111,7 @@ void AWECharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AWECharacter, HeldItem);
 	DOREPLIFETIME(AWECharacter, Forklift);
 	DOREPLIFETIME(AWECharacter, Look);
+	DOREPLIFETIME(AWECharacter, CoffeeBoostEnd);
 }
 
 void AWECharacter::OnRep_PlayerState()
@@ -134,6 +137,7 @@ void AWECharacter::ApplyPlayerLook()
 	{
 		Avatar->SetDriver(GetMesh());
 		Avatar->SetOwnerNoSee(!bThirdPerson);
+		Avatar->SetShowCompanyLogo(true); // Phase 20: players work for the company
 		Avatar->ApplyLook(Look);
 	}
 	SendProfileLook();
@@ -599,8 +603,38 @@ void AWECharacter::OnRep_IsSprinting()
 
 void AWECharacter::UpdateMovementSpeed()
 {
-	GetCharacterMovement()->MaxWalkSpeed = Forklift ? AWEForklift::DriveSpeed : (bIsSprinting && !bIsCrouched) ? SprintSpeed : WalkSpeed;
-	GetCharacterMovement()->MaxWalkSpeedCrouched = CrouchSpeed;
+	const float Coffee = HasCoffeeBoost() ? CoffeeWalkFactor : 1.f;
+	GetCharacterMovement()->MaxWalkSpeed = Forklift ? AWEForklift::DriveSpeed : ((bIsSprinting && !bIsCrouched) ? SprintSpeed : WalkSpeed) * Coffee;
+	GetCharacterMovement()->MaxWalkSpeedCrouched = CrouchSpeed * Coffee;
+}
+
+float AWECharacter::GetCoffeeBoostRemaining() const
+{
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	return GameState ? FMath::Max(0.f, CoffeeBoostEnd - static_cast<float>(GameState->GetServerWorldTimeSeconds())) : 0.f;
+}
+
+void AWECharacter::GiveCoffeeBoost(float Seconds)
+{
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	if (!HasAuthority() || !GameState)
+	{
+		return;
+	}
+	CoffeeBoostEnd = static_cast<float>(GameState->GetServerWorldTimeSeconds()) + Seconds;
+	ForceNetUpdate();
+	OnRep_CoffeeBoost();
+}
+
+void AWECharacter::OnRep_CoffeeBoost()
+{
+	// Speed now, and back to normal when it wears off (every machine predicts the movement).
+	UpdateMovementSpeed();
+	const float Left = GetCoffeeBoostRemaining();
+	if (Left > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(CoffeeTimer, this, &AWECharacter::UpdateMovementSpeed, Left + 0.05f, false);
+	}
 }
 
 // --- Carrying ----------------------------------------------------------------------------------

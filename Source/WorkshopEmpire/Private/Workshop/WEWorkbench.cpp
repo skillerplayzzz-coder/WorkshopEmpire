@@ -367,7 +367,8 @@ bool AWEWorkbench::TryStartStep(AWECharacter* Character, int32 Part)
 	const int32 StepIndex = Part != INDEX_NONE ? Part : GetNextStepIndex();
 	const FWEDisassemblyStep* Step = GetStepAt(StepIndex);
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
-	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier;
+	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier
+		* (Character ? Character->GetWorkBoost() : 1.f);
 
 	// A broken device has broken parts: decide which ones now, so they come out "Defekt".
 	FWEItemInstance Item = PlacedItem->GetItem();
@@ -871,7 +872,8 @@ bool AWEWorkbench::TryStartInstall(AWECharacter* Character, int32 Part)
 	}
 	const FWEDisassemblyStep* Step = GetStepAt(Part);
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
-	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier;
+	const float Speed = FindToolSpeed(Character, Step->RequiredTool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier
+		* (Character ? Character->GetWorkBoost() : 1.f);
 	FWEItemInstance Item = PlacedItem->GetItem();
 	if (!Item.Repair.HasFlag(FWERepairState::FaultsRolled))
 	{
@@ -1413,7 +1415,8 @@ bool AWEWorkbench::TryStartRepairStep(AWECharacter* Character)
 	}
 	const FWERepairStepInfo Info = GetNextRepairStep(Reason);
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
-	const float Speed = FindToolSpeed(Character, Info.Tool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier;
+	const float Speed = FindToolSpeed(Character, Info.Tool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier
+		* (Character ? Character->GetWorkBoost() : 1.f);
 
 	Work.StepIndex = 0; // marks the bench busy; the repair kind says what is done
 	Work.bInstall = false;

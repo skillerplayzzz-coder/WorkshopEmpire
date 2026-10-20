@@ -1,4 +1,5 @@
 #include "Logistics/WEVehicle.h"
+#include "Workshop/WELogoComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
@@ -755,6 +756,25 @@ void AWEVehicle::RebuildVanModel()
 		return Part;
 	};
 	Make(Body, Boxes, FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(Scale)));
+	// Phase 20: the company logo on both sides of the cargo box.
+	for (UWELogoComponent* Logo : VanLogos) { if (Logo) { Logo->DestroyComponent(); } }
+	VanLogos.Reset();
+	{
+		const FBox B = Body->GetBoundingBox();
+		const FVector Min = B.Min * Scale, Max = B.Max * Scale;
+		const float LogoSize = FMath::Clamp((Max.Z - Min.Z) * 0.32f, 40.f, 90.f);
+		for (const float Side : { -1.f, 1.f })
+		{
+			UWELogoComponent* Logo = NewObject<UWELogoComponent>(this, NAME_None, RF_Transient);
+			Logo->Size = LogoSize;
+			Logo->NameHeight = LogoSize * 0.3f;
+			Logo->SetupAttachment(Boxes);
+			Logo->SetRelativeLocation(FVector(FMath::Lerp(Min.X, Max.X, 0.36f), Side > 0.f ? Max.Y + 0.6f : Min.Y - 0.6f, FMath::Lerp(Min.Z, Max.Z, 0.66f)));
+			Logo->SetRelativeRotation(FRotator(0.f, Side * 90.f, 0.f));
+			Logo->RegisterComponent();
+			VanLogos.Add(Logo);
+		}
+	}
 	for (int32 d = 0; d < 4; ++d)
 	{
 		// Each door turns about its hinge: pivot at the hinge, the door model (in van space) shifted back by it.

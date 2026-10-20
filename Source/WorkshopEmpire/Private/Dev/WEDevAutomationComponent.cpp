@@ -95,7 +95,7 @@ void UWEDevAutomationComponent::BeginPlay()
 	FParse::Value(FCommandLine::Get(), TEXT("WESmokeRole="), Role);
 	FParse::Value(FCommandLine::Get(), TEXT("WEShots="), ShotName);
 	// Phase 17.5: the older scripts press [E] at the bench for timed steps; only the P175 runs use the work view.
-	if ((!Role.IsEmpty() || !ShotName.IsEmpty()) && !ShotName.StartsWith(TEXT("P175")) && !ShotName.StartsWith(TEXT("P18R")) && !ShotName.StartsWith(TEXT("P19")))
+	if ((!Role.IsEmpty() || !ShotName.IsEmpty()) && !ShotName.StartsWith(TEXT("P175")) && !ShotName.StartsWith(TEXT("P18R")) && !ShotName.StartsWith(TEXT("P19")) && !ShotName.StartsWith(TEXT("P20")))
 	{
 		if (IConsoleVariable* WorkView = IConsoleManager::Get().FindConsoleVariable(TEXT("we.WorkView")))
 		{
@@ -211,6 +211,10 @@ void UWEDevAutomationComponent::BeginPlay()
 	else if (ShotName.StartsWith(TEXT("P18R")))
 	{
 		RunReassemblyShots();
+	}
+	else if (ShotName.StartsWith(TEXT("P20")))
+	{
+		RunPhase20Shots();
 	}
 	else if (ShotName.StartsWith(TEXT("P19")))
 	{

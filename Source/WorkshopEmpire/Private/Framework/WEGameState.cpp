@@ -1,6 +1,7 @@
 #include "Framework/WEGameState.h"
 #include "Economy/WEClassifiedsComponent.h"
 #include "World/WEDayNightComponent.h"
+#include "Workshop/WEBrandComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
@@ -29,4 +30,5 @@ AWEGameState::AWEGameState()
 	WorkshopStyle = CreateDefaultSubobject<UWEWorkshopStyleComponent>(TEXT("WorkshopStyle"));
 	Classifieds = CreateDefaultSubobject<UWEClassifiedsComponent>(TEXT("Classifieds"));
 	DayNight = CreateDefaultSubobject<UWEDayNightComponent>(TEXT("DayNight"));
+	Brand = CreateDefaultSubobject<UWEBrandComponent>(TEXT("Brand"));
 }

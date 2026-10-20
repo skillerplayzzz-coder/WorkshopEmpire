@@ -1,5 +1,8 @@
 #include "UI/WETradeWidget.h"
 #include "World/WEDayNightComponent.h"
+#include "Workshop/WEBrandComponent.h"
+#include "UI/WEMenuWidgets.h"
+#include "Components/EditableTextBox.h"
 #include "Economy/WEClassifiedsComponent.h"
 #include "Components/UniformGridPanel.h"
 #include "Workshop/WEBenchmark.h"
@@ -1694,12 +1697,12 @@ void UWETradeWidget::BuildStyleApp(UVerticalBox* Body)
 	AddH(Head, Text(WidgetTree, LOCTEXT("DecoHint", "Deko und Einrichtung kaufst du im Baumodus [B]."), 11, Col::TextDim));
 	AddV(Body, Head, FMargin(0.f, 0.f, 0.f, 10.f));
 	UHorizontalBox* Cats = WidgetTree->ConstructWidget<UHorizontalBox>();
-	const FName CatIcons[] = { TEXT("Paint"), TEXT("Floor"), TEXT("Lamp"), TEXT("Door") };
-	for (int32 i = 0; i < 4; ++i)
+	const FName CatIcons[] = { TEXT("Paint"), TEXT("Floor"), TEXT("Lamp"), TEXT("Door"), TEXT("Shield") };
+	for (int32 i = 0; i < 5; ++i)
 	{
 		UTextBlock* Label = nullptr;
 		UImage* TabIcon = nullptr;
-		UButton* B = Button(WidgetTree, UWEWorkshopStyleComponent::GetCategoryName(static_cast<EWEStyleCategory>(i)), EButton::Tab, CatIcons[i], 13, &Label, &TabIcon);
+		UButton* B = Button(WidgetTree, i == 4 ? LOCTEXT("BrandTab", "Firmenlogo") : UWEWorkshopStyleComponent::GetCategoryName(static_cast<EWEStyleCategory>(i)), EButton::Tab, CatIcons[i], 13, &Label, &TabIcon);
 		AddH(Cats, B, FMargin(0.f, 0.f, 2.f, 0.f));
 		StyleCatButtons.Add(B);
 		StyleCatLabels.Add(Label);
@@ -1709,16 +1712,30 @@ void UWETradeWidget::BuildStyleApp(UVerticalBox* Body)
 	StyleCatButtons[1]->OnClicked.AddDynamic(this, &UWETradeWidget::HandleStyleCat1);
 	StyleCatButtons[2]->OnClicked.AddDynamic(this, &UWETradeWidget::HandleStyleCat2);
 	StyleCatButtons[3]->OnClicked.AddDynamic(this, &UWETradeWidget::HandleStyleCat3);
+	StyleCatButtons[4]->OnClicked.AddDynamic(this, &UWETradeWidget::HandleStyleCat4);
 	AddV(Body, Cats);
 	AddV(Body, Divider(WidgetTree, Col::LineStrong), FMargin(0.f, 0.f, 0.f, 10.f));
 	StyleList = MakeList(Body);
 	SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 0);
 }
 
-void UWETradeWidget::HandleStyleCat0() { StyleCategory = 0; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 0); }
-void UWETradeWidget::HandleStyleCat1() { StyleCategory = 1; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 1); }
-void UWETradeWidget::HandleStyleCat2() { StyleCategory = 2; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 2); }
-void UWETradeWidget::HandleStyleCat3() { StyleCategory = 3; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 3); }
+void UWETradeWidget::ShowStyleTab(int32 Tab)
+{
+	switch (Tab)
+	{
+	case 0: HandleStyleCat0(); break;
+	case 1: HandleStyleCat1(); break;
+	case 2: HandleStyleCat2(); break;
+	case 3: HandleStyleCat3(); break;
+	default: HandleStyleCat4(); break;
+	}
+}
+
+void UWETradeWidget::HandleStyleCat4() { StyleCategory = 4; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 4); bBrandEditorBuilt = false; LastSignature.Reset(); }
+void UWETradeWidget::HandleStyleCat0() { StyleCategory = 0; bBrandEditorBuilt = false; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 0); }
+void UWETradeWidget::HandleStyleCat1() { StyleCategory = 1; bBrandEditorBuilt = false; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 1); }
+void UWETradeWidget::HandleStyleCat2() { StyleCategory = 2; bBrandEditorBuilt = false; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 2); }
+void UWETradeWidget::HandleStyleCat3() { StyleCategory = 3; bBrandEditorBuilt = false; SelectTab(nullptr, StyleCatButtons, StyleCatLabels, StyleCatIcons, 3); }
 
 void UWETradeWidget::HandleStyleZoneNext()
 {
@@ -1732,6 +1749,16 @@ void UWETradeWidget::RebuildStyle(const FWEMoney& Balance)
 {
 	if (!StyleList)
 	{
+		return;
+	}
+	if (StyleCategory == 4)
+	{
+		// The logo editor is built once and updated in place (the name field keeps its focus).
+		if (!bBrandEditorBuilt)
+		{
+			BuildBrandEditor();
+		}
+		RefreshBrandEditor();
 		return;
 	}
 	StyleList->ClearChildren();
@@ -1773,6 +1800,116 @@ void UWETradeWidget::RebuildStyle(const FWEMoney& Balance)
 			Row->AddChip(LOCTEXT("ChipLockedStyle", "gesperrt"), Col::TextMuted);
 		}
 	}
+}
+
+// --- Firmenlogo (Phase 20) -----------------------------------------------------------------------------------------
+
+void UWETradeWidget::BuildBrandEditor()
+{
+	StyleList->ClearChildren();
+	BrandRows.Reset();
+	bBrandEditorBuilt = true;
+	UHorizontalBox* Columns = WidgetTree->ConstructWidget<UHorizontalBox>();
+	// Left: the logo as it will look.
+	UVerticalBox* Preview = WidgetTree->ConstructWidget<UVerticalBox>();
+	BrandPreviewBox = Box(WidgetTree, FLinearColor::Black, FMargin(18.f), Col::WithAlpha(FLinearColor::White, 0.2f), 6.f);
+	BrandPreviewIcon = Icon(WidgetTree, TEXT("Wrench"), 96.f, FLinearColor::White);
+	BrandPreviewBox->SetContent(BrandPreviewIcon);
+	BrandPreviewBox->SetHorizontalAlignment(HAlign_Center);
+	BrandPreviewBox->SetVerticalAlignment(VAlign_Center);
+	AddV(Preview, Sized(WidgetTree, BrandPreviewBox, 150.f, 150.f), FMargin(0.f), HAlign_Center);
+	BrandPreviewName = Heading(WidgetTree, FText::GetEmpty(), 18, Col::Text);
+	AddV(Preview, BrandPreviewName, FMargin(0.f, 8.f, 0.f, 0.f), HAlign_Center);
+	AddV(Preview, Text(WidgetTree, LOCTEXT("BrandWhere", "Erscheint auf Overalls, Transportern, über dem Tor und auf dem Firmenschild."), 11, Col::TextDim, EFont::Body, 220.f),
+		FMargin(0.f, 8.f, 0.f, 0.f), HAlign_Center);
+	AddH(Columns, Sized(WidgetTree, Preview, 240.f, 0.f), FMargin(0.f, 0.f, 16.f, 0.f), false, VAlign_Top);
+	// Right: what can be chosen.
+	UVerticalBox* Fields = WidgetTree->ConstructWidget<UVerticalBox>();
+	static const FName FieldIcons[] = { TEXT("Shield"), TEXT("Paint"), TEXT("Paint"), TEXT("Person") };
+	static const FText FieldNames[] = { LOCTEXT("BrandSymbol", "Symbol"), LOCTEXT("BrandSymbolColor", "Farbe des Symbols"), LOCTEXT("BrandBackground", "Hintergrund"),
+		LOCTEXT("BrandWorkwear", "Arbeitskleidung") };
+	for (int32 f = 0; f < 4; ++f)
+	{
+		UWESettingRow* Row = CreateWidget<UWESettingRow>(GetOwningPlayer(), UWESettingRow::StaticClass());
+		Row->SetupCallback([this, f](int32 Direction) { StepBrand(f, Direction); }, FieldNames[f], FieldIcons[f]);
+		AddV(Fields, Row, FMargin(0.f, 0.f, 0.f, 2.f));
+		BrandRows.Add(Row);
+	}
+	AddV(Fields, Text(WidgetTree, LOCTEXT("BrandNameLabel", "Firmenname auf dem Logo"), 12, Col::TextDim, EFont::Strong), FMargin(0.f, 10.f, 0.f, 4.f));
+	UHorizontalBox* NameRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	BrandNameBox = InputField(WidgetTree, FText::FromString(UWEBrandComponent::Get(this) ? UWEBrandComponent::Get(this)->GetDisplayName() : FString()), LOCTEXT("BrandNameHint", "z. B. Schraubwerk Müller"), 13);
+	AddH(NameRow, BrandNameBox, FMargin(0.f, 0.f, 6.f, 0.f), true);
+	UButton* Apply = Button(WidgetTree, LOCTEXT("BrandApplyName", "Übernehmen"), EButton::Primary, TEXT("Check"), 12);
+	Apply->OnClicked.AddDynamic(this, &UWETradeWidget::HandleBrandApplyName);
+	AddH(NameRow, Apply);
+	AddV(Fields, NameRow);
+	AddV(Fields, Text(WidgetTree, LOCTEXT("BrandFree", "Kostenlos – jede Änderung gilt sofort für die ganze Firma."), 11, Col::TextDim), FMargin(0.f, 8.f, 0.f, 0.f));
+	AddH(Columns, Fields, FMargin(), true, VAlign_Top);
+	StyleList->AddChild(Columns);
+}
+
+void UWETradeWidget::RefreshBrandEditor()
+{
+	const FWECompanyBrand Brand = UWEBrandComponent::GetBrandOf(this);
+	const TArray<FLinearColor>& Colors = WEBrand::Colors();
+	if (BrandRows.Num() == 4)
+	{
+		BrandRows[0]->SetValue(WEBrand::SymbolName(Brand.Symbol));
+		BrandRows[1]->SetValue(WEBrand::ColorName(Brand.SymbolColor));
+		BrandRows[2]->SetValue(WEBrand::ColorName(Brand.Background));
+		BrandRows[3]->SetValue(WEBrand::WorkwearColorName(Brand.WorkwearColor));
+	}
+	if (BrandPreviewIcon && WEBrand::Symbols().IsValidIndex(Brand.Symbol))
+	{
+		if (UTexture2D* Tex = IconTexture(WEBrand::Symbols()[Brand.Symbol]))
+		{
+			BrandPreviewIcon->SetBrushFromTexture(Tex);
+			BrandPreviewIcon->SetDesiredSizeOverride(FVector2D(96.f, 96.f));
+		}
+		BrandPreviewIcon->SetColorAndOpacity(Colors.IsValidIndex(Brand.SymbolColor) ? Colors[Brand.SymbolColor] : FLinearColor::White);
+	}
+	if (BrandPreviewBox && Colors.IsValidIndex(Brand.Background))
+	{
+		BrandPreviewBox->SetBrush(Brush(Colors[Brand.Background], Colors.IsValidIndex(Brand.SymbolColor) ? Colors[Brand.SymbolColor] : FLinearColor::White, 3.f, 6.f));
+	}
+	if (BrandPreviewName)
+	{
+		const UWEBrandComponent* Component = UWEBrandComponent::Get(this);
+		BrandPreviewName->SetText(Upper(FText::FromString(Component ? Component->GetDisplayName() : Brand.Name)));
+		if (BrandNameBox && !BrandNameBox->HasKeyboardFocus() && Component)
+		{
+			BrandNameBox->SetText(FText::FromString(Component->GetDisplayName()));
+		}
+	}
+}
+
+void UWETradeWidget::StepBrand(int32 Field, int32 Direction)
+{
+	FWECompanyBrand Brand = UWEBrandComponent::GetBrandOf(this);
+	auto Step = [Direction](uint8& Value, int32 Count) { Value = static_cast<uint8>((Value + (Direction >= 0 ? 1 : -1) + Count) % FMath::Max(1, Count)); };
+	switch (Field)
+	{
+	case 0: Step(Brand.Symbol, WEBrand::Symbols().Num()); break;
+	case 1: Step(Brand.SymbolColor, WEBrand::Colors().Num()); break;
+	case 2: Step(Brand.Background, WEBrand::Colors().Num()); break;
+	default: Step(Brand.WorkwearColor, WEBrand::NumWorkwearColors()); break;
+	}
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
+	{
+		PC->RequestSetBrand(Brand);
+	}
+	Play(this, ESound::Toggle, 0.4f);
+}
+
+void UWETradeWidget::HandleBrandApplyName()
+{
+	FWECompanyBrand Brand = UWEBrandComponent::GetBrandOf(this);
+	Brand.Name = BrandNameBox ? BrandNameBox->GetText().ToString() : Brand.Name;
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
+	{
+		PC->RequestSetBrand(Brand);
+	}
+	Play(this, ESound::Confirm, 0.5f);
 }
 
 // --- App: Hilfe --------------------------------------------------------------------------------------------------------
@@ -1836,6 +1973,7 @@ FString UWETradeWidget::BuildSignature() const
 	TStringBuilder<2048> Sig;
 	const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
 	Sig << (Company ? Company->GetBalance().GetCents() : -1) << TEXT("|") << (Company ? Company->GetRecentTransactions().Num() : 0) << TEXT("|");
+	Sig << TEXT("brand") << UWEBrandComponent::GetBrandOf(this).Hash() << TEXT("|");
 	if (const UWEMilestoneComponent* Milestones = UWEMilestoneComponent::Get(this))
 	{
 		const FWECompanyStats& S = Milestones->GetStats();

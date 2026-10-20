@@ -14,6 +14,8 @@
 #include "Components/OverlaySlot.h"
 #include "Components/ScrollBox.h"
 #include "Components/SizeBox.h"
+#include "Components/Slider.h"
+#include "Player/WEInputConfig.h"
 #include "Components/Spacer.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
@@ -142,8 +144,10 @@ void UWESettingRow::NativeOnInitialized()
 	}
 	UBorder* Frame = Box(WidgetTree, Col::Raised, FMargin(10.f, 5.f), Col::Line, 2.f);
 	WidgetTree->RootWidget = Frame;
+	UVerticalBox* Lines = WidgetTree->ConstructWidget<UVerticalBox>();
+	Frame->SetContent(Lines);
 	UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
-	Frame->SetContent(Row);
+	AddV(Lines, Row);
 	RowIcon = Icon(WidgetTree, TEXT("Gear"), 18.f, Col::TextDim);
 	AddH(Row, RowIcon, FMargin(0.f, 0.f, 10.f, 0.f));
 	LabelText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong);
@@ -151,12 +155,23 @@ void UWESettingRow::NativeOnInitialized()
 	LabelText->SetClipping(EWidgetClipping::ClipToBounds);
 	LabelText->SetTextOverflowPolicy(ETextOverflowPolicy::Ellipsis);
 	AddH(Row, LabelText, FMargin(0.f, 0.f, 4.f, 0.f), true);
+	// Phase 20: optional slider on its own line under the label (hidden until EnableSlider).
+	Slider = WidgetTree->ConstructWidget<USlider>();
+	FSliderStyle SliderStyle = Slider->GetWidgetStyle();
+	SliderStyle.SetBarThickness(4.f);
+	Slider->SetWidgetStyle(SliderStyle);
+	Slider->SetSliderBarColor(Col::LineStrong);
+	Slider->SetSliderHandleColor(Col::Accent);
+	Slider->OnValueChanged.AddDynamic(this, &UWESettingRow::HandleSlider);
+	Slider->SetVisibility(ESlateVisibility::Collapsed);
+	AddV(Lines, Slider, FMargin(28.f, 2.f, 4.f, 2.f));
 	UButton* Left = Button(WidgetTree, FText::GetEmpty(), EButton::Icon, TEXT("ChevronLeft"), 12);
 	Left->OnClicked.AddDynamic(this, &UWESettingRow::HandleLeft);
 	AddH(Row, Left);
 	ValueText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Accent, EFont::Head);
 	ValueText->SetJustification(ETextJustify::Center);
-	AddH(Row, Sized(WidgetTree, ValueText, 170.f));
+	ValueBox = Cast<USizeBox>(Sized(WidgetTree, ValueText, 170.f));
+	AddH(Row, ValueBox);
 	UButton* Right = Button(WidgetTree, FText::GetEmpty(), EButton::Icon, TEXT("ChevronRight"), 12);
 	Right->OnClicked.AddDynamic(this, &UWESettingRow::HandleRight);
 	AddH(Row, Right);
@@ -190,6 +205,33 @@ void UWESettingRow::SetValue(const FText& Value)
 	ValueText->SetText(Upper(Value));
 }
 
+void UWESettingRow::EnableSlider(float Min, float Max, float StepSize)
+{
+	bSlider = true;
+	Slider->SetMinValue(Min);
+	Slider->SetMaxValue(Max);
+	Slider->SetStepSize(StepSize);
+	Slider->SetVisibility(ESlateVisibility::Visible);
+}
+
+void UWESettingRow::SetSliderValue(float Value)
+{
+	if (bSlider)
+	{
+		bSettingSlider = true;
+		Slider->SetValue(Value);
+		bSettingSlider = false;
+	}
+}
+
+void UWESettingRow::HandleSlider(float Value)
+{
+	if (!bSettingSlider && Owner)
+	{
+		Owner->SetFromSlider(Index, Value);
+	}
+}
+
 void UWESettingRow::HandleLeft()
 {
 	if (OnStep)
@@ -215,6 +257,52 @@ void UWESettingRow::HandleRight()
 }
 
 // =================================================================================================================
+// Key row (Phase 20)
+// =================================================================================================================
+
+void UWEKeyBindRow::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+	if (!WidgetTree || WidgetTree->RootWidget)
+	{
+		return;
+	}
+	UBorder* Frame = Box(WidgetTree, Col::Raised, FMargin(10.f, 3.f), Col::Line, 1.f);
+	WidgetTree->RootWidget = Frame;
+	UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+	Frame->SetContent(Row);
+	LabelText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong);
+	AddH(Row, LabelText, FMargin(0.f, 0.f, 6.f, 0.f), true);
+	KeyButton = Button(WidgetTree, FText::GetEmpty(), EButton::Secondary, NAME_None, 12);
+	KeyButton->OnClicked.AddDynamic(this, &UWEKeyBindRow::HandleClicked);
+	KeyText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Accent, EFont::Head);
+	KeyText->SetJustification(ETextJustify::Center);
+	KeyButton->SetContent(KeyText);
+	AddH(Row, Sized(WidgetTree, KeyButton, 170.f));
+}
+
+void UWEKeyBindRow::Setup(UWESettingsPanel* InOwner, int32 InEntry, const FText& Label)
+{
+	Owner = InOwner;
+	Entry = InEntry;
+	LabelText->SetText(Label);
+}
+
+void UWEKeyBindRow::SetKeyText(const FText& Key, bool bWaiting)
+{
+	KeyText->SetText(Upper(Key));
+	KeyText->SetColorAndOpacity(FSlateColor(bWaiting ? Col::Good : Col::Accent));
+}
+
+void UWEKeyBindRow::HandleClicked()
+{
+	if (Owner)
+	{
+		Owner->BeginKeyCapture(Entry);
+	}
+}
+
+// =================================================================================================================
 // Settings panel
 // =================================================================================================================
 
@@ -234,6 +322,7 @@ void UWESettingsPanel::NativeOnInitialized()
 		{ nullptr, LOCTEXT("SMode", "Anzeigemodus"), TEXT("Window") },
 		{ nullptr, LOCTEXT("SVSync", "VSync"), TEXT("Clock") },
 		{ nullptr, LOCTEXT("SFps", "Bildrate begrenzen"), TEXT("Chart") },
+		{ nullptr, LOCTEXT("SBlur", "Bewegungsunschärfe"), TEXT("Play") },
 		{ TEXT("Oberfläche & Steuerung"), LOCTEXT("SUi", "UI-Skalierung"), TEXT("Search") },
 		{ nullptr, LOCTEXT("SMouse", "Mausempfindlichkeit"), TEXT("Hand") },
 		{ nullptr, LOCTEXT("SInvert", "Maus Y invertieren"), TEXT("ChevronDown") },
@@ -251,6 +340,12 @@ void UWESettingsPanel::NativeOnInitialized()
 		AddV(Box2, Row, FMargin(0.f, 0.f, 0.f, 3.f));
 		Rows.Add(Row);
 	}
+	// Phase 20: sliders for the continuous values.
+	Rows[MotionBlur]->EnableSlider(0.f, 1.f, 0.05f);
+	Rows[UIScale]->EnableSlider(0.8f, 1.3f, 0.05f);
+	Rows[Mouse]->EnableSlider(0.2f, 3.f, 0.05f);
+	Rows[Fov]->EnableSlider(70.f, 110.f, 1.f);
+	Rows[Volume]->EnableSlider(0.f, 1.f, 0.05f);
 	UHorizontalBox* Buttons = WidgetTree->ConstructWidget<UHorizontalBox>();
 	StatusText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Good, EFont::Strong);
 	AddH(Buttons, StatusText, FMargin(), true);
@@ -261,7 +356,127 @@ void UWESettingsPanel::NativeOnInitialized()
 	Apply->OnClicked.AddDynamic(this, &UWESettingsPanel::HandleApply);
 	AddH(Buttons, Apply);
 	AddV(Box2, Buttons, FMargin(0.f, 12.f, 0.f, 0.f));
+
+	// Phase 20: free key assignment (saved at once).
+	AddV(Box2, SectionHeader(WidgetTree, LOCTEXT("KeysSection", "Tastenbelegung"), NAME_None, nullptr, 12), FMargin(0.f, 18.f, 0.f, 4.f));
+	AddV(Box2, Text(WidgetTree, LOCTEXT("KeysHint", "Taste anklicken, dann die neue Taste drücken. [Esc] bricht ab. Ist die Taste schon belegt, werden beide getauscht."),
+		11, Col::TextDim, EFont::Body, 480.f), FMargin(0.f, 0.f, 0.f, 6.f));
+	const TArray<WEKeys::FEntry>& Entries = WEKeys::GetEntries();
+	for (int32 i = 0; i < Entries.Num(); ++i)
+	{
+		UWEKeyBindRow* KeyRow = CreateWidget<UWEKeyBindRow>(GetOwningPlayer(), UWEKeyBindRow::StaticClass());
+		KeyRow->Setup(this, i, Entries[i].Label);
+		AddV(Box2, KeyRow, FMargin(0.f, 0.f, 0.f, 2.f));
+		KeyRows.Add(KeyRow);
+	}
+	UHorizontalBox* KeyButtons = WidgetTree->ConstructWidget<UHorizontalBox>();
+	KeyStatusText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Good, EFont::Strong, 330.f);
+	AddH(KeyButtons, KeyStatusText, FMargin(), true);
+	UButton* ResetKeys = Button(WidgetTree, LOCTEXT("ResetKeys", "Tasten zurücksetzen"), EButton::Secondary, NAME_None, 12);
+	ResetKeys->OnClicked.AddDynamic(this, &UWESettingsPanel::HandleResetKeys);
+	AddH(KeyButtons, ResetKeys);
+	AddV(Box2, KeyButtons, FMargin(0.f, 8.f, 0.f, 0.f));
+	SetIsFocusable(true);
 	Reload();
+}
+
+void UWESettingsPanel::RefreshKeys()
+{
+	const TArray<WEKeys::FEntry>& Entries = WEKeys::GetEntries();
+	for (int32 i = 0; i < KeyRows.Num() && i < Entries.Num(); ++i)
+	{
+		const bool bWaiting = i == CaptureEntry;
+		KeyRows[i]->SetKeyText(bWaiting ? LOCTEXT("PressKey", "Taste drücken …") : WEKeys::GetKey(Entries[i].Id).GetDisplayName(), bWaiting);
+	}
+}
+
+void UWESettingsPanel::BeginKeyCapture(int32 Entry)
+{
+	CaptureEntry = WEKeys::GetEntries().IsValidIndex(Entry) ? Entry : INDEX_NONE;
+	RefreshKeys();
+	if (CaptureEntry != INDEX_NONE)
+	{
+		SetKeyboardFocus();
+		KeyStatusText->SetText(FText::GetEmpty());
+	}
+}
+
+bool UWESettingsPanel::CaptureKey(const FKey& Key)
+{
+	if (CaptureEntry == INDEX_NONE)
+	{
+		return false;
+	}
+	const WEKeys::FEntry& Entry = WEKeys::GetEntries()[CaptureEntry];
+	CaptureEntry = INDEX_NONE;
+	FName Swapped;
+	const bool bOk = Key != EKeys::Escape && WEKeys::SetKey(Entry.Id, Key, Swapped);
+	if (Key == EKeys::Escape)
+	{
+		KeyStatusText->SetText(LOCTEXT("KeyCancelled", "Abgebrochen"));
+		KeyStatusText->SetColorAndOpacity(FSlateColor(Col::TextDim));
+	}
+	else if (!bOk)
+	{
+		KeyStatusText->SetText(LOCTEXT("KeyRefused", "Diese Taste geht nicht"));
+		KeyStatusText->SetColorAndOpacity(FSlateColor(Col::Bad));
+	}
+	else
+	{
+		KeyStatusText->SetText(Swapped.IsNone()
+			? FText::Format(LOCTEXT("KeySet", "{0}: {1} – gespeichert"), Entry.Label, Key.GetDisplayName())
+			: FText::Format(LOCTEXT("KeySwapped", "{0}: {1} – getauscht mit {2}"), Entry.Label, Key.GetDisplayName(), WEKeys::GetLabel(Swapped)));
+		KeyStatusText->SetColorAndOpacity(FSlateColor(Col::Good));
+		Play(this, ESound::Confirm, 0.5f);
+	}
+	RefreshKeys();
+	return bOk;
+}
+
+FReply UWESettingsPanel::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (CaptureEntry != INDEX_NONE)
+	{
+		CaptureKey(InKeyEvent.GetKey());
+		return FReply::Handled();
+	}
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+FReply UWESettingsPanel::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	// Right, middle and side mouse buttons can be keys too (the left one clicks the buttons).
+	if (CaptureEntry != INDEX_NONE && InMouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
+	{
+		CaptureKey(InMouseEvent.GetEffectingButton());
+		return FReply::Handled();
+	}
+	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+void UWESettingsPanel::HandleResetKeys()
+{
+	CaptureEntry = INDEX_NONE;
+	WEKeys::ResetAll();
+	KeyStatusText->SetText(LOCTEXT("KeysReset", "Standardtasten wiederhergestellt"));
+	KeyStatusText->SetColorAndOpacity(FSlateColor(Col::Good));
+	RefreshKeys();
+}
+
+void UWESettingsPanel::SetFromSlider(int32 Index, float Value)
+{
+	switch (Index)
+	{
+	case MotionBlur: Values.MotionBlur = FMath::Clamp(Value, 0.f, 1.f); break;
+	case UIScale:    Values.UIScale = FMath::Clamp(Value, 0.8f, 1.3f); break;
+	case Mouse:      Values.MouseSensitivity = FMath::Clamp(Value, 0.2f, 3.f); break;
+	case Fov:        Values.FieldOfView = FMath::Clamp(FMath::RoundToFloat(Value), 70.f, 110.f); break;
+	case Volume:     Values.MasterVolume = FMath::Clamp(Value, 0.f, 1.f); break;
+	default: return;
+	}
+	StatusText->SetText(LOCTEXT("Unsaved", "Noch nicht übernommen"));
+	StatusText->SetColorAndOpacity(FSlateColor(Col::Accent));
+	Refresh();
 }
 
 void UWESettingsPanel::Reload()
@@ -294,6 +509,13 @@ void UWESettingsPanel::Refresh()
 	Rows[InvertY]->SetValue(OnOff(Values.bInvertY));
 	Rows[Fov]->SetValue(FText::Format(LOCTEXT("Deg", "{0}°"), FText::AsNumber(FMath::RoundToInt(Values.FieldOfView))));
 	Rows[Volume]->SetValue(Pct(Values.MasterVolume));
+	Rows[MotionBlur]->SetValue(Values.MotionBlur <= 0.f ? OnOff(false) : Pct(Values.MotionBlur));
+	Rows[MotionBlur]->SetSliderValue(Values.MotionBlur);
+	Rows[UIScale]->SetSliderValue(Values.UIScale);
+	Rows[Mouse]->SetSliderValue(Values.MouseSensitivity);
+	Rows[Fov]->SetSliderValue(Values.FieldOfView);
+	Rows[Volume]->SetSliderValue(Values.MasterVolume);
+	RefreshKeys();
 }
 
 void UWESettingsPanel::Step(int32 Index, int32 Direction)
@@ -328,6 +550,7 @@ void UWESettingsPanel::Step(int32 Index, int32 Direction)
 	case InvertY:      Values.bInvertY = !Values.bInvertY; break;
 	case Fov:          Values.FieldOfView = FMath::Clamp(Values.FieldOfView + Direction * 5.f, 70.f, 110.f); break;
 	case Volume:       Values.MasterVolume = FMath::Clamp(Values.MasterVolume + Direction * 0.1f, 0.f, 1.f); break;
+	case MotionBlur:   Values.MotionBlur = FMath::Clamp(Values.MotionBlur + Direction * 0.1f, 0.f, 1.f); break;
 	default: break;
 	}
 	Play(this, ESound::Toggle, 0.4f);

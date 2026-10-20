@@ -113,6 +113,7 @@ protected:
 	/** Phase 17.5: modelled van (old / modern) with four wheels that turn while it drives; the boxes stay as collision. */
 	void RebuildVanModel();
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> VanParts;
+	UPROPERTY(Transient) TArray<TObjectPtr<class UWELogoComponent>> VanLogos;
 	UPROPERTY(Transient) TArray<TObjectPtr<USceneComponent>> WheelPivots;
 	float WheelRadius = 41.f;
 	float LastDriveOffset = 0.f;

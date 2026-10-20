@@ -138,6 +138,11 @@ protected:
 	void ReturnCarried();
 
 	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<UStaticMeshComponent> CarriedMesh;
+	/** Phase 20: a real figure (random face and hair by name) in the company's work overall. */
+	UPROPERTY(VisibleAnywhere, Category = "Components") TObjectPtr<class UWEAvatarComponent> Avatar;
+public:
+	class UWEAvatarComponent* GetAvatar() const { return Avatar; }
+protected:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> PlaceholderMaterial;
 
 	UPROPERTY(Replicated) FWEEmployeeProfile Profile;

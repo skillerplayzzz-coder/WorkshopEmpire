@@ -1,0 +1,13 @@
+"AppBuild"
+{
+	"AppID" "{APP_ID}"
+	"Desc" "Workshop Empire release"
+	"ContentRoot" "..\..\..\..\Builds\Release\Windows\"
+	"BuildOutput" "..\..\..\..\Builds\SteamOutput\"
+	"SetLive" ""
+	"Preview" "0"
+	"Depots"
+	{
+		"{DEPOT_ID}" "depot_build.vdf"
+	}
+}

@@ -33,6 +33,7 @@
 #include "UI/WEInventoryWidget.h"
 #include "UI/WETradeWidget.h"
 #include "UI/WEMirrorWidget.h"
+#include "Workshop/WEBrandComponent.h"
 #include "Economy/WETraderTerminal.h"
 #include "WELog.h"
 
@@ -1062,6 +1063,21 @@ void AWEPlayerController::ClosePauseMenu()
 		SetShowMouseCursor(false);
 		ResetIgnoreLookInput();
 		ResetIgnoreMoveInput();
+	}
+}
+
+// --- Brand (Phase 20) ------------------------------------------------------------------------------------
+
+void AWEPlayerController::RequestSetBrand(const FWECompanyBrand& Brand)
+{
+	ServerSetBrand(Brand);
+}
+
+void AWEPlayerController::ServerSetBrand_Implementation(const FWECompanyBrand& Brand)
+{
+	if (UWEBrandComponent* Component = UWEBrandComponent::Get(this); Component && Component->SetBrand(Brand))
+	{
+		UE_LOG(LogWENet, Log, TEXT("Brand changed by %s: symbol %d, name %s"), PlayerState ? *PlayerState->GetPlayerName() : TEXT("?"), Component->GetBrand().Symbol, *Component->GetBrand().Name);
 	}
 }
 

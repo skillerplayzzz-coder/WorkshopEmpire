@@ -3,6 +3,15 @@
 #include "InputAction.h"
 #include "InputMappingContext.h"
 #include "InputModifiers.h"
+#include "EnhancedInputSubsystems.h"
+#include "Engine/Engine.h"
+#include "Engine/LocalPlayer.h"
+#include "EngineUtils.h"
+#include "GameFramework/PlayerController.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Player/WECharacter.h"
+
+#define LOCTEXT_NAMESPACE "WEInput"
 
 namespace WEInput
 {
@@ -80,7 +89,195 @@ UWEInputConfig* UWEInputConfig::CreateDefault(UObject* Outer)
 	Context->MapKey(Config->PauseAction, EKeys::Escape);
 	Context->MapKey(Config->ViewAction, EKeys::V);
 
+	// Phase 20: remember where each rebindable key sits, then put in the player's own keys.
+	for (const WEKeys::FEntry& Entry : WEKeys::GetEntries())
+	{
+		const UInputAction* Action = Config->GetActionForBinding(Entry.Id);
+		const TArray<FEnhancedActionKeyMapping>& Mappings = Context->GetMappings();
+		for (int32 i = 0; i < Mappings.Num(); ++i)
+		{
+			if (Mappings[i].Action == Action && Mappings[i].Key == Entry.Default)
+			{
+				Config->BindingIndex.Add(Entry.Id, i);
+				break;
+			}
+		}
+	}
+	Config->ApplyKeyBindings();
 	return Config;
+}
+
+UInputAction* UWEInputConfig::GetActionForBinding(FName Id) const
+{
+	static const TMap<FName, int32> Slots = {
+		{ TEXT("MoveForward"), 0 }, { TEXT("MoveBack"), 0 }, { TEXT("MoveLeft"), 0 }, { TEXT("MoveRight"), 0 },
+		{ TEXT("Jump"), 1 }, { TEXT("Sprint"), 2 }, { TEXT("Crouch"), 3 }, { TEXT("Interact"), 4 }, { TEXT("Examine"), 5 },
+		{ TEXT("Secondary"), 6 }, { TEXT("Alternative"), 7 }, { TEXT("Setting"), 8 }, { TEXT("Build"), 9 }, { TEXT("Remove"), 10 },
+		{ TEXT("Inventory"), 11 }, { TEXT("View"), 12 }, { TEXT("QuickSave"), 13 }, { TEXT("QuickLoad"), 14 } };
+	const int32* Slot = Slots.Find(Id);
+	if (!Slot)
+	{
+		return nullptr;
+	}
+	UInputAction* const Actions[] = { MoveAction, JumpAction, SprintAction, CrouchAction, InteractAction, ExamineAction, SecondaryAction,
+		AlternativeAction, SettingAction, BuildAction, RemoveAction, InventoryAction, ViewAction, QuickSaveAction, QuickLoadAction };
+	return Actions[*Slot];
+}
+
+void UWEInputConfig::ApplyKeyBindings()
+{
+	if (!MappingContext)
+	{
+		return;
+	}
+	for (const TPair<FName, int32>& Pair : BindingIndex)
+	{
+		if (MappingContext->GetMappings().IsValidIndex(Pair.Value))
+		{
+			MappingContext->GetMapping(Pair.Value).Key = WEKeys::GetKey(Pair.Key);
+		}
+	}
+}
+
+namespace WEKeys
+{
+	static const TCHAR* Section = TEXT("WorkshopEmpire.Keys");
+
+	const TArray<FEntry>& GetEntries()
+	{
+		static const TArray<FEntry> Entries = {
+			{ TEXT("MoveForward"), LOCTEXT("KForward", "Vorwärts"), EKeys::W },
+			{ TEXT("MoveBack"), LOCTEXT("KBack", "Rückwärts"), EKeys::S },
+			{ TEXT("MoveLeft"), LOCTEXT("KLeft", "Links"), EKeys::A },
+			{ TEXT("MoveRight"), LOCTEXT("KRight", "Rechts"), EKeys::D },
+			{ TEXT("Jump"), LOCTEXT("KJump", "Springen"), EKeys::SpaceBar },
+			{ TEXT("Sprint"), LOCTEXT("KSprint", "Rennen"), EKeys::LeftShift },
+			{ TEXT("Crouch"), LOCTEXT("KCrouch", "Ducken"), EKeys::LeftControl },
+			{ TEXT("Interact"), LOCTEXT("KInteract", "Benutzen"), EKeys::E },
+			{ TEXT("Examine"), LOCTEXT("KExamine", "Untersuchen"), EKeys::F },
+			{ TEXT("Secondary"), LOCTEXT("KSecondary", "Zweitaktion (Nehmen, Ablegen)"), EKeys::R },
+			{ TEXT("Alternative"), LOCTEXT("KAlternative", "Nächster Arbeitsschritt"), EKeys::Q },
+			{ TEXT("Setting"), LOCTEXT("KSetting", "Einstellung am Objekt"), EKeys::T },
+			{ TEXT("Build"), LOCTEXT("KBuild", "Baumodus"), EKeys::B },
+			{ TEXT("Remove"), LOCTEXT("KRemove", "Entfernen / Wartung"), EKeys::X },
+			{ TEXT("Inventory"), LOCTEXT("KInventory", "Inventar"), EKeys::Tab },
+			{ TEXT("View"), LOCTEXT("KView", "Ansicht wechseln"), EKeys::V },
+			{ TEXT("QuickSave"), LOCTEXT("KQuickSave", "Schnellspeichern"), EKeys::F5 },
+			{ TEXT("QuickLoad"), LOCTEXT("KQuickLoad", "Schnellladen"), EKeys::F9 },
+		};
+		return Entries;
+	}
+
+	static const FEntry* Find(FName Id)
+	{
+		return GetEntries().FindByPredicate([Id](const FEntry& E) { return E.Id == Id; });
+	}
+
+	FText GetLabel(FName Id)
+	{
+		const FEntry* E = Find(Id);
+		return E ? E->Label : FText::FromName(Id);
+	}
+
+	FKey GetKey(FName Id)
+	{
+		const FEntry* E = Find(Id);
+		if (!E)
+		{
+			return EKeys::Invalid;
+		}
+		FString Stored;
+		if (GConfig && GConfig->GetString(Section, *Id.ToString(), Stored, GGameUserSettingsIni) && !Stored.IsEmpty())
+		{
+			const FKey Key(*Stored);
+			if (Key.IsValid())
+			{
+				return Key;
+			}
+		}
+		return E->Default;
+	}
+
+	static void Store(FName Id, const FKey& Key)
+	{
+		if (!GConfig)
+		{
+			return;
+		}
+		const FEntry* E = Find(Id);
+		if (E && Key == E->Default)
+		{
+			GConfig->RemoveKey(Section, *Id.ToString(), GGameUserSettingsIni);
+		}
+		else
+		{
+			GConfig->SetString(Section, *Id.ToString(), *Key.GetFName().ToString(), GGameUserSettingsIni);
+		}
+	}
+
+	bool SetKey(FName Id, const FKey& Key, FName& OutSwapped)
+	{
+		OutSwapped = NAME_None;
+		if (!Find(Id) || !Key.IsValid() || Key == EKeys::Escape || Key == EKeys::LeftMouseButton || Key.IsGamepadKey() || Key.IsAxis1D() || Key.IsAxis2D())
+		{
+			return false;
+		}
+		const FKey Old = GetKey(Id);
+		for (const FEntry& Other : GetEntries())
+		{
+			if (Other.Id != Id && GetKey(Other.Id) == Key)
+			{
+				Store(Other.Id, Old);
+				OutSwapped = Other.Id;
+				break;
+			}
+		}
+		Store(Id, Key);
+		if (GConfig)
+		{
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+		ApplyLive();
+		return true;
+	}
+
+	void ResetAll()
+	{
+		if (GConfig)
+		{
+			GConfig->EmptySection(Section, GGameUserSettingsIni);
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+		ApplyLive();
+	}
+
+	void ApplyLive()
+	{
+		if (!GEngine)
+		{
+			return;
+		}
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			UWorld* World = Context.World();
+			for (TActorIterator<AWECharacter> It(World); World && It; ++It)
+			{
+				if (!It->IsLocallyControlled())
+				{
+					continue;
+				}
+				if (UWEInputConfig* Config = It->GetMutableInputConfig())
+				{
+					Config->ApplyKeyBindings();
+				}
+				const APlayerController* PC = Cast<APlayerController>(It->GetController());
+				if (UEnhancedInputLocalPlayerSubsystem* Input = PC && PC->GetLocalPlayer() ? PC->GetLocalPlayer()->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>() : nullptr)
+				{
+					Input->RequestRebuildControlMappings();
+				}
+			}
+		}
+	}
 }
 
 FKey UWEInputConfig::GetKeyForAction(const UInputAction* Action) const
@@ -97,3 +294,5 @@ FKey UWEInputConfig::GetKeyForAction(const UInputAction* Action) const
 	}
 	return EKeys::Invalid;
 }
+
+#undef LOCTEXT_NAMESPACE
