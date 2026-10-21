@@ -211,7 +211,8 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 			{
 				const FVector At = Parcels[0]->GetActorLocation();
 				if (!CatCamera.IsValid()) { return; }
-				const FVector From = At + FVector(-180.f, 140.f, 140.f);
+				// (Outside in front of the door, or on the pallet inside: look from the side the parcels are on.)
+				const FVector From = At + FVector(At.X > 420.f ? 200.f : -180.f, 140.f, 140.f);
 				CatCamera->SetActorLocationAndRotation(From, (At - From).Rotation());
 				PC->SetViewTarget(CatCamera.Get());
 				FTimerHandle H;

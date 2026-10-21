@@ -258,6 +258,8 @@ public:
 	float GetReputationRewardFactor() const;
 	/** A sentence a customer would write for these stars (and kind of order). */
 	static FString MakeReviewText(int32 Stars, bool bRepair, bool bLate, int32 Seed);
+	/** "Frau Becker zu „Büro-PC zur Reparatur“". */
+	static FString MakeReviewAuthor(int32 Seed, const FString& OrderTitle);
 	static constexpr int32 MaxReviews = 12;
 	static constexpr int32 MinRatingsForReputation = 3;
 

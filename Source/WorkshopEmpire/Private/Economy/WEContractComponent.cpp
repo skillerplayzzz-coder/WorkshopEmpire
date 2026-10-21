@@ -271,7 +271,7 @@ void UWEContractComponent::UpdateContracts()
 				const FWEGameRules Rules = UWEGameRulesComponent::GetRules(this);
 				if (Rules.bCustomerReviews && Rules.Preset != EWEDifficultyPreset::Custom)
 				{
-					AddReview(1, Contracts[i].Title.ToString(), MakeReviewText(1, Contracts[i].Kind == EWEContractKind::Repair, true, i + RatingCount));
+					AddReview(1, MakeReviewAuthor(i + RatingCount, Contracts[i].Title.ToString()), MakeReviewText(1, Contracts[i].Kind == EWEContractKind::Repair, true, i + RatingCount));
 				}
 			}
 			Contracts.RemoveAt(i);
@@ -492,7 +492,7 @@ void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerNa
 	const FString Title = Contract.Title.ToString();
 	if (Stars > 0)
 	{
-		AddReview(Stars, Title, MakeReviewText(Stars, Contract.Kind == EWEContractKind::Repair, false, RatingCount + Contract.RoundsDone));
+		AddReview(Stars, MakeReviewAuthor(RatingCount + Contract.RoundsDone, Title), MakeReviewText(Stars, Contract.Kind == EWEContractKind::Repair, false, RatingCount + Contract.RoundsDone));
 		Booking += FString::Printf(TEXT(" (%d Sterne)"), Stars);
 	}
 	// Phase 16: long-term goals count every completed order (supply contracts once, at the last delivery) and collectors' pieces.
@@ -658,6 +658,13 @@ float UWEContractComponent::GetReputationRewardFactor() const
 {
 	const float Rep = GetReputation();
 	return Rep > 0.f ? FMath::Clamp(1.f + (Rep - 3.5f) * 0.06f, 0.85f, 1.1f) : 1.f;
+}
+
+FString UWEContractComponent::MakeReviewAuthor(int32 Seed, const FString& OrderTitle)
+{
+	static const TCHAR* Names[] = { TEXT("Frau Becker"), TEXT("Herr Krause"), TEXT("Frau Yilmaz"), TEXT("Tom S."), TEXT("Herr Okafor"), TEXT("Leonie M."),
+		TEXT("Frau Novak"), TEXT("Herr Albers"), TEXT("Firma Brandt"), TEXT("Herr Schulte") };
+	return FString::Printf(TEXT("%s zu „%s“"), Names[FMath::Abs(Seed * 7 + OrderTitle.Len()) % UE_ARRAY_COUNT(Names)], *OrderTitle);
 }
 
 FString UWEContractComponent::MakeReviewText(int32 Stars, bool bRepair, bool bLate, int32 Seed)

@@ -131,3 +131,15 @@ Wie im Auftrag (Punkte 2–11). Grundsatz: bestehende Systeme erweitern statt er
 - **Ganz abschaltbar:** Ohne die Regel gibt es keine Sterne, keinen Sterne-Bonus, keine Bewertungen und keinen Einfluss auf Aufträge.
 
 **Getestet:** Unit-Test `Rules.ReviewsAndReputation` (Ruf 5 → +1 Auftrag und mehr Lohn, 20 schlechte → weniger, nur 12 behalten, Regel aus → kein Einfluss).
+
+## Nachprüfung (2026-10-21, auf Mikes Wunsch)
+
+Durchsicht des neuen Codes; gefunden und behoben:
+- **Doppelte Lieferung nach Laden:** Wurde im laufenden Spiel ein Spielstand geladen, während der Paketbote unterwegs war, lieferte er seine Pakete und die geladenen Bestellungen kamen noch einmal. Jetzt verschwindet der laufende Bote beim Laden.
+- **Ein Paket pro Kauf:** 5 Schraubendreher auf einmal waren 5 Pakete und 5 Meldungen; jetzt ein Paket mit allen Teilen und eine Meldung („… gekauft – kommt mit dem Paketboten“). Absender ist der Händlername.
+- **Keine Lieferung nachts:** Der Bote kommt nur zwischen 07:00 und 19:00 Uhr.
+- **Tor zu:** Statt durch das geschlossene Garagentor zu gehen, stellt der Bote die Pakete draußen vor dem Tor ab (eigene Meldung).
+- **Bewertungen:** Statt des Auftragstitels steht ein Kundenname dabei („Frau Becker zu „Büro-PC zur Reparatur““).
+- **Altlasten im Spielstand:** Inhalte von Paketen, die es nicht mehr gibt, werden nicht mehr gespeichert.
+
+**Getestet:** neuer Unit-Test `Rules.CourierDetails` (ein Paket mit 3 Teilen, 22:00 keine Lieferung, Laden entfernt den laufenden Boten, zerstörtes Paket nicht gespeichert); alle Unit-Tests 136/136; `-WEShots=P21G` erneut (Tor zu: 3 Pakete vor dem Tor, Speichern/Laden, Öffnen).

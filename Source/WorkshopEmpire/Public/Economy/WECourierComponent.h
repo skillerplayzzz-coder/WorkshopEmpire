@@ -19,6 +19,8 @@ struct WORKSHOPEMPIRE_API FWECourierOrder
 	GENERATED_BODY()
 
 	UPROPERTY() FWEItemInstance Item;
+	/** More things in the same parcel (several pieces of one purchase). */
+	UPROPERTY() TArray<FWEItemInstance> More;
 	/** World time (server) from which the courier may bring it. */
 	UPROPERTY() float DueAt = 0.f;
 	UPROPERTY() FString Sender;
@@ -65,6 +67,10 @@ public:
 	bool ShouldShip(const FWEItemInstance& Item) const;
 	/** Server: orders Item; it arrives with a later visit. Delay < 0 = the usual delivery time. */
 	void Order(const FWEItemInstance& Item, const FString& Sender, float DelaySeconds = -1.f);
+	/** Server: several things in one parcel (e.g. 3 screwdrivers of one purchase). */
+	void Order(const TArray<FWEItemInstance>& Items, const FString& Sender, float DelaySeconds = -1.f);
+	/** Couriers only come in the daytime (07:00-19:00 game time). */
+	bool IsDeliveryTime() const;
 
 	/** Orders still on their way (replicated). */
 	int32 GetPendingCount() const { return PendingCount; }
@@ -72,8 +78,9 @@ public:
 	float GetNextVisitIn() const;
 
 	/** Server, called by the courier at the delivery area: the parcels appear there. */
-	void DropParcels(const TArray<FWECourierOrder>& Orders, const FVector& Near, bool bAnnounce = true);
-	void AnnounceDelivered(int32 Count);
+	/** bAtPallet false: set down at Near (in front of a closed door). */
+	void DropParcels(const TArray<FWECourierOrder>& Orders, const FVector& Near, bool bAnnounce = true, bool bAtPallet = true);
+	void AnnounceDelivered(int32 Count, bool bAtPallet = true);
 	/** Server: opens a parcel - its contents appear around it and the parcel is gone. */
 	TArray<FWEItemInstance> OpenParcel(AWEPickupItem* Parcel, AWECharacter* By);
 	/** What is in a parcel (server; empty if unknown). */
@@ -124,7 +131,8 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** Server: what to bring, where to put it down and where to go afterwards. */
-	void Setup(const TArray<FWECourierOrder>& InOrders, const FVector& InDrop, const FVector& InExit, int32 LookSeed);
+	void Setup(const TArray<FWECourierOrder>& InOrders, const FVector& InDrop, const FVector& InExit, int32 LookSeed, const FVector& InDoor = FVector::ZeroVector);
+	bool IsDroppingOutside() const { return bOutside; }
 	EWECourierState GetCourierState() const { return State; }
 	int32 GetParcelCount() const { return Carrying; }
 	/** What he still carries (saved as pending orders when the game is saved meanwhile). */
@@ -148,6 +156,10 @@ private:
 	TArray<FWECourierOrder> Orders;
 	FVector Drop = FVector::ZeroVector;
 	FVector Exit = FVector::ZeroVector;
+	/** In front of the door (outside): where he puts the parcels down when the door is shut. */
+	FVector Outside = FVector::ZeroVector;
+	FVector DoorAt = FVector::ZeroVector;
+	bool bOutside = false;
 	TArray<FVector> Path;
 	int32 PathIndex = 0;
 	FVector PathGoal = FVector(FLT_MAX);

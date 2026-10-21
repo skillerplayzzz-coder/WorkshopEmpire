@@ -565,16 +565,6 @@ EWETradeResult AWETraderTerminal::SellHeldItem(AWECharacter* Character, const FG
 
 void AWETraderTerminal::DeliverPurchase(AWECharacter* Character, const FWEItemInstance& Item)
 {
-	// Phase 21: with the parcel courier, a mail order comes later in a parcel (heavy freight still comes at once).
-	if (UWECourierComponent* Courier = UWECourierComponent::Get(this); Courier && Courier->ShouldShip(Item))
-	{
-		Courier->Order(Item, TEXT("Versandhandel"));
-		if (AWEPlayerController* PC = Character ? Cast<AWEPlayerController>(Character->GetController()) : nullptr)
-		{
-			PC->ClientShowMessage(FText::Format(NSLOCTEXT("WETraderTerminal", "Shipped", "Bestellt: {0} – kommt mit dem Paketboten in den Lieferbereich."), Item.GetDisplayName()));
-		}
-		return;
-	}
 	FWEItemInstance Rest = Item;
 	if (UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr; Inventory && Item.Definition->bFitsInInventory)
 	{
@@ -647,20 +637,35 @@ EWETradeResult AWETraderTerminal::Buy(AWECharacter* Character, int32 OfferIndex,
 	ForceNetUpdate();
 
 	// Non-stackable items become separate instances.
+	TArray<FWEItemInstance> Units;
 	if (Entry->Item->GetMaxStackSize() > 1)
 	{
-		DeliverPurchase(Character, Bought);
+		Units.Add(Bought);
 	}
 	else
 	{
 		for (int32 i = 0; i < Quantity; ++i)
 		{
-			DeliverPurchase(Character, FWEItemInstance::Make(Entry->Item, 1, Unit.Condition, Unit.Quality));
+			Units.Add(FWEItemInstance::Make(Entry->Item, 1, Unit.Condition, Unit.Quality));
+		}
+	}
+	// Phase 21: with the parcel courier the whole purchase comes later in one parcel (heavy freight still at once).
+	UWECourierComponent* Courier = UWECourierComponent::Get(this);
+	const bool bShipped = Courier && Courier->ShouldShip(Bought);
+	if (bShipped)
+	{
+		Courier->Order(Units, Trader->DisplayName.ToString());
+	}
+	else
+	{
+		for (const FWEItemInstance& U : Units)
+		{
+			DeliverPurchase(Character, U);
 		}
 	}
 	const bool bToPallet = !Entry->Item->bFitsInInventory;
 	Notify(Character, FText::FromString(FString::Printf(TEXT("-%s  %s gekauft%s"), *Price.ToDisplayString(), *What,
-		bToPallet ? TEXT(" (steht auf der Lieferpalette)") : TEXT(""))));
+		bShipped ? TEXT(" – kommt mit dem Paketboten") : bToPallet ? TEXT(" (steht auf der Lieferpalette)") : TEXT(""))));
 	UE_LOG(LogWENet, Log, TEXT("%s bought %s for %s"), *Character->GetName(), *What, *Price.ToDisplayString());
 	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::PurchaseMade); }
 	return EWETradeResult::Success;

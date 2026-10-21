@@ -12,6 +12,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
+#include "Inventory/WEInventoryComponent.h"
+#include "UObject/UObjectIterator.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
@@ -24,6 +26,7 @@
 #include "TimerManager.h"
 #include "WELog.h"
 #include "World/WEGarageDoor.h"
+#include "World/WEDayNightComponent.h"
 
 #define LOCTEXT_NAMESPACE "WECourier"
 
@@ -89,6 +92,26 @@ bool UWECourierComponent::ShouldShip(const FWEItemInstance& Item) const
 	return Item.Definition && UWEGameRulesComponent::GetRules(this).bCourier && Item.Definition->WeightKg <= MaxParcelKg && !IsParcel(Item);
 }
 
+void UWECourierComponent::Order(const TArray<FWEItemInstance>& Items, const FString& Sender, float DelaySeconds)
+{
+	if (Items.Num() == 0)
+	{
+		return;
+	}
+	Order(Items[0], Sender, DelaySeconds);
+	if (Pending.Num() > 0 && Pending.Last().Item.InstanceId == Items[0].InstanceId)
+	{
+		Pending.Last().More.Append(&Items[1], Items.Num() - 1);
+	}
+}
+
+bool UWECourierComponent::IsDeliveryTime() const
+{
+	const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+	const float Minute = Clock ? Clock->GetMinuteOfDay() : 600.f;
+	return Minute >= 7.f * 60.f && Minute < 19.f * 60.f;
+}
+
 void UWECourierComponent::Order(const FWEItemInstance& Item, const FString& Sender, float DelaySeconds)
 {
 	if (!GetOwner() || !GetOwner()->HasAuthority() || !Item.Definition || Item.Quantity <= 0)
@@ -132,7 +155,8 @@ void UWECourierComponent::Update()
 		return;
 	}
 	const float Now = GetWorld()->GetTimeSeconds();
-	if (Now - LastVisit < MinVisitGap)
+	// Not more often than every few minutes, and not at night.
+	if (Now - LastVisit < MinVisitGap || !IsDeliveryTime())
 	{
 		return;
 	}
@@ -178,13 +202,17 @@ void UWECourierComponent::SendCourier(bool bIgnoreTimes)
 	}
 	LastVisit = Now;
 	// From the street to the delivery pallet (like the walk-in customers), back to the street afterwards.
+	// (The door closest to the delivery pallet: with expansions there are several.)
+	const AWEDeliveryZone* Zone = AWEDeliveryZone::Find(World);
 	const AWEGarageDoor* Door = nullptr;
-	for (TActorIterator<AWEGarageDoor> It(World); It && !Door; ++It)
+	for (TActorIterator<AWEGarageDoor> It(World); It; ++It)
 	{
-		Door = *It;
+		if (!Door || (Zone && FVector::DistSquared(It->GetActorLocation(), Zone->GetActorLocation()) < FVector::DistSquared(Door->GetActorLocation(), Zone->GetActorLocation())))
+		{
+			Door = *It;
+		}
 	}
 	const FVector DoorAt = Door ? Door->GetActorLocation() : FVector(410.f, 0.f, 0.f);
-	const AWEDeliveryZone* Zone = AWEDeliveryZone::Find(World);
 	FVector DropAt = Zone ? Zone->GetActorLocation() : DoorAt + FVector(170.f, 0.f, 0.f);
 	DropAt.Z = DoorAt.Z;
 	const FVector Street(DoorAt.X + FMath::FRandRange(250.f, 650.f), -1290.f, DoorAt.Z);
@@ -197,18 +225,18 @@ void UWECourierComponent::SendCourier(bool bIgnoreTimes)
 		Pending.Append(Trip);
 		return;
 	}
-	Courier->Setup(Trip, DropAt, Exit, FMath::Rand());
+	Courier->Setup(Trip, DropAt, Exit, FMath::Rand(), DoorAt);
 	ActiveCourier = Courier;
 	UE_LOG(LogWorkshopEmpire, Log, TEXT("Courier: on the way with %d parcel(s), %d still pending"), Trip.Num(), Pending.Num());
 	WECourierConst::TellEveryone(World, FText::Format(LOCTEXT("OnTheWay", "Der Paketbote kommt: {0} {0}|plural(one=Paket,other=Pakete) für die Werkstatt."), Trip.Num()));
 	RefreshReplicated();
 }
 
-void UWECourierComponent::DropParcels(const TArray<FWECourierOrder>& Orders, const FVector& Near, bool bAnnounce)
+void UWECourierComponent::DropParcels(const TArray<FWECourierOrder>& Orders, const FVector& Near, bool bAnnounce, bool bAtPallet)
 {
 	UWorld* World = GetWorld();
 	UWEItemDefinition* ParcelDef = UWEItemDefinition::FindById(TEXT("Parcel"));
-	AWEDeliveryZone* Zone = AWEDeliveryZone::Find(World);
+	AWEDeliveryZone* Zone = bAtPallet ? AWEDeliveryZone::Find(World) : nullptr;
 	int32 Index = 0;
 	for (const FWECourierOrder& O : Orders)
 	{
@@ -222,9 +250,11 @@ void UWECourierComponent::DropParcels(const TArray<FWECourierOrder>& Orders, con
 			FWEParcelContents& Contents = Parcels.AddDefaulted_GetRef();
 			Contents.ParcelId = Parcel.InstanceId;
 			Contents.Items = { O.Item };
+			Contents.Items.Append(O.More);
 			Contents.Sender = O.Sender;
 		}
-		FTransform At = Zone ? Zone->NextDropTransform() : FTransform(Near + FVector((Index % 2) * 45.f, (Index / 2) * 45.f, 40.f));
+		// (In front of a shut door: side by side on the ground, a little apart from earlier ones.)
+		FTransform At = Zone ? Zone->NextDropTransform() : FTransform(Near + FVector(FMath::FRandRange(-25.f, 25.f), FMath::FRandRange(-60.f, 60.f), 30.f));
 		AWEPickupItem::SpawnWorldItem(World, Parcel, At);
 		++Index;
 	}
@@ -232,15 +262,17 @@ void UWECourierComponent::DropParcels(const TArray<FWECourierOrder>& Orders, con
 	UE_LOG(LogWorkshopEmpire, Log, TEXT("Courier: %d parcel(s) set down"), Orders.Num());
 	if (bAnnounce)
 	{
-		AnnounceDelivered(Orders.Num());
+		AnnounceDelivered(Orders.Num(), bAtPallet);
 	}
 	RefreshReplicated();
 }
 
-void UWECourierComponent::AnnounceDelivered(int32 Count)
+void UWECourierComponent::AnnounceDelivered(int32 Count, bool bAtPallet)
 {
-	UE_LOG(LogWorkshopEmpire, Log, TEXT("Courier: %d parcel(s) delivered"), Count);
-	WECourierConst::TellEveryone(GetWorld(), FText::Format(LOCTEXT("Delivered", "{0} {0}|plural(one=Paket,other=Pakete) im Lieferbereich abgestellt – aufheben und mit [Q] öffnen."), Count));
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Courier: %d parcel(s) delivered (%s)"), Count, bAtPallet ? TEXT("pallet") : TEXT("in front of the shut door"));
+	WECourierConst::TellEveryone(GetWorld(), bAtPallet
+		? FText::Format(LOCTEXT("Delivered", "{0} {0}|plural(one=Paket,other=Pakete) im Lieferbereich abgestellt – aufheben und mit [Q] öffnen."), Count)
+		: FText::Format(LOCTEXT("DeliveredOutside", "Tor zu: {0} {0}|plural(one=Paket,other=Pakete) vor dem Tor abgestellt – aufheben und mit [Q] öffnen."), Count));
 }
 
 const FWEParcelContents* UWECourierComponent::FindContents(const FGuid& ParcelId) const
@@ -298,12 +330,37 @@ void UWECourierComponent::GetSaveState(TArray<FWECourierOrder>& OutOrders, TArra
 	{
 		O.DueAt = FMath::Max(0.f, O.DueAt - Now); // remaining seconds
 	}
-	OutParcels = Parcels;
+	// Only parcels that still exist (lying around or in a storage): one that was destroyed otherwise is forgotten.
+	TSet<FGuid> Existing;
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AWEPickupItem> It(World); It; ++It)
+		{
+			Existing.Add(It->GetItem().InstanceId);
+		}
+		for (TObjectIterator<UWEInventoryComponent> It; It; ++It)
+		{
+			if (It->GetWorld() == World)
+			{
+				for (const FWEInventorySlotData& Slot : It->GetAllSlots())
+				{
+					Existing.Add(Slot.Item.InstanceId);
+				}
+			}
+		}
+	}
+	OutParcels = Parcels.FilterByPredicate([&Existing](const FWEParcelContents& P) { return Existing.Contains(P.ParcelId); });
 }
 
 void UWECourierComponent::SetSaveState(const TArray<FWECourierOrder>& InOrders, const TArray<FWEParcelContents>& InParcels)
 {
 	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	// Loaded while a courier walks around: his parcels are in the loaded orders again - he must not bring them twice.
+	if (AWECourier* Courier = ActiveCourier.Get())
+	{
+		Courier->Destroy();
+	}
+	ActiveCourier.Reset();
 	Pending = InOrders;
 	for (FWECourierOrder& O : Pending)
 	{
@@ -390,12 +447,14 @@ void AWECourier::OnRep_Carrying()
 	}
 }
 
-void AWECourier::Setup(const TArray<FWECourierOrder>& InOrders, const FVector& InDrop, const FVector& InExit, int32 LookSeed)
+void AWECourier::Setup(const TArray<FWECourierOrder>& InOrders, const FVector& InDrop, const FVector& InExit, int32 LookSeed, const FVector& InDoor)
 {
 	Orders = InOrders;
 	Exit = InExit;
+	DoorAt = InDoor;
+	// Outside, in front of the door (the street side is +X of the garage doors).
+	Outside = InDoor + FVector(140.f, 0.f, 0.f);
 	Look = WELook::Random(LookSeed);
-	// Work clothes of the parcel service: the yellow outfit colour if there is one.
 	State = EWECourierState::Arriving;
 	Carrying = Orders.Num();
 	// A free spot in front of the pallet (on the navmesh).
@@ -481,8 +540,19 @@ void AWECourier::Tick(float DeltaSeconds)
 	switch (State)
 	{
 	case EWECourierState::Arriving:
+	{
+		// A shut door: he leaves the parcels outside in front of it instead of walking through it.
+		if (!bOutside && !DoorAt.IsZero() && GetActorLocation().X > DoorAt.X + 20.f)
+		{
+			const AWEGarageDoor* Door = nullptr;
+			for (TActorIterator<AWEGarageDoor> It(GetWorld()); It; ++It)
+			{
+				Door = FVector::Dist2D(It->GetActorLocation(), DoorAt) < 50.f ? *It : Door;
+			}
+			bOutside = Door && !Door->IsOpen();
+		}
 		// (Never longer than two minutes on the way: then the parcels are simply there.)
-		if (MoveTo(Drop, DeltaSeconds) || LifeTime > 120.f)
+		if (MoveTo(bOutside ? Outside : Drop, DeltaSeconds) || LifeTime > 120.f)
 		{
 			State = EWECourierState::Dropping;
 			StateTime = 0.f;
@@ -496,6 +566,7 @@ void AWECourier::Tick(float DeltaSeconds)
 			ForceNetUpdate();
 		}
 		break;
+	}
 	case EWECourierState::Dropping:
 		// Bend down, put them on the pallet one by one.
 		if (Carrying > 0 && StateTime > 0.6f)
@@ -505,13 +576,13 @@ void AWECourier::Tick(float DeltaSeconds)
 			UWECourierComponent* Component = UWECourierComponent::Get(this);
 			if (Component && Orders.IsValidIndex(Carrying))
 			{
-				Component->DropParcels({ Orders[Carrying] }, Drop, false);
+				Component->DropParcels({ Orders[Carrying] }, bOutside ? Outside : Drop, false, !bOutside);
 			}
 			if (Carrying == 0)
 			{
 				if (Component)
 				{
-					Component->AnnounceDelivered(Orders.Num());
+					Component->AnnounceDelivered(Orders.Num(), !bOutside);
 				}
 				Orders.Reset();
 			}

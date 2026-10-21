@@ -395,6 +395,10 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 				Saved.Item = ToSaved(O.Item);
 				Saved.RemainingSeconds = O.DueAt;
 				Saved.Sender = O.Sender;
+				for (const FWEItemInstance& I : O.More)
+				{
+					Saved.More.Add(ToSaved(I));
+				}
 			}
 			for (const FWEParcelContents& P : Parcels)
 			{
@@ -891,6 +895,14 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 					{
 						O.DueAt = Saved.RemainingSeconds;
 						O.Sender = Saved.Sender;
+						for (const FWESavedItem& SI : Saved.More)
+						{
+							FWEItemInstance I;
+							if (FromSaved(SI, I))
+							{
+								O.More.Add(I);
+							}
+						}
 						Orders.Add(O);
 					}
 				}

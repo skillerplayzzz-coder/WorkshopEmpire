@@ -9,6 +9,7 @@
 #include "Framework/WEGameState.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
+#include "World/WEDayNightComponent.h"
 #include "WETestItems.h"
 #include "WETestWorld.h"
 
@@ -174,4 +175,65 @@ bool FWERulesReviewsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWERulesCourierDetailsTest, "WorkshopEmpire.Rules.CourierDetails", Flags)
+bool FWERulesCourierDetailsTest::RunTest(const FString& Parameters)
+{
+	// One purchase of several pieces = one parcel; no courier at night; destroyed parcels are not saved; loading drops a walking courier.
+	FWETestWorld TW;
+	AWEGameState* GameState = TW.SpawnGameState<AWEGameState>();
+	TW.Spawn<AWEDeliveryZone>(FVector(200.f, 0.f, 6.f));
+	GameState->GetRules()->SetRules(FWEGameRules::FromPreset(EWEDifficultyPreset::Realistic));
+	UWECourierComponent* Courier = GameState->GetCourier();
+	UWEItemDefinition* Tool = UWEItemDefinition::FindById(TEXT("Screwdriver"));
+	if (!TestNotNull(TEXT("Item data"), Tool))
+	{
+		return false;
+	}
+	TArray<FWEItemInstance> Three;
+	for (int32 i = 0; i < 3; ++i)
+	{
+		Three.Add(FWEItemInstance::Make(Tool, 1, EWEItemCondition::New, 100));
+	}
+	Courier->Order(Three, TEXT("Werkzeug-Versand"), 0.f);
+	TestEqual(TEXT("Three pieces, one order"), Courier->GetPendingCount(), 1);
+
+	if (UWEDayNightComponent* Clock = GameState->GetDayNight())
+	{
+		Clock->SetTime(1, 22.f * 60.f);
+		TestFalse(TEXT("22:00: no courier"), Courier->IsDeliveryTime());
+		Clock->SetTime(2, 9.f * 60.f);
+		TestTrue(TEXT("09:00: courier comes"), Courier->IsDeliveryTime());
+	}
+
+	// Loading while he walks: he is gone, his parcel is pending again (not delivered twice).
+	Courier->DevSendCourierNow();
+	TestNotNull(TEXT("Courier on the way"), Courier->GetActiveCourier());
+	TArray<FWECourierOrder> Orders;
+	TArray<FWEParcelContents> Parcels;
+	Courier->GetSaveState(Orders, Parcels);
+	TestEqual(TEXT("His parcel counts as pending in the save"), Orders.Num(), 1);
+	Courier->SetSaveState(Orders, Parcels);
+	TestNull(TEXT("Loading removes the walking courier"), Courier->GetActiveCourier());
+	TestEqual(TEXT("Pending once"), Courier->GetPendingCount(), 1);
+
+	Courier->GetSaveState(Orders, Parcels);
+	Courier->SetSaveState({}, {});
+	Courier->DropParcels(Orders, FVector(200.f, 0.f, 0.f));
+	AWEPickupItem* Parcel = nullptr;
+	for (TActorIterator<AWEPickupItem> It(TW.World); It; ++It)
+	{
+		Parcel = UWECourierComponent::IsParcel(It->GetItem()) ? *It : Parcel;
+	}
+	if (!TestNotNull(TEXT("Parcel"), Parcel))
+	{
+		return false;
+	}
+	const FWEParcelContents* Contents = Courier->FindContents(Parcel->GetItem().InstanceId);
+	TestTrue(TEXT("All three screwdrivers in the one parcel"), Contents && Contents->Items.Num() == 3);
+	Parcel->Destroy();
+	Courier->GetSaveState(Orders, Parcels);
+	TestEqual(TEXT("A destroyed parcel is not saved"), Parcels.Num(), 0);
+	return true;
+}
 #endif // WITH_DEV_AUTOMATION_TESTS

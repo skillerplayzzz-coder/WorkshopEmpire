@@ -58,6 +58,8 @@ struct WORKSHOPEMPIRE_API FWESavedCourierOrder
 	UPROPERTY() FWESavedItem Item;
 	UPROPERTY() float RemainingSeconds = 0.f;
 	UPROPERTY() FString Sender;
+	/** More things in the same parcel. */
+	UPROPERTY() TArray<FWESavedItem> More;
 };
 
 /** Phase 21 (save version 19): what is inside a parcel that lies somewhere. */
