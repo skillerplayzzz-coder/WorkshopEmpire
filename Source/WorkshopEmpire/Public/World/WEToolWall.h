@@ -50,6 +50,8 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void RebuildVisuals() override;
 	void OnStorageChanged(class UWEInventoryComponent* Changed);
+	void ApplyStorageChange();
+	bool bRefreshQueued = false;
 	void RefreshHooks();
 	static int32 CountTools(const class UWEInventoryComponent* Inventory);
 

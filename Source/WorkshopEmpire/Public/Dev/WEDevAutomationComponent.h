@@ -151,6 +151,7 @@ protected:
 	void RunPhase20Shots();
 	/** Phase 21: repair feel, conditions, cleaning, staff at work, tool wall, courier, difficulty (-WEShots=P21). */
 	void RunPhase21Shots();
+	void RunSmokeRoleP21(bool bActor);
 	void PlaceHeldOnBench();
 	TWeakObjectPtr<class ACameraActor> CatCamera;
 	/** Phase 20 trailer: camera moves through the scenes, every frame saved (-WEShots=P20T). */

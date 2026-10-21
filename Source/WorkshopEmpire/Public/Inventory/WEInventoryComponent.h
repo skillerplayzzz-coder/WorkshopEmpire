@@ -38,6 +38,11 @@ struct WORKSHOPEMPIRE_API FWEInventoryList : public FFastArraySerializer
 	UPROPERTY(NotReplicated)
 	TObjectPtr<UWEInventoryComponent> Owner;
 
+	/** Clients: an entry was removed in this update (the removal is announced before it is gone). */
+	mutable bool bRemovedThisUpdate = false;
+	/** Clients: after the whole update - listeners see the inventory without the removed entries. */
+	void PostReplicatedReceive(const FFastArraySerializer::FPostReplicatedReceiveParameters& Parameters);
+
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
 	{
 		return FFastArraySerializer::FastArrayDeltaSerialize<FWEInventoryEntry, FWEInventoryList>(Entries, DeltaParms, *this);

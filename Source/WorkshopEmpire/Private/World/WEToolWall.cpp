@@ -12,6 +12,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Player/WECharacter.h"
 #include "Sound/SoundBase.h"
+#include "TimerManager.h"
 #include "WELog.h"
 #include "Workshop/WEToolHand.h"
 
@@ -155,6 +156,24 @@ void AWEToolWall::RebuildVisuals()
 
 void AWEToolWall::OnStorageChanged(UWEInventoryComponent* Changed)
 {
+	// On clients a removal is announced before the entry is gone (PreReplicatedRemove): look again next frame.
+	if (HasAuthority())
+	{
+		ApplyStorageChange();
+	}
+	else if (!bRefreshQueued && GetWorld())
+	{
+		bRefreshQueued = true;
+		GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			bRefreshQueued = false;
+			ApplyStorageChange();
+		}));
+	}
+}
+
+void AWEToolWall::ApplyStorageChange()
+{
 	const int32 Before = GetHangingCount();
 	if (Hooks.Num() < Storage->GetNumSlots())
 	{
@@ -162,7 +181,8 @@ void AWEToolWall::OnStorageChanged(UWEInventoryComponent* Changed)
 	}
 	RefreshHooks();
 	const int32 After = GetHangingCount();
-	if (After != Before && GetNetMode() != NM_DedicatedServer && HasActorBegunPlay())
+	// One tool taken or hung up by hand - not a whole wall arriving (joining a game, loading a save).
+	if (FMath::Abs(After - Before) == 1 && GetNetMode() != NM_DedicatedServer && HasActorBegunPlay() && GetGameTimeSinceCreation() > 2.f)
 	{
 		if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, After < Before ? WEToolWallConst::TakeSound : WEToolWallConst::HangSound, nullptr, LOAD_Quiet | LOAD_NoWarn))
 		{

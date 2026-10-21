@@ -142,6 +142,8 @@ protected:
 	FVector DropTo = FVector::ZeroVector;
 public:
 	EWEWorkPose GetActivity() const { return Activity; }
+	/** Where to put the employee back when loading (seated: the spot in front of the seat, not inside it). */
+	FVector GetSaveLocation() const { return Activity == EWEWorkPose::Sit && !SitFrom.IsZero() ? SitFrom : GetActorLocation(); }
 	bool IsOnBreak() const { return Break != EBreak::None; }
 	/** Tests / shots: start a break now (server). */
 	void StartBreak();

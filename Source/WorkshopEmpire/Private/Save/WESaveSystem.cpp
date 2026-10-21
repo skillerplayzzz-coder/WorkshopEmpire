@@ -315,7 +315,7 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 			FWESavedEmployee& Saved = Save->Employees.AddDefaulted_GetRef();
 			Saved.ActorName = Employee->GetFName();
 			Saved.Profile = Employee->GetProfile();
-			Saved.Location = Employee->GetActorLocation();
+			Saved.Location = Employee->GetSaveLocation();
 			Saved.Yaw = Employee->GetActorRotation().Yaw;
 			Saved.TaskKind = static_cast<uint8>(Employee->GetTask().Kind);
 			Saved.SourceName = Employee->GetTask().Source ? Employee->GetTask().Source->GetFName() : NAME_None;

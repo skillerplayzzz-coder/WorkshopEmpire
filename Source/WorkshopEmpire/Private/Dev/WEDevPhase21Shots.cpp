@@ -24,6 +24,8 @@
 #include "Staff/WEStaffComponent.h"
 #include "World/WEToolWall.h"
 #include "Economy/WECourierComponent.h"
+#include "Interaction/WEInteractionComponent.h"
+#include "Economy/WECompanyComponent.h"
 #include "Framework/WEGameMode.h"
 #include "Framework/WEGameRulesComponent.h"
 #include "Framework/WEMenuGameMode.h"
@@ -104,6 +106,30 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 			UE_LOG(LogWorkshopEmpire, Display, TEXT("P21 menu option round trip: %s"), bOk ? TEXT("ok") : TEXT("FAIL"));
 		});
 		Schedule(12.0f, [this]() { Quit(); });
+		return;
+	}
+	if (ShotName == TEXT("P21L"))
+	{
+		// --- Old saves load (every save version still present): slots QAOld1..QAOld9 as far as they exist ------------
+		float T = 2.f;
+		for (int32 i = 1; i <= 9; ++i)
+		{
+			const FString Slot = FString::Printf(TEXT("QAOld%d"), i);
+			Schedule(T, [this, Slot]()
+			{
+				AWEGameMode* GM = GetWorld()->GetAuthGameMode<AWEGameMode>();
+				const bool bLoaded = GM && GM->LoadFromSlot(Slot);
+				int32 Items = 0;
+				for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It) { ++Items; }
+				const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("P21 load %s: %s items=%d balance=%s rules='%s' courier pending=%d"), *Slot, bLoaded ? TEXT("ok") : TEXT("FAILED/none"), Items,
+					Company ? *Company->GetBalance().ToDisplayString() : TEXT("-"), *UWEGameRulesComponent::GetRules(this).Describe().ToString(),
+					UWECourierComponent::Get(this) ? UWECourierComponent::Get(this)->GetPendingCount() : -1);
+			});
+			Schedule(T + 2.f, [this, Slot]() { Shot(Slot); });
+			T += 4.f;
+		}
+		Schedule(T + 1.f, [this]() { Quit(); });
 		return;
 	}
 	if (ShotName == TEXT("P21G"))
@@ -679,5 +705,88 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 		UE_LOG(LogWorkshopEmpire, Display, TEXT("P21 tasks by hand: %d"), WorkViewTasks);
 	});
 	Schedule(31.0f, [this]() { Quit(); });
+#endif
+}
+
+void UWEDevAutomationComponent::RunSmokeRoleP21(bool bActor)
+{
+#if !UE_BUILD_SHIPPING
+	// Phase 21 over the network (dedicated server): Y1 orders (courier), builds a tool wall, hangs up and takes a tool
+	// through the server; Y2 only watches what replicates (rules, courier with parcels, parcels, hanging tools).
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	const FString Tag = bActor ? TEXT("Y1") : TEXT("Y2");
+	auto Log = [this, Tag](const TCHAR* Step)
+	{
+		int32 Parcels = 0;
+		for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It) { Parcels += UWECourierComponent::IsParcel(It->GetItem()) ? 1 : 0; }
+		int32 Couriers = 0, Carrying = 0;
+		for (TActorIterator<AWECourier> It(GetWorld()); It; ++It) { ++Couriers; Carrying += It->GetParcelCount(); }
+		int32 Hanging = -1;
+		for (TActorIterator<AWEToolWall> It(GetWorld()); It; ++It) { Hanging = It->GetHangingCount(); }
+		int32 Tools = 0;
+		if (const AWECharacter* C = GetCharacter())
+		{
+			for (const FWEInventorySlotData& S : C->GetPlayerInventory()->GetAllSlots()) { Tools += S.Item.Definition && S.Item.Definition->ToolType != EWEToolType::None ? 1 : 0; }
+		}
+		const UWECourierComponent* Courier = UWECourierComponent::Get(this);
+		UE_LOG(LogWENet, Display, TEXT("SMOKE[%s] %s: rules='%s' pending=%d couriers=%d carrying=%d parcels=%d wall=%d myTools=%d"), *Tag, Step,
+			*UWEGameRulesComponent::GetRules(this).Describe().ToString(), Courier ? Courier->GetPendingCount() : -1, Couriers, Carrying, Parcels, Hanging, Tools);
+	};
+	Schedule(8.f, [Log]() { Log(TEXT("0 start")); });
+	if (bActor)
+	{
+		Schedule(10.f, [this, PC]()
+		{
+			if (!PC) { return; }
+			PC->ServerDevAddMoney(500);
+			PC->ServerDevPhase21(1);
+			PC->ServerDevTeleport(FVector(-60.f, -60.f, 100.f), FRotator(0.f, -90.f, 0.f));
+			PC->ServerDevGiveItem(TEXT("Screwdriver"), 1, EWEItemCondition::New);
+			PC->ServerDevGiveItem(TEXT("SideCutter"), 1, EWEItemCondition::New);
+		});
+		Schedule(12.f, [this]()
+		{
+			if (UWEBuildComponent* B = GetBuild())
+			{
+				B->SetBuildMode(true);
+				PlaceFurnitureAt(TEXT("ToolWall"), 60.f, -230.f, 90.f);
+				B->SetBuildMode(false);
+			}
+		});
+		Schedule(14.f, [this, PC]()
+		{
+			// In front of the wall, [R]: hang everything up (the server moves the items).
+			AWEToolWall* Wall = nullptr;
+			for (TActorIterator<AWEToolWall> It(GetWorld()); It; ++It) { Wall = *It; }
+			if (Wall && PC)
+			{
+				PC->ServerDevTeleport(Wall->GetActorTransform().TransformPosition(FVector(110.f, 0.f, 0.f)) + FVector(0.f, 0.f, 100.f), FRotator::ZeroRotator);
+			}
+		});
+		Schedule(15.f, [this]()
+		{
+			AWEToolWall* Wall = nullptr;
+			for (TActorIterator<AWEToolWall> It(GetWorld()); It; ++It) { Wall = *It; }
+			if (AWECharacter* C = GetCharacter(); C && Wall) { C->GetInteractionComponent()->RequestSecondaryInteractWith(Wall); }
+		});
+		Schedule(17.f, [Log]() { Log(TEXT("1 hung up")); });
+		Schedule(18.f, [this]()
+		{
+			// Look at the first hook, [Q]: the server takes the tool it sees the player look at.
+			AWEToolWall* Wall = nullptr;
+			for (TActorIterator<AWEToolWall> It(GetWorld()); It; ++It) { Wall = *It; }
+			if (Wall) { LookAtPoint(Wall->GetActorTransform().TransformPosition(Wall->GetHookLocation(0) + FVector(3.f, 0.f, -13.f))); }
+		});
+		Schedule(19.5f, [this]()
+		{
+			AWEToolWall* Wall = nullptr;
+			for (TActorIterator<AWEToolWall> It(GetWorld()); It; ++It) { Wall = *It; }
+			if (AWECharacter* C = GetCharacter(); C && Wall) { C->GetInteractionComponent()->RequestAlternativeInteractWith(Wall); }
+		});
+		Schedule(21.f, [Log]() { Log(TEXT("2 took one")); });
+	}
+	Schedule(16.f, [Log]() { Log(TEXT("3 courier walking")); });
+	Schedule(45.f, [Log]() { Log(TEXT("4 delivered")); });
+	Schedule(47.f, [this]() { Quit(); });
 #endif
 }

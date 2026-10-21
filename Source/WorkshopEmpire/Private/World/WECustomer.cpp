@@ -8,6 +8,7 @@
 #include "EngineUtils.h"
 #include "Framework/WEPlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerState.h"
 #include "Inventory/WEInventoryComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"

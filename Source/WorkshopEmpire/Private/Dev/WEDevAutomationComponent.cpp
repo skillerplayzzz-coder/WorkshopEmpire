@@ -260,6 +260,10 @@ void UWEDevAutomationComponent::BeginPlay()
 	{
 		RunSmokeRoleZ();
 	}
+	else if (Role == TEXT("Y1") || Role == TEXT("Y2"))
+	{
+		RunSmokeRoleP21(Role == TEXT("Y1"));
+	}
 	else if (ShotName.StartsWith(TEXT("P12")))
 	{
 		RunExpansionShots();

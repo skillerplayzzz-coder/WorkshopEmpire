@@ -20,7 +20,17 @@ void FWEInventoryEntry::PostReplicatedChange(const FWEInventoryList& InArraySeri
 
 void FWEInventoryEntry::PreReplicatedRemove(const FWEInventoryList& InArraySerializer)
 {
-	if (InArraySerializer.Owner) { InArraySerializer.Owner->NotifyChanged(); }
+	// The entry is still in the list here: tell the listeners once the update is through (PostReplicatedReceive).
+	InArraySerializer.bRemovedThisUpdate = true;
+}
+
+void FWEInventoryList::PostReplicatedReceive(const FFastArraySerializer::FPostReplicatedReceiveParameters& Parameters)
+{
+	if (bRemovedThisUpdate)
+	{
+		bRemovedThisUpdate = false;
+		if (Owner) { Owner->NotifyChanged(); }
+	}
 }
 
 // --- Component -------------------------------------------------------------------------------------

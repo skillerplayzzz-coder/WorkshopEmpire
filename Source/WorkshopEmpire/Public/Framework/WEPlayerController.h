@@ -168,6 +168,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerDevAddMoney(int32 Euros);
 
+	/** Development builds only (Phase 21 net test): 1 = rules Realistisch + two orders + courier now. */
+	UFUNCTION(Server, Reliable)
+	void ServerDevPhase21(uint8 Action);
+
 	/** Server -> owning client: short on-screen message ("Inventar voll", "Gespeichert"). */
 	UFUNCTION(Client, Reliable)
 	void ClientShowMessage(const FText& Message);

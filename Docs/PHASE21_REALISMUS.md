@@ -143,3 +143,16 @@ Durchsicht des neuen Codes; gefunden und behoben:
 - **Altlasten im Spielstand:** Inhalte von Paketen, die es nicht mehr gibt, werden nicht mehr gespeichert.
 
 **Getestet:** neuer Unit-Test `Rules.CourierDetails` (ein Paket mit 3 Teilen, 22:00 keine Lieferung, Laden entfernt den laufenden Boten, zerstörtes Paket nicht gespeichert); alle Unit-Tests 136/136; `-WEShots=P21G` erneut (Tor zu: 3 Pakete vor dem Tor, Speichern/Laden, Öffnen).
+
+## Komplettprüfung A bis Z (2026-10-21, auf Mikes Wunsch)
+
+Vorgehen: alle 254 Logs der letzten Testläufe nach Fehlern/Warnungen ausgewertet, Spiel ohne Unity-Bündelung kompiliert, alte Spielstände geladen, ein neuer Netzwerktest für die Phase-21-Systeme (dedizierter Server + 2 Clients, Rollen `Y1`/`Y2`), gepacktes Spiel gebaut und darin getestet, danach alle Tests und Netzwerkpaare wiederholt.
+
+Gefunden und behoben:
+- **Inventar im Mehrspieler (Grundsatzfehler):** Bei Clients wurde „Inventar geändert“ beim Entfernen eines Gegenstands gemeldet, bevor er wirklich weg war. Folge z. B.: ein von der Werkzeugwand genommenes Werkzeug hing beim anderen Spieler weiter an der Wand. Jetzt wird nach dem ganzen Netzwerk-Update gemeldet (`FWEInventoryList::PostReplicatedReceive`).
+- **Bäume:** Die Blätter von `tree_small_02` (Nachbarschaft, Stadt) waren durchscheinend auf einem Nanite-Modell – das geht nicht, es wurde das Standardmaterial gezeichnet (43.000 Warnungen). Jetzt maskiert.
+- **Fehlendes Include** in `WECustomer.cpp` (wäre bei geänderter Unity-Bündelung ein Kompilierfehler geworden).
+- **Werkzeugwand:** Beim Beitreten/Laden klapperte die Wand (Geräusch für jedes Werkzeug); jetzt nur beim Nehmen/Aufhängen von Hand.
+- **Mitarbeiter im Sitzen gespeichert:** wurden beim Laden im Hocker abgesetzt; jetzt am Platz davor.
+
+Geprüft ohne Befund: alte Spielstände (Version 1, 5, 13, 18) laden; gepacktes Spiel (Development) mit den Läufen P175, P21B, P21F, P21G ohne Fehler; Netzwerkpaare A–X, 4-Spieler-Test, Phase-21-Netztest (Regeln, Paketbote mit Paketen, Werkzeugwand über den Server) bei beiden Clients gleich; Unit-Tests 137/137 (vorher 2 Warnungen, jetzt 1).

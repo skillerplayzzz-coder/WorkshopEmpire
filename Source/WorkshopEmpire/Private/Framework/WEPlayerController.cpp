@@ -1,4 +1,6 @@
 #include "Framework/WEPlayerController.h"
+#include "Framework/WEGameRulesComponent.h"
+#include "Economy/WECourierComponent.h"
 #include "Economy/WEClassifiedsComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "UI/WEMenuWidgets.h"
@@ -777,8 +779,26 @@ void AWEPlayerController::ServerDevAddMoney_Implementation(int32 Euros)
 #endif
 }
 
-void AWEPlayerController::ClientOpenContainer_Implementation(UWEInventoryComponent* Container)
+void AWEPlayerController::ServerDevPhase21_Implementation(uint8 Action)
 {
+#if !UE_BUILD_SHIPPING
+	if (Action == 1)
+	{
+		if (UWEGameRulesComponent* Rules = UWEGameRulesComponent::Get(this))
+		{
+			Rules->SetRules(FWEGameRules::FromPreset(EWEDifficultyPreset::Realistic));
+		}
+		if (UWECourierComponent* Courier = UWECourierComponent::Get(this))
+		{
+			Courier->Order(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("Multimeter")), 1, EWEItemCondition::New, 100), TEXT("Werkzeug-Versand Hammerl"));
+			Courier->Order(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("ThermalPaste")), 2, EWEItemCondition::New, 100), TEXT("Ersatzteil-Express"));
+			Courier->DevSendCourierNow();
+		}
+	}
+#endif
+}
+
+void AWEPlayerController::ClientOpenContainer_Implementation(UWEInventoryComponent* Container){
 	OpenInventory(Container);
 }
 
