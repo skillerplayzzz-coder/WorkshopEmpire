@@ -1,4 +1,5 @@
 #include "Economy/WETraderTerminal.h"
+#include "Economy/WECourierComponent.h"
 #include "World/WEPlaceholderProp.h"
 #include "Machines/WEMachine.h"
 #include "Logistics/WEVehicle.h"
@@ -564,6 +565,16 @@ EWETradeResult AWETraderTerminal::SellHeldItem(AWECharacter* Character, const FG
 
 void AWETraderTerminal::DeliverPurchase(AWECharacter* Character, const FWEItemInstance& Item)
 {
+	// Phase 21: with the parcel courier, a mail order comes later in a parcel (heavy freight still comes at once).
+	if (UWECourierComponent* Courier = UWECourierComponent::Get(this); Courier && Courier->ShouldShip(Item))
+	{
+		Courier->Order(Item, TEXT("Versandhandel"));
+		if (AWEPlayerController* PC = Character ? Cast<AWEPlayerController>(Character->GetController()) : nullptr)
+		{
+			PC->ClientShowMessage(FText::Format(NSLOCTEXT("WETraderTerminal", "Shipped", "Bestellt: {0} – kommt mit dem Paketboten in den Lieferbereich."), Item.GetDisplayName()));
+		}
+		return;
+	}
 	FWEItemInstance Rest = Item;
 	if (UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr; Inventory && Item.Definition->bFitsInInventory)
 	{

@@ -225,6 +225,12 @@ void AWEAssemblyView::UpdateState(float Now)
 			Vis.bGone = false;
 			Vis.bInserted = false;
 			Vis.InsertedAt = -1.f;
+			for (FFastenerVis& FV : Vis.Fasteners)
+			{
+				FV.bInBowl = false;
+				FV.BowlIndex = INDEX_NONE;
+				FV.bLanded = false;
+			}
 			if (Vis.Mesh)
 			{
 				Vis.Mesh->SetVisibility(true);
@@ -424,6 +430,51 @@ void AWEAssemblyView::AnimatePart(int32 Index, FPartVis& Vis, float Now)
 			}
 			}
 			FV.Mesh->SetRelativeTransform(FTransform(T.GetRotation(), T.GetLocation(), FV.Mesh->GetRelativeScale3D()));
+			// Phase 21: screws come back out of the bowl on the tip before they turn in.
+			if (FV.bInBowl && B && (F.Kind == EWEFastenerKind::Screw || F.Kind == EWEFastenerKind::Thumbscrew))
+			{
+				if (FV.DoneAt >= 0.f)
+				{
+					FV.bInBowl = false;
+					FV.BowlIndex = INDEX_NONE;
+					FV.bLanded = false;
+				}
+				else
+				{
+					const FVector Spot = WEWorkPlan::BowlSpot(B->GetScrewBowlLocation(), FV.BowlIndex);
+					const float Fetch = bActive ? Ease(ActiveProgress / 0.4f) : 0.f;
+					FV.Mesh->SetWorldLocation(FMath::Lerp(Spot, FV.Mesh->GetComponentLocation(), Fetch));
+				}
+			}
+			continue;
+		}
+		if ((F.Kind == EWEFastenerKind::Screw || F.Kind == EWEFastenerKind::Thumbscrew) && (FV.bInBowl || FV.DoneAt >= 0.f) && B)
+		{
+			// Phase 21: the loosened screw sticks to the magnetic tip and drops into the screw bowl, where it stays.
+			if (FV.BowlIndex == INDEX_NONE)
+			{
+				FV.BowlIndex = BowlCount++;
+				FV.CarryFrom = GetActorTransform().TransformPosition(FV.Rest.GetLocation() + Axis * 1.2f);
+				FV.CarryAxis = GetActorTransform().TransformVector(Axis).GetSafeNormal();
+			}
+			const FVector Spot = WEWorkPlan::BowlSpot(B->GetScrewBowlLocation(), FV.BowlIndex);
+			const float A = FV.bInBowl ? 1.f : FMath::Clamp((Now - FV.DoneAt) / WEWorkPlan::CarrySeconds, 0.f, 1.f);
+			FV.Mesh->SetVisibility(true);
+			FV.Mesh->SetWorldLocation(WEWorkPlan::CarryPath(FV.CarryFrom, FV.CarryAxis, Spot, A));
+			if (A >= 1.f)
+			{
+				FV.bInBowl = true;
+				// Lies on its side in the bowl.
+				FV.Mesh->SetWorldRotation(FRotator(90.f, FV.BowlIndex * 47.f, 0.f));
+				if (!FV.bLanded)
+				{
+					FV.bLanded = true;
+					if (USoundBase* Clink = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/P21/SFX_K_handleCoins.SFX_K_handleCoins"), nullptr, LOAD_Quiet | LOAD_NoWarn))
+					{
+						UGameplayStatics::PlaySoundAtLocation(this, Clink, Spot, 0.45f);
+					}
+				}
+			}
 			continue;
 		}
 		if (Vis.bOut)
@@ -518,6 +569,48 @@ FVector AWEAssemblyView::GetFastenerLocation(int32 Part, int32 Fastener) const
 		return GetPartCenter(Part);
 	}
 	return Parts[Part].Fasteners[Fastener].Mesh->GetComponentLocation();
+}
+
+FVector AWEAssemblyView::GetFastenerAxis(int32 Part, int32 Fastener) const
+{
+	if (!Assembly || !Assembly->Parts.IsValidIndex(Part) || !Assembly->Parts[Part].Fasteners.IsValidIndex(Fastener))
+	{
+		return FVector::UpVector;
+	}
+	return GetActorTransform().TransformVector(Assembly->Parts[Part].Fasteners[Fastener].Direction.GetSafeNormal()).GetSafeNormal(UE_SMALL_NUMBER, FVector::UpVector);
+}
+
+bool AWEAssemblyView::GetCarryPoint(FVector& OutPoint) const
+{
+	const AWEWorkbench* B = Bench.Get();
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	float Newest = -1.f;
+	for (const FPartVis& Vis : Parts)
+	{
+		for (const FFastenerVis& FV : Vis.Fasteners)
+		{
+			const float A = (Now - FV.DoneAt) / WEWorkPlan::CarrySeconds;
+			if (B && FV.BowlIndex != INDEX_NONE && !FV.bInBowl && FV.DoneAt > Newest && A >= 0.f && A < 0.8f)
+			{
+				Newest = FV.DoneAt;
+				OutPoint = WEWorkPlan::CarryPath(FV.CarryFrom, FV.CarryAxis, WEWorkPlan::BowlSpot(B->GetScrewBowlLocation(), FV.BowlIndex), A);
+			}
+		}
+	}
+	return Newest >= 0.f;
+}
+
+int32 AWEAssemblyView::GetScrewsInBowl() const
+{
+	int32 Count = 0;
+	for (const FPartVis& Vis : Parts)
+	{
+		for (const FFastenerVis& FV : Vis.Fasteners)
+		{
+			Count += FV.bInBowl ? 1 : 0;
+		}
+	}
+	return Count;
 }
 
 FBox AWEAssemblyView::GetDeviceBounds() const

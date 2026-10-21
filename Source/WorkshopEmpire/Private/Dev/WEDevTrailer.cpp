@@ -7,6 +7,7 @@
 #include "Containers/Ticker.h"
 #include "EngineUtils.h"
 #include "Framework/WEPlayerController.h"
+#include "Economy/WETraderTerminal.h"
 #include "Logistics/WEVehicle.h"
 #include "Staff/WEEmployee.h"
 #include "UI/WEHUDWidget.h"

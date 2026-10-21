@@ -17,6 +17,26 @@ Grundsatz: Ein erfolgreicher Build heißt nicht, dass das Gameplay funktioniert.
 
 ---
 
+## 0.21.0 – Phase 21: Realismus, Spieltiefe, Animationen und Spielgefühl (Läufe vom 2026-10-20/21)
+
+Geprüft im Editor-Spielmodus (Szenen-Läufe mit Bildern und Log-Prüfungen) und headless (Automation). Parallel lief ein zweiter Unreal-Editor (anderes Projekt).
+
+| Test | Ergebnis |
+|---|---|
+| Automation `WorkshopEmpire` (alle) | **135/135 bestanden** (2 bekannte Warnungen: Baum-Material in Nanite, Gegenstand aus der Welt gefallen und zurückgelegt) |
+| Neu: `Repair.MaintenanceCleanAndPaste`, `Repair.DifficultyRules`, `Rules.PresetsAndOptions`, `Rules.EconomyPrices`, `Rules.CourierParcels`, `Rules.ReviewsAndReputation` | bestanden |
+| `-WEShots=P21` Reparaturansicht: Zoom zum Zeiger, Nahansicht, Schraubendreher auf der Schraube, Schraube am Magnet, 3 Schrauben in der Schale | bestanden, 8 Bilder |
+| `P21B` Kofferradio von Hand: Messen, Karton, Folie, Einsetzen, Funktionstest, Erfolg, Ausblasen, Paste | bestanden, 10 Bilder |
+| `P21C` Verschleiß Neuwertig → Defekt | bestanden |
+| `P21E` Mitarbeiter (mit `-WEStaffBreaks`): Tragen, Greifen, Bedienen, Kaffee an der Maschine, Plausch, Sitzen auf dem Hocker, danach wieder Arbeit | bestanden, 7 Bilder |
+| `P21F` Werkzeugwand: 7 aufgehängt, Werkzeug von der Wand zählt an der Werkbank (Tempo 2,5), Blick → „Schraubendreher nehmen“, Umrisse, 6 m entfernt zählt die Wand nicht | bestanden, 3 Bilder |
+| `P21G` Paketbote: 3 Bestellungen, Speichern/Laden unterwegs (3 bleiben), Bote läuft zur Palette, 3 Pakete mit bekanntem Inhalt, Speichern/Laden mit liegenden Paketen, Paket geöffnet | bestanden, 4 Bilder |
+| `P21M` Hauptmenü „Neues Spiel“: Realistisch → Experte → Entspannt → Individuell, URL-Option hin und zurück | bestanden, 4 Bilder |
+| Regression: Netzwerk I/J, Paare A–X, 4 Spieler (Beitreten, Absturz, Rauswurf, Rückkehr, voll), P13 Host/Client, UI in 4 Auflösungen (je 17/17), Läufe P5–P20, P19C | alle ohne Fehler, Sitzungsliste zeigt 0.21.0 |
+
+Nicht geprüft: gepacktes Spiel (kein neues Paket für 0.21.0 gebaut), Ton im Spiel angehört.
+
+---
 ## 0.20.0 – Phase 20: Werkstatt-Ausbau und Release-Vorbereitung (Läufe vom 2026-10-19/20)
 
 Geprüft im Editor-Spielmodus, im gepackten Spiel (Development, `Builds/P20_Dev`) und im Shipping-Build (`Builds/P20_Shipping`). Auf demselben Rechner lief ein zweiter Unreal-Editor (anderes Projekt); Bildraten sind nicht aussagekräftig.

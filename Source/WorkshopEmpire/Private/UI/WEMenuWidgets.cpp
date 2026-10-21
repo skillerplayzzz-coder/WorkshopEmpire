@@ -740,10 +740,35 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	AddV(New, CompanyBox);
 	AddV(New, Text(WidgetTree, LOCTEXT("CompanyRule", "Wird auch der Name des Spielstands (Buchstaben, Ziffern, - und _)."), 10, Col::TextMuted), FMargin(0.f, 4.f, 0.f, 0.f));
 	TutorialCheck = WEMenuStyle::Check(WidgetTree, New, LOCTEXT("TutorialOpt", "Tutorial spielen (empfohlen) – kurze Hinweise direkt in der Werkstatt, jederzeit überspringbar"), true, 16.f);
+	// Phase 21: difficulty - a preset, or every option on its own.
+	AddV(New, Text(WidgetTree, LOCTEXT("RulesTitle", "Schwierigkeit"), 13, Col::Text, EFont::Strong), FMargin(0.f, 14.f, 0.f, 4.f));
+	{
+		static const FName RuleIcons[] = { TEXT("Star"), TEXT("Search"), TEXT("Wrench"), TEXT("Star"), TEXT("Euro"), TEXT("Gear") };
+		const FText RuleLabels[] = { LOCTEXT("RulePreset", "Voreinstellung"), LOCTEXT("RuleDiag", "Diagnose erforderlich"), LOCTEXT("RuleMistakes", "Reparaturfehler"),
+			LOCTEXT("RuleReviews", "Kundenbewertungen"), LOCTEXT("RuleEconomy", "Wirtschaft"), LOCTEXT("RuleComplexity", "Reparaturkomplexität") };
+		for (int32 r = 0; r < UE_ARRAY_COUNT(RuleLabels); ++r)
+		{
+			UWESettingRow* Row = CreateWidget<UWESettingRow>(GetOwningPlayer(), UWESettingRow::StaticClass());
+			Row->SetupCallback([this, r](int32 Direction) { StepRule(r, Direction); }, RuleLabels[r], RuleIcons[r]);
+			AddV(New, Row, FMargin(0.f, 0.f, 0.f, 2.f));
+			RuleRows.Add(Row);
+		}
+		RulesDescription = Text(WidgetTree, FText::GetEmpty(), 11, Col::TextDim, EFont::Body, 600.f);
+		AddV(New, RulesDescription, FMargin(0.f, 4.f, 0.f, 0.f));
+		RefreshRuleRows();
+	}
 	UButton* Start = Button(WidgetTree, LOCTEXT("ToCreator", "Weiter: Charakter erstellen"), EButton::Primary, TEXT("Person"), 15);
 	Start->OnClicked.AddDynamic(this, &UWEMainMenuWidget::HandleShowCreator);
-	AddV(New, Start, FMargin(0.f, 22.f, 0.f, 0.f), HAlign_Left);
-	Pages->AddChild(New);
+	// (Phase 21: with the difficulty rows the page is taller than the card - it scrolls, the button stays in view.)
+	UScrollBox* NewScroll = WidgetTree->ConstructWidget<UScrollBox>();
+	NewScroll->AddChild(New);
+	UVerticalBox* NewPage = WidgetTree->ConstructWidget<UVerticalBox>();
+	if (UVerticalBoxSlot* ScrollSlot = NewPage->AddChildToVerticalBox(NewScroll))
+	{
+		ScrollSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	}
+	AddV(NewPage, Start, FMargin(0.f, 12.f, 0.f, 0.f), HAlign_Left);
+	Pages->AddChild(NewPage);
 
 	// Page 4: settings.
 	Settings = CreateWidget<UWESettingsPanel>(GetOwningPlayer(), UWESettingsPanel::StaticClass());
@@ -990,6 +1015,54 @@ void UWEMainMenuWidget::HandleSaveLook()
 	Play(this, ESound::Confirm, 0.5f);
 }
 
+void UWEMainMenuWidget::StepRule(int32 Row, int32 Direction)
+{
+	auto Cycle = [Direction](int32 Value, int32 Count) { return (Value + Direction + Count) % Count; };
+	switch (Row)
+	{
+	case 0:
+	{
+		// Presets only (Individuell comes by itself when an option is changed).
+		const int32 Current = NewRules.Preset == EWEDifficultyPreset::Custom ? 1 : static_cast<int32>(NewRules.Preset);
+		NewRules = FWEGameRules::FromPreset(static_cast<EWEDifficultyPreset>(Cycle(Current, 3)));
+		break;
+	}
+	case 1: NewRules.bDiagnosisRequired = !NewRules.bDiagnosisRequired; break;
+	case 2: NewRules.bRepairMistakes = !NewRules.bRepairMistakes; break;
+	case 3: NewRules.bCustomerReviews = !NewRules.bCustomerReviews; break;
+	case 4: NewRules.Economy = static_cast<EWEEconomyLevel>(Cycle(static_cast<int32>(NewRules.Economy), 3)); break;
+	case 5: NewRules.Complexity = static_cast<EWERepairComplexity>(Cycle(static_cast<int32>(NewRules.Complexity), 3)); break;
+	default: break;
+	}
+	if (Row != 0)
+	{
+		NewRules.Preset = EWEDifficultyPreset::Custom;
+		NewRules.Preset = NewRules.DetectPreset();
+	}
+	NewRules.bCourier = true;
+	RefreshRuleRows();
+}
+
+void UWEMainMenuWidget::RefreshRuleRows()
+{
+	if (RuleRows.Num() < 6)
+	{
+		return;
+	}
+	auto OnOff = [](bool b) { return b ? LOCTEXT("RuleOn", "An") : LOCTEXT("RuleOff", "Aus"); };
+	RuleRows[0]->SetValue(FWEGameRules::GetPresetName(NewRules.Preset));
+	RuleRows[1]->SetValue(OnOff(NewRules.bDiagnosisRequired));
+	RuleRows[2]->SetValue(OnOff(NewRules.bRepairMistakes));
+	RuleRows[3]->SetValue(OnOff(NewRules.bCustomerReviews));
+	RuleRows[4]->SetValue(FWEGameRules::GetEconomyName(NewRules.Economy));
+	RuleRows[5]->SetValue(FWEGameRules::GetComplexityName(NewRules.Complexity));
+	if (RulesDescription)
+	{
+		RulesDescription->SetText(FText::Format(LOCTEXT("RulesDescLine", "{0} Bestellungen bringt der Paketbote. Gilt für diesen Spielstand."),
+			FWEGameRules::GetPresetDescription(NewRules.Preset)));
+	}
+}
+
 void UWEMainMenuWidget::HandleStartNew()
 {
 	// The character from the creator goes into the profile; the game sends it when the player spawns.
@@ -999,7 +1072,7 @@ void UWEMainMenuWidget::HandleStartNew()
 	}
 	if (UWESessionSubsystem* Session = UWESessionSubsystem::Get(this))
 	{
-		Session->HostNewGame(CompanyBox ? CompanyBox->GetText().ToString() : FString(), !TutorialCheck || TutorialCheck->IsChecked(), WantsLAN());
+		Session->HostNewGame(CompanyBox ? CompanyBox->GetText().ToString() : FString(), !TutorialCheck || TutorialCheck->IsChecked(), WantsLAN(), NewRules.ToOption());
 	}
 }
 

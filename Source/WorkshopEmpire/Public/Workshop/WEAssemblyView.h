@@ -38,6 +38,11 @@ public:
 	bool IsPartInside(int32 Part) const;
 	FVector GetPartCenter(int32 Part) const;
 	FVector GetFastenerLocation(int32 Part, int32 Fastener) const;
+	/** Phase 21: direction out of the device along the fastener (a screwdriver comes from there). */
+	FVector GetFastenerAxis(int32 Part, int32 Fastener) const;
+	/** Phase 21: a loosened screw on its way to the bowl (on the magnetic tip). */
+	bool GetCarryPoint(FVector& OutPoint) const;
+	int32 GetScrewsInBowl() const;
 	FVector DeviceToWorld(const FVector& DevicePoint) const;
 	/** Device bounds in world space (parts that are inside). */
 	FBox GetDeviceBounds() const;
@@ -55,7 +60,14 @@ protected:
 		TObjectPtr<UStaticMeshComponent> Mesh;
 		FTransform Rest;
 		float DoneAt = -1.f;
+		/** Phase 21: lies in the screw bowl (until it goes back in). */
+		int32 BowlIndex = INDEX_NONE;
+		bool bInBowl = false;
+		bool bLanded = false;
+		FVector CarryFrom = FVector::ZeroVector;
+		FVector CarryAxis = FVector::UpVector;
 	};
+	int32 BowlCount = 0;
 	struct FPartVis
 	{
 		TObjectPtr<UStaticMeshComponent> Mesh;

@@ -150,6 +150,18 @@ enum class EWEContractResult : uint8
 	MissingItems
 };
 
+/** Phase 21: one customer review (stars and a sentence), newest first. */
+USTRUCT(BlueprintType)
+struct WORKSHOPEMPIRE_API FWECustomerReview
+{
+	GENERATED_BODY()
+
+	UPROPERTY() int32 Stars = 0;
+	UPROPERTY() FString Author;
+	UPROPERTY() FString Text;
+	UPROPERTY() int32 Day = 1;
+};
+
 DECLARE_MULTICAST_DELEGATE(FWEOnContractsChanged);
 
 /**
@@ -230,6 +242,25 @@ public:
 	/** Reward with the bonus for a good rating (4 stars +10 %, 5 stars +25 %). */
 	static FWEMoney RewardWithBonus(const FWEMoney& Reward, int32 Stars);
 
+	// --- Phase 21: reviews and reputation (rule "Kundenbewertungen") -------------------------------------
+	const TArray<FWECustomerReview>& GetReviews() const { return Reviews; }
+	/** Loading / tests. */
+	void SetReviews(const TArray<FWECustomerReview>& InReviews);
+	/** Server: a new review (kept: the last MaxReviews). Counts into the average. */
+	void AddReview(int32 Stars, const FString& Author, const FString& Text);
+	/** Reputation 1-5 once there are a few ratings and reviews are on; 0 otherwise (no effect). */
+	float GetReputation() const;
+	/** "Sehr gut", "Gut", ... for the reputation. */
+	static FText GetReputationText(float Reputation);
+	/** Offers on the board: more with a good name, fewer with a bad one. */
+	int32 GetMaxOffers() const;
+	/** New offers pay this much more (good name) or less (bad name). */
+	float GetReputationRewardFactor() const;
+	/** A sentence a customer would write for these stars (and kind of order). */
+	static FString MakeReviewText(int32 Stars, bool bRepair, bool bLate, int32 Seed);
+	static constexpr int32 MaxReviews = 12;
+	static constexpr int32 MinRatingsForReputation = 3;
+
 	static constexpr int32 MaxOffers = 3;
 	static constexpr int32 MaxAccepted = 3;
 	/** Phase 12: industrial orders on their own board once the company is big enough. */
@@ -248,6 +279,7 @@ protected:
 	UPROPERTY(Replicated) int32 RatingSum = 0;
 	UPROPERTY(Replicated) int32 RatingCount = 0;
 	UPROPERTY(Replicated) int32 LastStars = 0;
+	UPROPERTY(Replicated) TArray<FWECustomerReview> Reviews;
 	int32 GetCompanyTier() const;
 
 	UPROPERTY(EditAnywhere, Category = "Contracts")

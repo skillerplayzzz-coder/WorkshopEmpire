@@ -51,6 +51,7 @@ FText WEItems::GetToolText(EWEToolType Tool)
 	case EWEToolType::Multimeter:    return LOCTEXT("ToolMultimeter", "Multimeter");
 	case EWEToolType::SolderingIron: return LOCTEXT("ToolSoldering", "Lötkolben");
 	case EWEToolType::AngleGrinder:  return LOCTEXT("ToolGrinder", "Winkelschleifer");
+	case EWEToolType::AirDuster:     return LOCTEXT("ToolAirDuster", "Druckluftspray");
 	}
 	return FText::GetEmpty();
 }

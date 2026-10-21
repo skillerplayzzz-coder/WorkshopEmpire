@@ -1,4 +1,6 @@
 #include "Economy/WEContractComponent.h"
+#include "Framework/WEGameRulesComponent.h"
+#include "World/WEDayNightComponent.h"
 #include "Progression/WETutorialComponent.h"
 #include "Progression/WEMilestoneComponent.h"
 #include "Progression/WEProgressionComponent.h"
@@ -39,6 +41,7 @@ void UWEContractComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(UWEContractComponent, RatingSum);
 	DOREPLIFETIME(UWEContractComponent, RatingCount);
 	DOREPLIFETIME(UWEContractComponent, LastStars);
+	DOREPLIFETIME(UWEContractComponent, Reviews);
 }
 
 void UWEContractComponent::BeginPlay()
@@ -225,6 +228,8 @@ bool UWEContractComponent::AddOffer(int32 TemplateIndex, bool bIndustrial)
 		const double Ratio = Contract.MinBenchmark / static_cast<double>(Stock);
 		Factor *= Contract.Kind == EWEContractKind::BuildPc ? FMath::Max(1.0, Ratio) : FMath::Max(0.35, Ratio - 0.6);
 	}
+	// Phase 21: a good name pays a little more, a bad one less.
+	Factor *= GetReputationRewardFactor();
 	Contract.Reward = FWEMoney::FromCents(FMath::Max<int64>(100, FMath::RoundToInt64(Value.GetCents() * Factor)));
 
 	Contracts.Add(Contract);
@@ -260,12 +265,21 @@ void UWEContractComponent::UpdateContracts()
 			{
 				RemoveCustomerItem(Contracts[i].CustomerItemId);
 			}
+			// Phase 21: an accepted order that never came - the customer says so (new companies with the review rule).
+			if (Contracts[i].State == EWEContractState::Accepted)
+			{
+				const FWEGameRules Rules = UWEGameRulesComponent::GetRules(this);
+				if (Rules.bCustomerReviews && Rules.Preset != EWEDifficultyPreset::Custom)
+				{
+					AddReview(1, Contracts[i].Title.ToString(), MakeReviewText(1, Contracts[i].Kind == EWEContractKind::Repair, true, i + RatingCount));
+				}
+			}
 			Contracts.RemoveAt(i);
 			bChanged = true;
 		}
 	}
 	int32 Offers = Contracts.FilterByPredicate([](const FWEContract& C) { return C.State == EWEContractState::Offered && !C.bIndustrial; }).Num();
-	while (Offers < MaxOffers && AddOffer())
+	while (Offers < GetMaxOffers() && AddOffer())
 	{
 		++Offers;
 		bChanged = true;
@@ -469,13 +483,16 @@ void UWEContractComponent::CompleteDelivery(int32 Index, const FString& PlayerNa
 	{
 		Booking = FString::Printf(TEXT("%s: %s"), Contract.bIndustrial ? TEXT("Industrieauftrag") : TEXT("Auftrag"), *Contract.Title.ToString());
 	}
+	// Phase 21: without reviews nobody rates (no bonus either).
+	if (!UWEGameRulesComponent::GetRules(this).bCustomerReviews)
+	{
+		Stars = 0;
+	}
 	const FWEMoney Reward = Stars > 0 ? RewardWithBonus(Contract.Reward, Stars) : Contract.Reward;
 	const FString Title = Contract.Title.ToString();
 	if (Stars > 0)
 	{
-		RatingSum += Stars;
-		++RatingCount;
-		LastStars = Stars;
+		AddReview(Stars, Title, MakeReviewText(Stars, Contract.Kind == EWEContractKind::Repair, false, RatingCount + Contract.RoundsDone));
 		Booking += FString::Printf(TEXT(" (%d Sterne)"), Stars);
 	}
 	// Phase 16: long-term goals count every completed order (supply contracts once, at the last delivery) and collectors' pieces.
@@ -574,3 +591,94 @@ void UWEContractComponent::SetContracts(const TArray<FWEContract>& InContracts)
 		OnRep_Contracts();
 	}
 }
+// --- Phase 21: reviews and reputation ---------------------------------------------------------------------------
+
+void UWEContractComponent::SetReviews(const TArray<FWECustomerReview>& InReviews)
+{
+	Reviews = InReviews;
+	if (Reviews.Num() > MaxReviews)
+	{
+		Reviews.SetNum(MaxReviews);
+	}
+}
+
+void UWEContractComponent::AddReview(int32 Stars, const FString& Author, const FString& Text)
+{
+	Stars = FMath::Clamp(Stars, 1, 5);
+	RatingSum += Stars;
+	++RatingCount;
+	LastStars = Stars;
+	FWECustomerReview Review;
+	Review.Stars = Stars;
+	Review.Author = Author;
+	Review.Text = Text;
+	const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+	Review.Day = Clock ? Clock->GetDay() : 1;
+	Reviews.Insert(Review, 0);
+	if (Reviews.Num() > MaxReviews)
+	{
+		Reviews.SetNum(MaxReviews);
+	}
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Review %d stars (%s): %s - reputation %.2f"), Stars, *Author, *Text, GetReputation());
+	if (GetOwner())
+	{
+		GetOwner()->ForceNetUpdate();
+	}
+}
+
+float UWEContractComponent::GetReputation() const
+{
+	if (!UWEGameRulesComponent::GetRules(this).bCustomerReviews || RatingCount < MinRatingsForReputation)
+	{
+		return 0.f;
+	}
+	return GetAverageRating();
+}
+
+FText UWEContractComponent::GetReputationText(float Reputation)
+{
+	if (Reputation <= 0.f)
+	{
+		return NSLOCTEXT("WEContracts", "RepNone", "noch unbekannt");
+	}
+	return Reputation >= 4.5f ? NSLOCTEXT("WEContracts", "RepTop", "hervorragend")
+		: Reputation >= 3.8f ? NSLOCTEXT("WEContracts", "RepGood", "gut")
+		: Reputation >= 3.f ? NSLOCTEXT("WEContracts", "RepOk", "ordentlich")
+		: Reputation >= 2.f ? NSLOCTEXT("WEContracts", "RepWeak", "durchwachsen")
+		: NSLOCTEXT("WEContracts", "RepBad", "schlecht");
+}
+
+int32 UWEContractComponent::GetMaxOffers() const
+{
+	const float Rep = GetReputation();
+	return MaxOffers + (Rep >= 4.5f ? 1 : 0) - (Rep > 0.f && Rep < 2.5f ? 1 : 0);
+}
+
+float UWEContractComponent::GetReputationRewardFactor() const
+{
+	const float Rep = GetReputation();
+	return Rep > 0.f ? FMath::Clamp(1.f + (Rep - 3.5f) * 0.06f, 0.85f, 1.1f) : 1.f;
+}
+
+FString UWEContractComponent::MakeReviewText(int32 Stars, bool bRepair, bool bLate, int32 Seed)
+{
+	if (bLate)
+	{
+		static const TCHAR* Late[] = { TEXT("Zugesagt und dann nichts geliefert. Nie wieder."), TEXT("Habe vergeblich gewartet – unzuverlässig."),
+			TEXT("Auftrag angenommen, Frist verstrichen, keine Nachricht.") };
+		return Late[FMath::Abs(Seed) % UE_ARRAY_COUNT(Late)];
+	}
+	static const TCHAR* Five[] = { TEXT("Schnell, sauber, fairer Preis. Gerne wieder!"), TEXT("Läuft wie neu – vielen Dank!"), TEXT("Top Werkstatt, absolut empfehlenswert.") };
+	static const TCHAR* Four[] = { TEXT("Gute Arbeit, alles funktioniert."), TEXT("Zuverlässig erledigt, kleine Gebrauchsspuren."), TEXT("Ordentlich gemacht, würde wiederkommen.") };
+	static const TCHAR* Three[] = { TEXT("Funktioniert, aber es hat gedauert."), TEXT("In Ordnung, mehr nicht."), TEXT("Geht wieder, sieht aber mitgenommen aus.") };
+	static const TCHAR* Low[] = { TEXT("Erst kurz vor knapp fertig geworden."), TEXT("Nicht das, was ich erwartet hatte."), TEXT("Na ja. Beim nächsten Mal woanders.") };
+	const int32 i = FMath::Abs(Seed) % 3;
+	FString Text = Stars >= 5 ? Five[i] : Stars == 4 ? Four[i] : Stars == 3 ? Three[i] : Low[i];
+	if (bRepair && Stars >= 4 && i == 0)
+	{
+		Text += TEXT(" Reparatur statt Neukauf – so muss das sein.");
+	}
+	return Text;
+}
+
+#undef LOCTEXT_NAMESPACE

@@ -1,6 +1,8 @@
 // Phase 20 screenshot run (-WEShots=P20 on L_Garage): company logo and work clothes, employees as real figures, and
 // later the new repairs, the atmosphere and the settings.
 #include "Dev/WEDevAutomationComponent.h"
+#include "Economy/WETraderTerminal.h"
+#include "Items/WEPickupItem.h"
 
 #include "EngineUtils.h"
 #include "Framework/WEPlayerController.h"

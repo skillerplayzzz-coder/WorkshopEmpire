@@ -115,3 +115,73 @@ FWEItemInstance FWEItemInstance::SplitOff(int32 Count)
 	Quantity -= Count;
 	return Part;
 }
+
+#define LOCTEXT_NAMESPACE "WEItemWear"
+
+FWEItemWear FWEItemInstance::GetWear() const
+{
+	FWEItemWear Wear;
+	if (!Definition || Condition == EWEItemCondition::New || IsPersonalEquipment())
+	{
+		return Wear;
+	}
+	const EWEItemCategory Cat = Definition->Category;
+	const bool bDevice = Cat == EWEItemCategory::Electronics || Cat == EWEItemCategory::PowerTool || Cat == EWEItemCategory::Motor
+		|| Cat == EWEItemCategory::Machine || Cat == EWEItemCategory::VehiclePart || Cat == EWEItemCategory::Collectible || Cat == EWEItemCategory::RareFind;
+	if (!bDevice)
+	{
+		return Wear;
+	}
+	// The same item always looks the same (seeded by its id); worse quality = more wear.
+	FRandomStream R(static_cast<int32>(GetTypeHash(InstanceId)));
+	const float Base = 1.f - Quality / 100.f;
+	const float R1 = R.FRand(), R2 = R.FRand(), R3 = R.FRand(), R4 = R.FRand(), R5 = R.FRand(), R6 = R.FRand();
+	Wear.Dirt = FMath::Clamp(Base * 1.15f * (0.45f + 0.55f * R1) + (IsBroken() ? 0.15f : 0.f), 0.f, 1.f);
+	Wear.Scratches = FMath::Clamp(Base * (0.3f + 0.9f * R2), 0.f, 1.f);
+	Wear.Yellowing = Cat == EWEItemCategory::Electronics && R3 < 0.45f ? FMath::Clamp(Base * 1.3f * R4, 0.f, 0.9f) : 0.f;
+	// Not every defect can be seen: only some broken devices show burnt or cracked spots.
+	if (Condition == EWEItemCondition::Damaged && R6 < 0.5f)
+	{
+		Wear.Damage = 0.35f + 0.3f * R5;
+	}
+	else if (Condition >= EWEItemCondition::Defective && R6 < 0.6f)
+	{
+		Wear.Damage = 0.5f + 0.4f * R5;
+	}
+	if (Condition == EWEItemCondition::VeryGood)
+	{
+		Wear.Dirt *= 0.4f;
+		Wear.Scratches *= 0.3f;
+	}
+	if (Repair.HasFlag(FWERepairState::Cleaned))
+	{
+		Wear.Dirt *= 0.06f;
+	}
+	if (Repair.HasFlag(FWERepairState::Refurbished))
+	{
+		Wear.Dirt *= 0.3f;
+		Wear.Scratches *= 0.3f;
+		Wear.Yellowing *= 0.5f;
+	}
+	return Wear;
+}
+
+FText FWEItemInstance::GetWearText() const
+{
+	const FWEItemWear W = GetWear();
+	TArray<FText> Parts;
+	if (W.Dirt > 0.45f) { Parts.Add(LOCTEXT("VeryDirty", "stark verschmutzt")); }
+	else if (W.Dirt > 0.22f) { Parts.Add(LOCTEXT("Dirty", "verschmutzt")); }
+	if (W.Scratches > 0.35f) { Parts.Add(LOCTEXT("Scratched", "verkratzt")); }
+	if (W.Yellowing > 0.25f) { Parts.Add(LOCTEXT("Yellowed", "vergilbt")); }
+	if (W.Damage > 0.f) { Parts.Add(LOCTEXT("VisiblyDamaged", "sichtbar beschädigt")); }
+	if (Parts.Num() == 0)
+	{
+		return Condition <= EWEItemCondition::VeryGood || (W.Dirt < 0.1f && W.Scratches < 0.12f) ? LOCTEXT("LikeNew", "Neuwertig") : LOCTEXT("UsedLook", "Gebraucht");
+	}
+	FString Joined = FText::Join(FText::FromString(TEXT(", ")), Parts).ToString();
+	Joined[0] = FChar::ToUpper(Joined[0]);
+	return FText::FromString(Joined);
+}
+
+#undef LOCTEXT_NAMESPACE

@@ -1,4 +1,5 @@
 #include "Online/WESessionSubsystem.h"
+#include "Framework/WEGameRulesComponent.h"
 #include "Internationalization/Internationalization.h"
 
 #include "Engine/Engine.h"
@@ -193,7 +194,7 @@ FText UWESessionSubsystem::ConsumePendingMessage()
 
 // --- Host -------------------------------------------------------------------------------------------
 
-void UWESessionSubsystem::HostNewGame(const FString& CompanyName, bool bTutorial, bool bLAN)
+void UWESessionSubsystem::HostNewGame(const FString& CompanyName, bool bTutorial, bool bLAN, const FString& RulesOption)
 {
 	// The company name becomes the save slot (letters, digits, - and _ only).
 	FString SlotName;
@@ -201,7 +202,8 @@ void UWESessionSubsystem::HostNewGame(const FString& CompanyName, bool bTutorial
 	{
 		SlotName.AppendChar(FChar::IsAlnum(C) || C == TEXT('-') || C == TEXT('_') ? C : TEXT('_'));
 	}
-	PendingNewGameOptions = FString::Printf(TEXT("?WETutorial=%d"), bTutorial ? 1 : 0);
+	PendingNewGameOptions = FString::Printf(TEXT("?WETutorial=%d?WERules=%s"), bTutorial ? 1 : 0,
+		RulesOption.IsEmpty() ? *FWEGameRules::FromPreset(EWEDifficultyPreset::Realistic).ToOption() : *RulesOption);
 	if (!SlotName.IsEmpty())
 	{
 		PendingNewGameOptions += FString::Printf(TEXT("?WESlot=%s"), *SlotName);

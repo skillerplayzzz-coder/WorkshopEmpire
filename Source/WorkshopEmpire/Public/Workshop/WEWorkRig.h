@@ -44,6 +44,16 @@ public:
 	void SetSelectedPart(int32 Part) { SelectedPart = Part; }
 	int32 GetSelectedPart() const { return SelectedPart; }
 
+	/** Phase 21: direction the tool comes from for a task (out of the device). */
+	FVector GetTaskAxis(int32 Index) const;
+	/** Phase 21: a loosened screw is on its way to the bowl (on the magnetic tip): where it is now. */
+	bool GetCarryPoint(FVector& OutPoint) const;
+	int32 GetActiveTask() const { return ActiveTask; }
+	float GetActiveProgress() const { return ActiveProgress; }
+	/** Tests: screws lying in the bowl, spare part box shown. */
+	int32 GetScrewsInBowl() const { return ScrewCount; }
+	bool HasPartBox() const { return BoxMesh != nullptr; }
+
 	/** Plan changed (new step, other mode): the UI rebuilds its markers. */
 	uint32 GetPlanSignature() const { return PlanSignature; }
 
@@ -58,7 +68,38 @@ protected:
 		TArray<TObjectPtr<UStaticMeshComponent>> Meshes;
 		FVector Base = FVector::ZeroVector;
 		float DoneAt = -1.f;
+		int32 BowlIndex = INDEX_NONE;
+		bool bLanded = false;
 	};
+	/** Phase 21: the spare part comes out of its box (and out of its film when new). */
+	void BuildPartBox(int32 TaskIndex);
+	void AnimatePartBox(float Now, float Progress, bool bDone);
+	/** Phase 21: the repaired device comes to life (light, sound, picture). */
+	void PlaySuccess();
+	void TickSuccess(float Now);
+	void TickCleaning(float Now);
+	bool bPrevBroken = false;
+	bool bPrevKnown = false;
+	float SuccessAt = -1.f;
+	float DustTimer = 0.f;
+	UPROPERTY(Transient) TObjectPtr<class UPointLightComponent> SuccessLight;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ScreenGlow;
+	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> SuccessAudio;
+	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> AirAudio;
+public:
+	/** Tests: the success moment is playing. */
+	bool IsCelebrating() const { return SuccessAt >= 0.f && GetWorld() && GetWorld()->GetTimeSeconds() - SuccessAt < 7.f; }
+protected:
+	int32 ScrewCount = 0;
+	int32 BoxTask = INDEX_NONE;
+	bool bBoxNew = false;
+	float BoxBuiltAt = 0.f;
+	int32 BoxStage = 0;
+	FVector BoxSpot = FVector::ZeroVector;
+	float PartLift = 0.f;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> BoxMesh;
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> BoxFlaps;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FilmMesh;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> AllMeshes;

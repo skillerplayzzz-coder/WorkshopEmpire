@@ -90,7 +90,8 @@ public:
 	/** Creates the session and opens the garage as listen server. Slot empty = new game. bLAN = LAN even with Steam. */
 	void HostGame(const FString& Slot, bool bLAN);
 	/** Phase 17.5: a new company with a name (its save slot) and, if wanted, the tutorial. */
-	void HostNewGame(const FString& CompanyName, bool bTutorial, bool bLAN);
+	/** Phase 21: Rules = the difficulty picked in the menu (empty = Realistisch). */
+	void HostNewGame(const FString& CompanyName, bool bTutorial, bool bLAN, const FString& RulesOption = FString());
 	/** Searches LAN games (bLAN) or Steam lobbies of Workshop Empire. */
 	void FindGames(bool bLAN);
 	void JoinGame(int32 ResultIndex);

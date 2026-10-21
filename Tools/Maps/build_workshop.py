@@ -54,7 +54,7 @@ ITEMS = [
               (50, 180, 200), (0.30, 0.32, 0.35), storage=("Schwerlastregal", 15, 150.0)),
     furniture("LargeShelf", "Großes Lagerregal", "Hohes, breites Regal für viel Lagerplatz.", 140, P.SHELF,
               (60, 240, 240), (0.22, 0.30, 0.40), storage=("Großes Lagerregal", 25, 300.0)),
-    furniture("ToolWall", "Werkzeugwand", "Flache Wand mit Haken und Ablagen – Werkzeug immer griffbereit.", 40, P.SHELF,
+    furniture("ToolWall", "Werkzeugwand", "Lochwand mit Haken: Werkzeug hängt sichtbar an seinem Platz und ist an der Werkbank in der Nähe griffbereit ([R] aufhängen, [Q] nehmen).", 40, P.SHELF,
               (20, 160, 180), (0.25, 0.38, 0.30), storage=("Werkzeugwand", 10, 30.0)),
     furniture("Crate", "Lagerkiste", "Einfache Holzkiste für Kleinkram.", 15, P.CRATE,
               (60, 80, 50), (0.62, 0.45, 0.25), storage=("Lagerkiste", 8, 60.0)),
@@ -133,12 +133,8 @@ VISUALS = {
     # Workbenches keep their wooden box shape (items lie on the top); a toolbox on the lower shelf.
     "Workbench": (None, 0.0, False, [deco("metal_toolbox", (5, -55, 12), (0, 90, 0)), deco("oil_tin", (5, 55, 12))]),
     "LargeWorkbench": (None, 0.0, False, [deco("metal_toolbox", (5, -80, 12), (0, 90, 0)), deco("metal_tool_chest", (5, 70, 12), (0, 90, 0))]),
-    # Tool wall: real tools hanging on the board.
-    "ToolWall": (None, 0.0, False, [
-        deco("screwdriver", (12, -55, 118)), deco("cross_pein_hammer", (12, -25, 112)), deco("combination_wrench", (12, 5, 125), (0, 90, 90)),
-        deco("ratchet_wrench", (12, 30, 120)), deco("pliers", (12, 50, 118)), deco("adjustable_wrench", (12, 66, 118)),
-        deco("measuring_tape_01", (12, -45, 75), (0, 90, 0)), deco("Drill_01", (14, 15, 70), (0, 90, 0)),
-    ]),
+    # Tool wall (Phase 21): AWEToolWall draws the pegboard and hangs the tools that are really in its storage.
+    "ToolWall": (None, 0.0, False, []),
     # Machines keep their painted-metal bodies; a switch box on the side.
     "Shredder": (None, 0.0, False, [deco("power_box_01", (0, -60, 110), (0, -90, 0), 0.7)]),
     "Sorter": (None, 0.0, False, [deco("power_box_01", (0, -95, 105), (0, -90, 0), 0.7)]),

@@ -126,3 +126,14 @@ Im Projekt selbst erzeugt:
 - **Regen** als Partikel im eigenen FX-System, Wolken und Himmel über die Engine-Komponenten (Volumetric Cloud, Sky Atmosphere).
 
 Werkzeug (nicht im Spiel): **ffmpeg 9.0.2** (gyan.dev „essentials“-Build, GPL), nach `F:\Spiele\_tools\ffmpeg` – Audio umwandeln/schneiden, Trailer schneiden.
+
+## Phase 21 (2026-10-20/21)
+
+Neue Fremd-Assets: **Kenney „RPG Audio“** (https://kenney.nl/assets/rpg-audio, **CC0**), 19 Geräusche mit `Tools/Assets/import_phase21_audio.py` nach `/Game/WorkshopEmpire/Audio/P21/SFX_K_*` importiert: Schrauben in der Schale (`handleCoins`), Werkzeug nehmen/ablegen (`drawKnife`, `beltHandle`), Karton und Folie (`cloth`, `bookOpen`), Einrasten (`metalClick`, `metalLatch`) u. a.
+
+Im Projekt selbst erzeugt (Geometry Script, `Tools/Assets/build_hand_tools.py`, keine Downloads):
+
+- **Handwerkzeuge der Reparaturansicht** `SM_Gen_Tool_*` (Schraubendreher, Akkuschrauber, Zange, Seitenschneider, Hammer, Messspitze, Lötkolben, Winkelschleifer, Druckluftspray, Pastenspritze, Pinsel), **Schraubenschale**, **Ersatzteilkarton** mit Klappen, Wärmeleitpasten-Klecks, Staubschicht.
+- **Werkzeugwand** `SM_Gen_Pegboard` (Lochplatte mit Holzleisten), `SM_Gen_PegHook`, Material `MI_Prop_ToolOutline` (Umrisse), **Paket** `SM_Gen_Parcel` mit Klebeband und Adressaufkleber.
+- **Verschleiß-Material** `M_WEWear` (Schmutz, Kratzer, Vergilbung, Schäden; `Tools/Assets/build_wear_material.py`).
+- UI-Symbole `Wind`, `Syringe`, `Pegboard` (`Tools/UI/make_icons.py`) und Gegenstandsbilder für Druckluftspray, Wärmeleitpaste, Paket (im Spiel gerendert).

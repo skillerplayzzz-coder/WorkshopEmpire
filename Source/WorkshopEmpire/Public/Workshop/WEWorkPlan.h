@@ -21,7 +21,9 @@ enum class EWEWorkTaskKind : uint8
 	PullPart,   // take a part out (hands)
 	InsertPart, // put the spare part in (hands)
 	PowerTest,  // switch on and watch (hands)
-	Wipe        // clean (hands)
+	Wipe,       // clean (hands)
+	AirBlow,    // Phase 21: blow the dust out (air duster)
+	PasteApply  // Phase 21: put new thermal paste on (hands, syringe)
 };
 
 struct WORKSHOPEMPIRE_API FWEWorkTask
@@ -81,6 +83,13 @@ namespace WEWorkPlan
 	/** UI icon name (WEUI::IconTexture). */
 	WORKSHOPEMPIRE_API FName GetTaskIcon(EWEWorkTaskKind Kind);
 	WORKSHOPEMPIRE_API FName GetToolIcon(EWEToolType Tool);
+
+	/** Phase 21: seconds a loosened screw hangs on the magnetic screwdriver tip on its way into the screw bowl. */
+	constexpr float CarrySeconds = 1.1f;
+	/** Point inside the screw bowl for the Index-th screw (a spiral, they lie side by side). */
+	WORKSHOPEMPIRE_API FVector BowlSpot(const FVector& BowlCenter, int32 Index);
+	/** Where a screw is A (0..1) of the way from where it came out (From, along Axis) to its spot in the bowl. */
+	WORKSHOPEMPIRE_API FVector CarryPath(const FVector& From, const FVector& Axis, const FVector& Spot, float A);
 
 	/** Console variable we.WorkView: 1 = [E]/[Q] at the bench opens the hands-on work view, 0 = timed steps (old behaviour, test scripts). */
 	WORKSHOPEMPIRE_API bool IsWorkViewEnabled();

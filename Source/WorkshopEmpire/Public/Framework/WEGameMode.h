@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "Save/WESaveGame.h"
+#include "Framework/WEGameRulesComponent.h"
 #include "WEGameMode.generated.h"
 
 class UWESaveGame;
@@ -97,4 +98,7 @@ protected:
 	FString CurrentSlot = TEXT("Quicksave");
 	/** Phase 17.5: new game with the tutorial (?WETutorial=1). */
 	bool bStartTutorial = false;
+	/** Phase 21: rules for a new company from the menu ("?WERules="). */
+	bool bHasNewRules = false;
+	FWEGameRules NewRules;
 };

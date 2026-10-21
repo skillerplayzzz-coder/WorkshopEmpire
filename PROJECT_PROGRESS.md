@@ -2,7 +2,7 @@
 
 ## Aktuelle Phase
 
-**Phase 19 – Verbesserungen nach Mikes Auswahl (0.19.0): abgeschlossen, wartet auf Mikes Praxistest.**
+**Phase 21 – Realismus, Spieltiefe, Animationen und Spielgefühl (0.21.0): abgeschlossen, wartet auf Mikes Praxistest.** Details je Arbeitsschritt: `Docs/PHASE21_REALISMUS.md`.
 
 ## Abgeschlossen
 
@@ -183,9 +183,20 @@
 - Atmosphäre: Werkstattradio mit 6 Funk-Titeln, Kaffeemaschine (3 min schneller), Werkstattkatze „Schraube“, Wetter mit Regen und Gewitter
 - Einstellungen: Schieberegler, Bewegungsunschärfe, frei belegbare Tasten
 - Release: Shipping-Build, Steam-App-ID-Skript, Steam-Cloud-Pfade, Upload-Vorlagen, Trailer aus Spielszenen (`Docs/RELEASE_STEAM.md`)
+### Phase 21 – Realismus, Spieltiefe, Animationen und Spielgefühl (0.21.0, 2026-10-21)
+- Reparaturkamera: stufenloser Zoom zum Zeiger, Verschieben, Nahansicht per Doppelklick/[F], weiche Bewegung
+- Werkzeuge als Modelle in der Hand (drehen, klopfen, messen, löten), magnetische Schrauben in die Schraubenschale, Ersatzteile aus dem Karton mit Schutzfolie
+- Sichtbarer Verschleiß (Schmutz, Kratzer, Vergilbung, Schäden), Diagnose: einschalten und beobachten, Bauteile einzeln messen
+- Wartung: Staub ausblasen (Druckluftspray), Wärmeleitpaste erneuern; ruhige Erfolgsmomente beim Funktionstest
+- Mitarbeiter: sichtbares Greifen, Tragen, Bedienen; Kaffeepausen an der Maschine, Plausch, Sitzen auf Hockern
+- Werkzeugwand als Lochwand mit Haken und Umrissen, Werkzeuge nehmen/aufhängen, griffbereit an der Werkbank
+- Paketbote bringt Bestellungen als echte Pakete, die man öffnet
+- Schwierigkeit beim neuen Spiel (Entspannt/Realistisch/Experte/Individuell), Kundenbewertungen und Firmenruf (abschaltbar); Spielstand Version 19
 ## Offene Aufgaben
 
 - Mike: Steamworks-Konto anlegen und die eigene App ID eintragen (`Tools/Release/set_steam_appid.ps1`), Auto-Cloud im Backend einstellen; Cloud-Sync ist erst damit testbar
+- Mike: Praxistest Phase 21 (neues Spiel mit Schwierigkeit wählen, Reparaturansicht zoomen und schrauben, Werkzeugwand, Paketbote, Kaffeepausen der Mitarbeiter)
+- Offen aus Phase 21: einfache Reparaturen durch qualifizierte Mitarbeiter (laut Auftrag „später“); Werkzeug von der Wand bleibt beim Benutzen an der Wand sichtbar; Diagnoseprogramme als eigene Bildschirmanwendung
 - Mike: Praxistest Phase 20 (Logo-Editor, Mitarbeiter, neue Reparaturen, Radio, Kaffee, Katze, Wetter, Tastenbelegung, Trailer ansehen)
 
 - Mike: Praxistest Phase 18 und 0.18.1 (PC zerlegen und wieder zusammenbauen, Funktionstest, Transporter beladen, neue Sounds anhören, Autos)
@@ -210,4 +221,4 @@ Veröffentlichung auf Steam: App ID, Auto-Cloud und Shopseite durch Mike (Anleit
 
 ## Testergebnisse
 
-Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-20 (0.20.0): 130/130 Automation-Tests, Regression grün, gepacktes Spiel (Development und Shipping) geprüft. Davor 2026-10-19 (0.19.0): 129/129 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.
+Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-21 (0.21.0): 135/135 Automation-Tests, Regression mit den neuen P21-Läufen. Davor 2026-10-20 (0.20.0): 130/130 Automation-Tests, Regression grün, gepacktes Spiel (Development und Shipping) geprüft. Davor 2026-10-19 (0.19.0): 129/129 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.

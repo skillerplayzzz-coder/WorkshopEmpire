@@ -11,6 +11,25 @@ class USkeletalMesh;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
 
+/** Phase 21: what the arms (and legs) do on top of the walk/idle animation - employees at work and on their break. */
+UENUM()
+enum class EWEWorkPose : uint8
+{
+	None,
+	/** Something held in front with both hands. */
+	Carry,
+	/** Reaching into a shelf or machine (taking or putting in). */
+	Reach,
+	/** Working the controls of a machine. */
+	Operate,
+	/** A coffee mug, now and then a sip. */
+	Drink,
+	/** Chatting: a hand gestures now and then. */
+	Talk,
+	/** Sitting down. */
+	Sit
+};
+
 /**
  * The visible body of a player (Phase 18c): a Quaternius base character with hair, brows, beard, clothes,
  * shoes, cap and glasses from FWECharacterLook. It is animated by the existing mannequin (the "driver" with the
@@ -39,6 +58,13 @@ public:
 	void SetShowCompanyLogo(bool bShow);
 	/** Phase 20: forces the look to be rebuilt (the brand colour of work clothes changed). */
 	void Rebuild() { BuildBody(); }
+	/** Phase 21: arms/legs on top of the animation (blends in over a moment). */
+	void SetWorkPose(EWEWorkPose InPose);
+	EWEWorkPose GetWorkPose() const { return Pose; }
+	/** Sit pose: seat height above the feet in cm (0 = a normal chair). */
+	void SetSeatHeight(float Cm) { SeatHeight = Cm; }
+	/** Tests: how far the pose has blended in (0-1). */
+	float GetWorkPoseBlend() const { return PoseBlend; }
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -51,6 +77,15 @@ protected:
 	void BuildBody();
 	void BuildMapping();
 	void Retarget();
+	void ApplyWorkPose(float DeltaTime);
+	/** Turns Bone so that it points from itself towards Child along Dir (component space), Weight 0-1. */
+	void AimBone(FName Bone, FName Child, const FVector& Dir, float Weight);
+	EWEWorkPose Pose = EWEWorkPose::None;
+	EWEWorkPose ShownPose = EWEWorkPose::None;
+	float PoseBlend = 0.f;
+	float PoseTime = 0.f;
+	float SeatHeight = 0.f;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> HeldMug;
 	void ApplyMaterials();
 	USkeletalMeshComponent* MakeFollower(const TCHAR* MeshName);
 	USkeletalMeshComponent* MakeFollower(USkeletalMesh* Mesh);

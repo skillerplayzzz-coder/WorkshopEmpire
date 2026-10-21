@@ -36,7 +36,11 @@ enum class EWERepairStepKind : uint8
 	Remove,
 	Install,
 	Test,
-	Refurbish
+	Refurbish,
+	/** Phase 21: blow out dust with compressed air (tool: air duster). */
+	Clean,
+	/** Phase 21: old thermal paste off, new paste on (consumes a tube). */
+	Paste
 };
 
 /** The next repair action for the item on the bench (computed, not replicated). */
@@ -129,6 +133,10 @@ public:
 
 	AWEPickupItem* GetPlacedItem() const { return PlacedItem; }
 	FVector GetWorkSpotLocation() const;
+	/** Phase 21: centre of the magnetic screw bowl on the bench top (front, right of the device). */
+	FVector GetScrewBowlLocation() const;
+	/** Phase 21: where tool Slot lies on the bench while it is not in the hand (row along the front edge). */
+	FVector GetToolRestLocation(int32 Slot) const;
 
 	// --- Disassembly ------------------------------------------------------------------------------
 
@@ -273,6 +281,10 @@ protected:
 	void CompleteRepairStep(AWECharacter* Worker);
 	/** Rolls the hidden faults of a broken repairable device once (server). */
 	void EnsureFaultsRolled(FWEItemInstance& Item);
+	/** Phase 21: without the rule "Diagnose erforderlich" the faults of the placed device are known at once (server). */
+	void ApplyKnownFaults();
+	/** Phase 21: whether a remove/install step goes wrong (rule "Reparaturfehler", less often with a better tool). */
+	bool RollMistake(AWECharacter* Worker, EWEToolType Tool);
 	void ShowMessage(AWECharacter* Character, const FText& Message) const;
 	void PlayEventSound(EWEWorkbenchEvent Event) const;
 
@@ -281,6 +293,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UCameraComponent> WorkCamera;
+
+	/** Phase 21: the screw bowl that loosened screws are dropped into. */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<class UStaticMeshComponent> ScrewBowl;
 
 	/** Thin bar on the front edge: shows progress (orange) and flashes green when a step is done. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")

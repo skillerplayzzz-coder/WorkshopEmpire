@@ -149,6 +149,9 @@ protected:
 	void RunPhase19GameShots();
 	/** Phase 20: brand and logo, employees as figures, repairs, atmosphere, settings (-WEShots=P20). */
 	void RunPhase20Shots();
+	/** Phase 21: repair feel, conditions, cleaning, staff at work, tool wall, courier, difficulty (-WEShots=P21). */
+	void RunPhase21Shots();
+	void PlaceHeldOnBench();
 	TWeakObjectPtr<class ACameraActor> CatCamera;
 	/** Phase 20 trailer: camera moves through the scenes, every frame saved (-WEShots=P20T). */
 	void RunTrailer();

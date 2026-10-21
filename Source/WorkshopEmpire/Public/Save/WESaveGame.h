@@ -8,6 +8,7 @@
 #include "Staff/WEStaffTypes.h"
 #include "Workshop/WEWorkshopStyleComponent.h"
 #include "Player/WECharacterLook.h"
+#include "Framework/WEGameRulesComponent.h"
 #include "WESaveGame.generated.h"
 
 /** Item reference by stable ItemId (not by asset path), so assets can move without breaking saves. */
@@ -46,6 +47,40 @@ struct WORKSHOPEMPIRE_API FWESavedClassifiedDelivery
 
 	UPROPERTY() FWESavedItem Item;
 	UPROPERTY() float RemainingSeconds = 0.f;
+};
+
+/** Phase 21 (save version 19): an order on its way to the parcel courier. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedCourierOrder
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FWESavedItem Item;
+	UPROPERTY() float RemainingSeconds = 0.f;
+	UPROPERTY() FString Sender;
+};
+
+/** Phase 21 (save version 19): what is inside a parcel that lies somewhere. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedParcel
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FGuid ParcelId;
+	UPROPERTY() TArray<FWESavedItem> Items;
+	UPROPERTY() FString Sender;
+};
+
+/** Phase 21 (save version 19): a customer review. */
+USTRUCT()
+struct WORKSHOPEMPIRE_API FWESavedReview
+{
+	GENERATED_BODY()
+
+	UPROPERTY() int32 Stars = 0;
+	UPROPERTY() FString Author;
+	UPROPERTY() FString Text;
+	UPROPERTY() int32 Day = 1;
 };
 
 /** Phase 19 (save version 17): one of the company's own classified ads (the item waits in it). */
@@ -288,8 +323,8 @@ class WORKSHOPEMPIRE_API UWESaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). 13: Phase 16 (company statistics, milestones). 14: Phase 17.5 (item marks, workshop look, tutorial, sold buildings via upgrades). 15: Phase 18a (parts out of devices, character, van cargo). */
-	static constexpr int32 CurrentVersion = 18;
+	/** 1: Phase 2. 2: Phase 3 (disassembly progress, items on workbenches). 3: Phase 4 (company account, market, orders, stock). 4: Phase 5 (upgrades, guide). 5: Phase 6 (repair state, repair orders). 6: Phase 7 (rolled stock, auctions, order quality). 7: Phase 8 (furniture). 8: Phase 9 (machines, power, several inventories per actor). 9-11: Phases 10-12. 12: Phase 13 (player names; players who left the session are kept). 13: Phase 16 (company statistics, milestones). 14: Phase 17.5 (item marks, workshop look, tutorial, sold buildings via upgrades). 15: Phase 18a (parts out of devices, character, van cargo). 16-18: Phases 18b-20. 19: Phase 21 (rules/difficulty, parcel courier, reviews). */
+	static constexpr int32 CurrentVersion = 19;
 
 	UPROPERTY() int32 SaveVersion = CurrentVersion;
 	UPROPERTY() FString MapName;
@@ -359,4 +394,11 @@ public:
 	// Since version 18 (Phase 20): company logo and work clothes colour.
 	UPROPERTY() bool bHasBrand = false;
 	UPROPERTY() FWECompanyBrand Brand;
+
+	// Since version 19 (Phase 21). Older saves: the rules as the game was before (no courier, no mistakes).
+	UPROPERTY() bool bHasRules = false;
+	UPROPERTY() FWEGameRules Rules;
+	UPROPERTY() TArray<FWESavedCourierOrder> CourierOrders;
+	UPROPERTY() TArray<FWESavedParcel> Parcels;
+	UPROPERTY() TArray<FWESavedReview> Reviews;
 };

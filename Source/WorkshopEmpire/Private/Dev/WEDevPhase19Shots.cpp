@@ -1,6 +1,8 @@
 // Phase 19 screenshot runs: -WEShots=P19C in the main menu (wardrobe: every outfit and face of both bodies in the
 // character creator), -WEShots=P19G in the garage (night, walk-in customers, classifieds, PC orders, mirror, forklift).
 #include "Dev/WEDevAutomationComponent.h"
+#include "Economy/WETraderTerminal.h"
+#include "Items/WEPickupItem.h"
 
 #include "Framework/WEMenuGameMode.h"
 #include "Player/WEAvatarComponent.h"

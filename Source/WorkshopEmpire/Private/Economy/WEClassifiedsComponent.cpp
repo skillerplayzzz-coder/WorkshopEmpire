@@ -1,4 +1,5 @@
 #include "Economy/WEClassifiedsComponent.h"
+#include "Economy/WECourierComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEMarketComponent.h"
@@ -213,6 +214,12 @@ void UWEClassifiedsComponent::BuyerTurn(FWEOwnListing& Listing, float Now)
 
 void UWEClassifiedsComponent::Deliver(const FWEItemInstance& Item)
 {
+	// Phase 21: the seller sends it by parcel (it was already on its way: it comes with the next visit).
+	if (UWECourierComponent* Courier = UWECourierComponent::Get(this); Courier && Courier->ShouldShip(Item))
+	{
+		Courier->Order(Item, TEXT("Kleinanzeigen"), 0.f);
+		return;
+	}
 	FTransform Drop(FVector(0.f, 0.f, 100.f));
 	if (AWEDeliveryZone* Zone = AWEDeliveryZone::Find(GetWorld()))
 	{

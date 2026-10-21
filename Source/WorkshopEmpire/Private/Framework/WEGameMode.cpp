@@ -1,4 +1,5 @@
 #include "Framework/WEGameMode.h"
+#include "Framework/WEGameRulesComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Framework/WEGameState.h"
@@ -51,6 +52,8 @@ void AWEGameMode::InitGame(const FString& MapName, const FString& Options, FStri
 		CurrentSlot = NewSlot;
 	}
 	bStartTutorial = StartSlot.IsEmpty() && UGameplayStatics::ParseOption(Options, TEXT("WETutorial")) == TEXT("1");
+	// Phase 21: the difficulty chosen for a new company (a loaded save brings its own).
+	bHasNewRules = StartSlot.IsEmpty() && FWEGameRules::FromOption(UGameplayStatics::ParseOption(Options, TEXT("WERules")), NewRules);
 }
 
 FString AWEGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
@@ -102,6 +105,13 @@ void AWEGameMode::LogServerMonitor()
 void AWEGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	if (bHasNewRules)
+	{
+		if (UWEGameRulesComponent* Rules = UWEGameRulesComponent::Get(this))
+		{
+			Rules->SetRules(NewRules);
+		}
+	}
 	if (!StartSlot.IsEmpty())
 	{
 		// The host chose a save in the main menu: load it once the level runs.

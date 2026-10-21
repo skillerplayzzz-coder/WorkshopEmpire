@@ -264,7 +264,18 @@ Werkzeuge und Ablauf: `Docs/QA.md`. `AWEGameMode` loggt mit `-WEServerMonitor` (
 - **Einstellungen:** Schieberegler (`UWESettingRow::EnableSlider`) für Bewegungsunschärfe (neu, setzt `r.MotionBlur.Amount`), UI-Skalierung, Mausempfindlichkeit, Sichtfeld, Lautstärke. Freie Tastenbelegung `WEKeys` (18 Einträge, gespeichert in `GameUserSettings.ini` `[WorkshopEmpire.Keys]`): `UWEInputConfig` merkt sich die Stelle jeder Taste im Mapping-Kontext und setzt die eigene Taste ein; Änderungen gelten sofort (`RequestRebuildControlMappings`). Belegte Tasten werden getauscht; Esc und linke Maustaste sind gesperrt.
 - **Release:** `Tools/Release/set_steam_appid.ps1` (App ID an allen Stellen), `package_shipping.ps1` (Shipping-Build), Steam-Upload-Vorlagen, Auto-Cloud-Pfade und Trailer (`-WEShots=P20T` schreibt jedes Bild, `make_trailer.ps1` schneidet) – siehe `Docs/RELEASE_STEAM.md`.
 
-## 14. Build und Tests
+## 14. Phase 21 – Realismus, Spieltiefe, Animationen und Spielgefühl
+
+Ausführlich je Arbeitsschritt in `Docs/PHASE21_REALISMUS.md`. Kurz:
+- **Reparaturansicht:** `UWEWorkViewWidget` (Orbit mit Zielwerten, Zoom zum Zeiger, Verschieben, Nahansicht). `AWEToolHand` (lokal) zeigt das gewählte Werkzeug am Zeiger bzw. auf der Schraube; `AWEWorkRig`/`AWEAssemblyView` tragen Schrauben in die Schraubenschale der Werkbank, Ersatzteilkarton mit Folie. Alles rein lokal, folgt dem replizierten Werkbankzustand.
+- **Verschleiß:** `FWEItemWear` (deterministisch aus Instanz-ID, Zustand, Qualität) + `WEWear::Apply` (Material `M_WEWear` als Overlay). Diagnose: Fehler werden beim Start der Diagnose gewürfelt; Befunde pro Bauteil in der Schrittliste. Wartung über `FWERepairState`-Flags `Cleaned`/`PasteRenewed` (keine eigene Savegame-Änderung).
+- **Mitarbeiter:** `EWEWorkPose` (repliziert als `AWEEmployee::Activity`, `SeatHeight`); `UWEAvatarComponent::ApplyWorkPose` legt Arm-/Beinhaltungen über die Animation. Pausen-Zustandsmaschine in `AWEEmployee::StepBreak`; `WalkTo` sucht für Ziele auf Möbeln einen erreichbaren Punkt im Ring (belegte Plätze zuletzt). Testläufe schalten Pausen ab (außer `-WEStaffBreaks`).
+- **Werkzeugwand:** `AWEToolWall` (Unterklasse von `AWEPlaceholderProp`, gewählt in `UWEWorkshopLayoutComponent` für die Id `ToolWall`): ein Haken pro Lagerplatz, Modelle folgen dem replizierten Lager. `AWEToolWall::GatherTools` (Inventar + Wände im Umkreis von 6 m) ersetzt die reine Inventarsuche in `AWEWorkbench::FindToolSpeed` und der Werkzeugleiste.
+- **Regeln:** `UWEGameRulesComponent` am GameState (repliziert, gespeichert) mit `FWEGameRules`; neues Spiel über die URL-Option `?WERules=` (7 Ziffern) aus dem Menü. Wirkt in `AWEWorkbench` (bekannte Fehler, Fehlgriffe, Schrittzeiten, Fehlerzahl), `UWEMarketComponent` (Preise) und `UWEContractComponent` (Bewertungen). Standardwerte = Spiel vor Phase 21 (alte Spielstände, Tests).
+- **Paketbote:** `UWECourierComponent` am GameState: Bestellungen (fällig ab, Absender), Paketinhalte nach Instanz-ID, Besuch frühestens alle 150 s; `AWECourier` (Charakter wie Laufkunden) trägt bis zu 4 Pakete zur Lieferpalette. Pakete sind normale Weltgegenstände (Item `Parcel`), [Q] öffnet über `OpenParcel`.
+- **Bewertungen:** `FWECustomerReview` (letzte 12, repliziert), Firmenruf ab 3 Bewertungen beeinflusst `GetMaxOffers` und den Lohn neuer Aufträge.
+- **Spielstand Version 19:** `bHasRules`/`Rules`, `CourierOrders` (Restzeit), `Parcels`, `Reviews`.
+## 15. Build und Tests
 
 ```
 F:\UE_5.7\Engine\Build\BatchFiles\Build.bat WorkshopEmpireEditor Win64 Development -Project="<Pfad>\WorkshopEmpire.uproject" -WaitMutex

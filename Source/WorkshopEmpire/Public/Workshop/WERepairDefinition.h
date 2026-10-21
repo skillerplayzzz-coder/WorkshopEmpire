@@ -42,6 +42,10 @@ struct WORKSHOPEMPIRE_API FWERepairFault
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Repair", meta = (ClampMin = "0"))
 	float Weight = 1.f;
 
+	/** Phase 21: what the device does when switched on with this fault (e.g. "kein Bild, drei kurze Pieptöne"). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Repair")
+	FText Symptom;
+
 	/** True: removing it puts the broken part (condition "Defekt") into the bench storage. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Repair")
 	bool bReturnsBrokenPart = true;
@@ -101,4 +105,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Repair", meta = (ClampMin = "0", ClampMax = "100"))
 	int32 RefurbishQualityGain = 30;
+
+	/** Phase 21: the device has a processor under a cooler: its thermal paste can be renewed with this (consumed). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Repair")
+	TObjectPtr<UWEItemDefinition> PasteMaterial;
 };

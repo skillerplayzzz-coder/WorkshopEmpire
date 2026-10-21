@@ -408,6 +408,7 @@ namespace WEUI
 		case EWEToolType::Multimeter:    return TEXT("Multimeter");
 		case EWEToolType::SolderingIron: return TEXT("SolderingIron");
 		case EWEToolType::AngleGrinder:  return TEXT("AngleGrinder");
+	case EWEToolType::AirDuster:     return TEXT("Wind");
 		default:                         return TEXT("Hand");
 		}
 	}

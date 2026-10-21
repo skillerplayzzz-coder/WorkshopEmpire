@@ -67,7 +67,9 @@ enum class EWEToolType : uint8
 	Hammer        UMETA(DisplayName = "Hammer"),
 	Multimeter    UMETA(DisplayName = "Multimeter"),
 	SolderingIron UMETA(DisplayName = "Lötkolben"),
-	AngleGrinder  UMETA(DisplayName = "Winkelschleifer")
+	AngleGrinder  UMETA(DisplayName = "Winkelschleifer"),
+	/** Phase 21: compressed air spray for blowing out dust. */
+	AirDuster     UMETA(DisplayName = "Druckluftspray")
 };
 
 USTRUCT(BlueprintType)

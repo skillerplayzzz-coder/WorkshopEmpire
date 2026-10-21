@@ -1,4 +1,8 @@
 #include "Staff/WEEmployee.h"
+#include "World/WEAtmosphere.h"
+#include "Engine/StaticMeshActor.h"
+#include "EngineUtils.h"
+#include "Dev/WEDevAutomationComponent.h"
 
 #include "AIController.h"
 #include "Components/CapsuleComponent.h"
@@ -91,6 +95,8 @@ void AWEEmployee::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	DOREPLIFETIME(AWEEmployee, bAway);
 	DOREPLIFETIME(AWEEmployee, bPaused);
 	DOREPLIFETIME(AWEEmployee, bUnpaid);
+	DOREPLIFETIME(AWEEmployee, Activity);
+	DOREPLIFETIME(AWEEmployee, SeatHeight);
 }
 
 void AWEEmployee::BeginPlay()
@@ -102,8 +108,9 @@ void AWEEmployee::BeginPlay()
 	{
 		Brand->OnBrandChanged.AddWeakLambda(this, [this]() { OnRep_Visuals(); });
 	}
-	// Only the server steers; clients just see the replicated movement.
-	SetActorTickEnabled(HasAuthority());
+	// The server steers; every machine animates what is carried (Phase 21).
+	SetActorTickEnabled(true);
+	NextBreakAfter = FMath::FRandRange(240.f, 420.f);
 }
 
 void AWEEmployee::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -136,14 +143,80 @@ void AWEEmployee::OnRep_Visuals()
 		Avatar->ApplyLook(Look);
 	}
 	const UWEItemDefinition* Def = Carried.Definition;
+	const bool bWasCarrying = ShownCarried.IsValid();
+	const bool bLocal = GetNetMode() != NM_DedicatedServer && GetWorld();
+	AActor* Near = nullptr;
+	for (AActor* A : { Task.Source.Get(), Task.Target.Get() })
+	{
+		if (A && (!Near || FVector::DistSquared(A->GetActorLocation(), GetActorLocation()) < FVector::DistSquared(Near->GetActorLocation(), GetActorLocation())))
+		{
+			Near = A;
+		}
+	}
+	if (!Def && bWasCarrying && bLocal && Near && CarriedMesh->GetStaticMesh())
+	{
+		// Phase 21: put down - it goes from the hands into the machine / shelf.
+		if (!DropMesh)
+		{
+			DropMesh = NewObject<UStaticMeshComponent>(this);
+			DropMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			DropMesh->SetUsingAbsoluteLocation(true);
+			DropMesh->SetUsingAbsoluteRotation(true);
+			DropMesh->SetUsingAbsoluteScale(true);
+			DropMesh->SetupAttachment(GetRootComponent());
+			DropMesh->RegisterComponent();
+		}
+		DropMesh->SetStaticMesh(CarriedMesh->GetStaticMesh());
+		for (int32 i = 0; i < CarriedMesh->GetNumMaterials(); ++i)
+		{
+			DropMesh->SetMaterial(i, CarriedMesh->GetMaterial(i));
+		}
+		DropMesh->SetWorldScale3D(CarriedMesh->GetComponentScale());
+		DropMesh->SetWorldRotation(CarriedMesh->GetComponentRotation());
+		DropFrom = CarriedMesh->GetComponentLocation();
+		const FBox Box = Near->GetComponentsBoundingBox(true);
+		DropTo = Box.IsValid ? FVector(Box.GetCenter().X, Box.GetCenter().Y, Box.Max.Z - 5.f) : Near->GetActorLocation();
+		DropAt = GetWorld()->GetTimeSeconds();
+		DropMesh->SetVisibility(true);
+	}
 	CarriedMesh->SetVisibility(Def != nullptr && !bAway);
 	if (Def)
 	{
-		FVector Scale = Def->WorldScale;
-		Scale *= Scale.GetMax() > 0.45f ? 0.45f / Scale.GetMax() : 1.f;
-		CarriedMesh->SetRelativeScale3D(Scale);
-		WEPlaceholder::ApplyTint(CarriedMesh, PlaceholderMaterial, Def->Tint);
+		// Phase 21: the real thing (a box for a handful of small parts), not a coloured cube.
+		UStaticMesh* ShowMesh = Def->WorldMesh.Get();
+		const bool bBox = !ShowMesh || (Def->bStackable && Carried.Quantity > 1);
+		if (bBox)
+		{
+			if (UStaticMesh* Crate = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_PartBox.SM_Gen_PartBox"), nullptr, LOAD_Quiet | LOAD_NoWarn))
+			{
+				ShowMesh = Crate;
+			}
+		}
+		if (ShowMesh)
+		{
+			CarriedMesh->SetStaticMesh(ShowMesh);
+			for (int32 i = 0; i < CarriedMesh->GetNumMaterials(); ++i)
+			{
+				CarriedMesh->SetMaterial(i, nullptr);
+			}
+			const FVector Size = ShowMesh->GetBoundingBox().GetSize() * (bBox ? FVector(1.f) : Def->WorldScale);
+			const float Max = bBox ? 30.f : 45.f;
+			const float Fit = Size.GetMax() > Max ? Max / Size.GetMax() : 1.f;
+			CarriedMesh->SetRelativeScale3D((bBox ? FVector(1.f) : Def->WorldScale) * Fit * (bBox ? 2.f : 1.f));
+		}
+		else
+		{
+			WEPlaceholder::ApplyTint(CarriedMesh, PlaceholderMaterial, Def->Tint);
+		}
+		if (!bWasCarrying && bLocal && Near)
+		{
+			// Phase 21: picked up - it comes out of the shelf / machine into the hands.
+			const FBox Box = Near->GetComponentsBoundingBox(true);
+			CarryFlyFrom = Box.IsValid ? FVector(Box.GetCenter().X, Box.GetCenter().Y, Box.Max.Z - 5.f) : Near->GetActorLocation();
+			CarryFlyAt = GetWorld()->GetTimeSeconds();
+		}
 	}
+	ShownCarried = Carried;
 	SetActorHiddenInGame(bAway);
 	SetActorEnableCollision(!bAway);
 }
@@ -536,8 +609,10 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 	{
 		return false;
 	}
-	if (IsNextTo(Actor) && (!bWalking || WalkTarget.Get() != Actor || PathIndex >= Path.Num()))
+	if ((IsNextTo(Actor) && (!bWalking || WalkTarget.Get() != Actor || PathIndex >= Path.Num()))
+		|| (bWalking && WalkTarget.Get() == Actor && PathIndex >= Path.Num() && !Cast<AWEPlaceholderProp>(Actor)))
 	{
+		// (Small things on furniture: the end of the full path is as close as it gets.)
 		StopWalking();
 		return true;
 	}
@@ -549,7 +624,7 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 	}
 	if (!bWalking || WalkTarget.Get() != Actor)
 	{
-		const FVector Goal = GetStandPoint(Actor);
+		FVector Goal = GetStandPoint(Actor);
 		Path.Reset();
 		const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 		if (Now < NoPathUntil)
@@ -560,13 +635,67 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 		const bool bHasNavData = Nav && Nav->GetDefaultNavDataInstance(FNavigationSystem::DontCreate) != nullptr;
 		if (bHasNavData)
 		{
-			if (const UNavigationPath* NavPath = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Goal, this);
-				NavPath && NavPath->IsValid() && !NavPath->IsPartial())
+			// Phase 21: things standing on furniture (the coffee machine on the bench): the nearest walkable spot.
+			// A ring of floor points around it, nearest first; the first one with a full path wins.
+			TArray<FVector> Goals{ Goal };
+			if (!Cast<AWEPlaceholderProp>(Actor))
 			{
-				Path.Append(NavPath->PathPoints);
-				if (Path.Num() > 0)
+				const FBox Box = Actor->GetComponentsBoundingBox(true);
+				const FVector Center = Box.GetCenter();
+				const float Feet = GetActorLocation().Z;
+				TArray<FVector> Ring;
+				for (const float Extra : { 50.f, 90.f, 140.f })
 				{
-					Path.RemoveAt(0); // own position
+					const float Radius = FMath::Max(Box.GetExtent().X, Box.GetExtent().Y) + Extra;
+					for (int32 Step = 0; Step < 12; ++Step)
+					{
+						const float Angle = Step * UE_TWO_PI / 12.f;
+						FNavLocation OnNav;
+						if (Nav->ProjectPointToNavigation(FVector(Center.X + FMath::Cos(Angle) * Radius, Center.Y + FMath::Sin(Angle) * Radius, Feet), OnNav, FVector(30.f, 30.f, 200.f))
+							&& FMath::Abs(OnNav.Location.Z - Feet) < 120.f)
+						{
+							Ring.Add(OnNav.Location);
+						}
+					}
+				}
+				// Spots someone else is standing on or heading for come last (two people at the coffee machine stand side by side).
+				TArray<FVector> Taken;
+				for (TActorIterator<AWEEmployee> It(GetWorld()); It; ++It)
+				{
+					if (*It != this)
+					{
+						Taken.Add(It->GetActorLocation());
+						if (It->bWalking && It->Path.Num() > 0)
+						{
+							Taken.Add(It->Path.Last());
+						}
+					}
+				}
+				auto Score = [&](const FVector& P)
+				{
+					float S = FVector::DistSquared2D(P, Center) * 4.f + FVector::DistSquared2D(P, GetActorLocation());
+					for (const FVector& T : Taken)
+					{
+						S += FVector::Dist2D(P, T) < 90.f ? 1.e7f : 0.f;
+					}
+					return S;
+				};
+				Ring.Sort([&Score](const FVector& A, const FVector& B) { return Score(A) < Score(B); });
+				Ring.SetNum(FMath::Min(Ring.Num(), 8));
+				Goals = MoveTemp(Ring);
+			}
+			for (const FVector& Candidate : Goals)
+			{
+				if (const UNavigationPath* NavPath = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Candidate, this);
+					NavPath && NavPath->IsValid() && !NavPath->IsPartial())
+				{
+					Goal = Candidate;
+					Path.Append(NavPath->PathPoints);
+					if (Path.Num() > 0)
+					{
+						Path.RemoveAt(0); // own position
+					}
+					break;
 				}
 			}
 		}
@@ -605,6 +734,10 @@ void AWEEmployee::StopWalking()
 void AWEEmployee::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		TickVisuals(DeltaSeconds);
+	}
 	if (!HasAuthority() || !bWalking || !Path.IsValidIndex(PathIndex))
 	{
 		return;
@@ -625,7 +758,9 @@ void AWEEmployee::Tick(float DeltaSeconds)
 		if (FVector::Dist2D(LastCheckLocation, GetActorLocation()) < 25.f)
 		{
 			UE_LOG(LogWENet, Log, TEXT("%s stuck, stepping to the next path point"), *GetName());
-			SetActorLocation(Path[PathIndex] + FVector(0.f, 0.f, 2.f), false, nullptr, ETeleportType::TeleportPhysics);
+			// (Path points lie on the floor; the capsule centre stands half its height above it.)
+			SetActorLocation(FVector(Path[PathIndex].X, Path[PathIndex].Y, FMath::Max(GetActorLocation().Z, Path[PathIndex].Z + WEEmployeeConst::CapsuleHalfHeight + 2.f)),
+				false, nullptr, ETeleportType::TeleportPhysics);
 		}
 		StuckTimer = 0.f;
 		LastCheckLocation = GetActorLocation();
@@ -645,12 +780,233 @@ void AWEEmployee::StepWork(float DeltaSeconds)
 		return;
 	}
 	UnpaidSeconds += DeltaSeconds;
+	// Phase 21: now and then a coffee break (only when the hands are free).
+	if (StepBreak(DeltaSeconds))
+	{
+		UpdateActivity();
+		return;
+	}
 	switch (Task.Kind)
 	{
 	case EWETaskKind::Transport:      StepTransport(DeltaSeconds); break;
 	case EWETaskKind::OperateMachine: StepOperate(DeltaSeconds); break;
 	case EWETaskKind::DriveVehicle:   StepDrive(DeltaSeconds); break;
 	default:                          SetState(EWEEmployeeState::Idle); break;
+	}
+	UpdateActivity();
+}
+
+// --- Phase 21: body language and breaks -------------------------------------------------------------
+
+void AWEEmployee::SetActivity(EWEWorkPose NewActivity)
+{
+	if (Activity != NewActivity)
+	{
+		Activity = NewActivity;
+		ForceNetUpdate();
+		OnRep_Activity();
+	}
+}
+
+void AWEEmployee::OnRep_Activity()
+{
+	if (Avatar)
+	{
+		Avatar->SetSeatHeight(SeatHeight);
+		Avatar->SetWorkPose(Activity);
+	}
+}
+
+void AWEEmployee::UpdateActivity()
+{
+	EWEWorkPose Pose = EWEWorkPose::None;
+	switch (Break)
+	{
+	case EBreak::Coffee:  Pose = EWEWorkPose::Drink; break;
+	case EBreak::Sitting: Pose = EWEWorkPose::Sit; break;
+	case EBreak::Chat:    Pose = EWEWorkPose::Talk; break;
+	case EBreak::None:
+		if (Phase == EPhase::Take || Phase == EPhase::Put)
+		{
+			Pose = EWEWorkPose::Reach;
+		}
+		else if (Carried.IsValid())
+		{
+			Pose = EWEWorkPose::Carry;
+		}
+		else if (Task.Kind == EWETaskKind::OperateMachine && Phase == EPhase::AtMachine && OperatedMachine.IsValid() && State == EWEEmployeeState::Working)
+		{
+			Pose = EWEWorkPose::Operate;
+		}
+		break;
+	default:
+		break;
+	}
+	SetActivity(Pose);
+}
+
+void AWEEmployee::StartBreak()
+{
+	if (!HasAuthority() || Break != EBreak::None)
+	{
+		return;
+	}
+	ReleaseMachine();
+	StopWalking();
+	TActorIterator<AWECoffeeMachine> Coffee(GetWorld());
+	BreakTarget = Coffee ? *Coffee : nullptr;
+	Break = BreakTarget.IsValid() ? EBreak::ToCoffee : EBreak::ToSeat;
+	BreakTimer = 0.f;
+	SetState(EWEEmployeeState::Idle, LOCTEXT("BreakState", "macht Kaffeepause"));
+	UE_LOG(LogWENet, Log, TEXT("%s takes a break"), *GetName());
+}
+
+bool AWEEmployee::StepBreak(float DeltaSeconds)
+{
+	if (Break == EBreak::None)
+	{
+		// Scripted test runs keep everybody working (unless asked for breaks).
+		static const bool bNoBreaks = UWEDevAutomationComponent::IsRequested() && !FParse::Param(FCommandLine::Get(), TEXT("WEStaffBreaks"));
+		const bool bHandsFree = !Carried.IsValid() && (Phase == EPhase::GoToSource || Phase == EPhase::AtMachine);
+		WorkSeconds += DeltaSeconds;
+		if (bNoBreaks || Task.Kind == EWETaskKind::DriveVehicle || !bHandsFree || WorkSeconds < NextBreakAfter)
+		{
+			return false;
+		}
+		StartBreak();
+	}
+	BreakTimer += DeltaSeconds;
+	switch (Break)
+	{
+	case EBreak::ToCoffee:
+		if (!BreakTarget.IsValid() || WalkTo(BreakTarget.Get()) || BreakTimer > 40.f)
+		{
+			Break = EBreak::Coffee;
+			BreakTimer = 0.f;
+			if (BreakTarget.IsValid())
+			{
+				FVector To = BreakTarget->GetActorLocation() - GetActorLocation();
+				To.Z = 0.f;
+				SetActorRotation(To.Rotation());
+			}
+		}
+		break;
+	case EBreak::Coffee:
+		if (BreakTimer > 12.f)
+		{
+			// Someone else on a break nearby: a chat. Otherwise a sit on a stool.
+			for (TActorIterator<AWEEmployee> It(GetWorld()); It; ++It)
+			{
+				if (*It != this && It->Break != EBreak::None && FVector::Dist2D(It->GetActorLocation(), GetActorLocation()) < 400.f)
+				{
+					BreakTarget = *It;
+					Break = EBreak::Chat;
+					BreakTimer = 0.f;
+					FVector To = It->GetActorLocation() - GetActorLocation();
+					To.Z = 0.f;
+					SetActorRotation(To.Rotation());
+					return true;
+				}
+			}
+			// The nearest stool or chair.
+			BreakTarget.Reset();
+			float Nearest = 1200.f;
+			for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+			{
+				const UStaticMesh* SeatMesh = It->GetStaticMeshComponent() ? It->GetStaticMeshComponent()->GetStaticMesh() : nullptr;
+				const FString Name = SeatMesh ? SeatMesh->GetName() : FString();
+				const float Distance = FVector::Dist2D(It->GetActorLocation(), GetActorLocation());
+				if ((Name.Contains(TEXT("stool")) || Name.Contains(TEXT("chair"))) && Distance < Nearest)
+				{
+					Nearest = Distance;
+					BreakTarget = *It;
+				}
+			}
+			Break = BreakTarget.IsValid() ? EBreak::ToSeat : EBreak::None;
+			BreakTimer = 0.f;
+			if (Break == EBreak::None)
+			{
+				WorkSeconds = 0.f;
+				NextBreakAfter = FMath::FRandRange(240.f, 420.f);
+				return false;
+			}
+		}
+		break;
+	case EBreak::ToSeat:
+		if (!BreakTarget.IsValid() || BreakTimer > 30.f)
+		{
+			// No way to the seat: no sitting on thin air, back to work instead.
+			StopWalking();
+			Break = EBreak::None;
+			BreakTarget.Reset();
+			WorkSeconds = 0.f;
+			NextBreakAfter = FMath::FRandRange(240.f, 420.f);
+			Phase = Task.Kind == EWETaskKind::OperateMachine ? EPhase::AtMachine : EPhase::GoToSource;
+			return false;
+		}
+		else if (WalkTo(BreakTarget.Get()))
+		{
+			// Sit down on it (no movement meanwhile, or the capsule is pushed off the seat again).
+			StopWalking();
+			SitFrom = GetActorLocation();
+			const FBox SeatBox = BreakTarget->GetComponentsBoundingBox();
+			const FVector Seat = SeatBox.GetCenter(); // (the mesh pivot is not always in the middle)
+			SeatHeight = SeatBox.Max.Z - (GetActorLocation().Z - WEEmployeeConst::CapsuleHalfHeight);
+			GetCharacterMovement()->DisableMovement();
+			SetActorLocation(FVector(Seat.X, Seat.Y, GetActorLocation().Z), false, nullptr, ETeleportType::TeleportPhysics);
+			Break = EBreak::Sitting;
+			BreakTimer = 0.f;
+		}
+		break;
+	case EBreak::Sitting:
+	case EBreak::Chat:
+		if (BreakTimer > (Break == EBreak::Chat ? 10.f : 15.f))
+		{
+			if (Break == EBreak::Sitting)
+			{
+				// Stand up where the walk ended.
+				SetActorLocation(SitFrom, false, nullptr, ETeleportType::TeleportPhysics);
+				GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			}
+			Break = EBreak::None;
+			BreakTarget.Reset();
+			WorkSeconds = 0.f;
+			NextBreakAfter = FMath::FRandRange(240.f, 420.f);
+			Phase = Task.Kind == EWETaskKind::OperateMachine ? EPhase::AtMachine : EPhase::GoToSource;
+			return false;
+		}
+		break;
+	default:
+		break;
+	}
+	return true;
+}
+
+void AWEEmployee::TickVisuals(float DeltaSeconds)
+{
+	// The carried thing: it flies from the shelf into the hands, and from the hands into the machine or shelf.
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (CarriedMesh && CarryFlyAt >= 0.f)
+	{
+		const float A = FMath::Clamp((Now - CarryFlyAt) / 0.35f, 0.f, 1.f);
+		const FVector Hands = GetCapsuleComponent()->GetComponentTransform().TransformPosition(FVector(42.f, 0.f, 8.f));
+		CarriedMesh->SetWorldLocation(FMath::Lerp(CarryFlyFrom, Hands, FMath::SmoothStep(0.f, 1.f, A)) + FVector(0.f, 0.f, FMath::Sin(A * PI) * 15.f));
+		if (A >= 1.f)
+		{
+			CarryFlyAt = -1.f;
+			CarriedMesh->SetRelativeLocation(FVector(42.f, 0.f, 8.f));
+		}
+	}
+	if (DropMesh && DropAt >= 0.f)
+	{
+		const float A = FMath::Clamp((Now - DropAt) / 0.4f, 0.f, 1.f);
+		DropMesh->SetWorldLocation(FMath::Lerp(DropFrom, DropTo, FMath::SmoothStep(0.f, 1.f, A)) + FVector(0.f, 0.f, FMath::Sin(A * PI) * 20.f));
+		DropMesh->SetWorldScale3D(DropMesh->GetComponentScale() * (A < 0.7f ? 1.f : 0.85f));
+		if (A >= 1.f)
+		{
+			DropAt = -1.f;
+			DropMesh->SetVisibility(false);
+		}
 	}
 }
 

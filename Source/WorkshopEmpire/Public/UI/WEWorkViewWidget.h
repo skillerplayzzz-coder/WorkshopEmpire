@@ -105,6 +105,24 @@ protected:
 	FVector OrbitTarget = FVector::ZeroVector;
 	FVector OrbitGoal = FVector::ZeroVector;
 	bool bOrbiting = false;
+	// Phase 21: smooth turning, panning (middle button), zoom towards the cursor, double click = close-up.
+	float OrbitGoalYaw = 0.f;
+	float OrbitGoalPitch = 45.f;
+	bool bPanning = false;
+	float LastClickTime = -10.f;
+	FVector2D LastClickPos = FVector2D::ZeroVector;
+	/** World point under the mouse on the device (task, part or the plane through the device). */
+	FVector PointUnderMouse() const;
+	/** Close-up on a point (screw, plug) or back to the whole device (bReset). */
+	void FocusOn(const FVector& Point, bool bReset);
+public:
+	/** Tests: camera distance relative to the start distance, and the point it looks at. */
+	float GetZoomFactor() const { return OrbitBaseDist > 0.f ? OrbitDist / OrbitBaseDist : 1.f; }
+	FVector GetOrbitTarget() const { return OrbitTarget; }
+	void DevFocusTask(int32 Task);
+	void DevFocusPoint(const FVector& Point, bool bReset) { FocusOn(Point, bReset); }
+	void DevZoom(float Steps, bool bTowardsCursor);
+protected:
 
 	// Part layout: the part the player picked.
 	bool IsPartMode() const;
@@ -117,6 +135,14 @@ protected:
 
 	TWeakObjectPtr<AWEWorkbench> Bench;
 	UPROPERTY(Transient) TObjectPtr<AWEWorkRig> Rig;
+	/** Phase 21: the tools as real objects (in the hand / on the bench). */
+	UPROPERTY(Transient) TObjectPtr<class AWEToolHand> Hand;
+	bool bHasDrill = false;
+	void UpdateHand();
+public:
+	class AWEToolHand* GetHand() const { return Hand; }
+	AWEWorkRig* GetRig() const { return Rig; }
+protected:
 	bool bRepair = false;
 	bool bInstall = false;
 

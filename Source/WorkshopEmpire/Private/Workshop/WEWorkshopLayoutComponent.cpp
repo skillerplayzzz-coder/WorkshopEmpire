@@ -1,4 +1,5 @@
 #include "Workshop/WEWorkshopLayoutComponent.h"
+#include "World/WEToolWall.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Engine/OverlapResult.h"
@@ -216,7 +217,8 @@ AWEPlaceholderProp* UWEWorkshopLayoutComponent::SpawnFurniture(FName FurnitureId
 	UClass* Class = Definition->Machine ? AWEMachine::StaticClass()
 		: Definition->PropType == EWEPlaceholderPropType::Conveyor ? AWEConveyor::StaticClass()
 		: Definition->bProductionStorage ? AWEProductionStorage::StaticClass()
-		: Definition->bWorkbench ? AWEWorkbench::StaticClass() : AWEPlaceholderProp::StaticClass();
+		: Definition->bWorkbench ? AWEWorkbench::StaticClass()
+		: Definition->Id == FName(TEXT("ToolWall")) ? AWEToolWall::StaticClass() : AWEPlaceholderProp::StaticClass();
 	AWEPlaceholderProp* Prop = World->SpawnActor<AWEPlaceholderProp>(Class, Transform, Params);
 	if (!Prop)
 	{

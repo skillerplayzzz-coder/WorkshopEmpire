@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/Texture2D.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "WELog.h"
@@ -599,5 +600,146 @@ void UWEAvatarComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 	if (Body && (Body->WasRecentlyRendered(0.25f) || Body->bCastHiddenShadow))
 	{
 		Retarget();
+		ApplyWorkPose(DeltaTime);
+	}
+}
+
+void UWEAvatarComponent::SetWorkPose(EWEWorkPose InPose)
+{
+	Pose = InPose;
+}
+
+void UWEAvatarComponent::AimBone(FName Bone, FName Child, const FVector& Dir, float Weight)
+{
+	if (!Body || Weight <= 0.f || Body->GetBoneIndex(Bone) == INDEX_NONE || Body->GetBoneIndex(Child) == INDEX_NONE)
+	{
+		return;
+	}
+	const FVector A = Body->GetBoneLocationByName(Bone, EBoneSpaces::ComponentSpace);
+	const FVector C = Body->GetBoneLocationByName(Child, EBoneSpaces::ComponentSpace);
+	const FVector Current = (C - A).GetSafeNormal();
+	const FVector Wanted = Dir.GetSafeNormal();
+	if (Current.IsNearlyZero() || Wanted.IsNearlyZero())
+	{
+		return;
+	}
+	const FQuat Delta = FQuat::Slerp(FQuat::Identity, FQuat::FindBetweenNormals(Current, Wanted), Weight);
+	const FQuat Rot = Body->GetBoneRotationByName(Bone, EBoneSpaces::ComponentSpace).Quaternion();
+	Body->SetBoneRotationByName(Bone, (Delta * Rot).Rotator(), EBoneSpaces::ComponentSpace);
+}
+
+void UWEAvatarComponent::ApplyWorkPose(float DeltaTime)
+{
+	// Blend out of the old pose before blending into a new one.
+	if (Pose != ShownPose)
+	{
+		PoseBlend = FMath::FInterpConstantTo(PoseBlend, 0.f, DeltaTime, 4.f);
+		if (PoseBlend <= 0.f)
+		{
+			ShownPose = Pose;
+			PoseTime = 0.f;
+		}
+	}
+	else if (ShownPose != EWEWorkPose::None)
+	{
+		PoseBlend = FMath::FInterpConstantTo(PoseBlend, 1.f, DeltaTime, 3.f);
+	}
+	PoseTime += DeltaTime;
+	if (HeldMug)
+	{
+		HeldMug->SetVisibility(ShownPose == EWEWorkPose::Drink && PoseBlend > 0.3f);
+	}
+	if (!Body || ShownPose == EWEWorkPose::None || PoseBlend <= 0.f || !GetOwner())
+	{
+		return;
+	}
+	const FTransform& CT = Body->GetComponentTransform();
+	const FVector Fwd = CT.InverseTransformVectorNoScale(GetOwner()->GetActorForwardVector()).GetSafeNormal();
+	const FVector Up = CT.InverseTransformVectorNoScale(FVector::UpVector).GetSafeNormal();
+	const FVector Right = CT.InverseTransformVectorNoScale(GetOwner()->GetActorRightVector()).GetSafeNormal();
+	const float W = FMath::SmoothStep(0.f, 1.f, PoseBlend);
+	const float T = PoseTime;
+	// Arms: Side -1 = left, +1 = right ("outwards" is Right * Side).
+	auto Arm = [this, W](float Side, const FVector& Upper, const FVector& Lower)
+	{
+		const TCHAR* S = Side < 0.f ? TEXT("_l") : TEXT("_r");
+		AimBone(*FString::Printf(TEXT("upperarm%s"), S), *FString::Printf(TEXT("lowerarm%s"), S), Upper, W);
+		AimBone(*FString::Printf(TEXT("lowerarm%s"), S), *FString::Printf(TEXT("hand%s"), S), Lower, W);
+	};
+	switch (ShownPose)
+	{
+	case EWEWorkPose::Carry:
+		for (const float Side : { -1.f, 1.f })
+		{
+			Arm(Side, Fwd * 0.5f - Up * 0.85f + Right * Side * 0.12f, Fwd * 1.f + Up * 0.25f - Right * Side * 0.35f);
+		}
+		break;
+	case EWEWorkPose::Reach:
+		for (const float Side : { -1.f, 1.f })
+		{
+			const float Bob = 0.15f * FMath::Sin(T * 5.f + Side);
+			Arm(Side, Fwd * 0.9f - Up * (0.45f + Bob) + Right * Side * 0.1f, Fwd * 1.f - Up * 0.35f - Right * Side * 0.2f);
+		}
+		break;
+	case EWEWorkPose::Operate:
+		for (const float Side : { -1.f, 1.f })
+		{
+			// Hands on the controls, moving a little (pressing, turning).
+			const float Move = FMath::Sin(T * 2.6f + (Side > 0.f ? 0.f : 1.7f));
+			Arm(Side, Fwd * 0.7f - Up * 0.7f + Right * Side * 0.15f, Fwd * 1.f - Up * (0.1f + 0.15f * Move) + Right * Side * 0.25f * Move);
+		}
+		break;
+	case EWEWorkPose::Drink:
+	{
+		// Mug in the right hand; every few seconds a sip.
+		const float Cycle = FMath::Fmod(T, 4.5f);
+		const float Sip = Cycle < 2.f ? FMath::SmoothStep(0.f, 0.6f, Cycle) * (1.f - FMath::SmoothStep(1.4f, 2.f, Cycle)) : 0.f;
+		const FVector LowerRest = Fwd * 1.f + Up * 0.15f - Right * 0.2f;
+		const FVector LowerSip = Up * 1.f + Fwd * 0.3f - Right * 0.35f;
+		Arm(1.f, Fwd * (0.3f + 0.2f * Sip) - Up * 0.9f + Right * 0.15f, FMath::Lerp(LowerRest, LowerSip, Sip));
+		break;
+	}
+	case EWEWorkPose::Talk:
+	{
+		const float Gesture = FMath::Max(0.f, FMath::Sin(T * 1.7f)) * FMath::Max(0.f, FMath::Sin(T * 0.6f));
+		Arm(1.f, Fwd * 0.2f - Up * 1.f + Right * 0.15f, Fwd * 1.f + Up * (0.1f + 0.6f * Gesture) + Right * 0.2f * Gesture);
+		break;
+	}
+	case EWEWorkPose::Sit:
+	{
+		// Lower the hips to seat height, thighs forward, shins down, hands on the knees.
+		const FVector Pelvis = Body->GetBoneLocationByName(TEXT("pelvis"), EBoneSpaces::ComponentSpace);
+		// (Seat height known: the hips just above it, a bar stool lowers them only a little.)
+		const float Drop = SeatHeight > 0.f ? FMath::Clamp(FVector::DotProduct(Pelvis, Up) - SeatHeight - 4.f, 5.f, 55.f) : 42.f;
+		Body->SetBoneLocationByName(TEXT("pelvis"), Pelvis - Up * Drop * W, EBoneSpaces::ComponentSpace);
+		for (const TCHAR* S : { TEXT("_l"), TEXT("_r") })
+		{
+			AimBone(*FString::Printf(TEXT("thigh%s"), S), *FString::Printf(TEXT("calf%s"), S), Fwd * 1.f - Up * 0.12f, W);
+			AimBone(*FString::Printf(TEXT("calf%s"), S), *FString::Printf(TEXT("foot%s"), S), -Up * 1.f + Fwd * 0.12f, W);
+		}
+		for (const float Side : { -1.f, 1.f })
+		{
+			Arm(Side, Fwd * 0.4f - Up * 0.9f, Fwd * 1.f - Up * 0.3f - Right * Side * 0.1f);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+	// The mug sits in the right hand.
+	if (ShownPose == EWEWorkPose::Drink)
+	{
+		if (!HeldMug)
+		{
+			HeldMug = NewObject<UStaticMeshComponent>(GetOwner());
+			HeldMug->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
+			HeldMug->SetMaterial(0, LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorkshopEmpire/Materials/Props/MI_Prop_PlasticWhite.MI_Prop_PlasticWhite"), nullptr, LOAD_Quiet | LOAD_NoWarn));
+			HeldMug->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			HeldMug->SetCastShadow(false);
+			HeldMug->SetupAttachment(Body, TEXT("hand_r"));
+			HeldMug->RegisterComponent();
+			HeldMug->SetRelativeScale3D(FVector(0.09f, 0.09f, 0.1f));
+			HeldMug->SetRelativeLocation(FVector(4.f, 3.f, 0.f));
+		}
 	}
 }

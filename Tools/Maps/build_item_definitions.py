@@ -145,6 +145,20 @@ ITEMS = [
      "Pinsel, Druckluft, Isopropanol und Tücher. Macht Altgeräte wieder ansehnlich.",
      C.SPARE_PART, 0.4, 200, True, 10, True, False, T.NONE, 1.0, CUBE, (0.14, 0.08, 0.10), (0.30, 0.70, 0.80),
      [(M.PLASTIC, 0.3)]),
+    # Phase 21: maintenance (compressed air, thermal paste).
+    ("AirDuster", "AirDuster", "Druckluftspray",
+     "Bläst Staub aus Lüftern, Kühlern und Lüftungsschlitzen. Hält für viele Reinigungen.",
+     C.TOOL, 0.4, 600, False, 1, True, False, T.AIR_DUSTER, 1.0, CYLINDER, (0.06, 0.06, 0.2), (0.75, 0.75, 0.78),
+     [(M.STEEL, 0.15), (M.PLASTIC, 0.05)]),
+    ("ThermalPaste", "ThermalPaste", "Wärmeleitpaste",
+     "Eine Spritze Wärmeleitpaste. Frische Paste zwischen Prozessor und Kühler hält den Rechner kühl.",
+     C.SPARE_PART, 0.03, 350, True, 10, True, False, T.NONE, 1.0, CYLINDER, (0.02, 0.02, 0.1), (0.6, 0.6, 0.62),
+     [(M.PLASTIC, 0.02)]),
+    # Phase 21: a parcel from the courier (contents: UWECourierComponent, [Q] opens it).
+    ("Parcel", "Parcel", "Paket",
+     "Ein verklebter Versandkarton vom Paketboten. [Q] öffnet ihn – drin ist, was bestellt wurde.",
+     C.PRODUCT, 2.0, 0, False, 1, False, False, T.NONE, 1.0, CUBE, (0.4, 0.3, 0.25), (0.62, 0.45, 0.25),
+     [(M.PLASTIC, 0.1)]),
     # Phase 7: rare finds (collectors pay well) and sealed return pallets (contents: build_procurement.py).
     ("RareGpu", "RareGpu", "Grafikkarte (Sammlerstück)",
      "Eine legendäre Grafikkarte aus den frühen 2000ern. Kaum noch zu finden – Sammler zahlen viel.",
@@ -533,14 +547,38 @@ REPAIRS = {
         fault("Kohlebürsten verschlissen", "Alte Kohlebürsten entnehmen", "Neue Kohlebürsten einsetzen", "CarbonBrushes", T.SCREWDRIVER, 2.0, 2.0, 2.0, False),
     ], diagnose_s=2.0, test_s=1.5),
 }
+# Phase 21: what the device does when it is switched on with that fault (the first step of the diagnosis).
+SYMPTOMS = {
+    "OldComputer": ["Nichts passiert: kein Lüfter, keine Lampe am Gehäuse.",
+                    "Die Lüfter laufen an, der Bildschirm bleibt schwarz – drei kurze Pieptöne.",
+                    "Startet hörbar, aber kein Bild – ein langer und zwei kurze Pieptöne.",
+                    "Der Lüfter zuckt kurz, dann ist alles aus; es riecht leicht verbrannt."],
+    "CrtMonitor": ["Das Bild flackert, rollt durch und bricht zusammen, dazu ein lautes Brummen.",
+                   "Völlig tot – auch die Betriebslampe bleibt dunkel."],
+    "OldTelevision": ["Das Bild flackert und wird dunkel, das Gerät brummt.",
+                      "Bild da, aber kein Ton – nur ein leises Knacken beim Einschalten."],
+    "PortableRadio": ["Sender sind einstellbar, aber es kommt kein Ton aus dem Lautsprecher.",
+                      "Lautes Brummen und Knistern statt Musik.",
+                      "Nur Rauschen, kein Sender ist zu empfangen."],
+    "GameConsole": ["Startet, meldet aber: „Disc kann nicht gelesen werden“.",
+                    "Wird nach wenigen Minuten sehr heiß und schaltet sich ab, der Lüfter steht.",
+                    "Die Betriebslampe blinkt rot, die Konsole startet nicht."],
+    "CordlessDrill": ["Beim Drücken des Schalters passiert nichts, die Akkuanzeige bleibt aus.",
+                      "Läuft stotternd mit Funkenflug hinter den Lüftungsschlitzen und riecht nach Kohle."],
+}
 for suffix, spec in REPAIRS.items():
     rep, rep_path = data_asset(REP_FOLDER, f"REP_{suffix}", unreal.WERepairDefinition)
+    for i, f in enumerate(spec["faults"]):
+        if i < len(SYMPTOMS.get(suffix, [])):
+            f.set_editor_property("symptom", unreal.Text(SYMPTOMS[suffix][i]))
     rep.set_editor_property("faults", spec["faults"])
     rep.set_editor_property("diagnose_tool", T.MULTIMETER)
     rep.set_editor_property("diagnose_seconds", spec["diagnose_s"])
     rep.set_editor_property("test_tool", T.NONE)
     rep.set_editor_property("test_seconds", spec["test_s"])
     rep.set_editor_property("refurbish_material", items["CleaningKit"][0])
+    # Phase 21: devices with a processor under a cooler get fresh thermal paste.
+    rep.set_editor_property("paste_material", items["ThermalPaste"][0] if suffix in ("OldComputer", "GameConsole") else None)
     rep.set_editor_property("repair_quality_gain", 15)
     rep.set_editor_property("refurbish_quality_gain", 30)
     eal.save_asset(rep_path)
@@ -576,9 +614,11 @@ GEN_ITEMS = {
     "CpuCooler", "Processor", "HardDrive", "SsdDrive", "CaseFan", "GraphicsCardPro", "RamModule8", "ProcessorFast", "SsdFast",
     "PortableRadio", "GameConsole", "Speaker", "DiscDrive", "DrillBattery", "CarbonBrushes",
 }
+# Phase 21: items that use the hand tool models (Tools/Assets/build_hand_tools.py).
+GEN_ALIAS = {"AirDuster": "Tool_AirDuster", "ThermalPaste": "Tool_PasteSyringe", "Parcel": "Parcel"}
 for suffix, (da, path) in items.items():
-    gen_path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{suffix}"
-    if suffix in GEN_ITEMS and unreal.EditorAssetLibrary.does_asset_exist(gen_path):
+    gen_path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{GEN_ALIAS.get(suffix, suffix)}"
+    if (suffix in GEN_ITEMS or suffix in GEN_ALIAS) and unreal.EditorAssetLibrary.does_asset_exist(gen_path):
         da.set_editor_property("world_mesh", unreal.load_asset(gen_path))
         da.set_editor_property("world_scale", unreal.Vector(1.0, 1.0, 1.0))
         da.set_editor_property("surface", S.PLACEHOLDER)

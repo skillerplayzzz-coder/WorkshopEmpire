@@ -53,6 +53,7 @@ namespace
 		case EWEToolType::Pliers:        return EWEWorkTaskKind::Grip;
 		case EWEToolType::SideCutter:    return EWEWorkTaskKind::Cut;
 		case EWEToolType::AngleGrinder:  return EWEWorkTaskKind::Cut;
+		case EWEToolType::AirDuster:     return EWEWorkTaskKind::AirBlow;
 		case EWEToolType::Hammer:        return EWEWorkTaskKind::Knock;
 		case EWEToolType::Multimeter:    return EWEWorkTaskKind::Probe;
 		case EWEToolType::SolderingIron: return EWEWorkTaskKind::Solder;
@@ -261,8 +262,10 @@ namespace WEWorkPlan
 		switch (Info.Kind)
 		{
 		case EWERepairStepKind::Diagnose:
-			// Measuring points; with bare hands it is a close look at the same spots.
-			B.Row(Tool == EWEToolType::None ? EWEWorkTaskKind::Probe : ToolTaskKind(Tool), Tool, 3, 0, 0.35f);
+			// Phase 21: first switch it on and watch what it does, then measure every component that could be at fault
+			// (one measuring point each, in the order of the repair data) - each shows its own result.
+			B.Add(EWEWorkTaskKind::PowerTest, EWEToolType::None, FVector(0.7f, -0.7f, 1.f), 0);
+			B.Row(Tool == EWEToolType::None ? EWEWorkTaskKind::Probe : ToolTaskKind(Tool), Tool, Repair ? FMath::Clamp(Repair->Faults.Num(), 1, 8) : 3, 1, 0.35f);
 			break;
 		case EWERepairStepKind::Remove:
 			ToolWork(B.Random.RandRange(2, 3), 0);
@@ -286,6 +289,15 @@ namespace WEWorkPlan
 			{
 				B.Add(EWEWorkTaskKind::Wipe, EWEToolType::None, B.Inner(), 0, Info.Material);
 			}
+			break;
+		case EWERepairStepKind::Clean:
+			// Phase 21: four dusty spots (vents, corners) blown out one by one.
+			B.Corners(EWEWorkTaskKind::AirBlow, Tool, 4, 0);
+			break;
+		case EWERepairStepKind::Paste:
+			// Phase 21: old paste wiped off the chip, new paste put on.
+			B.Add(EWEWorkTaskKind::Wipe, EWEToolType::None, FVector(0.15f, -0.1f, 1.f), 0);
+			B.Add(EWEWorkTaskKind::PasteApply, EWEToolType::None, FVector(0.15f, -0.1f, 1.f), 1, Info.Material);
 			break;
 		default:
 			break;
@@ -441,6 +453,8 @@ namespace WEWorkPlan
 		case EWEWorkTaskKind::InsertPart: return bInstall ? LOCTEXT("InsertPartIn", "Teil einsetzen") : LOCTEXT("InsertPart", "Ersatzteil einsetzen");
 		case EWEWorkTaskKind::PowerTest:  return LOCTEXT("PowerTest", "Einschalten und testen");
 		case EWEWorkTaskKind::Wipe:       return LOCTEXT("Wipe", "Reinigen");
+		case EWEWorkTaskKind::AirBlow:    return LOCTEXT("AirBlow", "Staub ausblasen");
+		case EWEWorkTaskKind::PasteApply: return LOCTEXT("PasteApply", "Wärmeleitpaste auftragen");
 		}
 		return FText::GetEmpty();
 	}
@@ -462,6 +476,8 @@ namespace WEWorkPlan
 		case EWEWorkTaskKind::InsertPart: return TEXT("Download");
 		case EWEWorkTaskKind::PowerTest:  return TEXT("Power");
 		case EWEWorkTaskKind::Wipe:       return TEXT("Roller");
+		case EWEWorkTaskKind::AirBlow:    return TEXT("Wind");
+		case EWEWorkTaskKind::PasteApply: return TEXT("Syringe");
 		}
 		return TEXT("Hand");
 	}
@@ -477,6 +493,7 @@ namespace WEWorkPlan
 		case EWEToolType::Multimeter:    return TEXT("Multimeter");
 		case EWEToolType::SolderingIron: return TEXT("SolderingIron");
 		case EWEToolType::AngleGrinder:  return TEXT("AngleGrinder");
+		case EWEToolType::AirDuster:     return TEXT("Wind");
 		default:                         return TEXT("Hand");
 		}
 	}
@@ -488,3 +505,34 @@ namespace WEWorkPlan
 }
 
 #undef LOCTEXT_NAMESPACE
+
+FVector WEWorkPlan::BowlSpot(const FVector& BowlCenter, int32 Index)
+{
+	// Golden-angle spiral: up to ~30 screws lie side by side, later ones on top.
+	const int32 Ring = Index % 30;
+	const float Angle = Ring * 2.39996f;
+	const float Radius = FMath::Min(1.0f + 0.85f * FMath::Sqrt(static_cast<float>(Ring)), 4.8f);
+	return BowlCenter + FVector(FMath::Cos(Angle) * Radius, FMath::Sin(Angle) * Radius, 0.7f + 0.35f * (Index / 30));
+}
+
+FVector WEWorkPlan::CarryPath(const FVector& From, const FVector& Axis, const FVector& Spot, float A)
+{
+	A = FMath::Clamp(A, 0.f, 1.f);
+	const FVector Out = From + Axis.GetSafeNormal(UE_SMALL_NUMBER, FVector::UpVector) * 4.f;
+	if (A < 0.25f)
+	{
+		// Comes out of its hole, stuck to the tip.
+		return FMath::Lerp(From, Out, FMath::SmoothStep(0.f, 1.f, A / 0.25f));
+	}
+	const FVector Above = Spot + FVector(0.f, 0.f, 7.f);
+	if (A < 0.8f)
+	{
+		// Over to the bowl in a low arc.
+		const float B = FMath::SmoothStep(0.f, 1.f, (A - 0.25f) / 0.55f);
+		const FVector Line = FMath::Lerp(Out, Above, B);
+		return Line + FVector(0.f, 0.f, FMath::Sin(B * PI) * 6.f);
+	}
+	// Dropped: falls off the tip into the bowl.
+	const float C = (A - 0.8f) / 0.2f;
+	return FMath::Lerp(Above, Spot, C * C);
+}

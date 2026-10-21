@@ -1,4 +1,5 @@
 #include "UI/WEWorkViewWidget.h"
+#include "World/WEToolWall.h"
 
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Blueprint/WidgetTree.h"
@@ -20,6 +21,8 @@
 #include "Workshop/WEWorkbench.h"
 #include "Workshop/WEWorkPlan.h"
 #include "Workshop/WEWorkRig.h"
+#include "Workshop/WEToolHand.h"
+#include "Workshop/WERepairDefinition.h"
 #include "Workshop/WEAssemblyView.h"
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Camera/CameraComponent.h"
@@ -179,7 +182,9 @@ void UWEWorkViewWidget::NativeOnInitialized()
 		Key(TEXT("1-8"), LOCTEXT("KeyTools", "Werkzeug"));
 		Key(TEXT("Links"), LOCTEXT("KeyHold", "Teil wählen, auf Schraube/Stecker halten"));
 		Key(TEXT("Rechts"), LOCTEXT("KeyOrbit", "drehen"));
+		Key(TEXT("Mitte"), LOCTEXT("KeyPan", "schieben"));
 		Key(TEXT("Rad"), LOCTEXT("KeyZoom", "zoomen"));
+		Key(TEXT("F"), LOCTEXT("KeyFocus", "Nahansicht"));
 		Key(TEXT("Q"), LOCTEXT("KeyAuto", "automatisch"));
 		Key(TEXT("Esc"), LOCTEXT("KeyBack", "zurück"));
 		AddV(V, Keys, FMargin(0.f, 8.f, 0.f, 0.f), HAlign_Center);
@@ -237,6 +242,16 @@ void UWEWorkViewWidget::Setup(AWEWorkbench* InBench, bool bInRepair)
 		Rig->Init(InBench, bRepair);
 		Rig->SetInstallMode(bInstall);
 	}
+	if (!Hand && InBench && GetWorld())
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Hand = GetWorld()->SpawnActor<AWEToolHand>(InBench->GetActorLocation(), FRotator::ZeroRotator, Params);
+	}
+	if (Hand)
+	{
+		Hand->Init(InBench);
+	}
 	RefreshTools();
 	// Start with the tool the first task needs, if the player has it.
 	if (Rig && Rig->GetPlan().IsValid())
@@ -261,6 +276,11 @@ void UWEWorkViewWidget::Shutdown()
 	{
 		Rig->Destroy();
 		Rig = nullptr;
+	}
+	if (Hand)
+	{
+		Hand->Destroy();
+		Hand = nullptr;
 	}
 	Bench.Reset();
 }
@@ -299,8 +319,8 @@ void UWEWorkViewWidget::InitOrbit()
 	}
 	const FVector Dir = Cam->GetComponentLocation() - Center;
 	const FRotator Rot = Dir.Rotation();
-	OrbitYaw = Rot.Yaw;
-	OrbitPitch = FMath::Clamp(Rot.Pitch, 15.f, 85.f);
+	OrbitYaw = OrbitGoalYaw = Rot.Yaw;
+	OrbitPitch = OrbitGoalPitch = FMath::Clamp(Rot.Pitch, 15.f, 85.f);
 	OrbitDist = OrbitGoalDist = OrbitBaseDist = FMath::Max(Dir.Size(), 20.f);
 	OrbitTarget = OrbitGoal = Center;
 }
@@ -317,8 +337,11 @@ void UWEWorkViewWidget::UpdateOrbit(float DeltaTime)
 	{
 		InitOrbit();
 	}
-	OrbitTarget = FMath::VInterpTo(OrbitTarget, OrbitGoal, DeltaTime, 6.f);
-	OrbitDist = FMath::FInterpTo(OrbitDist, OrbitGoalDist, DeltaTime, 6.f);
+	// Soft camera: turning, moving and zooming all glide (Phase 21).
+	OrbitYaw = FMath::FInterpTo(OrbitYaw, OrbitGoalYaw, DeltaTime, 14.f);
+	OrbitPitch = FMath::FInterpTo(OrbitPitch, OrbitGoalPitch, DeltaTime, 14.f);
+	OrbitTarget = FMath::VInterpTo(OrbitTarget, OrbitGoal, DeltaTime, 7.f);
+	OrbitDist = FMath::FInterpTo(OrbitDist, OrbitGoalDist, DeltaTime, 7.f);
 	const FVector Eye = OrbitTarget + FRotator(OrbitPitch, OrbitYaw, 0.f).Vector() * OrbitDist;
 	Cam->SetWorldLocationAndRotation(Eye, (OrbitTarget - Eye).Rotation());
 }
@@ -384,6 +407,101 @@ void UWEWorkViewWidget::SelectPart(int32 Part)
 	{
 		OrbitGoal = View->GetDeviceBounds().GetCenter();
 		OrbitGoalDist = OrbitBaseDist;
+	}
+}
+
+FVector UWEWorkViewWidget::PointUnderMouse() const
+{
+	const int32 Task = FindTaskAt(MousePosition());
+	if (Task != INDEX_NONE && Rig)
+	{
+		return Rig->GetTaskLocation(Task);
+	}
+	APlayerController* PC = GetOwningPlayer();
+	float X = 0.f, Y = 0.f;
+	FVector Origin, Direction;
+	if (!PC || !PC->GetMousePosition(X, Y) || !PC->DeprojectScreenPositionToWorld(X, Y, Origin, Direction))
+	{
+		return OrbitGoal;
+	}
+	FBox Bounds(ForceInit);
+	if (const AWEAssemblyView* View = GetView())
+	{
+		Bounds = View->GetDeviceBounds();
+	}
+	else if (const AWEPickupItem* Item = Bench.IsValid() ? Bench->GetPlacedItem() : nullptr)
+	{
+		Bounds = Item->GetComponentsBoundingBox(true);
+	}
+	if (!Bounds.IsValid)
+	{
+		return OrbitGoal;
+	}
+	// First the device itself (what the cursor really touches), else the plane through its middle.
+	FHitResult Hit;
+	FCollisionQueryParams Query(SCENE_QUERY_STAT(WEWorkViewZoom), true);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Direction * 500.f, ECC_Visibility, Query) && Bounds.ExpandBy(4.f).IsInside(Hit.ImpactPoint))
+	{
+		return Hit.ImpactPoint;
+	}
+	const float PlaneZ = Bounds.GetCenter().Z;
+	if (FMath::Abs(Direction.Z) < 0.05f)
+	{
+		return OrbitGoal;
+	}
+	const FVector OnPlane = Origin + Direction * ((PlaneZ - Origin.Z) / Direction.Z);
+	return Bounds.ExpandBy(4.f).GetClosestPointTo(OnPlane);
+}
+
+void UWEWorkViewWidget::FocusOn(const FVector& Point, bool bReset)
+{
+	if (OrbitBaseDist <= 0.f)
+	{
+		return;
+	}
+	if (bReset)
+	{
+		const AWEAssemblyView* View = GetView();
+		const AWEPickupItem* Item = Bench.IsValid() ? Bench->GetPlacedItem() : nullptr;
+		OrbitGoal = View ? View->GetDeviceBounds().GetCenter() : Item ? Item->GetComponentsBoundingBox(true).GetCenter() : OrbitGoal;
+		OrbitGoalDist = OrbitBaseDist;
+	}
+	else
+	{
+		OrbitGoal = Point;
+		OrbitGoalDist = FMath::Max(OrbitBaseDist * 0.16f, 14.f);
+	}
+	Play(this, ESound::Click, 0.3f);
+}
+
+void UWEWorkViewWidget::DevFocusTask(int32 Task)
+{
+	if (Rig && Rig->GetPlan().Tasks.IsValidIndex(Task))
+	{
+		FocusOn(Rig->GetTaskLocation(Task), false);
+	}
+}
+
+void UWEWorkViewWidget::DevZoom(float Steps, bool bTowardsCursor)
+{
+	if (OrbitBaseDist <= 0.f || Steps == 0.f)
+	{
+		return;
+	}
+	// Small steps for a smooth zoom; close enough to read a screw head, never inside the device.
+	const float Factor = FMath::Pow(Steps > 0.f ? 0.88f : 1.0f / 0.88f, FMath::Abs(Steps));
+	OrbitGoalDist = FMath::Clamp(OrbitGoalDist * Factor, FMath::Max(OrbitBaseDist * 0.12f, 12.f), OrbitBaseDist * 1.6f);
+	if (Steps > 0.f && bTowardsCursor)
+	{
+		OrbitGoal = FMath::Lerp(OrbitGoal, PointUnderMouse(), 0.3f);
+	}
+	else if (Steps < 0.f && OrbitGoalDist > OrbitBaseDist * 0.8f)
+	{
+		// Zoomed back out: drift back to the middle of the device.
+		FVector Center = OrbitGoal;
+		if (const AWEAssemblyView* View = GetView()) { Center = View->GetDeviceBounds().GetCenter(); }
+		else if (const AWEPickupItem* Item = Bench.IsValid() ? Bench->GetPlacedItem() : nullptr) { Center = Item->GetComponentsBoundingBox(true).GetCenter(); }
+		OrbitGoal = FMath::Lerp(OrbitGoal, Center, 0.35f);
 	}
 }
 
@@ -537,16 +655,14 @@ void UWEWorkViewWidget::RefreshTools()
 	Found.Add(EWEToolType::None);
 	if (const AWECharacter* Character = GetCharacter())
 	{
-		if (const UWEInventoryComponent* Inventory = Character->GetPlayerInventory())
+		// Own tools and those on a tool wall within reach.
+		TArray<const UWEItemDefinition*> Defs;
+		AWEToolWall::GatherTools(Character, Defs);
+		bHasDrill = false;
+		for (const UWEItemDefinition* Def : Defs)
 		{
-			for (const FWEInventorySlotData& Entry : Inventory->GetAllSlots())
-			{
-				const UWEItemDefinition* Def = Entry.Item.Definition;
-				if (Def && Def->ToolType != EWEToolType::None)
-				{
-					Found.AddUnique(Def->ToolType);
-				}
-			}
+			Found.AddUnique(Def->ToolType);
+			bHasDrill |= Def->ToolType == EWEToolType::Screwdriver && Def->ItemId == FName(TEXT("CordlessDrill"));
 		}
 	}
 	Found.SetNum(FMath::Min(Found.Num(), MaxToolButtons));
@@ -663,11 +779,34 @@ FReply UWEWorkViewWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, c
 		bOrbiting = true;
 		return FReply::Handled().CaptureMouse(TakeWidget());
 	}
+	if (InMouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton)
+	{
+		bPanning = true;
+		return FReply::Handled().CaptureMouse(TakeWidget());
+	}
 	if (InMouseEvent.GetEffectingButton() != EKeys::LeftMouseButton || !Rig)
 	{
 		return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 	}
 	const int32 Task = FindTaskAt(MousePosition());
+	// Double click: close-up on the screw / plug (or back to the whole device when clicked beside it).
+	const float ClickTime = GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.f;
+	const bool bDouble = ClickTime - LastClickTime < 0.35f && FVector2D::Distance(LastClickPos, MousePosition()) < 12.f;
+	LastClickTime = ClickTime;
+	LastClickPos = MousePosition();
+	if (bDouble)
+	{
+		LastClickTime = -10.f;
+		if (Task != INDEX_NONE)
+		{
+			DevFocusTask(Task);
+		}
+		else
+		{
+			FocusOn(FVector::ZeroVector, true);
+		}
+		return FReply::Handled();
+	}
 	if (Task == INDEX_NONE)
 	{
 		// A click on a row of the part list picks that part (the only way to pick one that is out).
@@ -743,6 +882,11 @@ FReply UWEWorkViewWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, con
 		bOrbiting = false;
 		return FReply::Handled().ReleaseMouseCapture();
 	}
+	if (InMouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton)
+	{
+		bPanning = false;
+		return FReply::Handled().ReleaseMouseCapture();
+	}
 	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
 		HoldTask = INDEX_NONE;
@@ -756,8 +900,23 @@ FReply UWEWorkViewWidget::NativeOnMouseMove(const FGeometry& InGeometry, const F
 	if (bOrbiting)
 	{
 		const FVector2D Delta = InMouseEvent.GetCursorDelta();
-		OrbitYaw += Delta.X * 0.35f;
-		OrbitPitch = FMath::Clamp(OrbitPitch + Delta.Y * 0.25f, 12.f, 86.f);
+		OrbitGoalYaw += Delta.X * 0.35f;
+		OrbitGoalPitch = FMath::Clamp(OrbitGoalPitch + Delta.Y * 0.25f, 12.f, 86.f);
+		return FReply::Handled();
+	}
+	if (bPanning)
+	{
+		// Middle button: slide the view over the device (as far as the device reaches).
+		const FVector2D Delta = InMouseEvent.GetCursorDelta();
+		const FRotator View(OrbitPitch, OrbitYaw, 0.f);
+		const FVector Right = FRotationMatrix(View).GetUnitAxis(EAxis::Y);
+		const FVector Up = FRotationMatrix(View).GetUnitAxis(EAxis::Z);
+		const float Speed = OrbitDist * 0.0016f;
+		OrbitGoal += Right * Delta.X * Speed - Up * Delta.Y * Speed;
+		if (const AWEAssemblyView* View2 = GetView())
+		{
+			OrbitGoal = View2->GetDeviceBounds().ExpandBy(10.f).GetClosestPointTo(OrbitGoal);
+		}
 		return FReply::Handled();
 	}
 	return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
@@ -765,11 +924,8 @@ FReply UWEWorkViewWidget::NativeOnMouseMove(const FGeometry& InGeometry, const F
 
 FReply UWEWorkViewWidget::NativeOnMouseWheel(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
-	// Zoom (tools: keys 1-8 or the tool bar).
-	if (OrbitBaseDist > 0.f)
-	{
-		OrbitGoalDist = FMath::Clamp(OrbitGoalDist * (InMouseEvent.GetWheelDelta() > 0.f ? 0.85f : 1.18f), OrbitBaseDist * 0.25f, OrbitBaseDist * 1.6f);
-	}
+	// Zoom (tools: keys 1-8 or the tool bar): stepless and towards what is under the cursor (Phase 21).
+	DevZoom(InMouseEvent.GetWheelDelta(), true);
 	return FReply::Handled();
 }
 
@@ -784,6 +940,13 @@ FReply UWEWorkViewWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKe
 	if (Key == EKeys::Q)
 	{
 		HandleAuto();
+		return FReply::Handled();
+	}
+	if (Key == EKeys::F)
+	{
+		// Close-up on the screw under the cursor, else the whole device.
+		const int32 Task = FindTaskAt(MousePosition());
+		if (Task != INDEX_NONE) { DevFocusTask(Task); } else { FocusOn(FVector::ZeroVector, true); }
 		return FReply::Handled();
 	}
 	const FKey Numbers[] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight };
@@ -921,12 +1084,43 @@ void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 	}
 	UpdateMarkers();
 	RefreshInfo();
+	UpdateHand();
 
 	// The tool follows the mouse.
 	if (UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(CursorIcon->Slot))
 	{
 		S->SetPosition(MousePosition());
 	}
+}
+
+void UWEWorkViewWidget::UpdateHand()
+{
+	if (!Hand || !Rig)
+	{
+		return;
+	}
+	Hand->SetTools(Tools, bHasDrill);
+	FWEToolHandState S;
+	S.Selected = SelectedTool;
+	APlayerController* PC = GetOwningPlayer();
+	S.ViewLocation = PC && PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraLocation() : FVector::ZeroVector;
+	const int32 Active = Rig->GetActiveTask();
+	if (Active != INDEX_NONE && Rig->GetPlan().Tasks.IsValidIndex(Active) && Rig->GetActiveProgress() > 0.f && Rig->GetActiveProgress() < 1.f)
+	{
+		S.bWorking = true;
+		S.WorkPoint = Rig->GetTaskLocation(Active);
+		S.WorkAxis = Rig->GetTaskAxis(Active);
+		S.WorkKind = Rig->GetPlan().Tasks[Active].Kind;
+		S.Progress = Rig->GetActiveProgress();
+	}
+	S.bCarrying = Rig->GetCarryPoint(S.CarryPoint);
+	// Hover: over a marker the tool waits right above it, else above the point of the device under the cursor.
+	const int32 Over = FindTaskAt(MousePosition());
+	S.bHover = !bOrbiting && !bPanning;
+	S.HoverPoint = Over != INDEX_NONE ? Rig->GetTaskLocation(Over) : PointUnderMouse();
+	Hand->SetState(S);
+	// The 3D tool shows where it works; the small cursor icon only for the hands.
+	CursorIcon->SetVisibility(Hand->IsHolding() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
 }
 
 void UWEWorkViewWidget::UpdateMarkers()
@@ -953,6 +1147,9 @@ void UWEWorkViewWidget::UpdateMarkers()
 		const bool bAvailable = Plan.IsTaskAvailable(i, Mask);
 		const bool bToolOk = Tools.IsValidIndex(SelectedTool) && Tools[SelectedTool] == T.Tool;
 		Markers[i]->SetVisibility(ESlateVisibility::HitTestInvisible);
+		// Phase 21: only what can be done now stands out; later steps are small, quiet dots.
+		Markers[i]->SetRenderScale(FVector2D(bAvailable ? (i == Hover ? 1.12f : 1.f) : 0.55f));
+		Markers[i]->SetRenderOpacity(bAvailable ? 1.f : 0.55f);
 		if (UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(Markers[i]->Slot))
 		{
 			S->SetPosition(Screen / Scale);
@@ -1005,7 +1202,7 @@ void UWEWorkViewWidget::RefreshInfo()
 	DeviceTitle->SetText(Instance.GetDisplayName());
 	const FText Status = AWEWorkbench::GetRepairStatusText(Instance);
 	DeviceInfo->SetText(Status.IsEmpty()
-		? FText::Format(LOCTEXT("Info", "{0} · Qualität {1} %"), WEItems::GetConditionText(Instance.Condition), FText::AsNumber(Instance.Quality))
+		? FText::Format(LOCTEXT("InfoLook", "{0} · Qualität {1} % · {2}"), WEItems::GetConditionText(Instance.Condition), FText::AsNumber(Instance.Quality), Instance.GetWearText())
 		: FText::Format(LOCTEXT("InfoRepair", "{0} · Qualität {1} % · {2}"), WEItems::GetConditionText(Instance.Condition), FText::AsNumber(Instance.Quality), Status));
 	SetButtonKind(ModeDisassemble, !bRepair && !bInstall ? EButton::TabActive : EButton::Tab, ModeDisassembleLabel);
 	SetButtonKind(ModeAssemble, bInstall ? EButton::TabActive : EButton::Tab, ModeAssembleLabel);
@@ -1151,8 +1348,8 @@ void UWEWorkViewWidget::RefreshInfo()
 	}
 
 	// Step list (rebuilt only when it changes).
-	FString Signature = FString::Printf(TEXT("%d|%d|%d|%s|%d|%d|%d|%d"), bRepair ? 1 : 0, B->GetNextStepIndex(), Instance.Repair.Faults, *Status.ToString(), Instance.RemovedParts, SelectedPart,
-		bInstall ? 1 : 0, Instance.Repair.Flags);
+	FString Signature = FString::Printf(TEXT("%d|%d|%d|%s|%d|%d|%d|%d|%u"), bRepair ? 1 : 0, B->GetNextStepIndex(), Instance.Repair.Faults, *Status.ToString(), Instance.RemovedParts, SelectedPart,
+		bInstall ? 1 : 0, Instance.Repair.Flags, bRepair ? Mask : 0u);
 	if (Signature == LastInfoSignature)
 	{
 		return;
@@ -1217,9 +1414,48 @@ void UWEWorkViewWidget::RefreshInfo()
 	{
 		const bool bDiagnosed = Instance.Repair.HasFlag(FWERepairState::Diagnosed);
 		Line(LOCTEXT("RDiag", "Fehler suchen"), bDiagnosed ? 0 : 1);
+		// Phase 21: findings of the diagnosis as they come - first what it does when switched on, then every
+		// measured component (in the order of the measuring points).
+		const UWERepairDefinition* RepairDef = Def->Repair;
+		FText Ignored2;
+		const bool bDiagnosing = !bDiagnosed && bMine && B->IsRepairJob() && B->GetNextRepairStep(Ignored2).Kind == EWERepairStepKind::Diagnose;
+		if (RepairDef && !bDiagnosed && bDiagnosing)
+		{
+			const bool bOn = (Mask & 1u) != 0;
+			TArray<FString> Seen;
+			for (int32 f = 0; f < RepairDef->Faults.Num() && f < UWERepairDefinition::MaxFaults; ++f)
+			{
+				if (FWERepairState::HasBit(Instance.Repair.Faults, f) && !RepairDef->Faults[f].Symptom.IsEmpty())
+				{
+					Seen.Add(RepairDef->Faults[f].Symptom.ToString());
+				}
+			}
+			Line(bOn ? FText::Format(LOCTEXT("FindOn", "Eingeschaltet: {0}"), Seen.Num() > 0 ? FText::FromString(FString::Join(Seen, TEXT(" "))) : LOCTEXT("FindOnNothing", "kein auffälliges Verhalten"))
+				: LOCTEXT("FindOnTodo", "Einschalten und beobachten"), bOn ? 0 : 1);
+			for (int32 f = 0; f < RepairDef->Faults.Num() && f < UWERepairDefinition::MaxFaults; ++f)
+			{
+				const FText Part = RepairDef->Faults[f].Part ? RepairDef->Faults[f].Part->DisplayName : RepairDef->Faults[f].DisplayName;
+				const bool bMeasured = (Mask & (1u << (f + 1))) != 0;
+				const bool bBad = FWERepairState::HasBit(Instance.Repair.Faults, f);
+				Line(bMeasured ? FText::Format(bBad ? LOCTEXT("FindBad", "{0}: defekt") : LOCTEXT("FindOk", "{0}: in Ordnung"), Part)
+					: FText::Format(LOCTEXT("FindTodo", "{0} messen"), Part), bMeasured ? 0 : 2);
+			}
+		}
 		Line(LOCTEXT("RParts", "Defekte Teile tauschen"), !bDiagnosed ? 2 : (Instance.IsBroken() ? 1 : 0));
 		Line(LOCTEXT("RTest", "Funktionstest"), Instance.IsBroken() ? 2 : 0);
-		Line(LOCTEXT("RClean", "Reinigen und aufbereiten (optional)"), Instance.Repair.HasFlag(FWERepairState::Refurbished) ? 0 : Instance.IsBroken() ? 2 : 1);
+		// Phase 21: maintenance steps in their order (each optional).
+		FText NextIgnored;
+		const EWERepairStepKind Next = B->GetNextRepairStep(NextIgnored).Kind;
+		const int32 After = Instance.IsBroken() ? 2 : 1;
+		if (Instance.Repair.HasFlag(FWERepairState::Cleaned) || Next == EWERepairStepKind::Clean)
+		{
+			Line(LOCTEXT("RDust", "Staub ausblasen (optional)"), Instance.Repair.HasFlag(FWERepairState::Cleaned) ? 0 : After);
+		}
+		if (RepairDef && RepairDef->PasteMaterial)
+		{
+			Line(LOCTEXT("RPaste", "Wärmeleitpaste erneuern (optional)"), Instance.Repair.HasFlag(FWERepairState::PasteRenewed) ? 0 : Next == EWERepairStepKind::Paste ? 1 : 2);
+		}
+		Line(LOCTEXT("RClean", "Reinigen und aufbereiten (optional)"), Instance.Repair.HasFlag(FWERepairState::Refurbished) ? 0 : Next == EWERepairStepKind::Refurbish ? 1 : 2);
 	}
 }
 

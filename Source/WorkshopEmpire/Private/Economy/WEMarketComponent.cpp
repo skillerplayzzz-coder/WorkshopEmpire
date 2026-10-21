@@ -1,4 +1,5 @@
 #include "Economy/WEMarketComponent.h"
+#include "Framework/WEGameRulesComponent.h"
 
 #include "Economy/WETraderDefinition.h"
 #include "Engine/World.h"
@@ -114,7 +115,9 @@ FWEMoney UWEMarketComponent::GetSellPrice(const FWEItemInstance& Item, const UWE
 	{
 		return FWEMoney();
 	}
-	return WEMarket::Scale(GetMarketValue(Item, Market), SellShare * TraderFactor);
+	// Phase 21: the economy setting of the company (Entspannt / Normal / Schwer).
+	const float RulesFactor = Market ? UWEGameRulesComponent::GetRules(Market).SellPriceFactor() : 1.f;
+	return WEMarket::Scale(GetMarketValue(Item, Market), SellShare * TraderFactor * RulesFactor);
 }
 
 FWEMoney UWEMarketComponent::GetBuyPrice(const FWEItemInstance& Item, float PriceMultiplier, const UWEMarketComponent* Market)
@@ -123,6 +126,7 @@ FWEMoney UWEMarketComponent::GetBuyPrice(const FWEItemInstance& Item, float Pric
 	{
 		return FWEMoney();
 	}
-	const FWEMoney Price = WEMarket::Scale(GetMarketValue(Item, Market), BuyMarkup * FMath::Max(0.01f, PriceMultiplier));
+	const float RulesFactor = Market ? UWEGameRulesComponent::GetRules(Market).BuyPriceFactor() : 1.f;
+	const FWEMoney Price = WEMarket::Scale(GetMarketValue(Item, Market), BuyMarkup * FMath::Max(0.01f, PriceMultiplier) * RulesFactor);
 	return Price.GetCents() < 1 ? FWEMoney::FromCents(1) : Price;
 }

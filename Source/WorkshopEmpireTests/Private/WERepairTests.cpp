@@ -1,4 +1,5 @@
 #include "Misc/AutomationTest.h"
+#include "Framework/WEGameRulesComponent.h"
 
 #include "Economy/WECompanyComponent.h"
 #include "Economy/WEContractComponent.h"
@@ -189,6 +190,12 @@ bool FWERepairFlowTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Repaired value is much higher than the broken value"),
 		Repaired.GetEstimatedValue().GetCents() > FWEItemInstance::Make(F.Device, 1, EWEItemCondition::Defective, 40).GetEstimatedValue().GetCents() * 2);
 
+	// Maintenance (dust, thermal paste) is covered by Repair.MaintenanceCleanAndPaste; here the device counts as clean.
+	{
+		FWEItemInstance Clean = Device->GetItem();
+		Clean.Repair.SetFlag(FWERepairState::Cleaned);
+		Device->SetItem(Clean);
+	}
 	// 5) Refurbishing (quality improvement) needs the cleaning kit.
 	TestEqual(TEXT("Next: refurbish"), F.NextKind(), EWERepairStepKind::Refurbish);
 	TestTrue(TEXT("Material missing"), F.BlockReason().ToString().Contains(TEXT("Material fehlt")));
@@ -245,7 +252,7 @@ bool FWERepairRulesTest::RunTest(const FString& Parameters)
 	Scrap->Destroy();
 
 	AWEPickupItem* Working = F.PlaceDevice(EWEItemCondition::Used, 60);
-	TestEqual(TEXT("Working device: only refurbishing"), F.NextKind(), EWERepairStepKind::Refurbish);
+	TestTrue(TEXT("Working device: only maintenance (dust) or refurbishing"), F.NextKind() == EWERepairStepKind::Refurbish || F.NextKind() == EWERepairStepKind::Clean);
 	F.Bench->ResetForLoad();
 	Working->Destroy();
 
@@ -428,6 +435,13 @@ bool FWERepairBalanceTest::RunTest(const FString& Parameters)
 			DefectiveReturned += Terminal->GetBestSellPrice(Slot.Item).GetCents(); // the broken parts can still be sold
 		}
 		Inventory->TryAddItem(FWEItemInstance::Make(Kit, 1, EWEItemCondition::New, 80), Added);
+		{
+			// The balance compares repair and refurbishing; dust and thermal paste are optional extras (skipped here).
+			FWEItemInstance Done = Item->GetItem();
+			Done.Repair.SetFlag(FWERepairState::Cleaned);
+			Done.Repair.SetFlag(FWERepairState::PasteRenewed);
+			Item->SetItem(Done);
+		}
 		Bench->TryStartRepairStep(Player);
 		Bench->CompleteActiveStep();
 		RefurbishedRevenue += Terminal->GetBestSellPrice(Item->GetItem()).GetCents();
@@ -642,7 +656,7 @@ bool FWERepairPhase20DevicesTest::RunTest(const FString& Parameters)
 		while (Steps < 12)
 		{
 			const EWERepairStepKind Kind = Bench->GetNextRepairStep(Reason).Kind;
-			if (Kind == EWERepairStepKind::None || Kind == EWERepairStepKind::Refurbish)
+			if (Kind == EWERepairStepKind::None || Kind == EWERepairStepKind::Refurbish || Kind == EWERepairStepKind::Clean || Kind == EWERepairStepKind::Paste)
 			{
 				break;
 			}
@@ -656,6 +670,77 @@ bool FWERepairPhase20DevicesTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s: at least diagnose, remove, install, test"), Id), Steps >= 4);
 		TestEqual(FString::Printf(TEXT("%s works again"), Id), Device->GetItem().Condition, EWEItemCondition::Used);
 		TestEqual(FString::Printf(TEXT("%s has no faults left"), Id), static_cast<int32>(Device->GetItem().Repair.Faults), 0);
+	}
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWERepairMaintenanceTest, "WorkshopEmpire.Repair.MaintenanceCleanAndPaste", Flags)
+bool FWERepairMaintenanceTest::RunTest(const FString& Parameters)
+{
+	// Phase 21: a working but dusty device - blow the dust out (air duster), renew the thermal paste (consumed), then refurbish.
+	FRepairFixture F(TEXT("Maint"));
+	UWEItemDefinition* Paste = MakeDefinition(TEXT("R_Paste_Maint"), 0.03f, true, 10);
+	F.Repair->PasteMaterial = Paste;
+	AWEPickupItem* Device = F.PlaceDevice(EWEItemCondition::Used, 30);
+	TestTrue(TEXT("Dusty device looks dirty"), Device->GetItem().GetWear().Dirt > 0.15f);
+	TestEqual(TEXT("First: blow out the dust"), F.NextKind(), EWERepairStepKind::Clean);
+	TestTrue(TEXT("Without air duster: tool missing"), F.BlockReason().ToString().Contains(TEXT("Druckluftspray")));
+	F.Give(Tool(TEXT("R_AirDuster"), EWEToolType::AirDuster));
+	TestTrue(TEXT("Clean"), F.Step());
+	TestTrue(TEXT("Cleaned flag"), Device->GetItem().Repair.HasFlag(FWERepairState::Cleaned));
+	TestTrue(TEXT("Dirt gone"), Device->GetItem().GetWear().Dirt < 0.1f);
+	TestEqual(TEXT("Quality +5"), static_cast<int32>(Device->GetItem().Quality), 35);
+	TestEqual(TEXT("Then: thermal paste"), F.NextKind(), EWERepairStepKind::Paste);
+	TestTrue(TEXT("No paste: material missing"), F.BlockReason().ToString().Contains(TEXT("Material fehlt")));
+	F.Give(Paste, 2, EWEItemCondition::New);
+	TestTrue(TEXT("Renew paste"), F.Step());
+	TestTrue(TEXT("Paste flag"), Device->GetItem().Repair.HasFlag(FWERepairState::PasteRenewed));
+	TestEqual(TEXT("One tube used"), F.Count(F.Player->GetPlayerInventory(), Paste, EWEItemCondition::New), 1);
+	TestEqual(TEXT("Quality +5 again"), static_cast<int32>(Device->GetItem().Quality), 40);
+	TestEqual(TEXT("Then: refurbish"), F.NextKind(), EWERepairStepKind::Refurbish);
+	TestTrue(TEXT("Wear text says what is seen"), !Device->GetItem().GetWearText().IsEmpty());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWERepairRulesDifficultyTest, "WorkshopEmpire.Repair.DifficultyRules", Flags)
+bool FWERepairRulesDifficultyTest::RunTest(const FString& Parameters)
+{
+	// Phase 21: "Entspannt" - faults known at once, one fault only, shorter steps; "Experte" with mistakes forced: a slip repeats the step.
+	{
+		FRepairFixture F(TEXT("Easy"));
+		F.GameState->GetRules()->SetRules(FWEGameRules::FromPreset(EWEDifficultyPreset::Relaxed));
+		F.Repair->SecondFaultChance = 1.f;
+		F.Give(F.Screwdriver);
+		F.Give(F.Multimeter);
+		AWEPickupItem* Device = F.PlaceDevice(EWEItemCondition::Defective, 40);
+		TestTrue(TEXT("Relaxed: diagnosed on the bench"), Device->GetItem().Repair.HasFlag(FWERepairState::Diagnosed));
+		TestEqual(TEXT("Relaxed: never two faults"), static_cast<int32>(FMath::CountBits(Device->GetItem().Repair.Faults)), 1);
+		TestEqual(TEXT("Relaxed: no search step"), F.NextKind(), EWERepairStepKind::Remove);
+		const int32 Fault = FMath::CountTrailingZeros(static_cast<uint32>(Device->GetItem().Repair.Faults));
+		TestTrue(TEXT("Relaxed: remove"), F.Bench->TryStartRepairStep(F.Player));
+		TestTrue(TEXT("Relaxed steps take 70 %"), FMath::IsNearlyEqual(F.Bench->GetActiveStepDuration(), F.Repair->Faults[Fault].RemoveSeconds * 0.7f, 0.05f));
+	}
+	{
+		FRepairFixture F(TEXT("Hard"));
+		FWEGameRules Rules = FWEGameRules::FromPreset(EWEDifficultyPreset::Expert);
+		F.GameState->GetRules()->SetRules(Rules);
+		F.Give(F.Screwdriver);
+		F.Give(F.Multimeter);
+		AWEPickupItem* Device = F.PlaceDevice(EWEItemCondition::Defective, 40);
+		TestFalse(TEXT("Expert: not known yet"), Device->GetItem().Repair.HasFlag(FWERepairState::Diagnosed));
+		TestEqual(TEXT("Expert: search first"), F.NextKind(), EWERepairStepKind::Diagnose);
+		TestTrue(TEXT("Diagnose"), F.Step());
+		// Every remove step slips until the rule is off again (a hand screwdriver: speed 1).
+		int32 Slips = 0;
+		for (int32 i = 0; i < 40 && F.NextKind() == EWERepairStepKind::Remove; ++i)
+		{
+			const uint8 Before = Device->GetItem().Repair.Removed;
+			F.Step();
+			Slips += Device->GetItem().Repair.Removed == Before ? 1 : 0;
+		}
+		TestTrue(TEXT("Expert: mistakes happen (12 % per step)"), Slips > 0 || F.NextKind() != EWERepairStepKind::Remove);
+		TestTrue(TEXT("Expert: still finishes"), F.NextKind() != EWERepairStepKind::Remove);
+		TestTrue(TEXT("Mistake chance Expert 12 %, Realistic 7 %, none without the rule"), FMath::IsNearlyEqual(Rules.MistakeChance(), 0.12f)
+			&& FMath::IsNearlyEqual(FWEGameRules::FromPreset(EWEDifficultyPreset::Realistic).MistakeChance(), 0.07f) && FWEGameRules().MistakeChance() == 0.f);
 	}
 	return true;
 }

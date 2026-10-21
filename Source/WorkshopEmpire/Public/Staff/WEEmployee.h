@@ -5,6 +5,7 @@
 #include "Interaction/WEInteractable.h"
 #include "Items/WEItemInstance.h"
 #include "Staff/WEStaffTypes.h"
+#include "Player/WEAvatarComponent.h"
 #include "WEEmployee.generated.h"
 
 class AWEMachine;
@@ -111,6 +112,40 @@ protected:
 
 	UFUNCTION()
 	void OnRep_Visuals();
+
+	// Phase 21: what the body does (carry, reach, operate, coffee, sit, chat) and the breaks.
+	UFUNCTION() void OnRep_Activity();
+	void SetActivity(EWEWorkPose NewActivity);
+	/** Server: picks the pose from what he is doing right now. */
+	void UpdateActivity();
+	/** Server: coffee break - true while it runs (work waits). */
+	bool StepBreak(float DeltaSeconds);
+	void TickVisuals(float DeltaSeconds);
+	UPROPERTY(ReplicatedUsing = OnRep_Activity) EWEWorkPose Activity = EWEWorkPose::None;
+	/** Height of the seat above the feet while sitting (cm). */
+	UPROPERTY(Replicated) float SeatHeight = 0.f;
+	enum class EBreak : uint8 { None, ToCoffee, Coffee, ToSeat, Sitting, Chat };
+	EBreak Break = EBreak::None;
+	float BreakTimer = 0.f;
+	/** Where the employee stood before sitting down (stands up there again). */
+	FVector SitFrom = FVector::ZeroVector;
+	float WorkSeconds = 0.f;
+	float NextBreakAfter = 300.f;
+	TWeakObjectPtr<AActor> BreakTarget;
+	// Local: the carried thing flies from the shelf into the hands and from the hands into the machine.
+	FWEItemInstance ShownCarried;
+	float CarryFlyAt = -1.f;
+	FVector CarryFlyFrom = FVector::ZeroVector;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> DropMesh;
+	float DropAt = -1.f;
+	FVector DropFrom = FVector::ZeroVector;
+	FVector DropTo = FVector::ZeroVector;
+public:
+	EWEWorkPose GetActivity() const { return Activity; }
+	bool IsOnBreak() const { return Break != EBreak::None; }
+	/** Tests / shots: start a break now (server). */
+	void StartBreak();
+protected:
 
 	/** Transport / operate phases. */
 	enum class EPhase : uint8 { GoToSource, Take, GoToTarget, Put, AtMachine, FetchKit, BringKit, CarryProducts };

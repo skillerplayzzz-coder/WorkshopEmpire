@@ -1,4 +1,6 @@
 #include "UI/WETradeWidget.h"
+#include "Framework/WEGameRulesComponent.h"
+#include "Economy/WECourierComponent.h"
 #include "World/WEDayNightComponent.h"
 #include "Workshop/WEBrandComponent.h"
 #include "UI/WEMenuWidgets.h"
@@ -1212,10 +1214,30 @@ void UWETradeWidget::RebuildOrders()
 	}
 	const float Now = Contracts->GetServerTime();
 	// Phase 19: what customers think of the workshop.
-	if (Contracts->GetRatingCount() > 0)
+	// Phase 21: only with the rule "Kundenbewertungen" - then with the reputation and the latest reviews.
+	const bool bReviews = UWEGameRulesComponent::GetRules(this).bCustomerReviews;
+	if (bReviews && Contracts->GetRatingCount() > 0)
 	{
-		AddInfo(ContractList, FText::Format(LOCTEXT("RatingTitle", "Kundenbewertung: {0} von 5 Sternen"), FText::AsNumber(FMath::RoundToFloat(Contracts->GetAverageRating() * 10.f) / 10.f)),
-			FText::Format(LOCTEXT("RatingDetail", "{0} Bewertungen · 4 Sterne bringen 10 %, 5 Sterne 25 % mehr Lohn"), FText::AsNumber(Contracts->GetRatingCount())));
+		const float Rep = Contracts->GetReputation();
+		AddInfo(ContractList, FText::Format(LOCTEXT("RatingTitle2", "Firmenruf: {0} – {1} von 5 Sternen"), UWEContractComponent::GetReputationText(Rep),
+			FText::AsNumber(FMath::RoundToFloat(Contracts->GetAverageRating() * 10.f) / 10.f)),
+			FText::Format(LOCTEXT("RatingDetail2", "{0} Bewertungen · guter Ruf: mehr und besser bezahlte Aufträge, schlechter Ruf: weniger · 4 Sterne +10 %, 5 Sterne +25 % Lohn"),
+				FText::AsNumber(Contracts->GetRatingCount())));
+		for (int32 i = 0; i < FMath::Min(3, Contracts->GetReviews().Num()); ++i)
+		{
+			const FWECustomerReview& R = Contracts->GetReviews()[i];
+			// (Stars as a number: the UI font has no star glyph.)
+			AddInfo(ContractList, FText::FromString(FString::Printf(TEXT("%d/5 Sterne – „%s“"), R.Stars, *R.Text)),
+				FText::Format(LOCTEXT("ReviewBy", "{0} · Tag {1}"), FText::FromString(R.Author), FText::AsNumber(R.Day)));
+		}
+	}
+	// Phase 21: what the parcel courier still brings.
+	if (const UWECourierComponent* Courier = UWECourierComponent::Get(this); Courier && Courier->GetPendingCount() > 0)
+	{
+		const float In = Courier->GetNextVisitIn();
+		AddInfo(ContractList, FText::Format(LOCTEXT("CourierPending", "Paketbote: {0} {0}|plural(one=Bestellung,other=Bestellungen) unterwegs"), Courier->GetPendingCount()),
+			In >= 0.f ? FText::Format(LOCTEXT("CourierNext", "Nächster Besuch in etwa {0} Sekunden – die Pakete stehen dann im Lieferbereich."), FText::AsNumber(FMath::CeilToInt(In / 10.f) * 10))
+				: LOCTEXT("CourierSoon", "Kommt bald."));
 	}
 	for (const bool bAcceptedPass : { true, false })
 	{
@@ -2021,6 +2043,10 @@ FString UWETradeWidget::BuildSignature() const
 	if (const UWEContractComponent* Ratings = UWEContractComponent::Get(this))
 	{
 		Sig << TEXT("|rt:") << Ratings->GetRatingSum() << TEXT("/") << Ratings->GetRatingCount();
+		if (const UWECourierComponent* Courier = UWECourierComponent::Get(this))
+		{
+			Sig << TEXT("|cr:") << Courier->GetPendingCount() << TEXT("/") << FMath::CeilToInt(Courier->GetNextVisitIn() / 10.f);
+		}
 	}
 	if (const AWEPickupItem* HeldPc = Character ? Character->GetHeldItem() : nullptr)
 	{

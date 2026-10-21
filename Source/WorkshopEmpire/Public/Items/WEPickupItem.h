@@ -114,6 +114,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Item")
 	TObjectPtr<UMaterialInterface> PlaceholderMaterial;
 
+	/** Phase 21: wear overlay (dirt, scratches ...). */
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> WearMaterial;
+
 	UPROPERTY(ReplicatedUsing = OnRep_Holder, VisibleInstanceOnly, Category = "Item")
 	TObjectPtr<AWECharacter> Holder;
 

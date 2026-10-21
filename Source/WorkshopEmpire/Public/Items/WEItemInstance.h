@@ -25,7 +25,11 @@ struct WORKSHOPEMPIRE_API FWERepairState
 		/** Phase 19: a customer's PC for an upgrade order - parts may be swapped. */
 		CustomerUpgrade = 1 << 5,
 		/** Parts were put back into a device with a part layout: it needs a function test before it counts as working. */
-		NeedsTest    = 1 << 4
+		NeedsTest    = 1 << 4,
+		/** Phase 21: dust blown out / surfaces cleaned (the dirt is gone). */
+		Cleaned      = 1 << 6,
+		/** Phase 21: old thermal paste removed and new applied. */
+		PasteRenewed = 1 << 7
 	};
 
 	/** Components that are actually broken (a dud spare part keeps its bit until the function test). */
@@ -58,6 +62,16 @@ struct WORKSHOPEMPIRE_API FWERepairState
  * One concrete item (or stack of identical items): definition + per-copy state.
  * Small and replication-friendly; used in inventories, world items and save games.
  */
+/** Phase 21: how worn a device looks, 0-1 each (derived from condition, quality and the item's id; cleaning removes dirt). */
+struct FWEItemWear
+{
+	float Dirt = 0.f;
+	float Scratches = 0.f;
+	float Yellowing = 0.f;
+	float Damage = 0.f;
+	bool IsVisible() const { return Dirt > 0.05f || Scratches > 0.05f || Yellowing > 0.05f || Damage > 0.f; }
+};
+
 USTRUCT(BlueprintType)
 struct WORKSHOPEMPIRE_API FWEItemInstance
 {
@@ -164,6 +178,11 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 
 	/** Condition "Beschädigt" or worse: needs a repair before it works. */
 	bool IsBroken() const { return Condition >= EWEItemCondition::Damaged; }
+
+	/** Phase 21: visible wear (dirt, scratches, yellowed plastic, visible damage). Not every defect shows. */
+	FWEItemWear GetWear() const;
+	/** "Neuwertig", "Gebraucht" or e.g. "Verkratzt, stark verschmutzt" (what the eye sees, not what is broken). */
+	FText GetWearText() const;
 
 	/** Belongs to a customer (repair order): cannot be sold or disassembled. */
 	bool IsCustomerItem() const { return Repair.HasFlag(FWERepairState::CustomerItem); }

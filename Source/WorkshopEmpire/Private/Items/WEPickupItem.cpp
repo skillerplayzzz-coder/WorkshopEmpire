@@ -1,4 +1,6 @@
 #include "Items/WEPickupItem.h"
+#include "Economy/WECourierComponent.h"
+#include "Items/WEWearVisuals.h"
 #include "WELog.h"
 #include "Framework/WEPlayerController.h"
 #include "Items/WELootTable.h"
@@ -175,6 +177,8 @@ void AWEPickupItem::ApplyDefinitionVisuals()
 	{
 		WEPlaceholder::ApplyTint(Mesh, PlaceholderMaterial, Def->Tint);
 	}
+	// Phase 21: dirt, scratches, yellowed plastic, visible damage.
+	WEWear::Apply(Mesh, Item, WearMaterial);
 }
 
 void AWEPickupItem::SetItem(const FWEItemInstance& NewItem)
@@ -294,6 +298,11 @@ bool AWEPickupItem::GetExamineInfo(FWEExamineInfo& OutInfo) const
 	OutInfo.Details.Reset();
 	OutInfo.Details.Add(FText::Format(LOCTEXT("CategoryLine", "Kategorie: {0}"), WEItems::GetCategoryText(Def->Category)));
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ConditionLine", "Zustand: {0} (Qualität {1} %)"), WEItems::GetConditionText(Item.Condition), FText::AsNumber(Item.Quality)));
+	if (Item.GetWear().IsVisible() || Item.Condition <= EWEItemCondition::VeryGood)
+	{
+		// Phase 21: what the eye sees - the actual fault is found by diagnosis.
+		OutInfo.Details.Add(FText::Format(LOCTEXT("LookLine", "Optik: {0}"), Item.GetWearText()));
+	}
 	OutInfo.Details.Add(FText::Format(LOCTEXT("WeightLine", "Gewicht: {0}"), FormatWeight(Item.GetTotalWeightKg())));
 	OutInfo.Details.Add(FText::Format(LOCTEXT("ValueLine", "Schätzwert: {0}"), FText::FromString(Item.GetEstimatedValue().ToDisplayString())));
 	if (Def->CanBeDisassembled())
@@ -419,7 +428,8 @@ bool AWEPickupItem::GetAlternativeInteraction(const AWECharacter* Interactor, FT
 {
 	if (!PlacedOn)
 	{
-		if (Item.Definition && Item.Definition->IsOpenable() && !Holder && Interactor && !Interactor->GetHeldItem())
+		// (Phase 21: a parcel from the courier opens the same way.)
+		if (Item.Definition && (Item.Definition->IsOpenable() || UWECourierComponent::IsParcel(Item)) && !Holder && Interactor && !Interactor->GetHeldItem())
 		{
 			OutText = LOCTEXT("OpenContainer", "Öffnen");
 			return true;
@@ -448,6 +458,13 @@ void AWEPickupItem::InteractAlternative(AWECharacter* Interactor)
 	if (PlacedOn)
 	{
 		PlacedOn->TryStartRepairStep(Interactor);
+	}
+	else if (UWECourierComponent::IsParcel(Item))
+	{
+		if (UWECourierComponent* Courier = UWECourierComponent::Get(this))
+		{
+			Courier->OpenParcel(this, Interactor);
+		}
 	}
 	else if (Item.Definition && Item.Definition->IsOpenable())
 	{

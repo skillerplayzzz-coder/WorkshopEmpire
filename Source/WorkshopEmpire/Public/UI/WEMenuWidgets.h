@@ -5,6 +5,7 @@
 #include "UI/WESettings.h"
 #include "UI/WEUIKit.h"
 #include "Player/WECharacterLook.h"
+#include "Framework/WEGameRulesComponent.h"
 #include "WEMenuWidgets.generated.h"
 
 class UButton;
@@ -204,6 +205,17 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UEditableTextBox> NameBox;
 	UPROPERTY(Transient) TObjectPtr<UEditableTextBox> CompanyBox;
 	UPROPERTY(Transient) TObjectPtr<UCheckBox> TutorialCheck;
+	// Phase 21: difficulty of the new company (preset and single options).
+	UPROPERTY(Transient) TArray<TObjectPtr<UWESettingRow>> RuleRows;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> RulesDescription;
+	FWEGameRules NewRules = FWEGameRules::FromPreset(EWEDifficultyPreset::Realistic);
+	void StepRule(int32 Row, int32 Direction);
+	void RefreshRuleRows();
+public:
+	/** Tests and shots: the rules the "Neues Spiel" page would start with. */
+	const FWEGameRules& GetNewRules() const { return NewRules; }
+	void DevStepRule(int32 Row, int32 Direction) { StepRule(Row, Direction); }
+protected:
 	UPROPERTY(Transient) TObjectPtr<UCheckBox> LANCheck;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> SaveList;
 	UPROPERTY(Transient) TObjectPtr<UScrollBox> GameList;

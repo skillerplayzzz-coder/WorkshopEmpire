@@ -43,6 +43,9 @@ public:
 	/** Phase 19: time of day and opening hours. */
 	class UWEDayNightComponent* GetDayNight() const { return DayNight; }
 	class UWEBrandComponent* GetBrand() const { return Brand; }
+	/** Phase 21: difficulty / rules of this company, and the parcel courier. */
+	class UWEGameRulesComponent* GetRules() const { return Rules; }
+	class UWECourierComponent* GetCourier() const { return Courier; }
 
 protected:
 	/** Phase 17.5: tutorial and personalised look of the buildings. */
@@ -60,6 +63,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Brand")
 	TObjectPtr<class UWEBrandComponent> Brand;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<class UWEGameRulesComponent> Rules;
+
+	UPROPERTY(VisibleAnywhere, Category = "Company")
+	TObjectPtr<class UWECourierComponent> Courier;
 
 	UPROPERTY(VisibleAnywhere, Category = "Company")
 	TObjectPtr<UWECompanyComponent> Company;

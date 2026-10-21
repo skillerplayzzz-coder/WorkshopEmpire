@@ -1,4 +1,6 @@
 #include "Workshop/WEWorkbench.h"
+#include "Framework/WEGameRulesComponent.h"
+#include "World/WEToolWall.h"
 #include "Fx/WEFx.h"
 
 #include "Camera/CameraComponent.h"
@@ -55,6 +57,11 @@ AWEWorkbench::AWEWorkbench()
 	WorkPoint->SetupAttachment(RootComponent);
 	WorkPoint->SetMobility(EComponentMobility::Movable);
 
+	ScrewBowl = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ScrewBowl"));
+	ScrewBowl->SetupAttachment(RootComponent);
+	ScrewBowl->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ScrewBowl->SetCanEverAffectNavigation(false);
+
 	// Work view camera (Phase 17.5): aimed at the device when the view opens; only used as a view target.
 	WorkCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("WorkCamera"));
 	WorkCamera->SetupAttachment(RootComponent);
@@ -106,6 +113,13 @@ void AWEWorkbench::RebuildVisuals()
 	Super::RebuildVisuals();
 	// Work spot: left half of the top (right half stays free for small parts and tools).
 	WorkPoint->SetRelativeLocation(FVector(0.f, -Size.Y * 0.22f, Size.Z));
+	// Phase 21: magnetic screw bowl at the front edge, right of the work spot.
+	if (!ScrewBowl->GetStaticMesh())
+	{
+		ScrewBowl->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_ScrewBowl.SM_Gen_ScrewBowl"), nullptr, LOAD_Quiet | LOAD_NoWarn));
+	}
+	ScrewBowl->SetRelativeLocation(FVector(Size.X * 0.5f - 11.f, Size.Y * 0.04f, Size.Z));
+	ScrewBowl->SetWorldScale3D(FVector::OneVector);
 	WorkIndicator->SetRelativeLocation(FVector(Size.X * 0.5f + 0.6f, 0.f, Size.Z - 2.5f));
 	WorkIndicator->SetRelativeScale3D(FVector(0.01f, Size.Y / 100.f, 0.02f));
 	WEPlaceholder::ApplyTint(WorkIndicator, PlaceholderMaterial, WEWorkbenchConst::Idle);
@@ -200,6 +214,7 @@ bool AWEWorkbench::PlaceItem(AWEPickupItem* Item)
 			Item->SetActorRelativeLocation(FVector(-Turned.GetCenter().X, -Turned.GetCenter().Y, -Turned.Min.Z + 0.3f));
 		}
 	}
+	ApplyKnownFaults();
 	RaiseEvent(EWEWorkbenchEvent::Placed);
 	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemPlacedOnBench); }
 	UE_LOG(LogWENet, Log, TEXT("%s: %s placed (step %d/%d)"), *GetName(), *Item->GetDisplayName().ToString(), GetNextStepIndex(), GetNumSteps());
@@ -224,6 +239,17 @@ bool AWEWorkbench::TakeOffItem(AWECharacter* By)
 		return false;
 	}
 	return true;
+}
+
+FVector AWEWorkbench::GetScrewBowlLocation() const
+{
+	return ScrewBowl ? ScrewBowl->GetComponentLocation() + FVector(0.f, 0.f, 0.4f) : GetWorkSpotLocation();
+}
+
+FVector AWEWorkbench::GetToolRestLocation(int32 Slot) const
+{
+	// Tools lie side by side along the front edge, right of the bowl.
+	return GetActorTransform().TransformPosition(FVector(Size.X * 0.5f - 9.f, Size.Y * 0.04f + 14.f + Slot * 7.5f, Size.Z));
 }
 
 FVector AWEWorkbench::GetWorkSpotLocation() const
@@ -291,17 +317,15 @@ float AWEWorkbench::FindToolSpeed(const AWECharacter* Character, EWEToolType Too
 	{
 		return 1.f;
 	}
-	const UWEInventoryComponent* Inventory = Character ? Character->GetPlayerInventory() : nullptr;
+	// Phase 21: the own inventory plus tool walls within reach.
+	TArray<const UWEItemDefinition*> Tools;
+	AWEToolWall::GatherTools(Character, Tools);
 	float Best = 0.f;
-	if (Inventory)
+	for (const UWEItemDefinition* Def : Tools)
 	{
-		for (const FWEInventorySlotData& Slot : Inventory->GetAllSlots())
+		if (Def->ToolType == Tool)
 		{
-			const UWEItemDefinition* Def = Slot.Item.Definition;
-			if (Def && Def->ToolType == Tool)
-			{
-				Best = FMath::Max(Best, Def->ToolSpeedMultiplier);
-			}
+			Best = FMath::Max(Best, Def->ToolSpeedMultiplier);
 		}
 	}
 	return Best;
@@ -383,7 +407,7 @@ bool AWEWorkbench::TryStartStep(AWECharacter* Character, int32 Part)
 	Work.bInstall = false;
 	Work.StepIndex = StepIndex;
 	Work.Worker = Character;
-	Work.Duration = FMath::Max(0.1f, Step->BaseSeconds / Speed);
+	Work.Duration = FMath::Max(0.1f, Step->BaseSeconds * UWEGameRulesComponent::GetRules(this).RepairTimeFactor() / Speed);
 	Work.StartServerTime = GetServerTime();
 	GetWorldTimerManager().SetTimer(WorkTimer, this, &AWEWorkbench::CompleteActiveStep, Work.Duration, false);
 	RaiseEvent(EWEWorkbenchEvent::StepStarted);
@@ -885,7 +909,7 @@ bool AWEWorkbench::TryStartInstall(AWECharacter* Character, int32 Part)
 	Work.bInstall = true;
 	Work.StepIndex = Part;
 	Work.Worker = Character;
-	Work.Duration = FMath::Max(0.1f, Step->BaseSeconds / Speed);
+	Work.Duration = FMath::Max(0.1f, Step->BaseSeconds * UWEGameRulesComponent::GetRules(this).RepairTimeFactor() / Speed);
 	Work.StartServerTime = GetServerTime();
 	GetWorldTimerManager().SetTimer(WorkTimer, this, &AWEWorkbench::CompleteActiveStep, Work.Duration, false);
 	RaiseEvent(EWEWorkbenchEvent::StepStarted);
@@ -1142,6 +1166,30 @@ void AWEWorkbench::ShowMessage(AWECharacter* Character, const FText& Message) co
 	}
 }
 
+void AWEWorkbench::ApplyKnownFaults()
+{
+	// Phase 21, rule "Diagnose erforderlich" off: what is broken is known as soon as the device lies here.
+	if (!HasAuthority() || !PlacedItem || UWEGameRulesComponent::GetRules(this).bDiagnosisRequired)
+	{
+		return;
+	}
+	FWEItemInstance Item = PlacedItem->GetItem();
+	if (!Item.Definition || !Item.Definition->CanBeRepaired() || !Item.IsBroken() || Item.Repair.HasFlag(FWERepairState::Diagnosed))
+	{
+		return;
+	}
+	EnsureFaultsRolled(Item);
+	Item.Repair.SetFlag(FWERepairState::Diagnosed);
+	PlacedItem->SetItem(Item);
+}
+
+bool AWEWorkbench::RollMistake(AWECharacter* Worker, EWEToolType Tool)
+{
+	// Phase 21, rule "Reparaturfehler": a better tool slips less often.
+	const float Chance = UWEGameRulesComponent::GetRules(this).MistakeChance() / FMath::Max(1.f, FindToolSpeed(Worker, Tool));
+	return Chance > 0.f && Random.FRand() < Chance;
+}
+
 void AWEWorkbench::EnsureFaultsRolled(FWEItemInstance& Item)
 {
 	const UWEItemDefinition* Def = Item.Definition;
@@ -1158,7 +1206,12 @@ void AWEWorkbench::EnsureFaultsRolled(FWEItemInstance& Item)
 	const UWERepairDefinition* Repair = Def->Repair;
 	const int32 NumFaults = FMath::Min(Repair->Faults.Num(), UWERepairDefinition::MaxFaults);
 	int32 Count = 1;
-	if (Item.Condition >= EWEItemCondition::Defective && Random.FRand() < Repair->SecondFaultChance)
+	// Phase 21: "Einfach" never has a second fault, "Detailliert" more often (also on merely damaged devices).
+	const EWERepairComplexity Complexity = UWEGameRulesComponent::GetRules(this).Complexity;
+	const float SecondChance = Complexity == EWERepairComplexity::Simple ? 0.f
+		: Complexity == EWERepairComplexity::Detailed ? FMath::Min(1.f, Repair->SecondFaultChance * 2.f) : Repair->SecondFaultChance;
+	const bool bCanHaveTwo = Item.Condition >= EWEItemCondition::Defective || (Complexity == EWERepairComplexity::Detailed && Item.Condition >= EWEItemCondition::Damaged);
+	if (bCanHaveTwo && Random.FRand() < SecondChance)
 	{
 		Count = 2;
 	}
@@ -1253,6 +1306,23 @@ FWERepairStepInfo AWEWorkbench::GetNextRepairStep(FText& OutReason) const
 	}
 	if (!Item.IsBroken())
 	{
+		// Phase 21: maintenance - first the dust, then fresh thermal paste, then refurbishing.
+		if (!Item.Repair.HasFlag(FWERepairState::Cleaned) && Item.GetWear().Dirt > 0.15f)
+		{
+			Info.Kind = EWERepairStepKind::Clean;
+			Info.Text = LOCTEXT("CleanDust", "Staub und Schmutz ausblasen");
+			Info.Tool = EWEToolType::AirDuster;
+			Info.Seconds = 3.5f;
+			return Info;
+		}
+		if (Repair->PasteMaterial && !Item.Repair.HasFlag(FWERepairState::PasteRenewed))
+		{
+			Info.Kind = EWERepairStepKind::Paste;
+			Info.Text = LOCTEXT("RenewPaste", "Wärmeleitpaste erneuern");
+			Info.Seconds = 5.f;
+			Info.Material = Repair->PasteMaterial;
+			return Info;
+		}
 		if (Repair->RefurbishMaterial && !Item.Repair.HasFlag(FWERepairState::Refurbished) && Item.Quality < 95)
 		{
 			Info.Kind = EWERepairStepKind::Refurbish;
@@ -1413,17 +1483,26 @@ bool AWEWorkbench::TryStartRepairStep(AWECharacter* Character)
 		UE_LOG(LogWENet, Log, TEXT("%s: repair step refused for %s: %s"), *GetName(), *GetNameSafe(Character), *Reason.ToString());
 		return false;
 	}
+	ApplyKnownFaults();
 	const FWERepairStepInfo Info = GetNextRepairStep(Reason);
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
 	const float Speed = FindToolSpeed(Character, Info.Tool) * (Progression ? Progression->GetWorkSpeedMultiplier() : 1.f) * BenchSpeedMultiplier
 		* (Character ? Character->GetWorkBoost() : 1.f);
 
+	// Phase 21: what is broken is decided when the diagnosis starts, so switching on shows the real symptoms and every
+	// measuring point its real result (the player still has to find out).
+	if (Info.Kind == EWERepairStepKind::Diagnose && !PlacedItem->GetItem().Repair.HasFlag(FWERepairState::FaultsRolled))
+	{
+		FWEItemInstance Rolled = PlacedItem->GetItem();
+		EnsureFaultsRolled(Rolled);
+		PlacedItem->SetItem(Rolled);
+	}
 	Work.StepIndex = 0; // marks the bench busy; the repair kind says what is done
 	Work.bInstall = false;
 	Work.RepairKind = Info.Kind;
 	Work.RepairFault = static_cast<int8>(Info.FaultIndex);
 	Work.Worker = Character;
-	Work.Duration = FMath::Max(0.1f, Info.Seconds / Speed);
+	Work.Duration = FMath::Max(0.1f, Info.Seconds * UWEGameRulesComponent::GetRules(this).RepairTimeFactor() / Speed);
 	Work.StartServerTime = GetServerTime();
 	GetWorldTimerManager().SetTimer(WorkTimer, this, &AWEWorkbench::CompleteActiveStep, Work.Duration, false);
 	RaiseEvent(EWEWorkbenchEvent::StepStarted);
@@ -1467,6 +1546,13 @@ void AWEWorkbench::CompleteRepairStep(AWECharacter* Worker)
 		{
 			break;
 		}
+		if (RollMistake(Worker, Fault->Tool))
+		{
+			Message = LOCTEXT("MistakeRemove", "Abgerutscht – die Schraube sitzt noch. Noch einmal ansetzen.");
+			Event = EWEWorkbenchEvent::StepCancelled;
+			UE_LOG(LogWENet, Log, TEXT("%s: repair mistake while removing (%s)"), *GetName(), *Fault->DisplayName.ToString());
+			break;
+		}
 		Item.Repair.Removed |= Bit;
 		if (Fault->bReturnsBrokenPart && Fault->Part)
 		{
@@ -1485,6 +1571,14 @@ void AWEWorkbench::CompleteRepairStep(AWECharacter* Worker)
 		UWEInventoryComponent* Source = nullptr;
 		int32 Slot = INDEX_NONE;
 		FWEItemInstance Used;
+		if (Fault && RollMistake(Worker, Fault->Tool))
+		{
+			// The part is not used up: it simply did not click in.
+			Message = LOCTEXT("MistakeInstall", "Nicht richtig eingerastet – das Teil sitzt schief. Noch einmal einsetzen.");
+			Event = EWEWorkbenchEvent::StepCancelled;
+			UE_LOG(LogWENet, Log, TEXT("%s: repair mistake while installing (%s)"), *GetName(), *Fault->DisplayName.ToString());
+			break;
+		}
 		if (!Fault || !FindSparePart(Worker, Storage, Fault->Part, Source, Slot) || Source->RemoveFromSlot(Slot, 1, Used) != EWEInventoryResult::Success)
 		{
 			// The part was moved away while working.
@@ -1603,6 +1697,30 @@ void AWEWorkbench::CompleteRepairStep(AWECharacter* Worker)
 		Event = EWEWorkbenchEvent::Finished;
 		Message = FText::Format(LOCTEXT("Refurbished", "Aufbereitet: {0} ({1}, Qualität {2} %)"),
 			Name, WEItems::GetConditionText(Item.Condition), FText::AsNumber(Item.Quality));
+		break;
+	}
+	case EWERepairStepKind::Clean:
+		// Phase 21: dust out - it looks better, runs cooler and is worth a bit more.
+		Item.Repair.SetFlag(FWERepairState::Cleaned);
+		Item.Quality = static_cast<uint8>(FMath::Min<int32>(95, Item.Quality + 5));
+		Event = EWEWorkbenchEvent::Finished;
+		Message = FText::Format(LOCTEXT("Cleaned", "Gereinigt: {0} ist staubfrei (Qualität {1} %)"), Name, FText::AsNumber(Item.Quality));
+		break;
+	case EWERepairStepKind::Paste:
+	{
+		UWEInventoryComponent* Source = nullptr;
+		int32 Slot = INDEX_NONE;
+		FWEItemInstance Used;
+		if (!FindSparePart(Worker, Storage, Repair->PasteMaterial, Source, Slot) || Source->RemoveFromSlot(Slot, 1, Used) != EWEInventoryResult::Success)
+		{
+			Message = FText::Format(LOCTEXT("PasteGone", "Material fehlt: {0}"), Repair->PasteMaterial ? Repair->PasteMaterial->DisplayName : FText::GetEmpty());
+			Event = EWEWorkbenchEvent::StepCancelled;
+			break;
+		}
+		Item.Repair.SetFlag(FWERepairState::PasteRenewed);
+		Item.Quality = static_cast<uint8>(FMath::Min<int32>(95, Item.Quality + 5));
+		Event = EWEWorkbenchEvent::Finished;
+		Message = FText::Format(LOCTEXT("PasteDone", "Neue Wärmeleitpaste: {0} bleibt kühler (Qualität {1} %)"), Name, FText::AsNumber(Item.Quality));
 		break;
 	}
 	default:

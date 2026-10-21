@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.21.0] – 2026-10-21 – Phase 21: Realismus, Spieltiefe, Animationen und Spielgefühl
+
+### Neu
+- **Reparaturansicht:** Mausrad zoomt stufenlos zum Zeiger, mittlere Maustaste verschiebt, Doppelklick oder [F] holt die Kamera ganz nah an eine Schraube; alles gleitet weich. Nur was gerade geht, ist deutlich markiert.
+- **Werkzeuge in der Hand:** Schraubendreher, Akkuschrauber, Zange, Messspitze, Lötkolben, Hammer usw. liegen auf der Werkbank, werden aufgenommen und arbeiten sichtbar an der Schraube. Gelöste Schrauben hängen am Magneten und landen in der **Schraubenschale**; beim Zusammenbau kommen sie von dort zurück.
+- **Ersatzteile aus der Verpackung:** Karton öffnen, neue Teile verlieren ihre Schutzfolie, dann einsetzen und einrasten lassen.
+- **Sichtbarer Zustand:** Geräte sind je nach Zustand verschmutzt, verkratzt, vergilbt oder beschädigt; nicht jeder Defekt ist sichtbar.
+- **Diagnose:** einschalten und beobachten (Fehlerbild), dann Bauteile einzeln messen: „defekt“ oder „in Ordnung“.
+- **Wartung:** Staub mit Druckluftspray ausblasen, alte Wärmeleitpaste abwischen und neue auftragen (PC, Konsole). Beim bestandenen Funktionstest geht das Licht an, der Bildschirm zeigt ein Bild, das Radio spielt.
+- **Mitarbeiter:** greifen sichtbar ins Regal und in die Maschine, tragen die echten Teile, bedienen die Maschine. Kaffeepausen an der Kaffeemaschine, Plausch mit Kollegen, Sitzen auf dem Hocker.
+- **Werkzeugwand:** Lochwand mit Haken; jedes Werkzeug hängt sichtbar an seinem Platz, leere Haken zeigen den Umriss. [R] alles aufhängen, [Q] das angeschaute Werkzeug nehmen. Werkzeug an einer Wand in der Nähe ist an der Werkbank griffbereit.
+- **Paketbote:** Bestellungen bei den Versandhändlern und aus den Kleinanzeigen kommen als Pakete. Der Bote bringt sie höchstens alle paar Minuten zum Lieferbereich; Pakete aufheben und mit [Q] öffnen, drin ist genau das Bestellte.
+- **Schwierigkeit beim neuen Spiel:** Entspannt, Realistisch, Experte oder jede Option einzeln: Diagnose erforderlich, Reparaturfehler (Schraubendreher rutscht ab, Teil rastet nicht ein), Kundenbewertungen, Wirtschaft (Preise), Reparaturkomplexität (Dauer, Anzahl der Fehler).
+- **Kundenbewertungen und Firmenruf** (abschaltbar): Kunden schreiben zu ihren Sternen einen Satz; ein guter Ruf bringt mehr und besser bezahlte Aufträge, ein schlechter weniger.
+
+### Geändert
+- Neue Werkzeuge im Handel: Druckluftspray (Werkzeugladen) und Wärmeleitpaste (Ersatzteilhändler).
+- Mitarbeiter finden Ziele auf Möbeln (z. B. die Kaffeemaschine auf dem Tisch) jetzt zuverlässig und werden beim Festhängen nicht mehr in den Boden gesetzt.
+- Spielstand Version 19 (Regeln, Pakete, Bewertungen). Ältere Spielstände laden weiter und spielen sich wie bisher (ohne Paketbote und Reparaturfehler).
 ## [0.20.0] – 2026-10-20 – Phase 20: Werkstatt-Ausbau und Release-Vorbereitung
 
 ### Neu

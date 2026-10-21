@@ -1,4 +1,6 @@
 #include "Save/WESaveSystem.h"
+#include "Framework/WEGameRulesComponent.h"
+#include "Economy/WECourierComponent.h"
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Economy/WEClassifiedsComponent.h"
@@ -376,6 +378,43 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 		}
 		Save->RatingSum = Contracts->GetRatingSum();
 		Save->RatingCount = Contracts->GetRatingCount();
+		// Phase 21: rules, parcels on their way and lying around, reviews.
+		if (const UWEGameRulesComponent* Rules = UWEGameRulesComponent::Get(World))
+		{
+			Save->bHasRules = true;
+			Save->Rules = Rules->GetCurrent();
+		}
+		if (const UWECourierComponent* Courier = UWECourierComponent::Get(World))
+		{
+			TArray<FWECourierOrder> Orders;
+			TArray<FWEParcelContents> Parcels;
+			Courier->GetSaveState(Orders, Parcels);
+			for (const FWECourierOrder& O : Orders)
+			{
+				FWESavedCourierOrder& Saved = Save->CourierOrders.AddDefaulted_GetRef();
+				Saved.Item = ToSaved(O.Item);
+				Saved.RemainingSeconds = O.DueAt;
+				Saved.Sender = O.Sender;
+			}
+			for (const FWEParcelContents& P : Parcels)
+			{
+				FWESavedParcel& Saved = Save->Parcels.AddDefaulted_GetRef();
+				Saved.ParcelId = P.ParcelId;
+				Saved.Sender = P.Sender;
+				for (const FWEItemInstance& I : P.Items)
+				{
+					Saved.Items.Add(ToSaved(I));
+				}
+			}
+		}
+		for (const FWECustomerReview& R : Contracts->GetReviews())
+		{
+			FWESavedReview& Saved = Save->Reviews.AddDefaulted_GetRef();
+			Saved.Stars = R.Stars;
+			Saved.Author = R.Author;
+			Saved.Text = R.Text;
+			Saved.Day = R.Day;
+		}
 		// Phase 19: what was bought from the classifieds and is still on its way, and the company's own ads.
 		if (const UWEClassifiedsComponent* Classifieds = UWEClassifiedsComponent::Get(World))
 		{
@@ -836,6 +875,54 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 			}
 			Contracts->SetContracts(Restored);
 			Contracts->SetRatings(Save->RatingSum, Save->RatingCount);
+			// Phase 21: rules (older saves: the game as before), courier, reviews.
+			if (UWEGameRulesComponent* Rules = UWEGameRulesComponent::Get(World))
+			{
+				Rules->SetRules(Save->bHasRules && Save->SaveVersion >= 19 ? Save->Rules : FWEGameRules());
+			}
+			if (UWECourierComponent* Courier = UWECourierComponent::Get(World))
+			{
+				TArray<FWECourierOrder> Orders;
+				TArray<FWEParcelContents> Parcels;
+				for (const FWESavedCourierOrder& Saved : Save->CourierOrders)
+				{
+					FWECourierOrder O;
+					if (FromSaved(Saved.Item, O.Item))
+					{
+						O.DueAt = Saved.RemainingSeconds;
+						O.Sender = Saved.Sender;
+						Orders.Add(O);
+					}
+				}
+				for (const FWESavedParcel& Saved : Save->Parcels)
+				{
+					FWEParcelContents P;
+					P.ParcelId = Saved.ParcelId;
+					P.Sender = Saved.Sender;
+					for (const FWESavedItem& SI : Saved.Items)
+					{
+						FWEItemInstance I;
+						if (FromSaved(SI, I))
+						{
+							P.Items.Add(I);
+						}
+					}
+					Parcels.Add(P);
+				}
+				Courier->SetSaveState(Orders, Parcels);
+			}
+			{
+				TArray<FWECustomerReview> Reviews;
+				for (const FWESavedReview& Saved : Save->Reviews)
+				{
+					FWECustomerReview& R = Reviews.AddDefaulted_GetRef();
+					R.Stars = Saved.Stars;
+					R.Author = Saved.Author;
+					R.Text = Saved.Text;
+					R.Day = Saved.Day;
+				}
+				Contracts->SetReviews(Reviews);
+			}
 			if (UWEBrandComponent* Brand = UWEBrandComponent::Get(World); Brand && Save->bHasBrand && Save->SaveVersion >= 18)
 			{
 				Brand->SetBrand(Save->Brand);

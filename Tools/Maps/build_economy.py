@@ -85,7 +85,7 @@ TRADERS = [
     ("DA_Trader_ToolShop", "Werkzeug-Versand Hammerl", 30.0,
      [rate(C.TOOL, 0.7), rate(C.POWER_TOOL, 0.7)],
      [stock("Screwdriver", 5, Q.NEW, 80), stock("SideCutter", 3, Q.NEW, 80), stock("CordlessDrill", 2, Q.NEW, 85),
-      stock("Multimeter", 3, Q.NEW, 80), stock("SolderingIron", 2, Q.NEW, 80),
+      stock("Multimeter", 3, Q.NEW, 80), stock("SolderingIron", 2, Q.NEW, 80), stock("AirDuster", 4, Q.NEW, 90),
       # Phase 8: better tools and the hand truck.
       stock("BitRatchet", 2, Q.NEW, 80), stock("ProSideCutter", 2, Q.NEW, 80), stock("DigitalMultimeter", 2, Q.NEW, 80),
       stock("SolderingStation", 1, Q.NEW, 80), stock("HandTruck", 1, Q.NEW, 80),
@@ -101,7 +101,7 @@ TRADERS = [
       stock("GraphicsCardPro", 1, Q.USED, 55, chance=0.5, q_spread=15),
       # Phase 20: parts for televisions, radios, consoles and cordless drills.
       stock("Speaker", 4, Q.NEW, 80), stock("DiscDrive", 2, Q.NEW, 80), stock("DrillBattery", 3, Q.NEW, 85), stock("CarbonBrushes", 6, Q.NEW, 85),
-      stock("CaseFan", 3, Q.NEW, 80), stock("CopperCable", 6, Q.USED, 70)]),
+      stock("CaseFan", 3, Q.NEW, 80), stock("CopperCable", 6, Q.USED, 70), stock("ThermalPaste", 8, Q.NEW, 90)]),
     # Phase 7: sealed return pallets with unknown contents (open with [Q]).
     ("DA_Trader_Returns", "Retouren-Großhandel Paletti", 15.0,
      [],

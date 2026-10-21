@@ -253,6 +253,11 @@ ICONS = {
     "Medal": lambda: union(poly([(8, 2.5), (11, 2.5), (13.5, 9), (10.5, 10)]), poly([(16, 2.5), (13, 2.5), (10.5, 9), (13.5, 10)]),
                            sub(circle(12, 15.5, 6), star(12, 15.8, 3.8, 1.6))),
     "Map": lambda: union(outline(poly([(3, 5), (9, 3), (15, 5), (21, 3), (21, 19), (15, 21), (9, 19), (3, 21)]), S), seg(9, 3, 9, 19, S), seg(15, 5, 15, 21, S)),
+    # Phase 21: compressed air, thermal paste, tool wall.
+    "Wind": lambda: union(polyline([(3, 8), (15, 8), (18, 6), (16.5, 3.8)], S), polyline([(3, 12.5), (19, 12.5), (21, 15), (18.5, 17)], S),
+                          polyline([(3, 17), (11, 17), (13, 19.5), (11, 21)], S)),
+    "Syringe": lambda: rotate(union(rbox(12, 9, 2.6, 6, 0.6), rbox(12, 2.5, 3.6, 0.8), rbox(12, 0.8, 0.9, 1.6), poly([(10.6, 15), (13.4, 15), (12, 21.5)])), 12, 12, 40),
+    "Pegboard": lambda: union(outline(rbox(12, 12, 9.5, 9.5, 0.8), S), *[circle(7 + 5 * (i % 3), 7 + 5 * (i // 3), 0.9) for i in range(9)]),
 }
 
 
