@@ -1,6 +1,10 @@
 // Phase 21 screenshot runs (-WEShots=P21 on L_Garage): repair camera, tools in hand, visible disassembly, conditions and
 // diagnosis, cleaning, employees at work, tool wall, parcel courier, difficulty, customer reviews.
 #include "Dev/WEDevAutomationComponent.h"
+#include "Widgets/SWindow.h"
+#include "Engine/GameViewportClient.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Framework/Application/SlateApplication.h"
 
 #include "EngineUtils.h"
 #include "Framework/WEPlayerController.h"
@@ -657,6 +661,73 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 		}
 	};
 
+	if (ShotName == TEXT("P21W"))
+	{
+		// --- Real mouse clicks (Slate events) on the parts of a PC in the work view: does a click pick the part? -------
+		Schedule(1.0f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
+		Schedule(2.0f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("Screwdriver"), 1, EWEItemCondition::Used); PC->ServerDevGiveItem(TEXT("OldComputer"), 1, EWEItemCondition::Used); } });
+		Schedule(3.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindNearestItem(TEXT("Computer"))); } });
+		Schedule(4.0f, [this]() { TeleportToBench(0.f); });
+		Schedule(5.0f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+		Schedule(5.6f, [this]() { PlaceHeldOnBench(); });
+		Schedule(6.6f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+		auto ClickPart = [this, PC, View](int32 Part, const TCHAR* Label)
+		{
+			UWEWorkViewWidget* V = View();
+			const AWEWorkbench* B = FindBench();
+			const AWEAssemblyView* Asm = B ? B->GetAssemblyView() : nullptr;
+			FVector2D Pixel;
+			if (!V || !Asm || !PC || !PC->ProjectWorldLocationToScreen(Asm->GetPartCenter(Part), Pixel, true) || !GEngine->GameViewport)
+			{
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("P21W %s: cannot click"), Label);
+				return;
+			}
+			const float Scale = UWidgetLayoutLibrary::GetViewportScale(V);
+			const FVector2D Abs = V->GetCachedGeometry().LocalToAbsolute(Pixel / FMath::Max(Scale, 0.01f));
+			TSharedPtr<SWindow> Window = GEngine->GameViewport->GetWindow();
+			FSlateApplication& App = FSlateApplication::Get();
+			App.SetCursorPos(Abs);
+			App.ProcessMouseMoveEvent(FPointerEvent(0, Abs, Abs, TSet<FKey>(), FKey(), 0.f, FModifierKeysState()));
+			TSet<FKey> Pressed;
+			Pressed.Add(EKeys::LeftMouseButton);
+			App.ProcessMouseButtonDownEvent(Window.IsValid() ? Window->GetNativeWindow() : nullptr, FPointerEvent(0, Abs, Abs, Pressed, EKeys::LeftMouseButton, 0.f, FModifierKeysState()));
+			App.ProcessMouseButtonUpEvent(FPointerEvent(0, Abs, Abs, TSet<FKey>(), EKeys::LeftMouseButton, 0.f, FModifierKeysState()));
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("P21W %s: clicked part %d at %s (pixel %s): %s"), Label, Part, *Abs.ToString(), *Pixel.ToString(), *V->DescribeState());
+		};
+		Schedule(9.0f, [this, View]() { Shot(TEXT("50_Vor_Klick")); });
+		Schedule(9.5f, [ClickPart]() { ClickPart(0, TEXT("side panel")); });
+		Schedule(10.5f, [this, View]() { Shot(TEXT("51_Nach_Klick")); if (View()) { UE_LOG(LogWorkshopEmpire, Display, TEXT("P21W after: %s"), *View()->DescribeState()); } });
+		// Then press and hold the mouse on the first screw (as a player does) until it is out.
+		TSharedRef<FVector2D> HoldAt = MakeShared<FVector2D>(FVector2D::ZeroVector);
+		Schedule(12.0f, [PC, View, HoldAt]()
+		{
+			UWEWorkViewWidget* V = View();
+			const int32 Task = V ? V->DevFindAvailableTask() : INDEX_NONE;
+			FVector2D Pixel;
+			if (!V || Task == INDEX_NONE || !V->GetRig() || !PC->ProjectWorldLocationToScreen(V->GetRig()->GetTaskLocation(Task), Pixel, true))
+			{
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("P21W hold: no screw to hold"));
+				return;
+			}
+			*HoldAt = V->GetCachedGeometry().LocalToAbsolute(Pixel / FMath::Max(UWidgetLayoutLibrary::GetViewportScale(V), 0.01f));
+			FSlateApplication& App = FSlateApplication::Get();
+			App.SetCursorPos(*HoldAt);
+			App.ProcessMouseMoveEvent(FPointerEvent(0, *HoldAt, *HoldAt, TSet<FKey>(), FKey(), 0.f, FModifierKeysState()));
+			TSet<FKey> Pressed;
+			Pressed.Add(EKeys::LeftMouseButton);
+			TSharedPtr<SWindow> Window = GEngine->GameViewport->GetWindow();
+			App.ProcessMouseButtonDownEvent(Window.IsValid() ? Window->GetNativeWindow() : nullptr, FPointerEvent(0, *HoldAt, *HoldAt, Pressed, EKeys::LeftMouseButton, 0.f, FModifierKeysState()));
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("P21W hold: pressed on task %d: %s"), Task, *V->DescribeState());
+		});
+		Schedule(13.0f, [this]() { Shot(TEXT("52_Schraube_halten")); });
+		Schedule(15.5f, [View, HoldAt]()
+		{
+			FSlateApplication::Get().ProcessMouseButtonUpEvent(FPointerEvent(0, *HoldAt, *HoldAt, TSet<FKey>(), EKeys::LeftMouseButton, 0.f, FModifierKeysState()));
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("P21W hold: released: %s"), View() ? *View()->DescribeState() : TEXT("-"));
+		});
+		Schedule(16.5f, [this]() { Quit(); });
+		return;
+	}
 	Schedule(1.0f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
 	// --- 1. Repair camera: the PC on the bench, zoom towards the cursor, close-up on a screw -----------------
 	Schedule(2.0f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("Screwdriver"), 1, EWEItemCondition::Used); PC->ServerDevAddMoney(60000); } });

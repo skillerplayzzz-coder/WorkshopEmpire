@@ -179,3 +179,9 @@ PC Teil für Teil zerlegt (Lauf `P175W`) und jedes Bild angesehen. Gefunden und 
 - **„Sand“-Rauschen** auf Flächen: Die Verschleiß-Schicht war durchscheinend und beleuchtet (rauscht mit Lumen/TSR); jetzt multipliziert sie unbeleuchtet (`M_WEWear`, Modulate). Dazu rendert das Spiel nie unter ~960 Bildzeilen (Renderauflösung ab Werk = 960 / Bildhöhe, 67–100 %).
 
 **Getestet:** `P175W` (Bilder ohne verdeckte Sicht, ohne Rauschen und weiße Wolken; Log: 7 Teile liegen auf der Werkbank im Bereich der Platte), Unit-Tests 137/137, gepackt 2560×1440 Werkstatt 63–69 FPS.
+
+## Klicks in der Arbeitsansicht kamen nicht an (2026-10-22, Mikes Video)
+
+**Befund aus Mikes Video und Log:** Er hielt den Mauszeiger auf „Seitenteil – klicken“ und klickte mehrfach, es passierte nichts; erst [Q] (automatisch) baute das Seitenteil aus. Im Log steht nur der automatische Schritt.
+**Ursache:** Die Arbeitsansicht bekam Mausklicks auf die 3D-Ansicht gar nicht: Ihr Hintergrund-Panel war nicht klickbar (in UMG ist ein Panel standardmäßig „nicht treffbar“), also ging der Klick am Fenster vorbei ins Spiel. Nur Knöpfe (Reiter, Werkzeuge) funktionierten. Damit gingen auch Teil anklicken, Schraube gedrückt halten und Drehen mit der rechten Maustaste nicht. Die automatischen Tests riefen die Funktionen direkt auf und merkten das nicht.
+**Behoben:** Die ganze Fläche der Arbeitsansicht ist klickbar. Neuer Test `-WEShots=P21W` schickt **echte Maus-Ereignisse** (über Slate): Klick auf das Seitenteil wählt es (3 Schrauben-Aufgaben), Schraube gedrückt halten löst sie (Maske 0 → 1). Geprüft im Editor-Spiel und im gepackten Spiel. Namensschilder sind leiser (kleiner, halb durchsichtig), nur das Teil unter dem Zeiger ist groß.

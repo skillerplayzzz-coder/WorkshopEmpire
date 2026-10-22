@@ -69,6 +69,9 @@ void UWEWorkViewWidget::NativeOnInitialized()
 		return;
 	}
 	Canvas = WidgetTree->ConstructWidget<UCanvasPanel>();
+	// Hit-testable over the whole screen: a click on the 3D view (a part, a screw) has to reach this widget. A panel is
+	// not hit-testable by itself, so clicks between the cards went to the game and nothing happened (Phase 21 fix).
+	Canvas->SetVisibility(ESlateVisibility::Visible);
 	WidgetTree->RootWidget = Canvas;
 
 	// Markers first, so the cards draw above them.
@@ -881,6 +884,7 @@ FReply UWEWorkViewWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, c
 		return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 	}
 	const int32 Task = FindTaskAt(MousePosition());
+	UE_LOG(LogWorkshopEmpire, Verbose, TEXT("Work view mouse down: task %d, part mode %d, install %d"), Task, IsPartMode() ? 1 : 0, bInstall ? 1 : 0);
 	// Double click: close-up on the screw / plug (or back to the whole device when clicked beside it).
 	const float ClickTime = GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.f;
 	const bool bDouble = ClickTime - LastClickTime < 0.35f && FVector2D::Distance(LastClickPos, MousePosition()) < 12.f;
@@ -1240,6 +1244,9 @@ void UWEWorkViewWidget::UpdatePartLabels()
 		PartLabelTexts[Used]->SetText(Part == Hover ? FText::Format(LOCTEXT("PartLabelHover", "{0} – klicken"), Assembly->Parts[Part].DisplayName) : Assembly->Parts[Part].DisplayName);
 		Label->SetBrush(WEUI::Brush(Col::WithAlpha(Col::PanelDark, 0.85f), Part == Hover ? Col::Accent : Col::WithAlpha(Col::Accent, 0.6f), Part == Hover ? 2.f : 1.f, 6.f));
 		Label->SetVisibility(ESlateVisibility::HitTestInvisible);
+		// Quiet unless pointed at (inside an open PC there are many at once).
+		Label->SetRenderOpacity(Part == Hover ? 1.f : 0.65f);
+		Label->SetRenderScale(FVector2D(Part == Hover ? 1.1f : 0.85f));
 		if (UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(Label->Slot))
 		{
 			S->SetPosition(Screen / Scale);
