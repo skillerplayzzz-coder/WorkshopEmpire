@@ -24,6 +24,7 @@
 #include "Workshop/WEToolHand.h"
 #include "Workshop/WERepairDefinition.h"
 #include "Workshop/WEAssemblyView.h"
+#include "EngineUtils.h"
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/StaticMesh.h"
@@ -273,12 +274,68 @@ void UWEWorkViewWidget::Setup(AWEWorkbench* InBench, bool bInRepair)
 		const int32 Wanted = Tools.IndexOfByKey(Rig->GetPlan().Tasks[0].Tool);
 		SelectToolIndex(Wanted != INDEX_NONE ? Wanted : 0);
 	}
+	HideClutter();
 	Anim.Start();
 	Play(this, ESound::Open, 0.4f);
 }
 
+void UWEWorkViewWidget::HideClutter()
+{
+	RestoreClutter();
+	AWEWorkbench* B = Bench.Get();
+	UWorld* World = GetWorld();
+	if (!B || !World)
+	{
+		return;
+	}
+	const FVector Spot = B->GetWorkSpotLocation();
+	const AActor* Device = B->GetPlacedItem();
+	const APawn* Me = GetOwningPlayerPawn();
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* A = *It;
+		if (A == B || A == Device || A == Rig || A == Hand || A == Me || A == GetView() || A->IsA<APawn>() || A->IsHidden())
+		{
+			continue;
+		}
+		if (A->GetAttachParentActor() == Device || A->GetAttachParentActor() == Me)
+		{
+			continue;
+		}
+		FVector Center, Extent;
+		A->GetActorBounds(true, Center, Extent);
+		// Small things on or next to the bench around the device (not walls, shelves, the building).
+		if (Extent.GetMax() > 90.f || FVector::Dist2D(Center, Spot) > 150.f || Center.Z < Spot.Z - 45.f || Center.Z > Spot.Z + 140.f)
+		{
+			continue;
+		}
+		TArray<UPrimitiveComponent*> Prims;
+		A->GetComponents<UPrimitiveComponent>(Prims);
+		for (UPrimitiveComponent* P : Prims)
+		{
+			if (P && P->IsVisible())
+			{
+				P->SetVisibility(false);
+				HiddenClutter.Add(P);
+			}
+		}
+	}
+}
+
+void UWEWorkViewWidget::RestoreClutter()
+{
+	for (const TWeakObjectPtr<UPrimitiveComponent>& P : HiddenClutter)
+	{
+		if (UPrimitiveComponent* C = P.Get())
+		{
+			C->SetVisibility(true);
+		}
+	}
+	HiddenClutter.Reset();
+}
 void UWEWorkViewWidget::Shutdown()
 {
+	RestoreClutter();
 	if (AWEAssemblyView* View = GetView())
 	{
 		View->SetHover(INDEX_NONE);

@@ -1064,8 +1064,12 @@ void AWEWorkbench::OnRep_Work()
 		// A little dust and a few bits fly when a part comes off (more at the end).
 		const FVector At = WorkPoint->GetComponentLocation() + FVector(0.f, 0.f, 15.f);
 		const float FxScale = Work.LastEvent == EWEWorkbenchEvent::Finished ? 1.f : 0.5f;
-		AWEFx::Burst(this, EWEFxKind::Dust, At, FVector::UpVector, FLinearColor::White, FxScale);
-		AWEFx::Burst(this, EWEFxKind::Chips, At, FVector::UpVector, FLinearColor(0.35f, 0.36f, 0.38f), 0.35f * FxScale);
+		// (Phase 21: not on devices taken apart part by part - their parts move visibly, and the white puffs filled the close-up.)
+		if (!GetAssemblyView())
+		{
+			AWEFx::Burst(this, EWEFxKind::Dust, At, FVector::UpVector, FLinearColor(0.5f, 0.47f, 0.42f), FxScale);
+			AWEFx::Burst(this, EWEFxKind::Chips, At, FVector::UpVector, FLinearColor(0.35f, 0.36f, 0.38f), 0.35f * FxScale);
+		}
 	}
 	PlayEventSound(Work.LastEvent);
 }

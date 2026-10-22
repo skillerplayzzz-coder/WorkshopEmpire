@@ -1,6 +1,7 @@
 // Phase 17.5 screenshot run (-WEShots=P175...): main menu pages, then a new company with the tutorial, the inventory,
 // the workshop PC (Ferrit OS) apps, personalising the garage, the pause menu and build mode.
 #include "Dev/WEDevAutomationComponent.h"
+#include "Workshop/WEAssemblyView.h"
 
 #include "Economy/WETraderTerminal.h"
 #include "Framework/WEMenuGameMode.h"
@@ -273,6 +274,18 @@ void UWEDevAutomationComponent::RunWorkViewShots()
 	Schedule(35.5f, [this]() { GetWorld()->GetTimerManager().SetTimer(WorkViewTimer, this, &UWEDevAutomationComponent::WorkViewTick, 0.2f, true); });
 	Schedule(45.0f, [this, View]() { Shot(TEXT("35b_Teile_raus")); if (View()) { UE_LOG(LogWENet, Display, TEXT("P175W %s"), *View()->DescribeState()); } });
 	Schedule(56.0f, [this]() { Shot(TEXT("35c_Mainboard")); });
+	// Phase 21: the whole bench - the parts that came out lie next to the device.
+	Schedule(41.5f, [View]() { if (View()) { View()->DevZoom(9.f, false); } });
+	Schedule(43.0f, [this]()
+	{
+		Shot(TEXT("35e_Teile_auf_Werkbank"));
+		const AWEWorkbench* B = FindBench();
+		const AWEAssemblyView* Asm = B ? B->GetAssemblyView() : nullptr;
+		FString List;
+		for (const FVector& P : Asm ? Asm->GetPartsOnBench() : TArray<FVector>()) { List += P.ToCompactString() + TEXT(" "); }
+		UE_LOG(LogWENet, Display, TEXT("P175W parts on bench: %s (bench top %.1f, device %s)"), *List, B ? B->GetWorkSpotLocation().Z : 0.f,
+			Asm ? *Asm->GetDeviceBounds().GetCenter().ToCompactString() : TEXT("-"));
+	});
 	Schedule(64.0f, [this]() { Shot(TEXT("35d_Fast_leer")); });
 	Schedule(70.0f, [this, PC, View]()
 	{

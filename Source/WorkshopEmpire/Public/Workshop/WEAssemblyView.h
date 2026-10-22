@@ -43,6 +43,8 @@ public:
 	/** Phase 21: a loosened screw on its way to the bowl (on the magnetic tip). */
 	bool GetCarryPoint(FVector& OutPoint) const;
 	int32 GetScrewsInBowl() const;
+	/** Tests: where the parts that came out lie (visible ones on the bench). */
+	TArray<FVector> GetPartsOnBench() const;
 	FVector DeviceToWorld(const FVector& DevicePoint) const;
 	/** Device bounds in world space (parts that are inside). */
 	FBox GetDeviceBounds() const;
@@ -75,6 +77,8 @@ protected:
 		bool bOut = false;
 		float OutAt = -1.f;
 		bool bGone = false;
+		/** Phase 21: where it lies on the bench beside the device once out (order of removal). */
+		int32 BenchSlot = INDEX_NONE;
 		/** Reassembly: the part is set in (its own task done) and when that happened. */
 		bool bInserted = false;
 		float InsertedAt = -1.f;
@@ -102,5 +106,6 @@ protected:
 	int32 ActiveFastener = INDEX_NONE;
 	float ActiveProgress = 0.f;
 	int32 TrayCount = 0;
+	int32 NextBenchSlot = 0;
 	bool bBuilt = false;
 };

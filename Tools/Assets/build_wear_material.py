@@ -51,7 +51,11 @@ a = max(a, spots * 0.7);
 col = lerp(col, float3(0.8, 0.8, 0.78), lines);
 a = max(a, lines * 0.6);
 col = lerp(col, float3(0.03, 0.025, 0.02), dmg);
-a = max(a, dmg * 0.9);return float4(col, a);
+a = max(a, dmg * 0.9);
+// Modulate (multiplies what is underneath): 1 = unchanged; darker for grime and damage, lighter for scratches, a tint for
+// yellowing. Unlit and not see-through, so no lighting noise on the overlay (the translucent version looked like sand).
+float3 m = lerp(float3(1.0, 1.0, 1.0), saturate(col * 1.6), a);
+return float4(m, 1.0);
 """
 
 
@@ -67,8 +71,8 @@ def main():
     if eal.does_asset_exist(path):
         eal.delete_asset(path)
     mat = tools.create_asset(NAME, FOLDER, unreal.Material, unreal.MaterialFactoryNew())
-    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
-    mat.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_VOLUMETRIC_NON_DIRECTIONAL)
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MODULATE)
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     custom = mel.create_material_expression(mat, unreal.MaterialExpressionCustom, -300, 0)
     custom.set_editor_property("code", CODE)
     custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT4)
@@ -95,11 +99,7 @@ def main():
     alpha.set_editor_property("a", True)
     mel.connect_material_expressions(custom, "", rgb, "")
     mel.connect_material_expressions(custom, "", alpha, "")
-    mel.connect_material_property(rgb, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    mel.connect_material_property(alpha, "", unreal.MaterialProperty.MP_OPACITY)
-    rough = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, 0, 200)
-    rough.set_editor_property("r", 0.85)
-    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(rgb, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mel.recompile_material(mat)
     eal.save_asset(path)
     unreal.log(f"WE_WEAR_MATERIAL {path}")

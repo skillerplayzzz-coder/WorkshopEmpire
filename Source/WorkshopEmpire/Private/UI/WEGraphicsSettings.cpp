@@ -35,7 +35,7 @@ void WEGraphics::SetQuality(int32 Level, bool bSave)
 void WEGraphics::ApplyFirstStartDefaults()
 {
 	static const TCHAR* Section = TEXT("WorkshopEmpire.Graphics");
-	constexpr int32 DefaultsVersion = 2;
+	constexpr int32 DefaultsVersion = 3;
 	int32 Applied = 0;
 	GConfig->GetInt(Section, TEXT("DefaultsVersion"), Applied, GGameUserSettingsIni);
 	UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
@@ -48,10 +48,14 @@ void WEGraphics::ApplyFirstStartDefaults()
 	Scalability::FQualityLevels Levels = Scalability::GetQualityLevels();
 	Levels.SetFromSingleQualityLevel(2);
 	Scalability::SetQualityLevels(Levels);
-	// Render resolution by the screen (TSR scales up): 1440p and above 67 %, ultrawide/1080p+ 80 %, smaller native.
-	// RTX 3060, garage, "Hoch": 1440p at 100 % 47 fps, at 67 % 64-70 fps.
-	const FIntPoint Desktop = Settings->GetDesktopResolution();
-	const float Percent = Desktop.Y >= 1400 ? 67.f : Desktop.X >= 2500 || Desktop.Y >= 1080 ? 80.f : 100.f;
+	// Render resolution by the screen (TSR scales up): about 960 rendered lines - fewer get grainy (Lumen, TSR).
+	// RTX 3060, garage, "Hoch": 1440p at 100 % 47 fps, at 67 % 64-70 fps. Never below 67 %.
+	FIntPoint Screen = Settings->GetScreenResolution();
+	if (Screen.Y <= 0)
+	{
+		Screen = Settings->GetDesktopResolution();
+	}
+	const float Percent = FMath::Clamp(FMath::RoundToFloat(960.f / FMath::Max(Screen.Y, 1) * 100.f), 67.f, 100.f);
 	GConfig->SetFloat(TEXT("WorkshopEmpire.Settings"), TEXT("RenderScale"), Percent, GGameUserSettingsIni);
 	Settings->ApplyNonResolutionSettings();
 	Settings->SaveSettings();

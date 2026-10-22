@@ -169,3 +169,13 @@ Mikes Befund: 1–3 FPS im Hauptmenü, langes Einlaufen, beim Seitenteil nichts 
 - **Zerlegen:** Im Auswahlmodus trägt jedes Bauteil, das jetzt ausgebaut werden kann, ein Namensschild („Seitenteil – klicken“ beim Darüberfahren). Nach dem Anklicken dreht die Kamera zu den Schrauben, wenn diese seitlich sitzen (Seitenteil: Schrauben an der Rückkante).
 
 **Getestet:** Leistung im gepackten Spiel (Menü 2560×1080 und 2560×1440, Werkstatt 2560×1440, je mit Zahlen oben), Unit-Tests 137/137, UI-Eingaben bei 2560×1440 (17/17), Arbeitsansicht-Lauf `P21` (Namensschild „Seitenteil“, Kamera an der Rückkante), Einstellungsseite (Bild `P21M_64`).
+
+## Zerlegen selbst durchgespielt (2026-10-22)
+
+PC Teil für Teil zerlegt (Lauf `P175W`) und jedes Bild angesehen. Gefunden und verbessert:
+- **Kamera hinter Gegenständen:** Radio, Kaffeemaschine, Spraydosen und Werkzeug neben dem Gerät verdeckten den Blick, sobald die Kamera um das Gerät dreht. In der Arbeitsansicht werden kleine Gegenstände um das Gerät jetzt für den eigenen Bildschirm ausgeblendet und beim Verlassen wieder eingeblendet.
+- **Ausgebaute Teile verschwanden einfach:** Jetzt legt jedes Teil sich nach dem Ausbau neben das Gerät auf die Werkbank (auf die Seite mit mehr Platz, Reihen von 3, darüber gestapelt), in der Reihenfolge des Ausbaus.
+- **Weiße „Staubwolken“** bei jedem Schritt füllten die Nahansicht. Bei Geräten, die Teil für Teil zerlegt werden, gibt es sie nicht mehr (dort bewegen sich die Teile sichtbar).
+- **„Sand“-Rauschen** auf Flächen: Die Verschleiß-Schicht war durchscheinend und beleuchtet (rauscht mit Lumen/TSR); jetzt multipliziert sie unbeleuchtet (`M_WEWear`, Modulate). Dazu rendert das Spiel nie unter ~960 Bildzeilen (Renderauflösung ab Werk = 960 / Bildhöhe, 67–100 %).
+
+**Getestet:** `P175W` (Bilder ohne verdeckte Sicht, ohne Rauschen und weiße Wolken; Log: 7 Teile liegen auf der Werkbank im Bereich der Platte), Unit-Tests 137/137, gepackt 2560×1440 Werkstatt 63–69 FPS.

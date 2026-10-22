@@ -84,6 +84,11 @@ protected:
 	void UpdateMarkers();
 	/** Phase 21: while no part is picked, the parts that can come out now carry a label ("Seitenteil – anklicken"). */
 	void UpdatePartLabels();
+	/** Phase 21: things standing around the device (radio, coffee machine, spray cans) are hidden for this player while
+	 *  the work view is open - they blocked the camera. Local only (component visibility is not replicated). */
+	void HideClutter();
+	void RestoreClutter();
+	TArray<TWeakObjectPtr<UPrimitiveComponent>> HiddenClutter;
 	void TryStartWork();
 	int32 FindTaskAt(const FVector2D& Position) const;
 	bool CanDisassemble() const;

@@ -209,6 +209,10 @@ void AWEAssemblyView::UpdateState(float Now)
 			Vis.bOut = true;
 			Vis.OutAt = Now;
 			Vis.bGone = false;
+			if (!Assembly->Parts[i].bLaysBeside && !Assembly->Parts[i].bServiceAccess)
+			{
+				Vis.BenchSlot = NextBenchSlot++;
+			}
 			if (Now > 0.f)
 			{
 				if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/SFX_PartRemoved.SFX_PartRemoved")))
@@ -225,6 +229,7 @@ void AWEAssemblyView::UpdateState(float Now)
 			Vis.bGone = false;
 			Vis.bInserted = false;
 			Vis.InsertedAt = -1.f;
+			Vis.BenchSlot = INDEX_NONE;
 			for (FFastenerVis& FV : Vis.Fasteners)
 			{
 				FV.bInBowl = false;
@@ -372,7 +377,30 @@ void AWEAssemblyView::AnimatePart(int32 Index, FPartVis& Vis, float Now)
 				}
 				else
 				{
-					// Down into the bench storage (lower shelf).
+					// Down into the bench storage (lower shelf) - or (Phase 21) laid down on the bench next to the device.
+					if (B && Vis.BenchSlot != INDEX_NONE)
+					{
+						const FBox Bounds = GetDeviceBounds();
+						// The side of the device with more free bench top (the side panel lies on the right).
+						const FVector Right = B->GetActorRightVector();
+						const FVector Forward = B->GetActorForwardVector();
+						const float HalfW = B->GetSize().Y * 0.5f;
+						const float DeviceY = FVector::DotProduct(Bounds.GetCenter() - B->GetActorLocation(), Right);
+						const float RoomLeft = (DeviceY - Bounds.GetExtent().Y) + HalfW;
+						const float RoomRight = HalfW - (DeviceY + Bounds.GetExtent().Y) - 50.f;
+						const float Side = RoomRight > RoomLeft ? 1.f : -1.f;
+						const float Start = Side > 0.f ? 50.f + 14.f : 14.f;
+						const int32 Cols = FMath::Clamp(FMath::FloorToInt((FMath::Max(RoomLeft, RoomRight) - 6.f) / 22.f), 1, 3);
+						const int32 Slot = Vis.BenchSlot;
+						const int32 Layer = Slot / (Cols * 3);
+						const int32 Col = Slot % Cols;
+						const int32 Row = Slot / Cols % 3;
+						const float HalfZ = Vis.Mesh->Bounds.BoxExtent.Z;
+						const FVector SlotPos = Bounds.GetCenter() + Right * Side * (Bounds.GetExtent().Y + Start + Col * 22.f) + Forward * ((Row - 1) * 22.f);
+						const FVector OnBench(SlotPos.X, SlotPos.Y, B->GetWorkSpotLocation().Z + 0.5f + HalfZ + Layer * 8.f);
+						Target = OnBench - Device.TransformPosition(Center);
+					}
+					else
 					Target = (B ? B->GetWorkSpotLocation() - FVector(0.f, 0.f, 45.f) : Device.GetLocation()) - Device.TransformPosition(Center);
 				}
 				WorldOffset = FMath::Lerp(Slid + Up, Target, A);
@@ -380,7 +408,7 @@ void AWEAssemblyView::AnimatePart(int32 Index, FPartVis& Vis, float Now)
 			}
 			Vis.Mesh->SetRelativeRotation(FQuat::Identity);
 			Vis.Mesh->SetWorldLocation(Device.GetLocation() + WorldOffset);
-			if (bDone && !Part.bLaysBeside)
+			if (bDone && !Part.bLaysBeside && Vis.BenchSlot == INDEX_NONE)
 			{
 				Vis.Mesh->SetVisibility(false);
 				Vis.bGone = true;
@@ -668,4 +696,17 @@ int32 AWEAssemblyView::FindPartUnderRay(const FVector& Origin, const FVector& Di
 		}
 	}
 	return Best;
+}
+
+TArray<FVector> AWEAssemblyView::GetPartsOnBench() const
+{
+	TArray<FVector> Out;
+	for (const FPartVis& Vis : Parts)
+	{
+		if (Vis.bOut && Vis.BenchSlot != INDEX_NONE && Vis.Mesh && Vis.Mesh->IsVisible())
+		{
+			Out.Add(Vis.Mesh->GetComponentLocation());
+		}
+	}
+	return Out;
 }
