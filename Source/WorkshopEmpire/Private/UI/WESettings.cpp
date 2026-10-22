@@ -30,7 +30,9 @@ namespace WESettings
 			GConfig->GetFloat(Section, TEXT("FieldOfView"), V.FieldOfView, GGameUserSettingsIni);
 			GConfig->GetFloat(Section, TEXT("MasterVolume"), V.MasterVolume, GGameUserSettingsIni);
 			GConfig->GetFloat(Section, TEXT("MotionBlur"), V.MotionBlur, GGameUserSettingsIni);
+			GConfig->GetFloat(Section, TEXT("RenderScale"), V.RenderScale, GGameUserSettingsIni);
 		}
+		V.RenderScale = FMath::Clamp(V.RenderScale, 50.f, 100.f);
 		V.MotionBlur = FMath::Clamp(V.MotionBlur, 0.f, 1.f);
 		V.UIScale = FMath::Clamp(V.UIScale, 0.8f, 1.3f);
 		V.MouseSensitivity = FMath::Clamp(V.MouseSensitivity, 0.2f, 3.f);
@@ -65,6 +67,11 @@ namespace WESettings
 		if (IConsoleVariable* Blur = Console.FindConsoleVariable(TEXT("r.MotionBlur.Amount")))
 		{
 			Blur->Set(V.MotionBlur * 0.5f, ECVF_SetByGameSetting);
+		}
+		// Phase 21: render resolution (TSR scales up to the screen). Wins over the quality level's own value.
+		if (IConsoleVariable* Screen = Console.FindConsoleVariable(TEXT("r.ScreenPercentage")))
+		{
+			Screen->Set(FMath::Clamp(V.RenderScale, 50.f, 100.f), ECVF_SetByGameSetting);
 		}
 		if (IConsoleVariable* Fov = Console.FindConsoleVariable(TEXT("we.FieldOfView")))
 		{
@@ -101,6 +108,7 @@ namespace WESettings
 			GConfig->SetFloat(Section, TEXT("FieldOfView"), V.FieldOfView, GGameUserSettingsIni);
 			GConfig->SetFloat(Section, TEXT("MasterVolume"), V.MasterVolume, GGameUserSettingsIni);
 			GConfig->SetFloat(Section, TEXT("MotionBlur"), V.MotionBlur, GGameUserSettingsIni);
+			GConfig->SetFloat(Section, TEXT("RenderScale"), V.RenderScale, GGameUserSettingsIni);
 			GConfig->Flush(false, GGameUserSettingsIni);
 		}
 		if (UGameUserSettings* S = GEngine ? GEngine->GetGameUserSettings() : nullptr)

@@ -1,4 +1,5 @@
 #include "UI/WEMenuWidgets.h"
+#include "PipelineStateCache.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -318,6 +319,7 @@ void UWESettingsPanel::NativeOnInitialized()
 	struct FRowDef { const TCHAR* Section; FText Label; FName Icon; };
 	const FRowDef Defs[Count] = {
 		{ TEXT("Grafik"), LOCTEXT("SQuality", "Grafikqualität"), TEXT("Desktop") },
+		{ nullptr, LOCTEXT("SRenderScale", "Renderauflösung"), TEXT("Chart") },
 		{ nullptr, LOCTEXT("SRes", "Auflösung"), TEXT("Window") },
 		{ nullptr, LOCTEXT("SMode", "Anzeigemodus"), TEXT("Window") },
 		{ nullptr, LOCTEXT("SVSync", "VSync"), TEXT("Clock") },
@@ -342,6 +344,7 @@ void UWESettingsPanel::NativeOnInitialized()
 	}
 	// Phase 20: sliders for the continuous values.
 	Rows[MotionBlur]->EnableSlider(0.f, 1.f, 0.05f);
+	Rows[RenderScale]->EnableSlider(50.f, 100.f, 1.f);
 	Rows[UIScale]->EnableSlider(0.8f, 1.3f, 0.05f);
 	Rows[Mouse]->EnableSlider(0.2f, 3.f, 0.05f);
 	Rows[Fov]->EnableSlider(70.f, 110.f, 1.f);
@@ -468,6 +471,7 @@ void UWESettingsPanel::SetFromSlider(int32 Index, float Value)
 	switch (Index)
 	{
 	case MotionBlur: Values.MotionBlur = FMath::Clamp(Value, 0.f, 1.f); break;
+	case RenderScale: Values.RenderScale = FMath::Clamp(FMath::RoundToFloat(Value), 50.f, 100.f); break;
 	case UIScale:    Values.UIScale = FMath::Clamp(Value, 0.8f, 1.3f); break;
 	case Mouse:      Values.MouseSensitivity = FMath::Clamp(Value, 0.2f, 3.f); break;
 	case Fov:        Values.FieldOfView = FMath::Clamp(FMath::RoundToFloat(Value), 70.f, 110.f); break;
@@ -511,6 +515,8 @@ void UWESettingsPanel::Refresh()
 	Rows[Volume]->SetValue(Pct(Values.MasterVolume));
 	Rows[MotionBlur]->SetValue(Values.MotionBlur <= 0.f ? OnOff(false) : Pct(Values.MotionBlur));
 	Rows[MotionBlur]->SetSliderValue(Values.MotionBlur);
+	Rows[RenderScale]->SetValue(FText::Format(LOCTEXT("RenderScaleValue", "{0} %"), FText::AsNumber(FMath::RoundToInt(Values.RenderScale))));
+	Rows[RenderScale]->SetSliderValue(Values.RenderScale);
 	Rows[UIScale]->SetSliderValue(Values.UIScale);
 	Rows[Mouse]->SetSliderValue(Values.MouseSensitivity);
 	Rows[Fov]->SetSliderValue(Values.FieldOfView);
@@ -551,6 +557,7 @@ void UWESettingsPanel::Step(int32 Index, int32 Direction)
 	case Fov:          Values.FieldOfView = FMath::Clamp(Values.FieldOfView + Direction * 5.f, 70.f, 110.f); break;
 	case Volume:       Values.MasterVolume = FMath::Clamp(Values.MasterVolume + Direction * 0.1f, 0.f, 1.f); break;
 	case MotionBlur:   Values.MotionBlur = FMath::Clamp(Values.MotionBlur + Direction * 0.1f, 0.f, 1.f); break;
+	case RenderScale:  Values.RenderScale = FMath::Clamp(Values.RenderScale + Direction * 5.f, 50.f, 100.f); break;
 	default: break;
 	}
 	Play(this, ESound::Toggle, 0.4f);
@@ -662,6 +669,9 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	AddV(Left, StatusText, FMargin(0.f, 0.f, 0.f, 10.f));
 	ServiceText = Text(WidgetTree, Session ? Session->GetServiceText() : FText::GetEmpty(), 11, Col::Good, EFont::Strong);
 	AddV(Left, ServiceText);
+	PrepareText = Text(WidgetTree, FText::GetEmpty(), 11, Col::Accent, EFont::Strong);
+	PrepareText->SetVisibility(ESlateVisibility::Collapsed);
+	AddV(Left, PrepareText);
 	AddV(Left, Text(WidgetTree, FText::Format(LOCTEXT("Version", "Version {0} · allein oder im Koop mit bis zu 4 Spielern"), FText::FromString(UWESessionSubsystem::GetGameVersion())),
 		10, Col::TextMuted), FMargin(0.f, 2.f, 0.f, 0.f));
 
@@ -1162,6 +1172,16 @@ void UWEMainMenuWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 	IntroAnim.Tick(LeftColumn, InDeltaTime);
+	if (PrepareText)
+	{
+		// The first start compiles the graphics pipelines (PSOs) - the frame rate is low until that is through.
+		const int32 Pending = static_cast<int32>(PipelineStateCache::NumActivePrecacheRequests()) + PipelineStateCache::GetNumActivePipelinePrecompileTasks();
+		PrepareText->SetVisibility(Pending > 0 ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		if (Pending > 0)
+		{
+			PrepareText->SetText(FText::Format(LOCTEXT("PreparingGraphics", "Grafik wird vorbereitet … ({0}) – beim ersten Start kurz ruckelig"), FText::AsNumber(Pending)));
+		}
+	}
 	if (PageCard && PageCard->GetVisibility() == ESlateVisibility::Visible)
 	{
 		CardAnim.Tick(PageCard, InDeltaTime);

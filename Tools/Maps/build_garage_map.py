@@ -132,7 +132,8 @@ def tube_fixture(label, loc, length=130.0, lumens=2200.0, tags=("WE_WorkshopLigh
     lc.set_editor_property("source_width", length - 10)
     lc.set_editor_property("source_height", 8.0)
     lc.set_editor_property("barn_door_angle", 88.0)
-    lc.set_attenuation_radius(1400.0)
+    # Phase 21: 9 m reaches every corner of a room; the old 14 m also lit (and shadowed) half the yard - costly.
+    lc.set_attenuation_radius(1100.0 if "Hall" in label else 900.0)
     lc.set_light_color(unreal.LinearColor(1.0, 0.92, 0.82, 1.0))
     lamp.set_editor_property("tags", list(tags))  # brightened by the LED upgrade
     # A bare tube also shines sideways and up: a weak, shadowless fill keeps the ceiling from going black.

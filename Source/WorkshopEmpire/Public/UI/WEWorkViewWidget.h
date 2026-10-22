@@ -82,6 +82,8 @@ protected:
 	void RefreshTools();
 	void RefreshInfo();
 	void UpdateMarkers();
+	/** Phase 21: while no part is picked, the parts that can come out now carry a label ("Seitenteil – anklicken"). */
+	void UpdatePartLabels();
 	void TryStartWork();
 	int32 FindTaskAt(const FVector2D& Position) const;
 	bool CanDisassemble() const;
@@ -183,6 +185,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> CenterText;
 	UPROPERTY(Transient) TArray<TObjectPtr<UWidget>> Markers;
 	UPROPERTY(Transient) TArray<TObjectPtr<UBorder>> MarkerRings;
+	UPROPERTY(Transient) TArray<TObjectPtr<UBorder>> PartLabels;
+	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> PartLabelTexts;
 	UPROPERTY(Transient) TArray<TObjectPtr<UImage>> MarkerIcons;
 	UPROPERTY(Transient) TArray<TObjectPtr<UProgressBar>> MarkerBars;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> ToolButtons;

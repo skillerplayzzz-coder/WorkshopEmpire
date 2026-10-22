@@ -128,7 +128,7 @@ protected:
 	UFUNCTION() void HandleDefaults();
 	UFUNCTION() void HandleResetKeys();
 
-	enum ERow : int32 { Quality, Resolution, WindowMode, VSync, FrameLimit, MotionBlur, UIScale, Mouse, InvertY, Fov, Volume, Count };
+	enum ERow : int32 { Quality, RenderScale, Resolution, WindowMode, VSync, FrameLimit, MotionBlur, UIScale, Mouse, InvertY, Fov, Volume, Count };
 
 	UPROPERTY(Transient) TArray<TObjectPtr<UWESettingRow>> Rows;
 	UPROPERTY(Transient) TArray<TObjectPtr<class UWEKeyBindRow>> KeyRows;
@@ -198,6 +198,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> PageTitle;
 	UPROPERTY(Transient) TObjectPtr<UWidgetSwitcher> Pages;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ServiceText;
+	/** Phase 21: "Grafik wird vorbereitet …" while the GPU pipelines of the first start are being built. */
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> PrepareText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ContinueDetail;
 	UPROPERTY(Transient) TObjectPtr<UButton> ContinueButton;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> StatusText;

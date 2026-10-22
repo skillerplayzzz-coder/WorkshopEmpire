@@ -1,4 +1,5 @@
 #include "Online/WESessionSubsystem.h"
+#include "UI/WEGraphicsSettings.h"
 #include "Framework/WEGameRulesComponent.h"
 #include "Internationalization/Internationalization.h"
 
@@ -55,6 +56,7 @@ void UWESessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	if (!GIsEditor)
 	{
 		FInternationalization::Get().SetCurrentLocale(TEXT("de-DE"));
+		WEGraphics::ApplyFirstStartDefaults();
 	}
 
 	GConfig->GetString(WESession::ConfigSection, TEXT("PlayerName"), LANPlayerName, GGameUserSettingsIni);

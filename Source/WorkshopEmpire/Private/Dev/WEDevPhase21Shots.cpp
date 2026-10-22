@@ -30,6 +30,8 @@
 #include "Framework/WEGameRulesComponent.h"
 #include "Framework/WEMenuGameMode.h"
 #include "UI/WEMenuWidgets.h"
+#include "PipelineStateCache.h"
+#include "RHI.h"
 #include "Inventory/WEInventoryComponent.h"
 #include "Workshop/WEBuildComponent.h"
 #include "World/WEPlaceholderProp.h"
@@ -99,13 +101,31 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 		Schedule(8.0f, [this]() { Shot(TEXT("62_Neues_Spiel_Entspannt")); });
 		Schedule(9.0f, [Menu, LogRules]() { if (Menu()) { Menu()->DevStepRule(3, 1); } LogRules(TEXT("reviews toggled")); });
 		Schedule(10.0f, [this]() { Shot(TEXT("63_Neues_Spiel_Individuell")); });
+		Schedule(11.4f, [Menu]() { if (Menu()) { Menu()->ShowPage(4); } });
+		Schedule(12.2f, [this]() { Shot(TEXT("64_Einstellungen")); });
 		Schedule(11.0f, [Menu, LogRules]()
 		{
 			FWEGameRules Parsed;
 			const bool bOk = Menu() && FWEGameRules::FromOption(Menu()->GetNewRules().ToOption(), Parsed) && Parsed == Menu()->GetNewRules();
 			UE_LOG(LogWorkshopEmpire, Display, TEXT("P21 menu option round trip: %s"), bOk ? TEXT("ok") : TEXT("FAIL"));
 		});
-		Schedule(12.0f, [this]() { Quit(); });
+		// Frame rate of the menu (Mike: 1-3 fps): every second for the first 12 s, with the pipelines still being prepared.
+		TSharedRef<uint64> LastFrames = MakeShared<uint64>(GFrameCounter);
+		TSharedRef<double> LastTime = MakeShared<double>(FPlatformTime::Seconds());
+		for (int32 s = 1; s <= 12; ++s)
+		{
+			Schedule(static_cast<float>(s), [LastFrames, LastTime, s]()
+			{
+				const double Now = FPlatformTime::Seconds();
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF menu t=%ds: %.1f fps, GPU %.2f ms, pipelines pending %d"), s, (GFrameCounter - *LastFrames) / FMath::Max(Now - *LastTime, 0.001),
+					FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()), static_cast<int32>(PipelineStateCache::NumActivePrecacheRequests()) + PipelineStateCache::GetNumActivePipelinePrecompileTasks());
+				*LastFrames = GFrameCounter;
+				*LastTime = Now;
+			});
+		}
+		// Where the GPU time goes (written to the log).
+		Schedule(6.5f, [MenuPC]() { if (MenuPC && FParse::Param(FCommandLine::Get(), TEXT("WEProfileGPU"))) { MenuPC->ConsoleCommand(TEXT("ProfileGPU")); } });
+		Schedule(13.f, [this]() { Quit(); });
 		return;
 	}
 	if (ShotName == TEXT("P21L"))

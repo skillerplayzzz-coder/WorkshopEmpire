@@ -92,6 +92,20 @@ void UWEWorkViewWidget::NativeOnInitialized()
 		MarkerBars.Add(Bar);
 	}
 
+	// Labels on the parts that can come out now (pick mode).
+	for (int32 i = 0; i < 16; ++i)
+	{
+		UBorder* Label = Box(WidgetTree, Col::WithAlpha(Col::PanelDark, 0.85f), FMargin(8.f, 4.f), Col::Accent, 6.f);
+		UTextBlock* LabelText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Text, EFont::Strong);
+		Label->SetContent(LabelText);
+		Label->SetVisibility(ESlateVisibility::Collapsed);
+		UCanvasPanelSlot* S = Canvas->AddChildToCanvas(Label);
+		S->SetAutoSize(true);
+		S->SetAlignment(FVector2D(0.5f, 0.5f));
+		PartLabels.Add(Label);
+		PartLabelTexts.Add(LabelText);
+	}
+
 	// Left: the device, mode and the list of steps.
 	{
 		UVerticalBox* V = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -395,6 +409,27 @@ void UWEWorkViewWidget::SelectPart(int32 Part)
 		// A part going back in is aimed at where it belongs (it waits in front of that spot).
 		OrbitGoal = bInstall && Mesh ? View->DeviceToWorld(Mesh->GetBoundingBox().GetCenter()) : View->GetPartCenter(Part);
 		OrbitGoalDist = FMath::Clamp(Size * (bInstall ? 3.f : 2.4f), OrbitBaseDist * 0.35f, OrbitBaseDist);
+		// Screws that face sideways (the side panel's screws at the back edge): turn so they face the camera.
+		const int32 NumFasteners = Assembly && Assembly->Parts.IsValidIndex(Part) ? Assembly->Parts[Part].Fasteners.Num() : 0;
+		if (!bInstall && NumFasteners > 0)
+		{
+			FVector Axis = FVector::ZeroVector;
+			FVector Where = FVector::ZeroVector;
+			for (int32 f = 0; f < NumFasteners; ++f)
+			{
+				Axis += View->GetFastenerAxis(Part, f);
+				Where += View->GetFastenerLocation(Part, f);
+			}
+			Axis = Axis.GetSafeNormal();
+			if (!Axis.IsNearlyZero() && Axis.Z < 0.6f)
+			{
+				const FRotator Face = Axis.Rotation();
+				OrbitGoalYaw = Face.Yaw;
+				OrbitGoalPitch = FMath::Clamp(FMath::Max(Face.Pitch, 0.f) + 35.f, 25.f, 70.f);
+				OrbitGoal = Where / NumFasteners;
+				OrbitGoalDist = FMath::Clamp(Size * 1.6f, OrbitBaseDist * 0.3f, OrbitBaseDist * 0.8f);
+			}
+		}
 		const FWEWorkPlan Plan = B->GetPartPlan(Part, bInstall);
 		if (Plan.IsValid())
 		{
@@ -1083,6 +1118,7 @@ void UWEWorkViewWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 		Rig->SetActive(PendingTask, PendingTask != INDEX_NONE ? 1.f : 0.f);
 	}
 	UpdateMarkers();
+	UpdatePartLabels();
 	RefreshInfo();
 	UpdateHand();
 
@@ -1121,6 +1157,42 @@ void UWEWorkViewWidget::UpdateHand()
 	Hand->SetState(S);
 	// The 3D tool shows where it works; the small cursor icon only for the hands.
 	CursorIcon->SetVisibility(Hand->IsHolding() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+}
+
+void UWEWorkViewWidget::UpdatePartLabels()
+{
+	AWEWorkbench* B = Bench.Get();
+	const AWEAssemblyView* View = GetView();
+	const UWEAssemblyDefinition* Assembly = B ? B->GetAssembly() : nullptr;
+	APlayerController* PC = GetOwningPlayer();
+	const AWEPickupItem* Item = B ? B->GetPlacedItem() : nullptr;
+	const bool bShow = View && Assembly && Item && PC && !bInstall && !bRepair && SelectedPart == INDEX_NONE && !B->IsBusy();
+	const float Scale = FMath::Max(UWidgetLayoutLibrary::GetViewportScale(this), 0.01f);
+	const int32 Removed = Item ? Item->GetItem().RemovedParts : 0;
+	const int32 Hover = bShow ? PartUnderMouse() : INDEX_NONE;
+	int32 Used = 0;
+	for (int32 Part = 0; bShow && Part < Assembly->Parts.Num() && Used < PartLabels.Num(); ++Part)
+	{
+		FVector2D Screen;
+		if ((Removed & (1 << Part)) != 0 || Assembly->GetBlockers(Part, Removed).Num() > 0
+			|| !PC->ProjectWorldLocationToScreen(View->GetPartCenter(Part), Screen, true))
+		{
+			continue;
+		}
+		UBorder* Label = PartLabels[Used];
+		PartLabelTexts[Used]->SetText(Part == Hover ? FText::Format(LOCTEXT("PartLabelHover", "{0} – klicken"), Assembly->Parts[Part].DisplayName) : Assembly->Parts[Part].DisplayName);
+		Label->SetBrush(WEUI::Brush(Col::WithAlpha(Col::PanelDark, 0.85f), Part == Hover ? Col::Accent : Col::WithAlpha(Col::Accent, 0.6f), Part == Hover ? 2.f : 1.f, 6.f));
+		Label->SetVisibility(ESlateVisibility::HitTestInvisible);
+		if (UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(Label->Slot))
+		{
+			S->SetPosition(Screen / Scale);
+		}
+		++Used;
+	}
+	for (int32 i = Used; i < PartLabels.Num(); ++i)
+	{
+		PartLabels[i]->SetVisibility(ESlateVisibility::Collapsed);
+	}
 }
 
 void UWEWorkViewWidget::UpdateMarkers()

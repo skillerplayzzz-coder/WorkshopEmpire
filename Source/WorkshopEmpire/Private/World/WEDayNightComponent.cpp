@@ -519,6 +519,8 @@ void UWEDayNightComponent::ApplyLighting()
 		if (ULightComponent* L = StreetLights[i].Get())
 		{
 			L->SetIntensity(StreetIntensity[i] * Night);
+			// (Off in daylight costs nothing to render; at zero intensity it still would.)
+			L->SetVisibility(Night > 0.01f);
 		}
 	}
 }

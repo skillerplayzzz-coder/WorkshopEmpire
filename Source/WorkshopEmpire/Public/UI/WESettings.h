@@ -21,6 +21,7 @@ namespace WESettings
 		int32 WindowMode = 0;           // 0 fullscreen, 1 windowed fullscreen, 2 window
 		bool bVSync = true;
 		float FrameLimit = 0.f;         // 0 = unlimited
+		float RenderScale = 100.f;      // Phase 21: render resolution in % of the screen (50 - 100), TSR scales up
 	};
 
 	WORKSHOPEMPIRE_API FValues Load();

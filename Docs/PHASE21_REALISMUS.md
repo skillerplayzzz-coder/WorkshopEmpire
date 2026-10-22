@@ -156,3 +156,16 @@ Gefunden und behoben:
 - **Mitarbeiter im Sitzen gespeichert:** wurden beim Laden im Hocker abgesetzt; jetzt am Platz davor.
 
 Geprüft ohne Befund: alte Spielstände (Version 1, 5, 13, 18) laden; gepacktes Spiel (Development) mit den Läufen P175, P21B, P21F, P21G ohne Fehler; Netzwerkpaare A–X, 4-Spieler-Test, Phase-21-Netztest (Regeln, Paketbote mit Paketen, Werkzeugwand über den Server) bei beiden Clients gleich; Unit-Tests 137/137 (vorher 2 Warnungen, jetzt 1).
+
+## Leistung und Zerlegen nach Mikes Test (2026-10-22)
+
+Mikes Befund: 1–3 FPS im Hauptmenü, langes Einlaufen, beim Seitenteil nichts zum Ausbauen zu sehen.
+
+- **Ursache der 1–3 FPS:** Parallel lief der Editor eines anderen Projekts mit einem automatischen Testlauf (GPU 100 %, 10,4 von 12 GB Grafikspeicher belegt). Die Meldung „Texture Streaming Pool over 45,453 MiB“ bedeutet 45 MB (Dezimalkomma), nicht 45 GB.
+- **Gepacktes Spiel startete auf „Episch“ mit voller Renderauflösung** (die Vorgabe „Hoch“ griff nur im Editor). Jetzt beim ersten Start einmalig: „Hoch“ und Renderauflösung je Bildschirm (ab 1440p 67 %, 1080p/Ultrawide 80 %, kleiner 100 %; TSR rechnet hoch). Neuer Regler **Renderauflösung** (50–100 %) in den Einstellungen.
+  - Gemessen gepackt, RTX 3060, 2560×1440: Hauptmenü vorher ~30–50 FPS, jetzt ~95 FPS; Werkstatt vorher 47 FPS, jetzt 63–69 FPS.
+- Straßenlaternen sind tagsüber ganz aus (vorher nur auf Helligkeit 0, aber trotzdem gerendert); Deckenlampen-Reichweite 14 → 9 m (11 m in den Hallen).
+- Hauptmenü zeigt „Grafik wird vorbereitet …“, solange beim ersten Start noch Grafik-Pipelines erstellt werden.
+- **Zerlegen:** Im Auswahlmodus trägt jedes Bauteil, das jetzt ausgebaut werden kann, ein Namensschild („Seitenteil – klicken“ beim Darüberfahren). Nach dem Anklicken dreht die Kamera zu den Schrauben, wenn diese seitlich sitzen (Seitenteil: Schrauben an der Rückkante).
+
+**Getestet:** Leistung im gepackten Spiel (Menü 2560×1080 und 2560×1440, Werkstatt 2560×1440, je mit Zahlen oben), Unit-Tests 137/137, UI-Eingaben bei 2560×1440 (17/17), Arbeitsansicht-Lauf `P21` (Namensschild „Seitenteil“, Kamera an der Rückkante), Einstellungsseite (Bild `P21M_64`).
