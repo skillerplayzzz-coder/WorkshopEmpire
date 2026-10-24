@@ -99,7 +99,8 @@ void UWECourierComponent::Order(const TArray<FWEItemInstance>& Items, const FStr
 		return;
 	}
 	Order(Items[0], Sender, DelaySeconds);
-	if (Pending.Num() > 0 && Pending.Last().Item.InstanceId == Items[0].InstanceId)
+	// (Quality overhaul: &Items[1] of a single item tripped the array bounds check - buying one tool crashed the game.)
+	if (Items.Num() > 1 && Pending.Num() > 0 && Pending.Last().Item.InstanceId == Items[0].InstanceId)
 	{
 		Pending.Last().More.Append(&Items[1], Items.Num() - 1);
 	}

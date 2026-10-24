@@ -202,6 +202,12 @@ INSTANCES = {
     "MachineGrey": ((0.07, 0.075, 0.08), 0.55, 0.05, "rusty_painted_metal", 0.15, 0.6, None),
     "Refractory": ((0.42, 0.36, 0.30), 0.85, 0.0, "concrete_wall_008", 0.6, 0.5, None),
     "FurnaceGlow": ((0.3, 0.08, 0.0), 0.6, 0.0, None, 0.0, 1.0, (8.0, 2.4, 0.3)),
+    # Traffic signal lenses: dark tinted glass when off, bright enough for daylight when on.
+    "SignalRedOff": ((0.05, 0.004, 0.004), 0.1, 0.0, None, 0.0, 1.0, None),
+    "SignalAmberOff": ((0.07, 0.035, 0.002), 0.1, 0.0, None, 0.0, 1.0, None),
+    "SignalGreenOff": ((0.004, 0.035, 0.018), 0.1, 0.0, None, 0.0, 1.0, None),
+    "SignalRed": ((0.4, 0.02, 0.01), 0.1, 0.0, None, 0.0, 1.0, (12.0, 0.4, 0.1)),
+    "SignalGreen": ((0.02, 0.4, 0.2), 0.1, 0.0, None, 0.0, 1.0, (0.3, 10.0, 3.5)),
 }
 count = 0
 for name, (tint, rough, metal, tid, strength, uvs, emissive) in INSTANCES.items():

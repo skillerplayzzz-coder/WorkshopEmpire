@@ -157,6 +157,8 @@ protected:
 	void RunQualityShots();
 	/** Test A to the end: GPU fault, part swap in the work view, test, delivery, money (-WEShots=QUB). */
 	void RunQualityRepairFlow();
+	/** Test 1: new company with tutorial from the menu, all tutorial steps, save, menu, continue (-WEShots=QUT on L_MainMenu). */
+	void RunQualityNewGameFlow();
 	void LogCarry(const TCHAR* Step) const;
 	TWeakObjectPtr<class ACameraActor> CatCamera;
 	/** Phase 20 trailer: camera moves through the scenes, every frame saved (-WEShots=P20T). */

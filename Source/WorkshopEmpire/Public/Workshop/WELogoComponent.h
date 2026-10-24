@@ -33,6 +33,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Logo")
 	float NameHeight = 0.f;
 
+	/** Quality overhaul: the name stands on a light board (the company sign): the darker brand colour, never a light one. */
+	UPROPERTY(EditAnywhere, Category = "Logo")
+	bool bOnLightBoard = false;
+
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/** First person: the wearer does not see his own chest logo. */

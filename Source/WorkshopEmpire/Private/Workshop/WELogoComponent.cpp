@@ -103,7 +103,17 @@ void UWELogoComponent::Refresh()
 	{
 		NameText->SetText(FText::FromString(Name).ToUpper()); // FText: also Ä, Ö, Ü
 		// Readable on any wall: the background colour, or white on a dark background behind it.
-		NameText->SetTextRenderColor((Background.GetLuminance() < 0.25f ? SymbolColor : Background).ToFColor(true));
+		FLinearColor NameColor = Background.GetLuminance() < 0.25f ? SymbolColor : Background;
+		if (bOnLightBoard)
+		{
+			// On the white sign board: the darker of the two colours, and dark grey if both are light (yellow on white).
+			NameColor = SymbolColor.GetLuminance() < Background.GetLuminance() ? SymbolColor : Background;
+			if (NameColor.GetLuminance() > 0.3f)
+			{
+				NameColor = FLinearColor(0.02f, 0.02f, 0.025f);
+			}
+		}
+		NameText->SetTextRenderColor(NameColor.ToFColor(true));
 	}
 }
 

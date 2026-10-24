@@ -143,7 +143,7 @@ def street(length=12000.0, gaps=()):
             flat("Driveway", ((GATE[0] + GATE[1]) * 0.5, y), (GATE[1] - GATE[0], WALK), walk, z=1.0)
     for x, y in ((-1700.0, STREET_Y - 120.0), (900.0, STREET_Y + 160.0), (3300.0, STREET_Y - 80.0)):
         place("water_manhole_cover", (x, y, 0.8), 15.0, collide=False)
-    place("fire_hydrant", (260.0, STREET_Y + STREET_HALF + 60.0, 12.0), 90.0)
+    place("fire_hydrant_aged", (260.0, STREET_Y + STREET_HALF + 60.0, 12.0), 90.0)  # (the file holds two variants)
     for x in (-2300.0, 1900.0):
         place("metal_trash_can", (x, STREET_Y + STREET_HALF + 200.0, 12.0), 180.0)
     # A short roadwork corner: cones around a manhole.
@@ -270,6 +270,7 @@ def lot_fence():
         comp = logo.get_component_by_class(unreal.WELogoComponent)
         comp.set_editor_property("size", 30.0)
         comp.set_editor_property("name_height", 18.0)
+        comp.set_editor_property("on_light_board", True)  # (white board: no yellow letters)
         sign_text(sign_x, y0 - 40.0 - 6.0, ("", "ANKAUF · REPARATUR · RECYCLING"))
     else:
         sign_text(sign_x, y0 - 40.0 - 6.0, ("WERKSTATT", "ANKAUF · REPARATUR · RECYCLING"))

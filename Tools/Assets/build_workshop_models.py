@@ -149,7 +149,25 @@ def scrap_heap():
     return m
 
 
+def traffic_signal():
+    """Three-lamp traffic signal head (back plate at x = 0, lenses facing +X, bottom at z = 0): housing, lenses with
+    visors, back plate with a white edge. All lenses are 'off' - the map patch lights one per signal."""
+    m = Model("TrafficSignal")
+    m.box("TrimBlack", (1.0, 0, 55.0), (2.0, 46.0, 112.0), bevel=1.0, segments=2)               # back plate
+    m.box("PlasticWhite", (0.2, 0, 55.0), (0.6, 47.5, 113.5))                                    # contrast edge
+    m.box("PlasticBlack", (14.0, 0, 55.0), (24.0, 32.0, 100.0), bevel=2.0, segments=2)          # housing
+    for z, lens in ((86.0, "SignalRedOff"), (55.0, "SignalAmberOff"), (24.0, "SignalGreenOff")):
+        m.cyl("TrimBlack", (26.2, 0, z), 12.0, 0.8, rot=(0, 90, 0), segs=28)                     # lens ring
+        m.cyl(lens, (26.8, 0, z), 10.5, 0.8, rot=(0, 90, 0), segs=28)
+        m.box("PlasticBlack", (34.0, 0, z + 12.0), (16.0, 25.0, 1.0), rot=(0, -8, 0))           # visor
+        for y in (-12.0, 12.0):
+            m.box("PlasticBlack", (33.0, y, z + 5.0), (14.0, 1.0, 13.0))
+    m.cyl("MetalPaintedGrey", (8.0, 0, 114.0), 3.0, 8.0, segs=12)                                # mount
+    return m
+
+
 BUILDERS = {
+    "TrafficSignal": traffic_signal,
     "ScrapHeap": scrap_heap,
     "DirtMound": dirt_mound,
     "TubeFixture": tube_fixture,

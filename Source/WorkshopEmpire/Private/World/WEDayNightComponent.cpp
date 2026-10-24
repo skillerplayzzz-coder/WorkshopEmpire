@@ -496,6 +496,12 @@ void UWEDayNightComponent::ApplyLighting()
 		PPV->Settings.bOverride_AutoExposureBias = true;
 		// Bad weather is darker (the eye would adapt the dimmer sun away otherwise).
 		PPV->Settings.AutoExposureBias = FMath::Lerp(DayExposureBias, DayExposureBias - 1.f, Night) - 0.9f * CloudBlend * (1.f - Night);
+		// Quality overhaul: out of the dim garage into the sun the default adaptation (3 EV/s) left the yard white for
+		// about two seconds; a bit quicker both ways, still a visible adaptation.
+		PPV->Settings.bOverride_AutoExposureSpeedUp = true;
+		PPV->Settings.AutoExposureSpeedUp = 5.f;
+		PPV->Settings.bOverride_AutoExposureSpeedDown = true;
+		PPV->Settings.AutoExposureSpeedDown = 2.f;
 	}
 	if (CloudMaterial)
 	{

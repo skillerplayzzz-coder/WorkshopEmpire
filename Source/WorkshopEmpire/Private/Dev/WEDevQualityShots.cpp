@@ -4,6 +4,7 @@
 
 #include "EngineUtils.h"
 #include "Economy/WEContractComponent.h"
+#include "Economy/WECourierComponent.h"
 #include "Economy/WECompanyComponent.h"
 #include "Items/WEItemTypes.h"
 #include "TimerManager.h"
@@ -21,7 +22,10 @@
 #include "Inventory/WEInventoryComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
+#include "Kismet/GameplayStatics.h"
+#include "Online/WESessionSubsystem.h"
 #include "Player/WECharacter.h"
+#include "Progression/WETutorialComponent.h"
 #include "WELog.h"
 #include "Workshop/WEWorkbench.h"
 
@@ -248,6 +252,233 @@ void UWEDevAutomationComponent::RunQualityRepairFlow()
 #endif
 }
 
+void UWEDevAutomationComponent::RunQualityNewGameFlow()
+{
+#if !UE_BUILD_SHIPPING
+	// Test 1: a new company from the main menu with the tutorial; every tutorial step through the normal player requests
+	// (no dev money, no dev items); save; back to the menu; continue - the same company must come back.
+	static const FString Company = TEXT("QU_Test1");
+	struct FSnapshot { int64 Balance = -1; int32 TutorialStep = -1; int32 Slots = -1; int32 Tools = -1; };
+	static FSnapshot Saved;
+	static int32 GameVisits = 0;
+	UWESessionSubsystem* Session = UWESessionSubsystem::Get(this);
+	const int32 Visit = Session ? Session->DevMenuVisits : 0;
+	if (IsInMenu())
+	{
+		Schedule(1.f, [Visit]() { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T menu visit %d"), Visit); });
+		if (GameVisits == 0)
+		{
+			// (An old test company would be loaded instead of a new one.)
+			Schedule(1.5f, []() { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T old slot removed: %d"), UGameplayStatics::DeleteGameInSlot(Company, 0) ? 1 : 0); });
+			Schedule(3.f, [Session]() { if (Session) { Session->HostNewGame(Company, /*bTutorial*/ true, /*bLAN*/ true); } });
+		}
+		else
+		{
+			Schedule(3.f, [Session]() { if (Session) { Session->HostGame(Company, /*bLAN*/ true); } });
+		}
+		return;
+	}
+	++GameVisits;
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	auto Snapshot = [this]()
+	{
+		FSnapshot S;
+		const UWECompanyComponent* Co = UWECompanyComponent::Get(this);
+		const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
+		const UWEInventoryComponent* Mine = GetMyInventory();
+		S.Balance = Co ? Co->GetBalance().GetCents() : -1;
+		S.TutorialStep = Tutorial ? Tutorial->GetStep() : -1;
+		S.Slots = Mine ? Mine->GetAllSlots().Num() : -1;
+		S.Tools = 0;
+		for (const FWEInventorySlotData& Slot : Mine ? Mine->GetAllSlots() : TArray<FWEInventorySlotData>())
+		{
+			S.Tools += Slot.Item.Definition && Slot.Item.Definition->ToolType != EWEToolType::None ? 1 : 0;
+		}
+		return S;
+	};
+	auto Log = [this, Snapshot](const FString& What)
+	{
+		const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
+		const FSnapshot S = Snapshot();
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T %s: tutorial state=%d step=%d/%d, balance=%lld cents, inventory slots=%d tools=%d"), *What,
+			Tutorial ? static_cast<int32>(Tutorial->GetState()) : -1, S.TutorialStep, Tutorial ? Tutorial->NumSteps() : -1, S.Balance, S.Slots, S.Tools);
+	};
+	if (GameVisits > 1)
+	{
+		// Continued from the menu: the saved company.
+		Schedule(4.f, [this, Snapshot, Log]()
+		{
+			const FSnapshot S = Snapshot();
+			Log(TEXT("continued"));
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T compare saved -> continued: balance %lld -> %lld, tutorial step %d -> %d, slots %d -> %d, tools %d -> %d: %s"),
+				Saved.Balance, S.Balance, Saved.TutorialStep, S.TutorialStep, Saved.Slots, S.Slots, Saved.Tools, S.Tools,
+				Saved.Balance == S.Balance && Saved.TutorialStep == S.TutorialStep && Saved.Slots == S.Slots && Saved.Tools == S.Tools ? TEXT("SAME") : TEXT("DIFFERENT"));
+			Shot(TEXT("09_Fortgesetzt"));
+		});
+		Schedule(6.f, [this]() { Quit(); });
+		return;
+	}
+	Schedule(1.f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
+	Schedule(3.f, [this, Log]() { Log(TEXT("new game")); Shot(TEXT("01_Neues_Spiel")); });
+	// Each tutorial step: an action (a few timed parts), then wait until the step counter moves on.
+	// (Until: the runner waits until it returns true before the next part - e.g. the courier.)
+	struct FAct { float Delay; TFunction<void()> Do; TFunction<bool()> Until; };
+	auto Aim = [this](const AActor* Target)
+	{
+		LookAt(Target);
+		if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->UpdateFocus(); C->GetInteractionComponent()->RequestPrimaryInteraction(); }
+	};
+	auto AimBench = [this]()
+	{
+		if (AWEWorkbench* B = FindBench(); B && GetCharacter())
+		{
+			LookAtPoint(B->GetWorkSpotLocation());
+			GetCharacter()->GetInteractionComponent()->UpdateFocus();
+			GetCharacter()->GetInteractionComponent()->RequestPrimaryInteraction();
+		}
+	};
+	TSharedRef<TArray<TArray<FAct>>> Steps = MakeShared<TArray<TArray<FAct>>>();
+	// 0 walk to the bench
+	Steps->Add({ { 0.f, [PC]() { if (PC) { PC->ServerDevTeleport(FVector(250.f, 0.f, 100.f), FRotator(0.f, 180.f, 0.f)); } } },
+		{ 0.8f, [this]() { TeleportToBench(); } } });
+	// 1 the screwdriver from the bench
+	Steps->Add({ { 0.f, [this]() { TeleportToBench(); } }, { 0.8f, [this, Aim]() { Aim(FindItemById(TEXT("Screwdriver"))); } } });
+	// 2 inventory
+	Steps->Add({ { 0.f, [PC]() { if (PC) { PC->OpenInventory(); } } }, { 0.8f, [PC]() { if (PC) { PC->CloseInventory(); } } } });
+	// 3 the old computer onto the bench
+	Steps->Add({ { 0.f, [this, PC]() { if (const AWEPickupItem* Pc = FindItemById(TEXT("OldComputer")); Pc && PC) { PC->ServerDevTeleport(Pc->GetActorLocation() + FVector(110.f, 0.f, 80.f), FRotator(0.f, 180.f, 0.f)); } } },
+		{ 0.8f, [this, Aim]() { Aim(FindItemById(TEXT("OldComputer"))); } },
+		{ 1.0f, [this]() { if (AWEWorkbench* B = FindBench(); B && Cast<AWEPlayerController>(GetOwner())) { Cast<AWEPlayerController>(GetOwner())->ServerDevTeleport(B->GetWorkSpotLocation() + B->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 10.f), FRotator::ZeroRotator); } } },
+		{ 0.8f, [AimBench]() { AimBench(); } } });
+	// 4 work view
+	Steps->Add({ { 0.f, [AimBench]() { AimBench(); } } });
+	// 5 one disassembly step (the first part the screwdriver can take off)
+	Steps->Add({ { 0.f, [this]() {
+		AWEWorkbench* B = FindBench();
+		AWECharacter* C = GetCharacter();
+		const UWEAssemblyDefinition* Asm = B ? B->GetAssembly() : nullptr;
+		for (int32 Part = 0; Asm && C && Part < Asm->Parts.Num(); ++Part)
+		{
+			FText Reason;
+			if (B->CanStartStep(C, Reason, Part) && B->TryStartStep(C, Part))
+			{
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T taking off %s"), *Asm->Parts[Part].DisplayName.ToString());
+				return;
+			}
+		}
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T NO PART could be taken off"));
+	} } });
+	// 6 the workshop PC
+	Steps->Add({ { 0.f, [PC]() { if (PC) { PC->CloseWorkView(); } } }, { 0.5f, [this]() { TeleportToTerminal(0.f); } },
+		{ 0.8f, [this, PC]() { LookAt(FindTerminal()); if (PC) { PC->OpenTrade(FindTerminal()); } } } });
+	// 7 sell the part that came off (it lies in the bench's parts storage; the market lists that too)
+	Steps->Add({ { 0.f, [this, PC]() {
+		UWEInventoryComponent* Parts = FindBench() ? FindBench()->GetStorage() : nullptr;
+		for (const FWEInventorySlotData& Slot : Parts ? Parts->GetAllSlots() : TArray<FWEInventorySlotData>())
+		{
+			if (PC && Slot.Item.Definition && Slot.Item.Definition->ToolType == EWEToolType::None)
+			{
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T selling %s from the bench"), *Slot.Item.GetDisplayName().ToString());
+				PC->RequestSell(FindTerminal(), Parts, Slot.SlotIndex, 0);
+			}
+		}
+		SellAllParts();
+	} } });
+	// 8 accept an order
+	Steps->Add({ { 0.f, [this, PC]() {
+		for (const FWEContract& K : UWEContractComponent::Get(this) ? UWEContractComponent::Get(this)->GetContracts() : TArray<FWEContract>())
+		{
+			if (K.State == EWEContractState::Offered && PC)
+			{
+				PC->RequestAcceptContract(FindTerminal(), K.Id);
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T accepting order %s"), *K.Title.ToString());
+				return;
+			}
+		}
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T no order offered"));
+	} } });
+	// 9 buy a multimeter, wait for the courier, open the parcel, take the multimeter, check the computer on the bench with it
+	auto FindParcel = [this]() -> AWEPickupItem*
+	{
+		for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
+		{
+			if (UWECourierComponent::IsParcel(It->GetItem()) && !It->IsActorBeingDestroyed()) { return *It; }
+		}
+		return nullptr;
+	};
+	Steps->Add({ { 0.f, [this, PC]() { const int32 Offer = FindOfferIndex(TEXT("Multimeter")); UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T buying multimeter (offer %d)"), Offer);
+			if (PC && Offer != INDEX_NONE) { PC->RequestBuy(FindTerminal(), Offer, 1); } } },
+		{ 1.0f, [PC]() { if (PC) { PC->CloseTrade(); } } },
+		{ 0.3f, []() {}, [this, FindParcel]() { return FindParcel() != nullptr || FindMySlot(TEXT("Multimeter")) != INDEX_NONE; } },
+		{ 0.5f, [this, PC, FindParcel]() { if (AWEPickupItem* P = FindParcel(); P && PC) { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T parcel arrived")); PC->ServerDevTeleport(P->GetActorLocation() + FVector(-90.f, 0.f, 80.f), FRotator::ZeroRotator); } } },
+		{ 0.8f, [this, FindParcel]() { if (AWEPickupItem* P = FindParcel(); P && GetCharacter()) { LookAt(P); GetCharacter()->GetInteractionComponent()->UpdateFocus(); GetCharacter()->GetInteractionComponent()->RequestAlternativeInteraction(); } } },
+		{ 1.0f, [this, Aim]() { if (FindMySlot(TEXT("Multimeter")) == INDEX_NONE) { Aim(FindItemById(TEXT("Multimeter"))); } } },
+		{ 1.0f, [this]() { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T multimeter in the inventory: %d"), FindMySlot(TEXT("Multimeter")) != INDEX_NONE ? 1 : 0); } },
+		{ 0.3f, [this]() { if (AWEWorkbench* B = FindBench(); B && Cast<AWEPlayerController>(GetOwner())) { Cast<AWEPlayerController>(GetOwner())->ServerDevTeleport(B->GetWorkSpotLocation() + B->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 10.f), FRotator::ZeroRotator); } } },
+		{ 0.8f, [this]() { FText Reason; AWEWorkbench* B = FindBench(); const bool bOk = B && GetCharacter() && B->TryStartRepairStep(GetCharacter());
+			if (B) { B->GetNextRepairStep(Reason); } UE_LOG(LogWorkshopEmpire, Display, TEXT("QU T check with multimeter: %s %s"), bOk ? TEXT("started") : TEXT("REFUSED"), *Reason.ToString()); } } });
+	// 10 save
+	Steps->Add({ { 0.f, [PC]() { if (PC) { PC->RequestSaveCurrent(); } } } });
+	TSharedRef<int32> Index = MakeShared<int32>(0);
+	TSharedRef<int32> Part = MakeShared<int32>(0);
+	TSharedRef<double> Waiting = MakeShared<double>(0.0);
+	TSharedRef<double> NextAt = MakeShared<double>(0.0);
+	TSharedRef<int32> StartStep = MakeShared<int32>(-1);
+	Schedule(4.f, [this, Steps, Index, Part, Waiting, NextAt, StartStep, Log, Snapshot, Session]()
+	{
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this, Steps, Index, Part, Waiting, NextAt, StartStep, Log, Snapshot, Session]()
+		{
+			const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
+			const double Now = GetWorld()->GetTimeSeconds();
+			if (!Tutorial || !Steps->IsValidIndex(*Index))
+			{
+				return;
+			}
+			if (*StartStep < 0)
+			{
+				*StartStep = Tutorial->GetStep();
+				*Part = 0;
+				*NextAt = Now;
+				*Waiting = Now;
+			}
+			const TArray<FAct>& Acts = (*Steps)[*Index];
+			if (Acts.IsValidIndex(*Part) && Now >= *NextAt)
+			{
+				if (*Part > 0 && Acts[*Part - 1].Until && !Acts[*Part - 1].Until() && Now - *Waiting < 240.0)
+				{
+					return; // still waiting for the previous part's condition
+				}
+				Acts[*Part].Do();
+				++*Part;
+				*NextAt = Now + (Acts.IsValidIndex(*Part) ? Acts[*Part].Delay : 0.f);
+				return;
+			}
+			if (Acts.Num() > 0 && Acts.Last().Until && !Acts.Last().Until() && Now - *Waiting < 240.0)
+			{
+				return;
+			}
+			const bool bAdvanced = Tutorial->GetStep() > *StartStep || !Tutorial->IsActive();
+			// (The courier takes a few minutes in game time: the multimeter step may wait longer.)
+			if (bAdvanced || Now - *Waiting > (*Index == 9 ? 240.0 : 25.0))
+			{
+				Log(FString::Printf(TEXT("step %d %s"), *Index, bAdvanced ? TEXT("done") : TEXT("NOT DONE (timeout)")));
+				Shot(FString::Printf(TEXT("%02d_Schritt_%d"), *Index + 2, *Index));
+				++*Index;
+				*StartStep = -1;
+				if (!Steps->IsValidIndex(*Index))
+				{
+					Saved = Snapshot();
+					Log(TEXT("all steps, saved"));
+					FTimerHandle Leave;
+					GetWorld()->GetTimerManager().SetTimer(Leave, FTimerDelegate::CreateWeakLambda(this, [Session]() { if (Session) { Session->LeaveToMainMenu(); } }), 2.f, false);
+				}
+			}
+		}), 0.25f, true);
+	});
+#endif
+}
+
 void UWEDevAutomationComponent::RunQualityShots()
 {
 #if !UE_BUILD_SHIPPING
@@ -255,6 +486,11 @@ void UWEDevAutomationComponent::RunQualityShots()
 	if (ShotName == TEXT("QUB"))
 	{
 		RunQualityRepairFlow();
+		return;
+	}
+	if (ShotName == TEXT("QUT"))
+	{
+		RunQualityNewGameFlow();
 		return;
 	}
 	if (ShotName.StartsWith(TEXT("QUE")))
