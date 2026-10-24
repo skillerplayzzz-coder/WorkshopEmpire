@@ -170,6 +170,30 @@ void UWEDevAutomationComponent::RunQualityRepairFlow()
 					B->GetPlacedItem()->GetItem().RemovedParts, B->GetPlacedItem()->GetItem().Repair.Faults, B->GetPlacedItem()->GetItem().NeedsFunctionTest() ? 1 : 0);
 				Shot(Done.Shot);
 				++*Next;
+				if (!Done.bInstall && FCString::Strcmp(Done.Part, TEXT("GraphicsCard")) == 0)
+				{
+					// Test 8 / save case: the customer PC half taken apart is saved and loaded - same state afterwards.
+					const FWEItemInstance Before = B->GetPlacedItem()->GetItem();
+					AWEGameMode* GM = GetWorld()->GetAuthGameMode<AWEGameMode>();
+					const bool bSaved = GM && GM->SaveToSlot(TEXT("QUB_Mid"));
+					const bool bLoaded = GM && GM->LoadFromSlot(TEXT("QUB_Mid"));
+					const AWEWorkbench* B2 = FindBench();
+					const AWEPickupItem* P2 = B2 ? B2->GetPlacedItem() : nullptr;
+					const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+					bool bLinked = false;
+					for (const FWEContract& K : Contracts ? Contracts->GetContracts() : TArray<FWEContract>())
+					{
+						bLinked |= P2 && K.CustomerItemId == P2->GetItem().InstanceId;
+					}
+					UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R save/load half taken apart: saved %d loaded %d, on bench %d, same id %d, removed %d -> %d, faults %d -> %d, order linked %d"),
+						bSaved ? 1 : 0, bLoaded ? 1 : 0, P2 ? 1 : 0, P2 && P2->GetItem().InstanceId == Before.InstanceId ? 1 : 0, Before.RemovedParts,
+						P2 ? P2->GetItem().RemovedParts : -1, Before.Repair.Faults, P2 ? P2->GetItem().Repair.Faults : -1, bLinked ? 1 : 0);
+					// The work view was closed by the load: open it again.
+					if (AWECharacter* Me = GetCharacter(); Me && P2)
+					{
+						if (PC) { PC->OpenWorkView(const_cast<AWEWorkbench*>(B2), false); }
+					}
+				}
 				return;
 			}
 			if (!Jobs->IsValidIndex(*Next))
@@ -372,16 +396,18 @@ void UWEDevAutomationComponent::RunQualityShots()
 		Schedule(14.5f, [this]() { Quit(); });
 		return;
 	}
-	if (ShotName == TEXT("QUC"))
+	if (ShotName == TEXT("QUC") || ShotName == TEXT("QUM"))
 	{
-		// --- The new parked cars: side by side on the street, then each one close up from the front corner -------------
-		static const TCHAR* Cars[] = { TEXT("SedanOld"), TEXT("Wagon"), TEXT("Pickup"), TEXT("PickupOld"), TEXT("Suv"), TEXT("Hatch") };
-		Schedule(1.0f, [this, PC]()
+		// --- The new parked cars (QUM: the machine models): side by side on the street, then each one close up ----------
+		static const TCHAR* CarList[] = { TEXT("Car_SedanOld"), TEXT("Car_Wagon"), TEXT("Car_Pickup"), TEXT("Car_PickupOld"), TEXT("Car_Suv"), TEXT("Car_Hatch") };
+		static const TCHAR* MachineList[] = { TEXT("M_Shredder"), TEXT("M_Sorter"), TEXT("M_Press"), TEXT("M_Assembler"), TEXT("M_Furnace"), TEXT("M_Refinery") };
+		const TCHAR** Cars = ShotName == TEXT("QUM") ? MachineList : CarList;
+		Schedule(1.0f, [this, PC, Cars]()
 		{
 			if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); }
-			for (int32 i = 0; i < UE_ARRAY_COUNT(Cars); ++i)
+			for (int32 i = 0; i < 6; ++i)
 			{
-				UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_Car_%s.SM_Gen_Car_%s"), Cars[i], Cars[i]));
+				UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_%s.SM_Gen_%s"), Cars[i], Cars[i]));
 				FActorSpawnParameters Params;
 				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				AStaticMeshActor* A = GetWorld()->SpawnActor<AStaticMeshActor>(FVector(-1500.f + i * 650.f, -1850.f, 2.f), FRotator(0.f, 15.f, 0.f), Params);
@@ -411,7 +437,7 @@ void UWEDevAutomationComponent::RunQualityShots()
 			Schedule(Delay + 0.8f, [this, Name]() { Shot(Name); });
 		};
 		View(FVector(125.f, -850.f, 260.f), FVector(125.f, -1850.f, 60.f), TEXT("01_Reihe"), 2.5f);
-		for (int32 i = 0; i < UE_ARRAY_COUNT(Cars); ++i)
+		for (int32 i = 0; i < 6; ++i)
 		{
 			const FVector C(-1500.f + i * 650.f, -1850.f, 70.f);
 			View(C + FVector(420.f, 380.f, 90.f), C, FString::Printf(TEXT("%02d_%s"), i + 2, Cars[i]), 4.f + i * 1.6f);

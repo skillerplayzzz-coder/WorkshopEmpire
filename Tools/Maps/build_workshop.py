@@ -137,14 +137,19 @@ VISUALS = {
     "LargeWorkbench": ("Gen:WorkbenchLarge", 0.0, False, [deco("metal_toolbox", (5, -10, 12), (0, 90, 0))]),
     # Tool wall (Phase 21): AWEToolWall draws the pegboard and hangs the tools that are really in its storage.
     "ToolWall": (None, 0.0, False, []),
-    # Machines keep their painted-metal bodies; a switch box on the side.
-    "Shredder": (None, 0.0, False, [deco("power_box_01", (0, -60, 110), (0, -90, 0), 0.7)]),
-    "Sorter": (None, 0.0, False, [deco("power_box_01", (0, -95, 105), (0, -90, 0), 0.7)]),
-    "Press": (None, 0.0, False, [deco("power_box_01", (0, -55, 115), (0, -90, 0), 0.7)]),
-    "Assembler": (None, 0.0, False, [deco("power_box_01", (0, -85, 110), (0, -90, 0), 0.7)]),
-    "Packer": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.8)]),
-    "Furnace": (None, 0.0, False, [deco("utility_box_01", (0, -105, 0), (0, -90, 0), 0.9), deco("propane_tank", (-70, -110, 0))]),
-    "Refinery": (None, 0.0, False, [deco("power_box_01", (0, -115, 120), (0, -90, 0), 0.8), deco("Barrel_01", (-60, -125, 0))]),
+    # Massive quality overhaul: modelled machines (Tools/Assets/build_machine_models.py: skid, cabinet, hopper, motor,
+    # control panel, signal tower) instead of painted boxes; the boxes stay as collision.
+    "Shredder": ("Gen:M_Shredder", 0.0, False, []),
+    "Sorter": ("Gen:M_Sorter", 0.0, False, []),
+    "Press": ("Gen:M_Press", 0.0, False, []),
+    "Assembler": ("Gen:M_Assembler", 0.0, False, []),
+    "Packer": ("Gen:M_Packer", 0.0, False, []),
+    "Furnace": ("Gen:M_Furnace", 0.0, False, [deco("propane_tank", (-70, -110, 0))]),
+    "Refinery": ("Gen:M_Refinery", 0.0, False, []),
+    "Conveyor": ("Gen:M_Conveyor", 0.0, False, []),
+    "ConveyorLong": ("Gen:M_ConveyorLong", 0.0, False, []),
+    "MaterialStore": ("Gen:M_MaterialStore", 0.0, False, []),
+    "BigMaterialStore": ("Gen:M_BigMaterialStore", 0.0, False, []),
     # Phase 17.5 decoration models.
     "DecoPlant": ("planter_box_01", 90.0, False, []),
     "DecoChalkboard": ("standing_chalkboard_01", 90.0, False, []),

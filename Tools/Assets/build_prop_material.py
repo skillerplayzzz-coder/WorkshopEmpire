@@ -192,6 +192,16 @@ INSTANCES = {
     "TaillightOff": ((0.28, 0.01, 0.01), 0.08, 0.0, None, 0.0, 1.0, None),
     "IndicatorOff": ((0.55, 0.28, 0.02), 0.08, 0.0, None, 0.0, 1.0, None),
     "FluorescentTube": ((0.9, 0.9, 0.88), 0.3, 0.0, None, 0.0, 1.0, (6.0, 5.6, 5.0)),
+    # Quality overhaul: industrial machine paints (a little wear) and a glowing furnace slit.
+    "MachineYellow": ((0.32, 0.19, 0.01), 0.55, 0.05, "rusty_painted_metal", 0.12, 0.6, None),
+    "MachineTeal": ((0.02, 0.11, 0.11), 0.55, 0.05, "rusty_painted_metal", 0.12, 0.6, None),
+    "MachineRed": ((0.2, 0.025, 0.015), 0.55, 0.05, "rusty_painted_metal", 0.12, 0.6, None),
+    "MachineBlue": ((0.025, 0.06, 0.17), 0.55, 0.05, "rusty_painted_metal", 0.12, 0.6, None),
+    "MachineGreen": ((0.05, 0.12, 0.06), 0.55, 0.05, "rusty_painted_metal", 0.12, 0.6, None),
+    "MachineOrange": ((0.3, 0.08, 0.01), 0.55, 0.05, "rusty_painted_metal", 0.12, 0.6, None),
+    "MachineGrey": ((0.07, 0.075, 0.08), 0.55, 0.05, "rusty_painted_metal", 0.15, 0.6, None),
+    "Refractory": ((0.42, 0.36, 0.30), 0.85, 0.0, "concrete_wall_008", 0.6, 0.5, None),
+    "FurnaceGlow": ((0.3, 0.08, 0.0), 0.6, 0.0, None, 0.0, 1.0, (8.0, 2.4, 0.3)),
 }
 count = 0
 for name, (tint, rough, metal, tid, strength, uvs, emissive) in INSTANCES.items():

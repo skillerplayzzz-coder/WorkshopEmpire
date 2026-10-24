@@ -234,7 +234,8 @@ void UWEHUDWidget::BuildBottom()
 	// Work progress (bench step, machine), above the held item.
 	UVerticalBox* WorkBox = WidgetTree->ConstructWidget<UVerticalBox>();
 	UHorizontalBox* WorkHead = WidgetTree->ConstructWidget<UHorizontalBox>();
-	WorkText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong);
+	// (wraps: a long machine status ran under the percentage)
+	WorkText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Strong, 300.f);
 	AddH(WorkHead, WorkText, FMargin(), true);
 	WorkPercent = Text(WidgetTree, FText::GetEmpty(), 13, Col::Accent, EFont::Head);
 	AddH(WorkHead, WorkPercent, FMargin(12.f, 0.f, 0.f, 0.f));
@@ -757,21 +758,39 @@ void UWEHUDWidget::UpdateExamine()
 		return;
 	}
 	LastExamineTitle = Signature;
-	ExamineDetails->ClearChildren();
-	for (const FText& Detail : Info.Details)
+	// Rows are made once and only change their text (a running machine changes its details every frame; new widgets
+	// have no layout in their first frame, which drew every line at the top of the card).
+	while (ExamineLines.Num() < Info.Details.Num())
 	{
-		FString Label, Value;
 		UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
-		if (Detail.ToString().Split(TEXT(": "), &Label, &Value))
-		{
-			AddH(Row, Sized(WidgetTree, Text(WidgetTree, FText::FromString(Label), 12, Col::TextMuted, EFont::Body, 120.f), 125.f), FMargin(), false, VAlign_Top);
-			AddH(Row, Text(WidgetTree, FText::FromString(Value), 12, Col::Text, EFont::Strong, 220.f), FMargin(), true, VAlign_Top);
-		}
-		else
-		{
-			AddH(Row, Text(WidgetTree, Detail, 12, Col::Text, EFont::Body, 340.f), FMargin(), true, VAlign_Top);
-		}
+		UTextBlock* Label = Text(WidgetTree, FText::GetEmpty(), 12, Col::TextMuted, EFont::Body, 120.f);
+		UTextBlock* Value = Text(WidgetTree, FText::GetEmpty(), 12, Col::Text, EFont::Strong, 220.f);
+		UTextBlock* Line = Text(WidgetTree, FText::GetEmpty(), 12, Col::Text, EFont::Body, 340.f);
+		AddH(Row, Sized(WidgetTree, Label, 125.f), FMargin(), false, VAlign_Top);
+		AddH(Row, Value, FMargin(), true, VAlign_Top);
+		AddH(Row, Line, FMargin(), true, VAlign_Top);
 		AddV(ExamineDetails, Row, FMargin(0.f, 0.f, 0.f, 3.f));
+		ExamineLabels.Add(Label);
+		ExamineValues.Add(Value);
+		ExamineLines.Add(Line);
+	}
+	for (int32 i = 0; i < ExamineLines.Num(); ++i)
+	{
+		UWidget* Row = ExamineLines[i]->GetParent();
+		if (!Info.Details.IsValidIndex(i))
+		{
+			Row->SetVisibility(ESlateVisibility::Collapsed);
+			continue;
+		}
+		Row->SetVisibility(ESlateVisibility::HitTestInvisible);
+		FString Label, Value;
+		const bool bPair = Info.Details[i].ToString().Split(TEXT(": "), &Label, &Value);
+		ExamineLabels[i]->GetParent()->SetVisibility(bPair ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		ExamineValues[i]->SetVisibility(bPair ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		ExamineLines[i]->SetVisibility(bPair ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+		ExamineLabels[i]->SetText(FText::FromString(Label));
+		ExamineValues[i]->SetText(FText::FromString(Value));
+		ExamineLines[i]->SetText(bPair ? FText::GetEmpty() : Info.Details[i]);
 	}
 }
 

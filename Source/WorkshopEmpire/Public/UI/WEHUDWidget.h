@@ -117,6 +117,10 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ExamineTitle;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ExamineDescription;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> ExamineDetails;
+	/** Quality overhaul: detail rows are reused (rebuilding them every frame drew all lines on top of each other). */
+	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> ExamineLabels;
+	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> ExamineValues;
+	UPROPERTY(Transient) TArray<TObjectPtr<UTextBlock>> ExamineLines;
 
 	// Build mode (left)
 	UPROPERTY(Transient) TObjectPtr<UWidget> BuildCard;
