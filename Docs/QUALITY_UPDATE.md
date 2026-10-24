@@ -56,3 +56,6 @@ Sechs eigene Modelle (`Tools/Assets/build_cars.py`, keine Marken, keine Logos): 
 | Regression P5–P21G, P21W (echte Mausklicks), Netzwerkpaare A–X, 4 Spieler, Sitzungen, UI 4 Auflösungen, Menü | alle grün (0 Fehler) |
 
 Gefunden und behoben während der Regression: Ein heiler CPU-Kühler aus einem defekten Kunden-PC kam „Beschädigt“ heraus und ließ den Funktionstest scheitern.
+## 5. Leistung der Straße (gepackt, 1920×1080, Hoch)
+
+Messung QUD (Blick die Straße entlang, je 1 s, während auf demselben Rechner zwei andere Unreal-Projekte liefen): mit Autos 34–43 ms GPU, ohne Autos 32–34 ms. Die Autos kosten also etwa 1,5–8 ms; der Großteil kommt von der Straßenszene selbst (Lichter, Schatten, Gebäude) und war vorher nicht gemessen. Offener Punkt: Straßenansicht ohne andere Last nachmessen und gezielt optimieren.
