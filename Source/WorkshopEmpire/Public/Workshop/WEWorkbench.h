@@ -130,6 +130,8 @@ public:
 
 	/** Server only. Hands the placed item to By (carried). Not possible while a step runs. */
 	bool TakeOffItem(AWECharacter* By);
+	/** Server: frees the work spot without anyone taking the item (the customer collects it). Not while busy. */
+	AWEPickupItem* ReleasePlacedItem();
 
 	AWEPickupItem* GetPlacedItem() const { return PlacedItem; }
 	FVector GetWorkSpotLocation() const;

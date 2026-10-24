@@ -70,6 +70,10 @@ public:
 	/** Server / tests: let time pass. */
 	void Advance(float GameMinutes);
 
+	/** Mike: after closing time (19:00) until 07:00 the night can be skipped - to 07:30, the next day if needed (server). */
+	bool CanSkipNight() const { return LocalMinute >= CloseHour * 60.f || LocalMinute < 7.f * 60.f; }
+	void SkipNight();
+
 	static constexpr float OpenHour = 8.f;
 	static constexpr float CloseHour = 19.f;
 	/** A whole game day in real minutes. */

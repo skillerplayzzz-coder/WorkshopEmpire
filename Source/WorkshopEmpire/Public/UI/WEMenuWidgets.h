@@ -275,6 +275,13 @@ protected:
 	UFUNCTION() void HandleSettings();
 	UFUNCTION() void HandleTutorial();
 	UFUNCTION() void HandleQuit();
+	/** Mike: fast-forward 1x -> 2x -> 4x and skip the night (host / solo). */
+	UFUNCTION() void HandleTimeSpeed();
+	UFUNCTION() void HandleSkipNight();
+	UPROPERTY(Transient) TObjectPtr<UButton> SpeedButton;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> SpeedText;
+	UPROPERTY(Transient) TObjectPtr<UButton> NightButton;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> NightText;
 
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> SessionText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> PlayersTitle;

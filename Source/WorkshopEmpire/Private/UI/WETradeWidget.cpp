@@ -1273,7 +1273,7 @@ void UWETradeWidget::RebuildOrders()
 			}
 			else if (Contract.Kind == EWEContractKind::Repair)
 			{
-				Detail = FText::Format(bAccepted ? LOCTEXT("RepairContractAccepted", "Reparieren: {0} – liegt auf der Palette, repariert in der Hand abliefern") : LOCTEXT("RepairContractOpen", "Reparieren: {0}"),
+				Detail = FText::Format(bAccepted ? LOCTEXT("RepairContractAccepted", "Reparieren: {0} – liegt auf der Palette; repariert und getestet abliefern, egal wo es gerade liegt") : LOCTEXT("RepairContractOpen", "Reparieren: {0}"),
 					FText::Format(LOCTEXT("RepairItem", "{0}, {1}"), ItemName, WEItems::GetConditionText(Contract.CustomerCondition)));
 			}
 			else
@@ -1285,8 +1285,16 @@ void UWETradeWidget::RebuildOrders()
 			Row->Configure(this, EWETradeRowKind::Contract, Contract.Title, Detail, MoneyText(Contract.Reward),
 				bAccepted ? FText::Format(LOCTEXT("Deliver", "Abliefern {0}/{1}"), FText::AsNumber(FMath::Min(Have, Contract.Quantity)), FText::AsNumber(Contract.Quantity)) : LOCTEXT("Accept", "Annehmen"),
 				bAccepted ? Have >= Contract.Quantity : true,
-				bAccepted ? LOCTEXT("CancelContract", "Abgeben") : FText::GetEmpty(), bAccepted);
+				bAccepted ? LOCTEXT("CancelContract", "Zurückgeben") : FText::GetEmpty(), bAccepted);
 			Row->AddChip(FText::Format(LOCTEXT("MinutesChip", "noch {0} min"), FText::AsNumber(Minutes)), Minutes <= 3 ? Col::Bad : Col::TextDim);
+			// Mike: why "Abliefern" is not possible yet (function test missing, not in the hands ...).
+			if (bAccepted)
+			{
+				if (const FText Hint = UWEContractComponent::GetDeliveryHint(Contract, Character); !Hint.IsEmpty())
+				{
+					Row->AddChip(Hint, Col::Accent);
+				}
+			}
 			if (bAccepted)
 			{
 				Row->AddChip(FText::Format(LOCTEXT("AcceptedBy", "von {0}"), FText::FromString(Contract.AcceptedBy)), Col::Info);
@@ -2519,9 +2527,10 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 		if (Row->bContractAccepted && ButtonIndex == 2)
 		{
 			const FGuid Id = Row->ContractId;
-			ShowConfirm(LOCTEXT("ConfirmCancelTitle", "Auftrag abgeben?"),
-				LOCTEXT("ConfirmCancelText", "Der Kunde holt sein Gerät ab und ist enttäuscht. Industrieaufträge kosten die Vertragsstrafe."),
-				LOCTEXT("ConfirmCancelBtn", "Abgeben"), [PC, Id]() { PC->RequestCancelContract(Id); }, true);
+			// ("Abgeben" read like handing the finished job in - it is giving the order back unfinished.)
+			ShowConfirm(LOCTEXT("ConfirmCancelTitle", "Auftrag zurückgeben?"),
+				LOCTEXT("ConfirmCancelText", "Du brichst den Auftrag ab: Der Kunde holt sein Gerät unrepariert ab und ist enttäuscht (schlechte Bewertung). Industrieaufträge kosten die Vertragsstrafe.\nZum Abliefern eines fertigen Auftrags nimm „Abliefern“."),
+				LOCTEXT("ConfirmCancelBtn", "Zurückgeben"), [PC, Id]() { PC->RequestCancelContract(Id); }, true);
 		}
 		else if (Row->bContractAccepted)
 		{

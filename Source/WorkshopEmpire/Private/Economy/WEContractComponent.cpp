@@ -26,6 +26,8 @@
 #include "Workshop/WEBenchmark.h"
 #include "UObject/UObjectIterator.h"
 
+#define LOCTEXT_NAMESPACE "WEContracts"
+
 UWEContractComponent::UWEContractComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -130,13 +132,16 @@ bool UWEContractComponent::Matches(const FWEContract& Contract, const FWEItemIns
 
 int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const AWECharacter* Character)
 {
-	if (Contract.Kind == EWEContractKind::Repair)
+	if (Contract.Kind == EWEContractKind::Repair || Contract.Kind == EWEContractKind::UpgradePc)
 	{
-		const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
-		return Held && IsRepairedCustomerItem(Contract, Held->GetItem()) ? 1 : 0;
+		// Mike: the customer's device can be handed back from anywhere - in the hands, on the bench, on the floor, on a
+		// shelf (or a pocket from old save games). Only not while a colleague carries it or works on it.
+		const FWECustomerDeviceLocation Where = FindCustomerDevice(Contract, Character);
+		return Where.Item && IsRepairedCustomerItem(Contract, *Where.Item) && Where.bFree ? 1 : 0;
 	}
 	if (Contract.IsPcOrder())
 	{
+		// (A built PC - the customer's own one for upgrades was handled above.)
 		const AWEPickupItem* Held = Character ? Character->GetHeldItem() : nullptr;
 		return Held && IsDeliverablePc(Contract, Held->GetItem()) ? 1 : 0;
 	}
@@ -158,6 +163,79 @@ int32 UWEContractComponent::CountDeliverable(const FWEContract& Contract, const 
 		Count += Held->GetItem().Quantity;
 	}
 	return Count;
+}
+
+UWEContractComponent::FWECustomerDeviceLocation UWEContractComponent::FindCustomerDevice(const FWEContract& Contract, const AWECharacter* Character)
+{
+	FWECustomerDeviceLocation Where;
+	const UWorld* World = Character ? Character->GetWorld() : nullptr;
+	if (!World || !Contract.CustomerItemId.IsValid())
+	{
+		return Where;
+	}
+	for (TActorIterator<AWEPickupItem> It(World); It; ++It)
+	{
+		if (It->GetItem().InstanceId == Contract.CustomerItemId && !It->IsActorBeingDestroyed())
+		{
+			Where.Item = &It->GetItem();
+			Where.Actor = *It;
+			// Free: lying around, in my hands, or on a bench nobody is working at.
+			Where.bFree = (!It->GetHolder() || It->GetHolder() == Character) && (!It->GetPlacedOn() || !It->GetPlacedOn()->IsBusy());
+			return Where;
+		}
+	}
+	// In a storage (shelf, bench parts tray, a pocket).
+	for (TObjectIterator<UWEInventoryComponent> It; It; ++It)
+	{
+		if (It->GetWorld() != World)
+		{
+			continue;
+		}
+		for (const FWEInventorySlotData& Slot : It->GetAllSlots())
+		{
+			if (Slot.Item.InstanceId == Contract.CustomerItemId)
+			{
+				Where.Item = It->GetItemInSlot(Slot.SlotIndex);
+				Where.Inventory = *It;
+				Where.Slot = Slot.SlotIndex;
+				Where.bFree = true;
+				return Where;
+			}
+		}
+	}
+	return Where;
+}
+
+FText UWEContractComponent::GetDeliveryHint(const FWEContract& Contract, const AWECharacter* Character)
+{
+	if (Contract.Kind != EWEContractKind::Repair || !Character || CountDeliverable(Contract, Character) > 0)
+	{
+		return FText::GetEmpty();
+	}
+	// Where is the customer's device, and what is still missing?
+	const FWECustomerDeviceLocation Where = FindCustomerDevice(Contract, Character);
+	const FWEItemInstance* Device = Where.Item;
+	if (!Device)
+	{
+		return LOCTEXT("HintNoDevice", "Gerät nicht gefunden – liegt es noch auf der Lieferpalette?");
+	}
+	if (Device->Repair.Faults != 0 || Device->IsBroken())
+	{
+		return LOCTEXT("HintNotRepaired", "Noch nicht repariert – an der Werkbank Fehler suchen und beheben");
+	}
+	if (Device->IsPartiallyDisassembled())
+	{
+		return LOCTEXT("HintOpen", "Noch nicht wieder zusammengebaut");
+	}
+	if (Device->NeedsFunctionTest())
+	{
+		return LOCTEXT("HintTest", "Funktionstest fehlt – an der Werkbank testen");
+	}
+	if (Device->Condition > Contract.MinCondition)
+	{
+		return LOCTEXT("HintCondition", "Zustand noch zu schlecht für den Kunden");
+	}
+	return LOCTEXT("HintBusy", "Wird gerade getragen oder bearbeitet");
 }
 
 int32 UWEContractComponent::GetCompanyTier() const
@@ -398,10 +476,34 @@ EWEContractResult UWEContractComponent::Deliver(const FGuid& Id, AWECharacter* C
 	// Phase 19: the customer rates the job.
 	const AWEPickupItem* HeldNow = Character->GetHeldItem();
 	// (Plain deliveries of goods are not rated: the customer gets what was ordered.)
-	const int32 Stars = Contract.Kind != EWEContractKind::Supply ? RateDelivery(Contract, HeldNow ? &HeldNow->GetItem() : nullptr, Contract.ExpiresAt - GetServerTime()) : 0;
-	if (Contract.Kind == EWEContractKind::Repair || Contract.IsPcOrder())
+	const bool bCustomerDevice = Contract.Kind == EWEContractKind::Repair || Contract.Kind == EWEContractKind::UpgradePc;
+	const FWECustomerDeviceLocation Where = bCustomerDevice ? FindCustomerDevice(Contract, Character) : FWECustomerDeviceLocation();
+	const FWEItemInstance* Delivered = bCustomerDevice ? Where.Item : HeldNow ? &HeldNow->GetItem() : nullptr;
+	const int32 Stars = Contract.Kind != EWEContractKind::Supply ? RateDelivery(Contract, Delivered, Contract.ExpiresAt - GetServerTime()) : 0;
+	if (bCustomerDevice)
 	{
-		// The repaired / upgraded / built PC goes to the customer.
+		// The customer collects the device wherever it is: from the hands, the bench, the floor or a shelf.
+		if (AWEPickupItem* Device = Where.Actor.Get())
+		{
+			if (Device == Character->GetHeldItem())
+			{
+				Character->ReleaseHeldItem();
+			}
+			else if (AWEWorkbench* Bench = Device->GetPlacedOn())
+			{
+				Bench->ReleasePlacedItem();
+			}
+			Device->Destroy();
+		}
+		else if (UWEInventoryComponent* Storage = Where.Inventory.Get())
+		{
+			FWEItemInstance Removed;
+			Storage->RemoveFromSlot(Where.Slot, 1, Removed);
+		}
+	}
+	else if (Contract.IsPcOrder())
+	{
+		// A PC built from parts goes to the customer from the hands.
 		if (AWEPickupItem* Held = Character->ReleaseHeldItem())
 		{
 			Held->Destroy();

@@ -191,6 +191,18 @@ public:
 
 	/** Items in Character's inventory that would count for Contract (repair orders: 1 if the repaired device is in the hands). */
 	static int32 CountDeliverable(const FWEContract& Contract, const AWECharacter* Character);
+	/** Repair orders that cannot be handed back yet: why (not repaired, function test missing ...). Empty when deliverable. */
+	static FText GetDeliveryHint(const FWEContract& Contract, const AWECharacter* Character);
+	/** Where a customer's device is: a world item (hands, bench, floor) or a storage slot. bFree = nobody else carries or works on it. */
+	struct FWECustomerDeviceLocation
+	{
+		const struct FWEItemInstance* Item = nullptr;
+		TWeakObjectPtr<class AWEPickupItem> Actor;
+		TWeakObjectPtr<class UWEInventoryComponent> Inventory;
+		int32 Slot = INDEX_NONE;
+		bool bFree = false;
+	};
+	static FWECustomerDeviceLocation FindCustomerDevice(const FWEContract& Contract, const AWECharacter* Character);
 
 	/** Repair orders: the customer's device is repaired (working, not taken apart). */
 	static bool IsRepairedCustomerItem(const FWEContract& Contract, const FWEItemInstance& Item);

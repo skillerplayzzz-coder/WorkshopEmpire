@@ -278,7 +278,9 @@ float AWEPickupItem::GetCarryRadius() const
 bool AWEPickupItem::GoesIntoInventory() const
 {
 	// Customer devices are always carried in the hands: they go onto the workbench, never into a pocket.
-	return Item.Definition && Item.Definition->bFitsInInventory && !Item.IsCustomerItem();
+	// Mike: also an own device to repair or take apart (radio, console, drill) is picked up into the hands with [E] -
+	// [R] still pockets it.
+	return Item.Definition && Item.Definition->bFitsInInventory && !Item.IsCustomerItem() && !IsBenchWork();
 }
 
 bool AWEPickupItem::IsBenchWork() const
@@ -512,14 +514,22 @@ bool AWEPickupItem::GetSecondaryInteraction(const AWECharacter* Interactor, FTex
 		OutText = FText::Format(LOCTEXT("TakeOff", "{0} aufnehmen"), GetShortName());
 		return true;
 	}
-	// A small device that would go into the pocket can also be carried to the workbench.
-	FText Reason;
-	if (!PlacedOn && GoesIntoInventory() && IsBenchWork() && Interactor && CanBePickedUpBy(Interactor, Reason))
+	// A small own device that [E] carries can also go into the pocket.
+	if (!PlacedOn && !Holder && CanBePocketed() && Interactor)
 	{
-		OutText = LOCTEXT("TakeInHand", "In die Hand nehmen");
-		return true;
+		const UWEInventoryComponent* Inventory = Interactor->GetPlayerInventory();
+		if (Inventory && Inventory->GetAddableQuantity(Item) > 0)
+		{
+			OutText = LOCTEXT("Pocket", "Einstecken");
+			return true;
+		}
 	}
 	return false;
+}
+
+bool AWEPickupItem::CanBePocketed() const
+{
+	return Item.Definition && Item.Definition->bFitsInInventory && !Item.IsCustomerItem() && IsBenchWork();
 }
 
 void AWEPickupItem::InteractSecondary(AWECharacter* Interactor)
@@ -528,9 +538,9 @@ void AWEPickupItem::InteractSecondary(AWECharacter* Interactor)
 	{
 		PlacedOn->TakeOffItem(Interactor);
 	}
-	else if (Interactor && IsBenchWork())
+	else if (Interactor && CanBePocketed() && !Holder)
 	{
-		Interactor->TryPickUpItem(this);
+		Interactor->TryStoreWorldItem(this);
 	}
 }
 

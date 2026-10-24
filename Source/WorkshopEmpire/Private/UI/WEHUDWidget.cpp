@@ -1,5 +1,6 @@
 #include "UI/WEHUDWidget.h"
 #include "Engine/Texture2D.h"
+#include "GameFramework/WorldSettings.h"
 #include "World/WEDayNightComponent.h"
 
 #include "Blueprint/WidgetLayoutLibrary.h"
@@ -588,6 +589,11 @@ void UWEHUDWidget::UpdateStatus()
 		{
 			const int32 Left = FMath::CeilToInt(Me->GetCoffeeBoostRemaining());
 			Clock = FText::Format(LOCTEXT("ClockCoffee", "{0} · Kaffee {1}:{2}"), Clock, FText::AsNumber(Left / 60), FText::FromString(FString::Printf(TEXT("%02d"), Left % 60)));
+		}
+		// Fast-forward on (pause menu): always visible.
+		if (const AWorldSettings* WS = GetWorld() ? GetWorld()->GetWorldSettings() : nullptr; WS && WS->TimeDilation > 1.01f)
+		{
+			Clock = FText::Format(LOCTEXT("ClockSpeed", "{0} · ▶▶ {1}×"), Clock, FText::AsNumber(FMath::RoundToInt(WS->TimeDilation)));
 		}
 		ClockText->SetText(Clock);
 		ClockText->SetColorAndOpacity(FSlateColor(DayNight->IsOpen() ? Col::Good : Col::TextDim));

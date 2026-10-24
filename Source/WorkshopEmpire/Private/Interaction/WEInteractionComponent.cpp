@@ -1,6 +1,7 @@
 #include "Interaction/WEInteractionComponent.h"
 
 #include "Camera/CameraComponent.h"
+#include "Economy/WETraderTerminal.h"
 #include "Engine/World.h"
 #include "InputAction.h"
 #include "Items/WEPickupItem.h"
@@ -108,6 +109,13 @@ void UWEInteractionComponent::RequestPrimaryInteraction()
 
 	if (Character->GetHeldItem())
 	{
+		// Mike: a repaired customer device is handed back at the workshop PC *in the hands* - but [E] on the PC put it
+		// down instead of opening the PC, so orders could not be delivered. Carrying something, [E] on the PC opens it.
+		if (AWETraderTerminal* Terminal = Cast<AWETraderTerminal>(FocusedActor.Get()))
+		{
+			RequestInteractWith(Terminal);
+			return;
+		}
 		if (Character->HasAuthority())
 		{
 			Character->DropHeldItem();
@@ -662,7 +670,11 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		const AWEConveyor* Belt = Cast<AWEConveyor>(Character->FindAimedProp());
 		const AWEVehicle* Van = Cast<AWEVehicle>(Character->FindAimedProp());
 		FText PlaceReason;
-		if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
+		if (Cast<AWETraderTerminal>(FocusedActor.Get()))
+		{
+			OutPrompts.Add({ InteractKey, LOCTEXT("PcWithItem", "Werkstatt-PC benutzen (z. B. Auftrag abliefern)") });
+		}
+		else if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
 		{
 			OutPrompts.Add({ InteractKey, FText::Format(LOCTEXT("PlaceOnBench", "{0} auf der Werkbank abstellen"), Held->GetShortName()) });
 		}

@@ -259,6 +259,19 @@ bool AWEWorkbench::TakeOffItem(AWECharacter* By)
 	return true;
 }
 
+AWEPickupItem* AWEWorkbench::ReleasePlacedItem()
+{
+	if (!HasAuthority() || !PlacedItem || IsBusy())
+	{
+		return nullptr;
+	}
+	AWEPickupItem* Item = PlacedItem;
+	PlacedItem = nullptr;
+	Item->HandleRemovedFromWorkbench();
+	RaiseEvent(EWEWorkbenchEvent::Removed);
+	return Item;
+}
+
 FVector AWEWorkbench::GetScrewBowlLocation() const
 {
 	return ScrewBowl ? ScrewBowl->GetComponentLocation() + FVector(0.f, 0.f, 0.4f) : GetWorkSpotLocation();

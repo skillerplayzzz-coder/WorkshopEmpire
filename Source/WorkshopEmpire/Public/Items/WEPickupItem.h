@@ -57,6 +57,8 @@ public:
 	bool GoesIntoInventory() const;
 	/** True if the item can be worked on at a workbench (taken apart or repaired). */
 	bool IsBenchWork() const;
+	/** An own small device ([E] carries it): [R] puts it into the inventory instead. */
+	bool CanBePocketed() const;
 	/** "PC" for computers, else the item name (prompts like "PC aufnehmen"). */
 	FText GetShortName() const;
 

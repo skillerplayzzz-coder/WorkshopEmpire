@@ -37,6 +37,9 @@
 #include "UI/WEMirrorWidget.h"
 #include "Workshop/WEBrandComponent.h"
 #include "Economy/WETraderTerminal.h"
+#include "Framework/WEPlayerState.h"
+#include "GameFramework/WorldSettings.h"
+#include "World/WEDayNightComponent.h"
 #include "WELog.h"
 
 #define LOCTEXT_NAMESPACE "WEPlayerController"
@@ -694,6 +697,62 @@ void AWEPlayerController::ServerDeliverContract_Implementation(AWETraderTerminal
 void AWEPlayerController::RequestCancelContract(const FGuid& ContractId)
 {
 	ServerCancelContract(ContractId);
+}
+
+bool AWEPlayerController::CanControlTime() const
+{
+	const AWEPlayerState* PS = GetPlayerState<AWEPlayerState>();
+	return GetNetMode() == NM_Standalone || (PS && PS->IsHost());
+}
+
+void AWEPlayerController::RequestSkipNight()
+{
+	ServerSkipNight();
+}
+
+void AWEPlayerController::RequestTimeSpeed(float Speed)
+{
+	ServerTimeSpeed(Speed);
+}
+
+void AWEPlayerController::ServerSkipNight_Implementation()
+{
+	UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+	if (!CanControlTime() || !Clock)
+	{
+		return;
+	}
+	if (!Clock->CanSkipNight())
+	{
+		ClientShowMessage(LOCTEXT("NoSkipDay", "Die Nacht lässt sich erst nach Feierabend (19:00) überspringen."));
+		return;
+	}
+	Clock->SkipNight();
+	// Everyone sees why it is suddenly morning.
+	const FText Message = FText::Format(LOCTEXT("NightSkipped", "Die Nacht ist vorbei – Tag {0}, {1}"), FText::AsNumber(Clock->GetDay()), Clock->GetClockText());
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (AWEPlayerController* Other = Cast<AWEPlayerController>(It->Get()))
+		{
+			Other->ClientShowMessage(Message);
+		}
+	}
+}
+
+void AWEPlayerController::ServerTimeSpeed_Implementation(float Speed)
+{
+	if (!CanControlTime())
+	{
+		return;
+	}
+	// Fast-forward everything (clock, machines, staff, orders) - capped so physics stays steady.
+	const float Clamped = FMath::Clamp(Speed, 1.f, 4.f);
+	if (AWorldSettings* Settings = GetWorldSettings())
+	{
+		Settings->SetTimeDilation(Clamped);
+		Settings->ForceNetUpdate();
+	}
+	UE_LOG(LogWENet, Log, TEXT("%s set the time speed to %.0fx"), *GetName(), Clamped);
 }
 
 void AWEPlayerController::ServerCancelContract_Implementation(FGuid ContractId)

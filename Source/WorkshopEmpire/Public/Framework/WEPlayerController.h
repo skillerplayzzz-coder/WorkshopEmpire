@@ -146,6 +146,16 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerCancelContract(FGuid ContractId);
 
+	/** Mike: skip the night to 07:30 (only while closed) and fast-forward (1x / 2x / 4x). Host (or solo) only. */
+	void RequestSkipNight();
+	void RequestTimeSpeed(float Speed);
+	UFUNCTION(Server, Reliable)
+	void ServerSkipNight();
+	UFUNCTION(Server, Reliable)
+	void ServerTimeSpeed(float Speed);
+	/** True if this player may change the time (solo or the host). */
+	bool CanControlTime() const;
+
 	/** Test hook: sends the same request id twice (must be booked once). Not in Shipping. */
 	void DevRequestSellTwice(class AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity);
 

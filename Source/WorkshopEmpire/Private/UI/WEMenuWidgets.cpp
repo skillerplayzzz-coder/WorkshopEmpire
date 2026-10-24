@@ -35,6 +35,8 @@
 #include "Save/WESaveSystem.h"
 #include "SocketSubsystem.h"
 #include "UI/WEGraphicsSettings.h"
+#include "GameFramework/WorldSettings.h"
+#include "World/WEDayNightComponent.h"
 #include "WEMoney.h"
 
 #define LOCTEXT_NAMESPACE "WEMenu"
@@ -1330,6 +1332,10 @@ void UWEPauseMenuWidget::NativeOnInitialized()
 	AddButton(LOCTEXT("Continue", "Weiterspielen"), TEXT("Play"), EButton::Primary)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleContinue);
 	SaveButton = AddButton(LOCTEXT("Save", "Speichern"), TEXT("Save"), EButton::Secondary);
 	SaveButton->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleSave);
+	SpeedButton = AddButton(LOCTEXT("SpeedBtn", "Zeitraffer: 1×"), TEXT("Clock"), EButton::Secondary, &SpeedText);
+	SpeedButton->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleTimeSpeed);
+	NightButton = AddButton(LOCTEXT("NightBtn", "Nacht überspringen"), TEXT("Moon"), EButton::Secondary, &NightText);
+	NightButton->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleSkipNight);
 	AddButton(LOCTEXT("SettingsBtn2", "Einstellungen"), TEXT("Gear"), EButton::Secondary)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleSettings);
 	AddButton(LOCTEXT("Tutorial", "Tutorial"), TEXT("Bulb"), EButton::Secondary, &TutorialText)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleTutorial);
 	AddButton(LOCTEXT("Invite", "Steam-Freunde einladen"), TEXT("People"), EButton::Secondary)->OnClicked.AddDynamic(this, &UWEPauseMenuWidget::HandleInvite);
@@ -1399,6 +1405,10 @@ FString UWEPauseMenuWidget::BuildSignature() const
 	{
 		Sig += FString::Printf(TEXT("tut%d"), static_cast<int32>(Tutorial->GetState()));
 	}
+	// (Speed and night buttons follow the time.)
+	const AWorldSettings* WS = GetWorld() ? GetWorld()->GetWorldSettings() : nullptr;
+	const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+	Sig += FString::Printf(TEXT("x%.0f n%d"), WS ? WS->TimeDilation : 1.f, Clock && Clock->CanSkipNight() ? 1 : 0);
 	return Sig + (IsHost() ? TEXT("host") : TEXT("client"));
 }
 
@@ -1451,6 +1461,15 @@ void UWEPauseMenuWidget::Rebuild()
 	}
 	const UWETutorialComponent* Tutorial = UWETutorialComponent::Get(this);
 	TutorialText->SetText(Tutorial && Tutorial->IsActive() ? LOCTEXT("TutSkip", "Tutorial überspringen") : LOCTEXT("TutStart", "Tutorial starten"));
+	// Time: only the host (or solo) changes it - it runs for everyone.
+	const AWorldSettings* WS = GetWorld() ? GetWorld()->GetWorldSettings() : nullptr;
+	const float Speed = WS ? WS->TimeDilation : 1.f;
+	SpeedText->SetText(FText::Format(LOCTEXT("SpeedFmt", "Zeitraffer: {0}×"), FText::AsNumber(FMath::RoundToInt(Speed))));
+	SpeedButton->SetIsEnabled(bHost);
+	const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+	const bool bNight = Clock && Clock->CanSkipNight();
+	NightText->SetText(bNight ? LOCTEXT("NightSkip", "Nacht überspringen (bis 07:30)") : LOCTEXT("NightNotYet", "Nacht überspringen (ab 19:00)"));
+	NightButton->SetIsEnabled(bHost && bNight);
 
 	PlayerList->ClearChildren();
 	ListedPlayers = 0;
@@ -1478,6 +1497,30 @@ void UWEPauseMenuWidget::Rebuild()
 			}, bIsHostRow ? FName(TEXT("Home")) : FName(TEXT("Person")), false);
 		PlayerList->AddChild(Row);
 		Row->SetPadding(FMargin(0.f, 0.f, 0.f, 4.f));
+	}
+}
+
+void UWEPauseMenuWidget::HandleTimeSpeed()
+{
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer());
+	const AWorldSettings* WS = GetWorld() ? GetWorld()->GetWorldSettings() : nullptr;
+	if (!PC || !WS)
+	{
+		return;
+	}
+	const float Speed = WS->TimeDilation;
+	const float Next = Speed < 1.5f ? 2.f : Speed < 3.f ? 4.f : 1.f;
+	PC->RequestTimeSpeed(Next);
+	InfoText->SetText(Next > 1.f ? FText::Format(LOCTEXT("SpeedInfo", "Alles läuft {0}× so schnell – Maschinen, Mitarbeiter, Aufträge, Uhr."), FText::AsNumber(FMath::RoundToInt(Next)))
+		: LOCTEXT("SpeedNormal", "Normale Geschwindigkeit."));
+}
+
+void UWEPauseMenuWidget::HandleSkipNight()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()))
+	{
+		PC->RequestSkipNight();
+		PC->ClosePauseMenu();
 	}
 }
 

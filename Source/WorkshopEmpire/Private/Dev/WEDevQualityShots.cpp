@@ -28,6 +28,9 @@
 #include "Progression/WETutorialComponent.h"
 #include "WELog.h"
 #include "Workshop/WEWorkbench.h"
+#include "GameFramework/WorldSettings.h"
+#include "UI/WETradeWidget.h"
+#include "World/WEDayNightComponent.h"
 
 void UWEDevAutomationComponent::LogCarry(const TCHAR* Step) const
 {
@@ -491,6 +494,166 @@ void UWEDevAutomationComponent::RunQualityShots()
 	if (ShotName == TEXT("QUT"))
 	{
 		RunQualityNewGameFlow();
+		return;
+	}
+	if (ShotName == TEXT("QUK"))
+	{
+		// --- Mike's list: radio into the hands, customer device never in the pocket, hand-in hints, night skip, fast-forward ---
+		auto Inv = [this](const TCHAR* Id) { const int32 Slot = FindMySlot(Id); return Slot == INDEX_NONE ? 0 : 1; };
+		auto Held = [this]() { return GetCharacter() && GetCharacter()->GetHeldItem() ? GetCharacter()->GetHeldItem()->GetDisplayName().ToString() : FString(TEXT("-")); };
+		auto Press = [this](bool bSecondary)
+		{
+			if (AWECharacter* C = GetCharacter())
+			{
+				C->GetInteractionComponent()->UpdateFocus();
+				bSecondary ? C->GetInteractionComponent()->RequestSecondaryInteraction() : C->GetInteractionComponent()->RequestPrimaryInteraction();
+			}
+		};
+		TSharedRef<TWeakObjectPtr<AWEPickupItem>> Radio = MakeShared<TWeakObjectPtr<AWEPickupItem>>();
+		TSharedRef<FGuid> OrderId = MakeShared<FGuid>();
+		Schedule(1.0f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
+		Schedule(2.0f, [this, PC, Radio]()
+		{
+			const FWEItemInstance Own = FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("PortableRadio")), 1, EWEItemCondition::Defective, 35);
+			*Radio = AWEPickupItem::SpawnWorldItem(GetWorld(), Own, FTransform(FVector(120.f, -150.f, 30.f)));
+			if (PC) { PC->ServerDevTeleport(FVector(0.f, -150.f, 100.f), FRotator::ZeroRotator); }
+		});
+		Schedule(3.0f, [this, Radio]() { LookAt(Radio->Get()); });
+		Schedule(3.3f, [Press]() { Press(false); });
+		Schedule(4.0f, [this, Held, Inv]() { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K own radio [E]: held=%s, in inventory=%d (expect held)"), *Held(), Inv(TEXT("PortableRadio"))); Shot(TEXT("01_Radio_in_der_Hand")); });
+		Schedule(4.5f, [this]() { if (AWECharacter* C = GetCharacter()) { C->DropHeldItem(); } });
+		Schedule(5.5f, [this, Radio]() { LookAt(Radio->Get()); });
+		Schedule(5.8f, [Press]() { Press(true); });
+		Schedule(6.5f, [Held, Inv]() { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K own radio [R]: held=%s, in inventory=%d (expect pocketed)"), *Held(), Inv(TEXT("PortableRadio"))); });
+		// A customer's radio.
+		Schedule(7.0f, [this, PC]()
+		{
+			const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+			const UWEContractCatalog* Catalog = Contracts ? Contracts->GetCatalog() : nullptr;
+			for (int32 i = 0; Catalog && i < Catalog->Templates.Num(); ++i)
+			{
+				if (Catalog->Templates[i].Kind == EWEContractKind::Repair && Catalog->Templates[i].Item && Catalog->Templates[i].Item->ItemId == TEXT("PortableRadio"))
+				{
+					if (PC) { PC->ServerDevAddContractOffer(i); }
+					break;
+				}
+			}
+		});
+		Schedule(8.0f, [this, PC, OrderId]()
+		{
+			for (const FWEContract& K : UWEContractComponent::Get(this) ? UWEContractComponent::Get(this)->GetContracts() : TArray<FWEContract>())
+			{
+				if (K.Kind == EWEContractKind::Repair && K.State == EWEContractState::Offered && K.Item && K.Item->ItemId == TEXT("PortableRadio")) { *OrderId = K.Id; }
+			}
+			if (PC && OrderId->IsValid()) { PC->RequestAcceptContract(FindTerminal(), *OrderId); }
+		});
+		Schedule(10.0f, [this, PC]()
+		{
+			AWEPickupItem* Device = FindCustomerDevice();
+			int32 Added = 0;
+			const EWEInventoryResult Result = Device && GetMyInventory() ? GetMyInventory()->TryAddItem(Device->GetItem(), Added) : EWEInventoryResult::InvalidItem;
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K customer radio straight into the pocket: result %d, added %d (expect refused)"), static_cast<int32>(Result), Added);
+			if (Device && PC) { PC->ServerDevTeleport(Device->GetActorLocation() + FVector(-110.f, 0.f, 80.f), FRotator::ZeroRotator); }
+		});
+		Schedule(11.0f, [this]() { LookAt(FindCustomerDevice()); });
+		Schedule(11.3f, [Press]() { Press(false); });
+		Schedule(12.0f, [this, Held, OrderId]()
+		{
+			const FWEContract* K = UWEContractComponent::Get(this) ? UWEContractComponent::Get(this)->FindContract(*OrderId) : nullptr;
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K customer radio [E]: held=%s; hint '%s'"), *Held(), K ? *UWEContractComponent::GetDeliveryHint(*K, GetCharacter()).ToString() : TEXT("-"));
+			// As if repaired at the bench, but the function test not done yet.
+			if (AWEPickupItem* Device = GetCharacter() ? GetCharacter()->GetHeldItem() : nullptr)
+			{
+				FWEItemInstance Item = Device->GetItem();
+				Item.Repair.Faults = 0;
+				Item.Condition = EWEItemCondition::Used;
+				Item.Repair.SetFlag(FWERepairState::NeedsTest);
+				Device->SetItem(Item);
+			}
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K repaired, untested: hint '%s'"), K ? *UWEContractComponent::GetDeliveryHint(*K, GetCharacter()).ToString() : TEXT("-"));
+			if (AWEPickupItem* Device = GetCharacter() ? GetCharacter()->GetHeldItem() : nullptr)
+			{
+				FWEItemInstance Item = Device->GetItem();
+				Item.Repair.Flags &= ~FWERepairState::NeedsTest;
+				Device->SetItem(Item);
+			}
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K tested: hint '%s', deliverable %d"), K ? *UWEContractComponent::GetDeliveryHint(*K, GetCharacter()).ToString() : TEXT("-"),
+				K ? UWEContractComponent::CountDeliverable(*K, GetCharacter()) : -1);
+			TeleportToTerminal(0.f);
+		});
+		// Like a player: the radio in the hands, [E] on the workshop PC (that used to put the radio down instead).
+		Schedule(13.0f, [this]() { LookAt(FindTerminal()); });
+		Schedule(13.2f, [Press]() { Press(false); });
+		Schedule(13.6f, [this, PC, Held]()
+		{
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K [E] on the PC while carrying: PC open=%d, held=%s (expect open, still held)"),
+				PC && PC->GetTradeWidget() && PC->GetTradeWidget()->IsInViewport() ? 1 : 0, *Held());
+		});
+		// Mike: hand it in even when it lies somewhere in the garage - put it down on the floor first.
+		Schedule(14.0f, [this, PC, OrderId, Held]()
+		{
+			if (PC) { PC->CloseTrade(); }
+			if (AWECharacter* C = GetCharacter()) { C->DropHeldItem(); }
+			const FWEContract* K = UWEContractComponent::Get(this) ? UWEContractComponent::Get(this)->FindContract(*OrderId) : nullptr;
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K radio put down: held=%s, deliverable %d (expect 1 from the floor)"), *Held(), K ? UWEContractComponent::CountDeliverable(*K, GetCharacter()) : -1);
+		});
+		Schedule(14.6f, [this, PC]() { if (PC) { PC->OpenTrade(FindTerminal()); } });
+		Schedule(15.0f, [PC]() { if (PC && PC->GetTradeWidget()) { PC->GetTradeWidget()->ShowPage(4); } });
+		Schedule(15.6f, [this]() { Shot(TEXT("02_Auftrag_Abliefern")); });
+		Schedule(16.0f, [this, PC, OrderId]()
+		{
+			const int64 Before = UWECompanyComponent::Get(this) ? UWECompanyComponent::Get(this)->GetBalance().GetCents() : 0;
+			if (PC) { PC->RequestDeliverContract(FindTerminal(), *OrderId); }
+			FTimerHandle H;
+			GetWorld()->GetTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(this, [this, Before, OrderId]()
+			{
+				const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K delivered: order open=%d, balance %lld -> %lld"), Contracts && Contracts->FindContract(*OrderId) ? 1 : 0, Before,
+					UWECompanyComponent::Get(this) ? UWECompanyComponent::Get(this)->GetBalance().GetCents() : -1);
+			}), 1.f, false);
+		});
+		// Night skip and fast-forward.
+		Schedule(16.5f, [this, PC]()
+		{
+			if (PC) { PC->CloseTrade(); }
+			UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+			if (Clock) { Clock->SetTime(Clock->GetDay(), 14.f * 60.f); }
+			if (PC) { PC->RequestSkipNight(); }
+		});
+		Schedule(17.0f, [this, PC]()
+		{
+			UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K skip at 14:00 (refused): day %d %s"), Clock ? Clock->GetDay() : -1, Clock ? *Clock->GetClockText().ToString() : TEXT("-"));
+			if (Clock) { Clock->SetTime(Clock->GetDay(), 21.f * 60.f); }
+			if (PC) { PC->OpenPauseMenu(); }
+		});
+		Schedule(18.0f, [this]() { Shot(TEXT("03_Pausenmenue_Nacht")); });
+		Schedule(18.3f, [this, PC]()
+		{
+			const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K before skip: day %d %s"), Clock ? Clock->GetDay() : -1, Clock ? *Clock->GetClockText().ToString() : TEXT("-"));
+			if (PC) { PC->ClosePauseMenu(); PC->RequestSkipNight(); }
+		});
+		Schedule(19.0f, [this, PC]()
+		{
+			const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K after skip: day %d %s"), Clock ? Clock->GetDay() : -1, Clock ? *Clock->GetClockText().ToString() : TEXT("-"));
+			if (PC) { PC->RequestTimeSpeed(4.f); }
+		});
+		Schedule(19.5f, [this]()
+		{
+			const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K speed: dilation %.1f, clock %s"), GetWorld()->GetWorldSettings()->TimeDilation, Clock ? *Clock->GetClockText().ToString() : TEXT("-"));
+			Shot(TEXT("04_Zeitraffer_HUD"));
+		});
+		// (Timers run in game time: 8 s at 4x are 2 real seconds.)
+		Schedule(27.5f, [this, PC]()
+		{
+			const UWEDayNightComponent* Clock = UWEDayNightComponent::Get(this);
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K 8 game seconds later at 4x: clock %s"), Clock ? *Clock->GetClockText().ToString() : TEXT("-"));
+			if (PC) { PC->RequestTimeSpeed(1.f); }
+		});
+		Schedule(28.5f, [this]() { UE_LOG(LogWorkshopEmpire, Display, TEXT("QU K speed back: dilation %.1f"), GetWorld()->GetWorldSettings()->TimeDilation); Quit(); });
 		return;
 	}
 	if (ShotName.StartsWith(TEXT("QUE")))

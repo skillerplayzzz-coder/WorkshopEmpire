@@ -148,6 +148,11 @@ int32 UWEInventoryComponent::GetAddableQuantity(const FWEItemInstance& Item) con
 	{
 		return 0;
 	}
+	// A customer's device never goes into a player's pocket (it is carried to the bench and handed back in the hands).
+	if (Item.IsCustomerItem() && Cast<APlayerState>(GetOwner()))
+	{
+		return 0;
+	}
 
 	// Weight limit.
 	const float UnitWeight = UnitWeightOf(Item);
@@ -209,7 +214,7 @@ EWEInventoryResult UWEInventoryComponent::TryAddItem(const FWEItemInstance& Item
 	{
 		return EWEInventoryResult::NotAllowed;
 	}
-	if (!Item.IsValid() || (!Item.Definition->bFitsInInventory && !bAcceptsBulky))
+	if (!Item.IsValid() || (!Item.Definition->bFitsInInventory && !bAcceptsBulky) || (Item.IsCustomerItem() && Cast<APlayerState>(GetOwner())))
 	{
 		return EWEInventoryResult::InvalidItem;
 	}

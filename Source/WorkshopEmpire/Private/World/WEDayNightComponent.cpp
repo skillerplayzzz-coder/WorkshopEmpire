@@ -21,6 +21,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/PlayerController.h"
 #include "Sound/SoundBase.h"
+#include "WELog.h"
 
 #define LOCTEXT_NAMESPACE "WEDayNight"
 
@@ -88,6 +89,17 @@ void UWEDayNightComponent::SetTime(int32 InDay, float InMinute)
 	LocalMinute = Minute;
 	GetOwner()->ForceNetUpdate();
 	ApplyLighting();
+}
+
+void UWEDayNightComponent::SkipNight()
+{
+	if (!GetOwner()->HasAuthority() || !CanSkipNight())
+	{
+		return;
+	}
+	// Before midnight the morning is tomorrow; after midnight it is today.
+	SetTime(LocalMinute >= CloseHour * 60.f ? Day + 1 : Day, 7.5f * 60.f);
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Night skipped: day %d, 07:30"), Day);
 }
 
 void UWEDayNightComponent::Advance(float GameMinutes)
