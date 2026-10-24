@@ -246,4 +246,58 @@ bool FWEPcOrdersTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWEOrderCancelTest, "WorkshopEmpire.PcOrders.CancelAcceptedOrder", Flags)
+bool FWEOrderCancelTest::RunTest(const FString& Parameters)
+{
+	// Quality overhaul: an accepted order can be given back - the customer device leaves (also from a pocket), the
+	// slot is free again, nothing is paid.
+	FFixture F;
+	if (!F.Init(*this))
+	{
+		return false;
+	}
+	UWEContractComponent* Contracts = F.GameState->GetContracts();
+	UWECompanyComponent* Company = F.GameState->GetCompany();
+	UWEContractCatalog* Catalog = NewObject<UWEContractCatalog>(GetTransientPackage());
+	FWEContractTemplate Repair;
+	Repair.Title = FText::FromString(TEXT("Reparatur"));
+	Repair.Kind = EWEContractKind::Repair;
+	Repair.Item = F.Pc;
+	Repair.MinCondition = EWEItemCondition::Used;
+	Repair.CustomerCondition = EWEItemCondition::Defective;
+	Repair.RewardFactor = 0.5f;
+	Catalog->Templates = { Repair };
+	Contracts->SetCatalog(Catalog);
+	Contracts->SetContracts({});
+	TestTrue(TEXT("Offer"), Contracts->AddOffer(0));
+	const FGuid Id = Contracts->GetContracts()[0].Id;
+	TestEqual(TEXT("Accept"), F.Terminal->AcceptContract(F.Player, Id, FGuid::NewGuid()), EWETradeResult::Success);
+	const FGuid Device = Contracts->FindContract(Id)->CustomerItemId;
+	int32 Devices = 0;
+	for (TActorIterator<AWEPickupItem> It(F.TW.World); It; ++It) { Devices += It->GetItem().InstanceId == Device ? 1 : 0; }
+	TestEqual(TEXT("Customer PC on the pallet"), Devices, 1);
+	const int64 Before = Company->GetBalance().GetCents();
+	TestEqual(TEXT("Not offered orders cannot be cancelled"), Contracts->Cancel(FGuid::NewGuid(), TEXT("T")), EWEContractResult::NotFound);
+	TestEqual(TEXT("Cancelled"), Contracts->Cancel(Id, TEXT("T")), EWEContractResult::Success);
+	TestNull(TEXT("Order gone"), Contracts->FindContract(Id));
+	Devices = 0;
+	for (TActorIterator<AWEPickupItem> It(F.TW.World); It; ++It) { Devices += It->GetItem().InstanceId == Device && !It->IsActorBeingDestroyed() ? 1 : 0; }
+	TestEqual(TEXT("Customer took the PC back"), Devices, 0);
+	TestEqual(TEXT("No money for nothing"), Company->GetBalance().GetCents(), Before);
+	// A customer device in a pocket (old saves) goes too.
+	TestTrue(TEXT("Second offer"), Contracts->AddOffer(0));
+	const FGuid Id2 = Contracts->GetContracts().Last().Id;
+	TestEqual(TEXT("Accept again"), F.Terminal->AcceptContract(F.Player, Id2, FGuid::NewGuid()), EWETradeResult::Success);
+	FWEItemInstance Pocketed = FWEItemInstance::Make(F.Pc, 1, EWEItemCondition::Defective, 40);
+	Pocketed.InstanceId = Contracts->FindContract(Id2)->CustomerItemId;
+	Pocketed.Repair.SetFlag(FWERepairState::CustomerItem);
+	F.Bench->GetStorage()->SetAcceptsBulky(true);
+	int32 Added = 0;
+	F.Bench->GetStorage()->TryAddItem(Pocketed, Added);
+	for (TActorIterator<AWEPickupItem> It(F.TW.World); It; ++It) { if (It->GetItem().InstanceId == Pocketed.InstanceId) { It->Destroy(); } }
+	TestEqual(TEXT("Cancelled again"), Contracts->Cancel(Id2, TEXT("T")), EWEContractResult::Success);
+	TestEqual(TEXT("Taken out of the storage"), F.Bench->GetStorage()->CountItems(F.Pc), 0);
+	return true;
+}
+
 #endif

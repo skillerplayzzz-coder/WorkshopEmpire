@@ -691,6 +691,21 @@ void AWEPlayerController::ServerDeliverContract_Implementation(AWETraderTerminal
 	}
 }
 
+void AWEPlayerController::RequestCancelContract(const FGuid& ContractId)
+{
+	ServerCancelContract(ContractId);
+}
+
+void AWEPlayerController::ServerCancelContract_Implementation(FGuid ContractId)
+{
+	UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+	const FString Name = PlayerState ? PlayerState->GetPlayerName() : GetName();
+	if (Contracts && Contracts->Cancel(ContractId, Name) == EWEContractResult::Success)
+	{
+		ClientShowMessage(LOCTEXT("ContractCancelled", "Auftrag abgegeben – der Kunde holt sein Gerät ab."));
+	}
+}
+
 void AWEPlayerController::ServerDevTeleport_Implementation(FVector Location, FRotator Rotation)
 {
 #if !UE_BUILD_SHIPPING

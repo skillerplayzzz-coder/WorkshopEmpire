@@ -1284,7 +1284,8 @@ void UWETradeWidget::RebuildOrders()
 			}
 			Row->Configure(this, EWETradeRowKind::Contract, Contract.Title, Detail, MoneyText(Contract.Reward),
 				bAccepted ? FText::Format(LOCTEXT("Deliver", "Abliefern {0}/{1}"), FText::AsNumber(FMath::Min(Have, Contract.Quantity)), FText::AsNumber(Contract.Quantity)) : LOCTEXT("Accept", "Annehmen"),
-				bAccepted ? Have >= Contract.Quantity : true);
+				bAccepted ? Have >= Contract.Quantity : true,
+				bAccepted ? LOCTEXT("CancelContract", "Abgeben") : FText::GetEmpty(), bAccepted);
 			Row->AddChip(FText::Format(LOCTEXT("MinutesChip", "noch {0} min"), FText::AsNumber(Minutes)), Minutes <= 3 ? Col::Bad : Col::TextDim);
 			if (bAccepted)
 			{
@@ -2515,7 +2516,14 @@ void UWETradeWidget::HandleRowAction(const UWETradeRowWidget* Row, int32 ButtonI
 		}
 		break;
 	case EWETradeRowKind::Contract:
-		if (Row->bContractAccepted)
+		if (Row->bContractAccepted && ButtonIndex == 2)
+		{
+			const FGuid Id = Row->ContractId;
+			ShowConfirm(LOCTEXT("ConfirmCancelTitle", "Auftrag abgeben?"),
+				LOCTEXT("ConfirmCancelText", "Der Kunde holt sein Gerät ab und ist enttäuscht. Industrieaufträge kosten die Vertragsstrafe."),
+				LOCTEXT("ConfirmCancelBtn", "Abgeben"), [PC, Id]() { PC->RequestCancelContract(Id); }, true);
+		}
+		else if (Row->bContractAccepted)
 		{
 			PC->RequestDeliverContract(Terminal, Row->ContractId);
 		}

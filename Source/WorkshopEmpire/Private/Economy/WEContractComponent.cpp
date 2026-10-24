@@ -24,6 +24,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 #include "Workshop/WEBenchmark.h"
+#include "UObject/UObjectIterator.h"
 
 UWEContractComponent::UWEContractComponent()
 {
@@ -560,8 +561,61 @@ EWEContractResult UWEContractComponent::DeliverFromStorage(const FGuid& Id, UWEI
 	return EWEContractResult::Success;
 }
 
+EWEContractResult UWEContractComponent::Cancel(const FGuid& Id, const FString& PlayerName)
+{
+	const int32 Index = Contracts.IndexOfByPredicate([&Id](const FWEContract& C) { return C.Id == Id; });
+	if (!GetOwner()->HasAuthority() || Index == INDEX_NONE)
+	{
+		return EWEContractResult::NotFound;
+	}
+	const FWEContract Contract = Contracts[Index];
+	if (Contract.State != EWEContractState::Accepted)
+	{
+		return EWEContractResult::WrongState;
+	}
+	if (UWECompanyComponent* Company = UWECompanyComponent::Get(this); Company && !Contract.GetPenalty().IsZero())
+	{
+		const FWEMoney Penalty = FWEMoney::FromCents(FMath::Min(Contract.GetPenalty().GetCents(), Company->GetBalance().GetCents()));
+		if (!Penalty.IsZero())
+		{
+			Company->TryWithdraw(Penalty, FString::Printf(TEXT("Vertragsstrafe: %s"), *Contract.Title.ToString()), PlayerName);
+		}
+	}
+	if (Contract.CustomerItemId.IsValid())
+	{
+		RemoveCustomerItem(Contract.CustomerItemId);
+	}
+	const FWEGameRules Rules = UWEGameRulesComponent::GetRules(this);
+	if (Rules.bCustomerReviews && Rules.Preset != EWEDifficultyPreset::Custom)
+	{
+		AddReview(1, MakeReviewAuthor(Index + RatingCount, Contract.Title.ToString()), MakeReviewText(1, Contract.Kind == EWEContractKind::Repair, true, Index + RatingCount));
+	}
+	UE_LOG(LogWorkshopEmpire, Log, TEXT("Contract '%s' cancelled by %s"), *Contract.Title.ToString(), *PlayerName);
+	Contracts.RemoveAt(Index);
+	OnRep_Contracts();
+	return EWEContractResult::Success;
+}
+
 void UWEContractComponent::RemoveCustomerItem(const FGuid& ItemId)
 {
+	// Also from pockets and storages (a small device of an old save may have been put into an inventory).
+	for (TObjectIterator<UWEInventoryComponent> Inv; Inv; ++Inv)
+	{
+		if (Inv->GetWorld() != GetWorld())
+		{
+			continue;
+		}
+		for (const FWEInventorySlotData& Slot : Inv->GetAllSlots())
+		{
+			if (Slot.Item.InstanceId == ItemId)
+			{
+				FWEItemInstance Removed;
+				Inv->RemoveFromSlot(Slot.SlotIndex, Slot.Item.Quantity, Removed);
+				UE_LOG(LogWorkshopEmpire, Log, TEXT("Customer device %s taken back from an inventory"), *Removed.GetDisplayName().ToString());
+				return;
+			}
+		}
+	}
 	for (TActorIterator<AWEPickupItem> It(GetWorld()); It; ++It)
 	{
 		AWEPickupItem* Item = *It;

@@ -220,6 +220,9 @@ public:
 	bool AddWalkInRepair(const FText& Title, const FWEItemInstance& Device, const FWEMoney& Reward, const FString& PlayerName);
 	EWEContractResult Accept(const FGuid& Id, const FString& PlayerName);
 	EWEContractResult Deliver(const FGuid& Id, AWECharacter* Character);
+	/** Quality overhaul: an accepted order is given back (the customer fetches the device; industrial orders pay the
+	 *  penalty; with reviews on, a one-star review). Frees the slot - no order can block the game. */
+	EWEContractResult Cancel(const FGuid& Id, const FString& PlayerName);
 
 	/** Loading / tests. */
 	void SetContracts(const TArray<FWEContract>& InContracts);

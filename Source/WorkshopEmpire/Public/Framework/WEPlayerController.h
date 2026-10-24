@@ -141,6 +141,10 @@ public:
 	/** Server-side execution of RequestTakeAll (public for tests). */
 	bool ExecuteTakeAll(UWEInventoryComponent* From);
 	void RequestDeliverContract(class AWETraderTerminal* Terminal, const FGuid& ContractId);
+	/** Quality overhaul: give an accepted order back. */
+	void RequestCancelContract(const FGuid& ContractId);
+	UFUNCTION(Server, Reliable)
+	void ServerCancelContract(FGuid ContractId);
 
 	/** Test hook: sends the same request id twice (must be booked once). Not in Shipping. */
 	void DevRequestSellTwice(class AWETraderTerminal* Terminal, UWEInventoryComponent* From, int32 Slot, int32 Quantity);
