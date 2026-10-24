@@ -23,6 +23,10 @@ Diese Datei wird nach jedem Abschnitt fortgeschrieben, damit die Arbeit ohne Inf
 | 8 | Maschinenstatus lief unter die Prozentzahl | LOW | Zeilenumbruch | P12 |
 | 9 | Angenommener Auftrag ließ sich nicht abgeben (blockierte bis Ablauf, Gerät verloren = festgefahren) | HIGH | „Abgeben“ mit Rückfrage | Unit-Test CancelAcceptedOrder |
 | 10 | Garage und Hallen leer/steril | MEDIUM | Elektroinstallation, Deko, Hallen-Ausstattung | QUE, P12 |
+| 11 | Schrotthaufen im Hof = gekippte Kisten („placeholder“ im Code) | HIGH (Platzhalter) | Modell, Kisten nur noch Kollision | QUE_09 |
+| 12 | Erdhaufen am Kartenrand = gedrehte Quader | MEDIUM | Hügel-Modell (beide Karten) | patch_world.py |
+| 13 | Kein Geräusch beim Aufnehmen, Fallen/Ablegen, Einstecken, Garagentor | MEDIUM | Geräusche nach Material, Gewicht und Wucht | Tests grün, im Spiel nicht angehört |
+| 14 | Untersuchen-Fenster/Maschinenstatus (siehe 7, 8) | – | – | – |
 
 Tests: 140/140 Unit-Tests; QUA, QUB (auch gepackt), QUE (auch gepackt), P10, P12, P17UI 1080p.
 
