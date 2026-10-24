@@ -388,6 +388,8 @@ void UWEDevAutomationComponent::RunQualityShots()
 			}
 		});
 		Schedule(12.5f, [Frames, Start]() { *Frames = GFrameCounter; *Start = FPlatformTime::Seconds(); });
+		// Where the GPU time of the street view goes (-WEProfileGPU: ProfileGPU dump into the log, cars hidden).
+		Schedule(13.6f, [PC]() { if (PC && FParse::Param(FCommandLine::Get(), TEXT("WEProfileGPU"))) { PC->ConsoleCommand(TEXT("ProfileGPU")); } });
 		Schedule(13.5f, [Frames, Start]()
 		{
 			UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF street without cars: %.1f fps, GPU %.2f ms"), (GFrameCounter - *Frames) / FMath::Max(FPlatformTime::Seconds() - *Start, 0.001),

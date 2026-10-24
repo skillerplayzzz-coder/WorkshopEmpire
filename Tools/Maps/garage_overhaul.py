@@ -197,6 +197,66 @@ def overhaul(level):
     for name, loc, yaw in (("small_oil_can_01", (-372.0, 225.0, 0.0), 30.0), ("can_rusted", (385.0, 250.0, 0.0), 0.0),
                            ("plastic_jerrycan", (370.0, -200.0, 0.0), 80.0)):
         place(name, loc, yaw)
+    # 8. The halls (appear with their upgrade): not empty concrete boxes - floor safety lines, extinguishers by the door,
+    #    electrical boxes with conduits, wall lamps, pallet stacks and racks in the back corners. Kept near the walls
+    #    so the floor stays free for machines.
+    halls = [  # tag, x range, y range, door side
+        ("WorkshopExtension", (-400.0, 400.0), (-1110.0, -410.0), "+X"),
+        ("CommercialHall", (1000.0, 2400.0), (-900.0, 500.0), "-X"),
+        ("FactoryHall", (1000.0, 2400.0), (850.0, 2450.0), "-X"),
+    ]
+    for old in [x for x in eas.get_all_level_actors() if x.get_actor_label().startswith("HallDeco_")]:
+        eas.destroy_actor(old)
+    for tag, (x0, x1), (y0, y1), door in halls:
+        t = f"WEUpgrade.{tag}"
+        n = [0]
+
+        def put(name, loc, yaw=0.0, scale=1.0, collide=False):
+            n[0] += 1
+            a = place(name, loc, yaw, f"HallDeco_{tag}_{n[0]}", (scale, scale, scale), collide, "Expansion")
+            if a:
+                a.set_editor_property("tags", [t])
+            return a
+
+        back_x = x0 + 1.0 if door == "+X" else x1 - 1.0
+        inward = 1.0 if door == "+X" else -1.0
+        front_x = x1 - 1.0 if door == "+X" else x0 + 1.0
+        # yellow safety lines 90 cm from the walls
+        m = 90.0
+        lines = [((x0 + x1) / 2, y0 + m, (x1 - x0) - 2 * m, 8.0), ((x0 + x1) / 2, y1 - m, (x1 - x0) - 2 * m, 8.0),
+                 (back_x + inward * m, (y0 + y1) / 2, 8.0, (y1 - y0) - 2 * m)]
+        for (cx, cy, sx, sy) in lines:
+            ln = put("Gen:WallOutlet", (cx, cy, 0.3))
+            if ln:  # a painted floor line: a flat strip is exactly what it is
+                ln.static_mesh_component.set_static_mesh(unreal.load_asset("/Engine/BasicShapes/Cube.Cube"))
+                ln.static_mesh_component.set_material(0, unreal.load_asset("/Game/WorkshopEmpire/Materials/Props/MI_Prop_PlasticYellow"))
+                ln.set_actor_scale3d(unreal.Vector(sx / 100.0, sy / 100.0, 0.006))
+                ln.static_mesh_component.set_editor_property("cast_shadow", False)
+        # electrical boxes with conduits on the back wall, extinguishers by the door
+        for k, y in enumerate((y0 + 120.0, (y0 + y1) / 2, y1 - 120.0)):
+            pb = put("power_box_01", (back_x, y, 160.0), 90.0 if door == "+X" else -90.0)
+            if pb:
+                org, ext = bounds(pb)
+                loc = pb.get_actor_location()
+                shift = (back_x + inward * GAP) - (org.x - inward * ext.x)
+                pb.set_actor_location(unreal.Vector(loc.x + shift, loc.y, loc.z), False, False)
+                org, ext = bounds(pb)
+                c = put("Gen:Conduit", (back_x, org.y, org.z + ext.z), 0.0 if door == "+X" else 180.0)
+                if c:
+                    c.set_actor_scale3d(unreal.Vector(1.0, 1.0, max(0.5, (300.0 if tag == "WorkshopExtension" else 420.0) - (org.z + ext.z)) / 100.0))
+        for y in (y0 + 40.0, y1 - 40.0):
+            put("korean_fire_extinguisher_01", (front_x - inward * 40.0, y, 0.0), 0.0)
+        # pallet stacks and a rack in the back corners
+        put("Gen:PalletStack", (back_x + inward * 70.0, y0 + 50.0, 0.0), 90.0, collide=True)
+        put("Gen:PalletStack", (back_x + inward * 70.0, y0 + 130.0, 0.0), 92.0, collide=True)
+        rack = put("steel_frame_shelves_03", (back_x + inward * 45.0, y1 - 160.0, 0.0), 90.0 if door == "+X" else -90.0, collide=True)
+        put("Barrel_01", (back_x + inward * 50.0, y1 - 40.0, 0.0), 0.0, collide=True)
+        put("Barrel_02", (back_x + inward * 50.0, y1 - 85.0, 0.0), 30.0, collide=True)
+        # wall lamps along the side walls
+        for frac in (0.3, 0.7):
+            x = x0 + (x1 - x0) * frac
+            put("industrial_wall_lamp", (x, y0 + 15.0, 260.0), 90.0)
+            put("industrial_wall_lamp", (x, y1 - 15.0, 260.0), -90.0)
     # Re-check: nothing new in a wall.
     for a in eas.get_all_level_actors():
         lab = a.get_actor_label()
