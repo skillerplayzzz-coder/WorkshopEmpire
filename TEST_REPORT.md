@@ -968,3 +968,8 @@ Keine.
 5. Neben dem Play-Button auf ⋮ klicken: *Number of Players* = 2, *Net Mode* = *Play As Listen Server*, dann Play. Zwei Fenster erscheinen, man fliegt mit WASD + Maus (Platzhalter-Pawn).
 6. Im Output-Log nach `LogWENet` filtern: zwei Zeilen `Player joined: … (1/4)` und `(2/4)` sowie `BeginPlay (NetMode=ListenServer …)` bzw. `NetMode=Client`.
 7. Optional: *Tools → Session Frontend → Automation*, nach `WorkshopEmpire` filtern, alle anhaken, *Start Tests*: 5 grüne Tests.
+
+
+## Quality Update 0.22.0 (2026-10-24)
+
+Siehe Docs/QUALITY_UPDATE.md, Abschnitt 4: Unit-Tests 139/139, Abläufe A–D, Regression P5–P21, Netzwerk A–X, 4 Spieler, UI, alte Spielstände – alle grün.

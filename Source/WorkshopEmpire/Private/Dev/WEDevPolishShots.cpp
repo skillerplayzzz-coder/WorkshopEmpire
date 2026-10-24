@@ -425,6 +425,8 @@ void UWEDevAutomationComponent::RunReassemblyShots()
 			B ? B->GetStorage()->GetAllSlots().Num() : 0, B ? B->GetStorage()->GetNumSlots() : 0);
 	};
 	Schedule(2.0f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("Screwdriver"), 1, EWEItemCondition::Used); PC->ServerDevAddMoney(60000); } });
+	// (Quality update: the CPU cooler goes back on with fresh thermal paste.)
+	Schedule(2.2f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("ThermalPaste"), 1, EWEItemCondition::New); } });
 	Schedule(2.4f, [PC]() { if (PC) { PC->ServerDevGiveItem(TEXT("OldComputer"), 1, EWEItemCondition::Used); } });
 	Schedule(3.0f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->RequestInteractWith(FindNearestItem(TEXT("Computer"))); } });
 	Schedule(4.0f, [this]() { TeleportToBench(0.f); });

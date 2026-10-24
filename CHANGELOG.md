@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.22.0] – 2026-10-24 – Quality Update: PC-System, Kundenaufträge, Autos
+
+### Neu
+- **Kundengeräte immer in der Hand:** [E] „PC aufnehmen“ – auch kleine Kundengeräte (Radio, Konsole, Akkuschrauber) landen nicht mehr im Inventar. Beim Tragen zeigt eine **grüne/rote Vorschau**, wo das Gerät auf der Werkbank liegen wird; eine belegte Werkbank nennt den Grund.
+- **„In die Hand nehmen“** im Inventar-Kontextmenü und mit [R] am Boden: alles kann zur Werkbank getragen werden, nichts bleibt im Inventar hängen.
+- **Kunden-PC öffnen:** defekte Teile im Arbeitsmodus tauschen (Seitenteil ab, Grafikkarte raus, neue rein, Funktionstest, abliefern). Das Gehäuse bleibt ganz.
+- **RAM-Riegel einzeln** und **Wärmeleitpaste beim Einbau des CPU-Kühlers** (eigener Schritt mit der Spritze).
+- **PC von Grund auf bauen:** leeres PC-Gehäuse und die Grundteile (CPU-Kühler, Prozessor, Festplatte, Mainboard, Netzteil) beim Ersatzteil-Express.
+- **Neue Autos in der Stadt:** US-Limousine, Kombi, Pickup, alter Werkstatt-Pickup, SUV und Kleinwagen in echter Größe, mit Innenraum, Felgen, Lichtern und leeren Kennzeichen, in vielen Farben (statt der Spielzeugautos).
+
+### Geändert
+- Prompts: „E | PC aufnehmen“, „E | PC auf der Werkbank abstellen“, „E | PC bearbeiten“.
+- Arbeitsmodus: Die Kamera geht nicht mehr ins Gehäuse oder durch Regale; nur das Teil unter dem Mauszeiger bekommt ein Schild, gesperrte Teile sagen, was zuerst raus muss.
+- Große Geräte werden mittig und tiefer getragen.
+- Heile Teile eines Kunden-PCs kommen beim Öffnen funktionsfähig heraus (nur das defekte Teil ist kaputt).
+- Reifen, Ringe und andere runde Teile haben wieder ihr eigenes Material (vorher teils in der Gehäusefarbe).
+- Spielstand Version 20 (zwei RAM-Riegel); ältere Spielstände laden weiter.
 ## [0.21.0] – 2026-10-21 – Phase 21: Realismus, Spieltiefe, Animationen und Spielgefühl
 
 ### Neu

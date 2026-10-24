@@ -137,3 +137,9 @@ Im Projekt selbst erzeugt (Geometry Script, `Tools/Assets/build_hand_tools.py`, 
 - **Werkzeugwand** `SM_Gen_Pegboard` (Lochplatte mit Holzleisten), `SM_Gen_PegHook`, Material `MI_Prop_ToolOutline` (Umrisse), **Paket** `SM_Gen_Parcel` mit Klebeband und Adressaufkleber.
 - **Verschleiß-Material** `M_WEWear` (Schmutz, Kratzer, Vergilbung, Schäden; `Tools/Assets/build_wear_material.py`).
 - UI-Symbole `Wind`, `Syringe`, `Pegboard` (`Tools/UI/make_icons.py`) und Gegenstandsbilder für Druckluftspray, Wärmeleitpaste, Paket (im Spiel gerendert).
+
+
+## Quality Update (0.22.0)
+
+- **Parkende Autos:** eigene Modelle aus `Tools/Assets/build_cars.py` (Geometry Script, keine Downloads, keine Marken/Logos). Die Kenney-Car-Kit-Autos (CC0) liegen noch unter `Art/Import/KenneyCars`, werden in den Karten aber nicht mehr verwendet.
+- **Neue Material-Instanzen:** Autolacke, Autoglas, Lichter aus, Innenraum (`build_prop_material.py`), keine fremden Texturen.

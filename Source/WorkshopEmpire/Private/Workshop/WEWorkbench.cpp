@@ -631,6 +631,12 @@ TArray<FWEItemInstance> AWEWorkbench::GenerateOutputs(const FWEDisassemblyStep& 
 			const int32 Index = FMath::Clamp(static_cast<int32>(Source.Condition) - Random.RandRange(0, 2), 0, static_cast<int32>(EWEItemCondition::Scrap));
 			Condition = static_cast<EWEItemCondition>(Index);
 			Quality = static_cast<uint8>(FMath::Clamp(static_cast<int32>(Source.Quality) + Random.RandRange(-15, 15), 0, 100));
+			// Quality update: a customer's PC is opened for the repair - its healthy parts come out working (they go
+			// back in; only the faulty part is broken).
+			if (Source.IsCustomerItem() && Source.Repair.HasFlag(FWERepairState::FaultsRolled))
+			{
+				Condition = FMath::Min(Condition, EWEItemCondition::Used);
+			}
 		}
 		for (int32 i = 0; i < BrokenUnits; ++i)
 		{

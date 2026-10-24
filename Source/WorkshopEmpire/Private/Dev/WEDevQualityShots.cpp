@@ -113,7 +113,18 @@ void UWEDevAutomationComponent::RunQualityRepairFlow()
 		if (AWEWorkbench* B = FindBench(); B && PC) { PC->ServerDevTeleport(B->GetWorkSpotLocation() + B->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 10.f), FRotator::ZeroRotator); }
 	});
 	Schedule(6.8f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
-	Schedule(7.2f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->UpdateFocus(); C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(7.2f, [this]()
+	{
+		// (Aim again right before [E]: the camera may still have been easing to the eye height after the teleport.)
+		AWEWorkbench* B = FindBench();
+		if (AWECharacter* C = GetCharacter(); C && B)
+		{
+			LookAtPoint(B->GetWorkSpotLocation());
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R aiming at %s"), *GetNameSafe(C->FindAimedWorkbench()));
+			C->GetInteractionComponent()->UpdateFocus();
+			C->GetInteractionComponent()->RequestPrimaryInteraction();
+		}
+	});
 	// The customer's complaint: the graphics card is dead (as the diagnosis would find).
 	Schedule(8.0f, [this, BalanceBefore]()
 	{

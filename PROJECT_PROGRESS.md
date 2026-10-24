@@ -222,3 +222,8 @@ Veröffentlichung auf Steam: App ID, Auto-Cloud und Shopseite durch Mike (Anleit
 ## Testergebnisse
 
 Siehe `TEST_REPORT.md`. Letzter Lauf 2026-10-21 (0.21.0): 135/135 Automation-Tests, Regression mit den neuen P21-Läufen. Davor 2026-10-20 (0.20.0): 130/130 Automation-Tests, Regression grün, gepacktes Spiel (Development und Shipping) geprüft. Davor 2026-10-19 (0.19.0): 129/129 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor 2026-10-18 (0.18.1): 123/123 Automation-Tests, Regression grün, gepacktes Spiel geprüft. Davor (Phase 17.5): 116/116 Automation-Tests, Screenshot-Läufe P175/P175W/P175V im Editor und im gepackten Spiel, UI/Eingabe in 4 Auflösungen, Regression Netzwerktests A–X, I/J, 4 Spieler, Spielläufe P5–P16.
+
+
+## Quality Update 0.22.0 – fertig (2026-10-24)
+
+Kundengeräte in der Hand statt im Inventar, Werkbank-Vorschau, Kunden-PC öffnen, RAM-Riegel einzeln, Wärmeleitpaste, Kamera ohne Clipping, leeres Gehäuse, neue Autos. Details: Docs/QUALITY_UPDATE.md.
