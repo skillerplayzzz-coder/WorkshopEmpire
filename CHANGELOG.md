@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.23.0] – 2026-10-25 – Massive Quality Overhaul
+
+Bericht mit allen Befunden und Tests: `Docs/OVERHAUL_REPORT.md`, Vorher/Nachher: `Docs/Overhaul_Vorher_Nachher.jpg`.
+
+### Behoben
+- **Absturz** beim Kauf eines einzelnen Teils, das per Paketdienst kommt (z. B. das Multimeter im Tutorial).
+- Mitarbeiter blieben dauerhaft auf „kein Weg frei (Tor zu?)“ hängen; Bediener stehen jetzt an der Bedienseite der Maschine statt mit ausgestreckten Armen davor.
+- Angenommene Aufträge lassen sich **abgeben** (mit Rückfrage) statt bis zum Ablauf zu blockieren.
+- Deko (Besen, Kanister, Steckdosen …) blockiert keine Maschinenplätze mehr.
+- Sicherungskasten, PC-Lampe und Möbel steckten in den Wänden; Seitenschneider fiel von der Werkbank.
+- Untersuchen-Fenster flackerte bei laufenden Maschinen (Zeilen übereinander).
+- Ampeln zeigten alle drei Lichter, zwei Hydranten nebeneinander, Firmenname auf dem Schild kaum lesbar, Hof nach dem Rausgehen kurz weiß überstrahlt.
+
+### Neu / ersetzt
+- Modelle statt Platzhaltern: Werkbänke, Deckenleuchten, Lieferpalette, alle Maschinen, Förderbänder und Gitterboxen, Schrotthaufen, Erdhügel, Ampeln, Kaffeebecher.
+- Garage und Hallen eingerichtet: Elektroinstallation, Uhr, Dartscheibe, Schlauchtrommel, Schubladenschrank, Bodenmarkierungen, Stromkästen, Feuerlöscher, Paletten, Regale.
+- Geräusche: Aufnehmen, Aufprall nach Material und Gewicht, Einstecken, Garagentor.
+- Testlauf „Test 1“: neues Spiel mit Tutorial bis Fortsetzen, automatisch.
+
 ## [0.22.0] – 2026-10-24 – Quality Update: PC-System, Kundenaufträge, Autos
 
 ### Neu

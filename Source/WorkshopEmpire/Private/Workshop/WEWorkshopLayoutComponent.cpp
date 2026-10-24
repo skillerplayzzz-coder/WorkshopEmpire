@@ -113,6 +113,8 @@ bool UWEWorkshopLayoutComponent::CanPlaceAt(const FVector& Size, const FTransfor
 		OutReason = Other->IsA<APawn>() ? LOCTEXT("BlockedPawn", "Jemand steht im Weg")
 			: Other->IsA<AWEPickupItem>() ? LOCTEXT("BlockedItem", "Ein Gegenstand liegt im Weg")
 			: LOCTEXT("Blocked", "Kein Platz – hier steht schon etwas");
+		UE_LOG(LogWorkshopEmpire, Verbose, TEXT("Build check at %s blocked by %s (%s)"), *Transform.GetLocation().ToCompactString(), *GetNameSafe(Other),
+			Overlap.GetComponent() ? *Overlap.GetComponent()->GetName() : TEXT("-"));
 		return false;
 	}
 	return true;

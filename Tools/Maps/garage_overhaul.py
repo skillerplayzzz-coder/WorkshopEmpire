@@ -77,6 +77,9 @@ def place(name, loc, yaw=0.0, label=None, scale=(1.0, 1.0, 1.0), collide=False, 
     c.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
     a.set_actor_scale3d(unreal.Vector(*scale))
     if not collide:
+        # (set_collision_enabled alone did not stick on the saved actor - the profile does: decoration must not block
+        # furniture placement or carve the staff's navmesh.)
+        c.set_collision_profile_name("NoCollision")
         c.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
     return a
 
@@ -151,6 +154,11 @@ def overhaul(level):
     for a in by_label("Deco_metal_stool_01"):
         loc = a.get_actor_location()
         a.set_actor_location(unreal.Vector(loc.x, 140.0, loc.z), False, False)
+    # 2d. Small things on the floor and on the walls: no collision (the broom in the corner blocked a machine there).
+    for a in eas.get_all_level_actors():
+        lab = a.get_actor_label()
+        if isinstance(a, unreal.StaticMeshActor) and lab in ("Deco_plastic_broom", "Deco_korean_fire_extinguisher_01", "Deco_spray_paint_bottles"):
+            a.static_mesh_component.set_collision_profile_name("NoCollision")
     # 3. PC desk off the wall.
     for a in by_label("MarketTerminal"):
         loc = a.get_actor_location()

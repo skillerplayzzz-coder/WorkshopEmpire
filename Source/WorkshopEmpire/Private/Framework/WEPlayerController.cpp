@@ -140,7 +140,7 @@ void AWEPlayerController::CloseInventory()
 	{
 		InventoryWidget->RemoveFromParent();
 	}
-	if (!IsTradeOpen())
+	if (!IsTradeOpen() && GetLocalPlayer())
 	{
 		SetInputMode(FInputModeGameOnly());
 		SetShowMouseCursor(false);
@@ -1121,7 +1121,7 @@ void AWEPlayerController::TogglePauseMenu()
 
 void AWEPlayerController::OpenPauseMenu()
 {
-	if (!IsLocalController())
+	if (!IsLocalController() || !GetLocalPlayer())
 	{
 		return;
 	}

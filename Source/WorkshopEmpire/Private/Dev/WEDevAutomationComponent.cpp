@@ -322,7 +322,9 @@ void UWEDevAutomationComponent::BeginPlay()
 void UWEDevAutomationComponent::Schedule(float Delay, TFunction<void()> Action)
 {
 	FTimerHandle& Handle = Timers.AddDefaulted_GetRef();
-	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda(MoveTemp(Action)), Delay, false);
+	// (Weak: the timer manager belongs to the game instance and outlives a map change - an action scheduled for the
+	// old player controller must not run after it is gone; it crashed the P13 client back in the menu.)
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, MoveTemp(Action)), Delay, false);
 }
 
 AWECharacter* UWEDevAutomationComponent::GetCharacter() const
@@ -3486,7 +3488,7 @@ void UWEDevAutomationComponent::RunVisualShots()
 		if (UWEBuildComponent* B = GetBuild())
 		{
 			B->SetBuildMode(true);
-			PlaceFurnitureAt(TEXT("Shredder"), -20.f, 210.f, -90.f);
+			PlaceFurnitureAt(TEXT("Shredder"), 15.f, 200.f, -90.f); // (beside the PC desk, which moved off the wall)
 			PlaceFurnitureAt(TEXT("Press"), 310.f, 200.f, -90.f);
 			PlaceFurnitureAt(TEXT("Conveyor"), 140.f, 205.f, 0.f);
 			B->SetBuildMode(false);
