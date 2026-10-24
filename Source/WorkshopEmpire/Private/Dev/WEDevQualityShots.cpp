@@ -7,6 +7,7 @@
 #include "Economy/WECompanyComponent.h"
 #include "Items/WEItemTypes.h"
 #include "TimerManager.h"
+#include "RHI.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/StaticMesh.h"
@@ -287,9 +288,22 @@ void UWEDevAutomationComponent::RunQualityShots()
 		TSharedRef<uint64> Frames = MakeShared<uint64>(0);
 		TSharedRef<double> Start = MakeShared<double>(0.0);
 		Schedule(10.5f, [Frames, Start]() { *Frames = GFrameCounter; *Start = FPlatformTime::Seconds(); });
-		Schedule(11.5f, [Frames, Start]()
+		Schedule(11.5f, [this, Frames, Start]()
 		{
-			UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF street with cars: %.1f fps"), (GFrameCounter - *Frames) / FMath::Max(FPlatformTime::Seconds() - *Start, 0.001));
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF street with cars: %.1f fps, GPU %.2f ms"), (GFrameCounter - *Frames) / FMath::Max(FPlatformTime::Seconds() - *Start, 0.001),
+				FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
+			// The same view without the cars: what they cost.
+			for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+			{
+				const UStaticMesh* Mesh = It->GetStaticMeshComponent()->GetStaticMesh();
+				if (Mesh && Mesh->GetName().StartsWith(TEXT("SM_Gen_Car_"))) { It->SetActorHiddenInGame(true); }
+			}
+		});
+		Schedule(12.5f, [Frames, Start]() { *Frames = GFrameCounter; *Start = FPlatformTime::Seconds(); });
+		Schedule(13.5f, [Frames, Start]()
+		{
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF street without cars: %.1f fps, GPU %.2f ms"), (GFrameCounter - *Frames) / FMath::Max(FPlatformTime::Seconds() - *Start, 0.001),
+				FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
 		});
 		Schedule(14.5f, [this]() { Quit(); });
 		return;

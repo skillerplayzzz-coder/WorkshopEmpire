@@ -197,7 +197,7 @@ def set_lods(sm):
     try:
         options = unreal.EditorScriptingMeshReductionOptions()
         settings = []
-        for percent, screen in ((1.0, 1.0), (0.45, 0.3), (0.18, 0.12)):
+        for percent, screen in ((1.0, 1.0), (0.4, 0.5), (0.15, 0.22)):
             s = unreal.EditorScriptingMeshReductionSettings()
             s.set_editor_property("percent_triangles", percent)
             s.set_editor_property("screen_size", screen)
