@@ -5,16 +5,29 @@ Diese Datei wird nach jedem Abschnitt fortgeschrieben, damit die Arbeit ohne Inf
 
 ## Werkzeuge
 - `Tools/Maps/audit_maps.py` → `Saved/Audit/<Map>.txt`: Grundformen, fehlende Materialien, Platzhalter-Material, Objekte in den Garagenwänden, unter dem Boden, simulierte Physik.
-- `Tools/Maps/garage_overhaul.py`: Korrekturen und Ausstattung der Startgarage direkt in L_Garage (idempotent, mehrfach ausführbar).
-- `Tools/Assets/build_workshop_models.py`: eigene Modelle (Werkbank, große Werkbank, Steckdose, Schalter, Leerrohr, Abzweigdose, Doppelrohr-Leuchte).
-- Testläufe: `-WEShots=QUE` (Garagenansichten), `QUA` (Tragen/Speichern), `QUB` (kompletter Auftrag), `QUC`/`QUD` (Autos).
+- `Tools/Maps/garage_overhaul.py`: Korrekturen und Ausstattung der Startgarage und der Hallen direkt in L_Garage (idempotent, mehrfach ausführbar).
+- `Tools/Assets/build_workshop_models.py`: Werkbank, große Werkbank, Steckdose, Schalter, Leerrohr, Abzweigdose, Doppelrohr-Leuchte.
+- `Tools/Assets/build_machine_models.py`: 7 Maschinen, 2 Förderbänder, 2 Gitterboxen.
+- Testläufe: `-WEShots=QUE` (Garagenansichten), `QUA` (Tragen/Speichern), `QUB` (kompletter Auftrag inkl. Speichern mit halb zerlegtem PC), `QUC`/`QUD` (Autos, `-WEProfileGPU`), `QUM` (Maschinenmodelle).
 
-## Erledigt
-1. Audit der Maps (L_Garage 1376 Funde, davon 1351 Grundformen – Straßen, Bordsteine, Gebäudeteile aus texturierten Quadern; L_MainMenu 1300).
-2. Sicherungskasten gedreht und bündig, Leerrohr; PC-Tisch von der Wand, Lampe gedreht; 6 Objekte aus Wänden; Seitenschneider fällt nicht mehr von der Werkbank.
-3. Werkbank-Modell (Karte + Möbelkatalog), Doppelrohr-Leuchten, Holzpalette (AWEDeliveryZone::PalletVisual), Elektroinstallation, Deko (Poly Haven CC0: wall_clock, dartboard, garden_hose_wall_mounted_01, drawer_cabinet, small_oil_can_01, can_rusted, plastic_jerrycan u. a.).
+## Erledigt (mit Prüfung)
+| # | Befund | Schwere | Behebung | Geprüft |
+|---|---|---|---|---|
+| 1 | Sicherungskasten quer, 20 cm in der Wand | MEDIUM | gedreht, bündig, Leerrohr | QUE-Bilder, Audit 0 Funde |
+| 2 | PC-Lampe: Gelenk in der Wand (sah zerbrochen aus), Tisch 10 cm in der Wand | MEDIUM | Tisch 12 cm vor, Lampe gedreht | QUE-Bilder |
+| 3 | Besen 31 cm, Schaltschrank 24 cm, Feuerlöscher, Leiter, Karton in Wänden | MEDIUM | aus den Wänden geschoben | Audit |
+| 4 | Seitenschneider fiel von der Werkbank | LOW | liegt flach auf der Platte | QUE |
+| 5 | Werkbank aus Sperrholzkisten, Deckenleuchten = flache Kisten, Lieferpalette = OSB-Quader | HIGH (Platzhalter) | Modelle | QUE, QUA, QUB |
+| 6 | Maschinen, Förderbänder, Materiallager = lackierte Quader | HIGH (Platzhalter) | Modelle | P10, P12, QUM |
+| 7 | Untersuchen-Fenster: Zeilen übereinander bei laufenden Maschinen | MEDIUM | Zeilen werden wiederverwendet | P12 |
+| 8 | Maschinenstatus lief unter die Prozentzahl | LOW | Zeilenumbruch | P12 |
+| 9 | Angenommener Auftrag ließ sich nicht abgeben (blockierte bis Ablauf, Gerät verloren = festgefahren) | HIGH | „Abgeben“ mit Rückfrage | Unit-Test CancelAcceptedOrder |
+| 10 | Garage und Hallen leer/steril | MEDIUM | Elektroinstallation, Deko, Hallen-Ausstattung | QUE, P12 |
+
+Tests: 140/140 Unit-Tests; QUA, QUB (auch gepackt), QUE (auch gepackt), P10, P12, P17UI 1080p.
 
 ## Offen (Reihenfolge)
-- Maschinen (Schredder, Sortierer, Presse, Fertigungsautomat, Verpackung, Ofen, Rückgewinnung) sind lackierte Quader → Modelle.
-- Hallen (Erweiterung, Gewerbehalle, Fabrik) innen ausstatten; Außenbereich prüfen.
-- UI bei 3840×2160 prüfen; Mitarbeiter, Wirtschaft, Speichern-Fälle, Performance der Straße.
+- Außenbereich/Straße: Leistung (Straßenansicht ~15 ms GPU in 1080p im Editor; TSR 2,1 ms, Wolken 1,4 ms, Lumen ~4,5 ms), Fassaden prüfen.
+- Hauptmenü-Kulisse (eigene Szene in L_MainMenu) prüfen.
+- Sounds und Animationen gezielt durchgehen; Mitarbeiter-Posen an Maschinen.
+- UI in 4K wirklich ansehen (Monitor kann kein 4K-Fenster; rechnerisch über die DPI-Kurve gleich 1080p).
