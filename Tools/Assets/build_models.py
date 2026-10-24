@@ -116,6 +116,13 @@ class Model:
         part = unreal.DynamicMesh()
         CURRENT_ID[0] = self._mid(mat)
         P.append_torus(part, popts(CURRENT_ID[0]), xf(c, rot), unreal.GeometryScriptRevolveOptions(), big, small, segs, minor, CENTER)
+        # (Quality update: the torus ignores the material id of the options - its triangles all came out as id 0,
+        # e.g. tyres in the car paint. Set it on the part itself.)
+        try:
+            if CURRENT_ID[0] != 0:
+                M.remap_material_i_ds(part, 0, CURRENT_ID[0])
+        except Exception as e:
+            unreal.log_warning(f"WE_MODEL torus material id on {self.name}: {e}")
         return self._finish(part, mat)
 
     def sphere(self, mat, c, r, scale=(1, 1, 1), steps=16):

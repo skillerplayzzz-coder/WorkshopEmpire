@@ -244,21 +244,32 @@ def tree(at, scale=1.5):
 
 
 # --- Places -------------------------------------------------------------------------------------------------
-CAR_DIR = "/Game/WorkshopEmpire/Art/Import/KenneyCars"
-CAR_SCALE = 1.25  # the kit's cars are 2.6 m long; a uniform scale keeps the wheels round
+CAR_DIR = "/Game/WorkshopEmpire/Art/Generated"
+# Quality update: real-size cars of Tools/Assets/build_cars.py (nose at +X, slot 0 = paint) instead of the toy-like
+# Kenney kit. Colours per car; the old workshop pickup keeps its faded paint.
+PAINTS = ["CarPaintRed", "CarPaintBlue", "CarPaintGreen", "CarPaintBeige", "CarPaintWhite", "CarPaintBlack", "CarPaintSilver",
+          "CarPaintBrown", "CarPaintMaroon", "CarPaintWhite", "CarPaintSilver"]
 
 
-def parked(name, x, y, yaw):
-    """A parked car (Kenney Car Kit, CC0, Tools/Assets/import_cars.py). The models are long along Y: turned to X."""
-    path = f"{CAR_DIR}/SM_Car_{name}"
+def parked(name, x, y, yaw, paint=None):
+    """A parked car, a little off-straight like real parking, in a random colour."""
+    path = f"{CAR_DIR}/SM_Gen_Car_{name}"
     mesh = unreal.EditorAssetLibrary.load_asset(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
     if not mesh:
-        unreal.log_warning(f"WE_CITY car model missing: {path} (run Tools/Assets/import_cars.py)")
+        unreal.log_warning(f"WE_CITY car model missing: {path} (run Tools/Assets/build_cars.py)")
         return None
-    return wn._spawn_mesh(mesh, (x, y, 0.0), (0.0, yaw + 90.0, 0.0), (CAR_SCALE, CAR_SCALE, CAR_SCALE), f"N_Car_{name}", "City")
+    a = wn._spawn_mesh(mesh, (x, y, 0.0), (0.0, yaw + rng.uniform(-2.5, 2.5), 0.0), (1.0, 1.0, 1.0), f"N_Car_{name}", "City")
+    if a and name != "PickupOld":
+        mi = unreal.EditorAssetLibrary.load_asset(f"/Game/WorkshopEmpire/Materials/Props/MI_Prop_{paint or rng.choice(PAINTS)}")
+        c = a.static_mesh_component
+        # The paint slot (the slot order of a generated mesh is not the build order).
+        slots = [i for i in range(c.get_num_materials()) if c.get_material(i) and c.get_material(i).get_name().startswith("MI_Prop_CarPaint")]
+        if mi and slots:
+            c.set_material(slots[0], mi)
+    return a
 
 
-CARS = ["sedan", "sedan_sports", "hatchback_sports", "suv", "suv_luxury", "van", "delivery", "truck"]
+CARS = ["SedanOld", "Wagon", "Pickup", "PickupOld", "Suv", "Hatch", "SedanOld", "Hatch"]
 
 
 def gas_station():
@@ -354,7 +365,7 @@ def repair_shop():
     box(None, (7425.0, front + 2.0, 470.0), (1300.0, 6.0, 70.0), "MetalPaintedBlue", collide=False)
     text(7425.0, front + 6.0, 505.0, 90.0, "AUTO SERVICE · REIFEN · OEL", 34.0, (245, 245, 245))
     parked(CARS[4], 8500.0, front - 300.0, 90.0)
-    parked(CARS[2], 8700.0, front - 650.0, 95.0)
+    parked("PickupOld", 8700.0, front - 650.0, 95.0)
     wn.facade_building("Warehouse_SE", 8250.0, 9250.0, front, 1300.0, 650.0, "BoxProfile", 1.0, shutters=1, windows=False)
 
 

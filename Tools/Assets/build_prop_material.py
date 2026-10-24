@@ -168,12 +168,29 @@ INSTANCES = {
     "VanNew": ((0.62, 0.64, 0.66), 0.25, 0.1, None, 0.0, 1.0, None),
     "VanNewAccent": ((0.06, 0.20, 0.42), 0.25, 0.15, None, 0.0, 1.0, None),
     "TrimBlack": ((0.03, 0.03, 0.035), 0.6, 0.0, None, 0.0, 1.0, None),
-    "TireRubber": ((0.02, 0.02, 0.022), 0.85, 0.0, "rubber_tiles", 0.2, 3.0, None),
+    "TireRubber": ((0.014, 0.014, 0.015), 0.88, 0.0, "rubber_tiles", 0.04, 3.0, None),  # (quality update: the texture made tyres grey)
     "Container": ((0.55, 0.14, 0.08), 0.6, 0.4, "rusty_corrugated_iron", 0.55, 0.5, None),
     "ContainerBlue": ((0.10, 0.22, 0.40), 0.6, 0.4, "rusty_corrugated_iron", 0.45, 0.5, None),
     "DumpsterGreen": ((0.10, 0.25, 0.14), 0.6, 0.4, "rusty_painted_metal", 0.6, 0.8, None),
     "Concrete": ((0.75, 0.74, 0.72), 0.85, 0.0, "concrete_wall_008", 1.0, 0.5, None),
     "OsDesktop": ((0.01, 0.02, 0.04), 0.1, 0.0, None, 0.0, 1.0, (0.05, 0.12, 0.25)),
+    # Quality update: parked cars (build_cars.py) - car paint (clear coat look: low roughness, a little metal flake),
+    # lights switched off, and a faded, grimy paint for old workshop vehicles.
+    # (dielectric clear coat: little metal, else the sky reflection washes the colour out in the sun)
+    "CarPaintRed": ((0.09, 0.007, 0.006), 0.32, 0.05, None, 0.0, 1.0, None),
+    "CarPaintBlue": ((0.008, 0.02, 0.055), 0.32, 0.05, None, 0.0, 1.0, None),
+    "CarPaintGreen": ((0.01, 0.032, 0.018), 0.34, 0.05, None, 0.0, 1.0, None),
+    "CarPaintBeige": ((0.2, 0.165, 0.11), 0.36, 0.05, None, 0.0, 1.0, None),
+    "CarPaintWhite": ((0.42, 0.42, 0.40), 0.32, 0.0, None, 0.0, 1.0, None),
+    "CarPaintBlack": ((0.008, 0.008, 0.009), 0.28, 0.05, None, 0.0, 1.0, None),
+    "CarPaintSilver": ((0.30, 0.31, 0.32), 0.3, 0.6, None, 0.0, 1.0, None),
+    "CarPaintBrown": ((0.07, 0.035, 0.018), 0.36, 0.05, None, 0.0, 1.0, None),
+    "CarPaintMaroon": ((0.04, 0.004, 0.007), 0.32, 0.05, None, 0.0, 1.0, None),
+    "CarPaintFaded": ((0.22, 0.24, 0.20), 0.6, 0.05, "rusty_painted_metal", 0.22, 0.35, None),
+    "CarInterior": ((0.03, 0.028, 0.026), 0.8, 0.0, None, 0.0, 1.0, None),
+    "HeadlightOff": ((0.75, 0.76, 0.75), 0.04, 0.2, None, 0.0, 1.0, None),
+    "TaillightOff": ((0.28, 0.01, 0.01), 0.08, 0.0, None, 0.0, 1.0, None),
+    "IndicatorOff": ((0.55, 0.28, 0.02), 0.08, 0.0, None, 0.0, 1.0, None),
 }
 count = 0
 for name, (tint, rough, metal, tid, strength, uvs, emissive) in INSTANCES.items():
@@ -197,7 +214,8 @@ for name, (tint, rough, metal, tid, strength, uvs, emissive) in INSTANCES.items(
         mel.set_material_instance_vector_parameter_value(mi, "Emissive", unreal.LinearColor(*emissive, 1.0))
     eal.save_asset(path)
     count += 1
-for name, (tint, opacity) in {"Glass": ((0.02, 0.025, 0.03), 0.45), "GlassClear": ((0.3, 0.35, 0.38), 0.18), "CrtGlass": ((0.02, 0.03, 0.03), 0.85)}.items():
+for name, (tint, opacity) in {"Glass": ((0.02, 0.025, 0.03), 0.45), "GlassClear": ((0.3, 0.35, 0.38), 0.18), "CrtGlass": ((0.02, 0.03, 0.03), 0.85),
+                               "CarGlass": ((0.012, 0.016, 0.02), 0.72)}.items():
     path = f"{PROPS}/MI_Prop_{name}"
     mi = eal.load_asset(path) if eal.does_asset_exist(path) else tools.create_asset(f"MI_Prop_{name}", PROPS, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
     mi.set_editor_property("parent", glass)

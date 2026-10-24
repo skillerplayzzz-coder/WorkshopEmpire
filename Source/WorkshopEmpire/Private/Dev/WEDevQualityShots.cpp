@@ -7,6 +7,11 @@
 #include "Economy/WECompanyComponent.h"
 #include "Items/WEItemTypes.h"
 #include "TimerManager.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
 #include "Workshop/WEAssemblyDefinition.h"
 #include "Economy/WETraderTerminal.h"
 #include "Framework/WEGameMode.h"
@@ -214,6 +219,116 @@ void UWEDevAutomationComponent::RunQualityShots()
 	if (ShotName == TEXT("QUB"))
 	{
 		RunQualityRepairFlow();
+		return;
+	}
+	if (ShotName == TEXT("QUD"))
+	{
+		// --- The parked cars where they stand in the map: several views, eye height and from above, plus the frame rate ---
+		TSharedRef<TArray<FTransform>> Cars = MakeShared<TArray<FTransform>>();
+		Schedule(1.0f, [this, PC, Cars]()
+		{
+			if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); }
+			int32 Count = 0;
+			for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+			{
+				const UStaticMesh* Mesh = It->GetStaticMeshComponent()->GetStaticMesh();
+				if (Mesh && Mesh->GetName().StartsWith(TEXT("SM_Gen_Car_")))
+				{
+					Cars->Add(It->GetActorTransform());
+					++Count;
+					const FBox Box = It->GetComponentsBoundingBox();
+					if (Count <= 30)
+					{
+						UE_LOG(LogWorkshopEmpire, Display, TEXT("QU parked %s at %s yaw %.0f, bottom z %.1f"), *Mesh->GetName(), *It->GetActorLocation().ToCompactString(), It->GetActorRotation().Yaw, Box.Min.Z);
+					}
+				}
+			}
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU parked cars: %d"), Count);
+		});
+		auto ViewAt = [this, PC, Cars](int32 Index, const FVector& Offset, const FString& Name, float Delay)
+		{
+			Schedule(Delay, [this, PC, Cars, Index, Offset]()
+			{
+				if (!Cars->IsValidIndex(Index)) { return; }
+				const FTransform& T = (*Cars)[Index];
+				if (!CatCamera.IsValid())
+				{
+					FActorSpawnParameters Params;
+					Params.ObjectFlags |= RF_Transient;
+					CatCamera = GetWorld()->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
+					CatCamera->GetCameraComponent()->SetFieldOfView(70.f);
+					CatCamera->GetCameraComponent()->bConstrainAspectRatio = false;
+				}
+				const FVector At = T.GetLocation() + FVector(0.f, 0.f, 70.f);
+				const FVector From = T.GetLocation() + T.GetRotation().RotateVector(Offset);
+				CatCamera->SetActorLocationAndRotation(From, (At - From).Rotation());
+				if (PC) { PC->SetViewTarget(CatCamera.Get()); }
+			});
+			Schedule(Delay + 1.0f, [this, Name]() { Shot(Name); });
+		};
+		ViewAt(0, FVector(520.f, 420.f, 160.f), TEXT("01_Vorne_schraeg"), 2.0f);
+		ViewAt(0, FVector(-560.f, -380.f, 150.f), TEXT("02_Hinten_schraeg"), 4.0f);
+		ViewAt(3, FVector(0.f, 650.f, 165.f), TEXT("03_Seite_Augenhoehe"), 6.0f);
+		ViewAt(6, FVector(900.f, 900.f, 700.f), TEXT("04_Von_oben"), 8.0f);
+		ViewAt(10, FVector(2200.f, 300.f, 170.f), TEXT("05_Strasse_lang"), 10.0f);
+		ViewAt(15, FVector(450.f, -450.f, 170.f), TEXT("06_Weiterer"), 12.0f);
+		// Frame rate looking down the street with many cars in view.
+		TSharedRef<uint64> Frames = MakeShared<uint64>(0);
+		TSharedRef<double> Start = MakeShared<double>(0.0);
+		Schedule(10.5f, [Frames, Start]() { *Frames = GFrameCounter; *Start = FPlatformTime::Seconds(); });
+		Schedule(11.5f, [Frames, Start]()
+		{
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("PERF street with cars: %.1f fps"), (GFrameCounter - *Frames) / FMath::Max(FPlatformTime::Seconds() - *Start, 0.001));
+		});
+		Schedule(14.5f, [this]() { Quit(); });
+		return;
+	}
+	if (ShotName == TEXT("QUC"))
+	{
+		// --- The new parked cars: side by side on the street, then each one close up from the front corner -------------
+		static const TCHAR* Cars[] = { TEXT("SedanOld"), TEXT("Wagon"), TEXT("Pickup"), TEXT("PickupOld"), TEXT("Suv"), TEXT("Hatch") };
+		Schedule(1.0f, [this, PC]()
+		{
+			if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); }
+			for (int32 i = 0; i < UE_ARRAY_COUNT(Cars); ++i)
+			{
+				UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_Car_%s.SM_Gen_Car_%s"), Cars[i], Cars[i]));
+				FActorSpawnParameters Params;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				AStaticMeshActor* A = GetWorld()->SpawnActor<AStaticMeshActor>(FVector(-1500.f + i * 650.f, -1850.f, 2.f), FRotator(0.f, 15.f, 0.f), Params);
+				if (A && Mesh)
+				{
+					A->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
+					A->GetStaticMeshComponent()->SetStaticMesh(Mesh);
+				}
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU car %s: %s"), Cars[i], Mesh ? TEXT("ok") : TEXT("MISSING"));
+			}
+		});
+		auto View = [this, PC](const FVector& From, const FVector& At, const FString& Name, float Delay)
+		{
+			Schedule(Delay, [this, PC, From, At, Name]()
+			{
+				if (!CatCamera.IsValid())
+				{
+					FActorSpawnParameters Params;
+					Params.ObjectFlags |= RF_Transient;
+					CatCamera = GetWorld()->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
+					CatCamera->GetCameraComponent()->SetFieldOfView(55.f);
+					CatCamera->GetCameraComponent()->bConstrainAspectRatio = false;
+				}
+				CatCamera->SetActorLocationAndRotation(From, (At - From).Rotation());
+				if (PC) { PC->SetViewTarget(CatCamera.Get()); }
+			});
+			Schedule(Delay + 0.8f, [this, Name]() { Shot(Name); });
+		};
+		View(FVector(125.f, -850.f, 260.f), FVector(125.f, -1850.f, 60.f), TEXT("01_Reihe"), 2.5f);
+		for (int32 i = 0; i < UE_ARRAY_COUNT(Cars); ++i)
+		{
+			const FVector C(-1500.f + i * 650.f, -1850.f, 70.f);
+			View(C + FVector(420.f, 380.f, 90.f), C, FString::Printf(TEXT("%02d_%s"), i + 2, Cars[i]), 4.f + i * 1.6f);
+		}
+		View(FVector(-200.f - 480.f, -1850.f - 380.f, 320.f), FVector(-200.f, -1850.f, 60.f), TEXT("08_Pickup_Ladeflaeche"), 4.f + 6 * 1.6f);
+		Schedule(16.f, [this]() { Quit(); });
 		return;
 	}
 	// --- Test A: repair order -> pallet -> in the hands -> on the bench (real focus and [E] like a player) -----------
