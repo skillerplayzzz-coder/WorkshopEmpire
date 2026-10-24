@@ -91,6 +91,12 @@ protected:
 	void HandleBodySleep(UPrimitiveComponent* SleepingComponent, FName BoneName);
 	UFUNCTION()
 	void HandleBodyWake(UPrimitiveComponent* WakingComponent, FName BoneName);
+	/** Quality overhaul: sounds - picked up, and knocking down on floors and benches (by material and speed). */
+	UFUNCTION()
+	void HandleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	void PlayPickUpSound() const;
+	float LastImpactSoundTime = -10.f;
+	bool bWasHeld = false;
 
 	virtual void BeginPlay() override;
 	virtual void OnRep_AttachmentReplication() override;

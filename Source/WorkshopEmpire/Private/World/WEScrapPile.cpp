@@ -35,6 +35,15 @@ AWEScrapPile::AWEScrapPile()
 	{
 		Heap->SetStaticMesh(CubeMesh.Object);
 	}
+	HeapVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeapVisual"));
+	HeapVisual->SetupAttachment(Heap);
+	HeapVisual->SetMobility(EComponentMobility::Static);
+	HeapVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> HeapMesh(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_ScrapHeap.SM_Gen_ScrapHeap"));
+	if (HeapMesh.Succeeded())
+	{
+		HeapVisual->SetStaticMesh(HeapMesh.Object);
+	}
 	Random.Initialize(4711);
 }
 
@@ -47,8 +56,9 @@ void AWEScrapPile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 void AWEScrapPile::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	// A low heap of tilted blocks (placeholder).
+	// A low heap of tilted blocks: the collision (and the look until the modelled heap exists).
 	Heap->ClearInstances();
+	Heap->SetVisibility(!(HeapVisual && HeapVisual->GetStaticMesh()), false);
 	const FVector Blocks[][2] = {
 		{ FVector(0.f, 0.f, 25.f), FVector(160.f, 120.f, 50.f) },
 		{ FVector(-40.f, 30.f, 60.f), FVector(90.f, 70.f, 40.f) },

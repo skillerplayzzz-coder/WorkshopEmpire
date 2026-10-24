@@ -23,6 +23,8 @@
 #include "Economy/WETraderTerminal.h"
 #include "HAL/IConsoleManager.h"
 #include "Workshop/WEWorkPlan.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 #define LOCTEXT_NAMESPACE "WEPickupItem"
 
@@ -95,6 +97,62 @@ void AWEPickupItem::BeginPlay()
 	{
 		Mesh->OnComponentSleep.AddDynamic(this, &AWEPickupItem::HandleBodySleep);
 		Mesh->OnComponentWake.AddDynamic(this, &AWEPickupItem::HandleBodyWake);
+	}
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		Mesh->SetNotifyRigidBodyCollision(true);
+		Mesh->OnComponentHit.AddDynamic(this, &AWEPickupItem::HandleHit);
+	}
+}
+
+void AWEPickupItem::HandleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	const UWorld* World = GetWorld();
+	const UWEItemDefinition* Def = Item.Definition;
+	if (!World || !Def || Holder || World->GetTimeSeconds() < 2.f || World->GetTimeSeconds() - LastImpactSoundTime < 0.25f)
+	{
+		return; // (no clatter while the level settles after loading)
+	}
+	const float Mass = FMath::Max(0.05f, Item.GetTotalWeightKg());
+	const float Speed = NormalImpulse.Size() / Mass; // cm/s
+	if (Speed < 120.f)
+	{
+		return;
+	}
+	LastImpactSoundTime = World->GetTimeSeconds();
+	const TCHAR* Kind = TEXT("impactGeneric_light");
+	switch (Def->Category)
+	{
+	case EWEItemCategory::ScrapMetal: case EWEItemCategory::Motor: case EWEItemCategory::RawMaterial:
+		Kind = Mass > 5.f ? TEXT("impactMetal_medium") : TEXT("impactMetal_light"); break;
+	case EWEItemCategory::Tool: case EWEItemCategory::PowerTool:
+		Kind = TEXT("impactMetal_light"); break;
+	case EWEItemCategory::Electronics: case EWEItemCategory::HouseholdAppliance:
+		Kind = Mass > 5.f ? TEXT("impactPlate_medium") : TEXT("impactPlate_light"); break;
+	case EWEItemCategory::Product:
+		Kind = TEXT("impactSoft_medium"); break;
+	default: break;
+	}
+	const int32 Variant = FMath::RandRange(0, 4);
+	const FString Path = FString::Printf(TEXT("/Game/WorkshopEmpire/Audio/Kenney/%s_00%d.%s_00%d"), Kind, Variant, Kind, Variant);
+	if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, *Path, nullptr, LOAD_Quiet | LOAD_NoWarn))
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Sound, GetActorLocation(), FMath::Clamp(Speed / 600.f, 0.25f, 1.f), FMath::FRandRange(0.92f, 1.08f));
+	}
+}
+
+void AWEPickupItem::PlayPickUpSound() const
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	const bool bHeavy = Item.GetTotalWeightKg() > 4.f;
+	const TCHAR* Path = bHeavy ? TEXT("/Game/WorkshopEmpire/Audio/Kenney/impactSoft_medium_001.impactSoft_medium_001")
+		: TEXT("/Game/WorkshopEmpire/Audio/P21/SFX_K_handleSmallLeather.SFX_K_handleSmallLeather");
+	if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, Path, nullptr, LOAD_Quiet | LOAD_NoWarn))
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Sound, GetActorLocation(), bHeavy ? 0.7f : 0.6f);
 	}
 }
 
@@ -411,6 +469,8 @@ void AWEPickupItem::HandlePickedUp(AWECharacter* NewHolder, USceneComponent* Att
 	const float Radius = GetCarryRadius();
 	WakeForReplication();
 	Holder = NewHolder;
+	bWasHeld = true;
+	PlayPickUpSound(); // (clients: OnRep_Holder)
 	ApplyHeldState(true);
 	if (AttachTo)
 	{
@@ -428,6 +488,7 @@ void AWEPickupItem::HandleDropped(const FTransform& DropTransform)
 	check(HasAuthority());
 	WakeForReplication();
 	Holder = nullptr;
+	bWasHeld = false;
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	SetActorLocationAndRotation(DropTransform.GetLocation(), DropTransform.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
 	ApplyHeldState(false);
@@ -436,6 +497,11 @@ void AWEPickupItem::HandleDropped(const FTransform& DropTransform)
 
 void AWEPickupItem::OnRep_Holder()
 {
+	if (Holder && !bWasHeld)
+	{
+		PlayPickUpSound();
+	}
+	bWasHeld = Holder != nullptr;
 	ApplyHeldState(Holder != nullptr || PlacedOn != nullptr);
 }
 

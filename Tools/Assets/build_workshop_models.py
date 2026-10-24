@@ -12,6 +12,7 @@ Origin at the bottom centre (wall fixtures: bottom centre of the back face).
   UnrealEditor-Cmd.exe <uproject> -ExecutePythonScript="<this file>" -unattended -RenderOffscreen -nosplash -nosteam
 """
 import builtins
+import math
 import os
 import sys
 
@@ -110,7 +111,47 @@ def tube_fixture():
     return m
 
 
+def dirt_mound():
+    """Heap of earth and gravel (100 x 100 x 40 cm, stretched per place): overlapping flattened lumps, a few stones."""
+    m = Model("DirtMound")
+    lumps = [(0, 0, 0, 50, 0.8), (-22, 14, 0, 34, 0.75), (20, -16, 0, 32, 0.7), (16, 22, 0, 26, 0.65), (-20, -22, 0, 28, 0.6),
+             (4, 4, 10, 30, 0.7)]
+    for x, y, z, r, flat in lumps:
+        m.sphere("Concrete", (x, y, z), r, scale=(1.0, 1.0, flat * 0.8), steps=14)
+    for k in range(9):
+        a = math.radians(k * 41.0)
+        rr = 38 + (k % 3) * 6
+        m.sphere("Concrete", (math.cos(a) * rr, math.sin(a) * rr, 2.0), 3.0 + (k % 3), scale=(1.2, 1.0, 0.8), steps=6)
+    return m
+
+
+def scrap_heap():
+    """Scrap heap in the yard (about 170 x 130 x 110 cm): a ground mound under crumpled sheets, pipes, tyres, a dented
+    cabinet, a radiator and bent rods (the scrap pile actor keeps its boxes as collision)."""
+    m = Model("ScrapHeap")
+    m.sphere("Rust", (0, 0, 0), 80, scale=(1.05, 0.8, 0.32), steps=16)
+    sheets = [((-30, 10, 30), (70, 50, 2), (12, 25, 8), "RustHeavy"), ((25, -20, 34), (60, 45, 2), (-15, -18, 40), "Rust"),
+              ((0, 25, 48), (55, 40, 2), (28, 8, -30), "MetalPaintedBlue"), ((-10, -25, 52), (50, 35, 2), (-30, 12, 70), "RustHeavy"),
+              ((35, 15, 55), (40, 30, 2), (40, -10, 15), "MetalPaintedGreen"), ((-40, -5, 58), (45, 35, 2), (-45, 20, -20), "Rust")]
+    for c, s, r, mat in sheets:
+        m.box(mat, c, s, rot=r, bevel=0.3)
+    m.box("PlasticWhite", (-5, -5, 72), (45, 40, 50), rot=(8, -12, 20), bevel=1.5)  # old washing machine, tipped over
+    m.cyl("TrimBlack", (-5 + 12, -5 - 6, 72 + 2), 13, 2, rot=(98, -12, 20), segs=20)
+    m.box("RustHeavy", (30, 20, 80), (12, 40, 45), rot=(-20, 10, 70), bevel=0.6)  # radiator
+    for k in range(6):
+        m.box("RustHeavy", (30 + 0.5 * k, 20 - 15 + 6 * k, 80), (14, 1.2, 46), rot=(-20, 10, 70))
+    for i, (c, r) in enumerate((((50, -30, 22), (70, 0, 30)), ((-55, 30, 25), (75, 20, -40)))):
+        m.torus("TireRubber", c, 26, 9, rot=r, segs=28, minor=10)
+    for c, rot, length in (((-20, 35, 60), (0, 80, 30), 120), ((15, -35, 66), (10, 70, -50), 100), ((0, 0, 95), (0, 60, 10), 80)):
+        m.cyl("SteelBrushed", c, 2.5, length, rot=rot, segs=10)
+    for c, rot in (((40, -5, 92), (30, 40, 0)), ((-35, -30, 85), (-50, 20, 60)), ((10, 40, 88), (70, 0, 30))):
+        m.cyl("Rust", c, 0.8, 70, rot=rot, segs=6)
+    return m
+
+
 BUILDERS = {
+    "ScrapHeap": scrap_heap,
+    "DirtMound": dirt_mound,
     "TubeFixture": tube_fixture,
     "Workbench": lambda: bench("Workbench", 80.0, 200.0, 90.0, [62.0]),
     "WorkbenchLarge": lambda: bench("WorkbenchLarge", 100.0, 280.0, 95.0, [-95.0, 95.0]),
@@ -124,7 +165,7 @@ def main():
         try:
             m = make()
             # Wall fixtures keep their origin at the back face (normalize centres X).
-            if m.save(normalize=name.startswith("Workbench")):  # (the fixture keeps its top at z = 0)
+            if m.save(normalize=name.startswith("Workbench") or name in ("DirtMound", "ScrapHeap")):  # (the fixture keeps its top at z = 0)
                 built += 1
             else:
                 failed.append(name)

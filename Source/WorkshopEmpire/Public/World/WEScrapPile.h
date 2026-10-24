@@ -52,6 +52,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UInstancedStaticMeshComponent> Heap;
 
+	/** Quality overhaul: the modelled heap of junk (the blocks above only collide). */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<class UStaticMeshComponent> HeapVisual;
+
 	UPROPERTY(EditAnywhere, Category = "Scrap")
 	TObjectPtr<UWELootTable> LootTable;
 

@@ -9,6 +9,8 @@
 #include "Workshop/WEWorkshopStyleComponent.h"
 #include "Player/WECharacter.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "UObject/ConstructorHelpers.h"
 #include "WELog.h"
 
@@ -213,6 +215,21 @@ void AWEGarageDoor::OnRep_IsOpen()
 void AWEGarageDoor::StartMoving()
 {
 	GetWorldTimerManager().SetTimer(MoveTimer, this, &AWEGarageDoor::StepMovement, WEGarageDoor::StepInterval, true);
+	// Quality overhaul: the latch clicks, the shutter rattles off (it was silent).
+	PlayDoorSound(TEXT("/Game/WorkshopEmpire/Audio/P21/SFX_K_metalLatch.SFX_K_metalLatch"), 0.8f);
+	PlayDoorSound(TEXT("/Game/WorkshopEmpire/Audio/Kenney/impactPlate_medium_002.impactPlate_medium_002"), 0.5f);
+}
+
+void AWEGarageDoor::PlayDoorSound(const TCHAR* Path, float Volume) const
+{
+	if (GetNetMode() == NM_DedicatedServer || !HasActorBegunPlay() || GetWorld()->GetTimeSeconds() < 1.f)
+	{
+		return; // not at loading
+	}
+	if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, Path, nullptr, LOAD_Quiet | LOAD_NoWarn))
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Sound, Panel->GetComponentLocation(), Volume);
+	}
 }
 
 void AWEGarageDoor::StepMovement()
@@ -226,6 +243,8 @@ void AWEGarageDoor::StepMovement()
 	if (FMath::IsNearlyEqual(Location.Z, TargetZ, 0.1f))
 	{
 		GetWorldTimerManager().ClearTimer(MoveTimer);
+		PlayDoorSound(bIsOpen ? TEXT("/Game/WorkshopEmpire/Audio/Kenney/impactMetal_light_003.impactMetal_light_003")
+			: TEXT("/Game/WorkshopEmpire/Audio/Kenney/impactMetal_heavy_002.impactMetal_heavy_002"), bIsOpen ? 0.6f : 0.9f);
 		// The panel moved by setting its location: tell the (dynamic) navmesh, and open/close the link through the door.
 		DoorLink->SetEnabled(bIsOpen);
 		if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))

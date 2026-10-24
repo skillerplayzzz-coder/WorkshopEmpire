@@ -54,6 +54,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ShutterBack;
 	void StartMoving();
 	void StepMovement();
+	void PlayDoorSound(const TCHAR* Path, float Volume) const;
 	float GetTargetHeight() const;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")

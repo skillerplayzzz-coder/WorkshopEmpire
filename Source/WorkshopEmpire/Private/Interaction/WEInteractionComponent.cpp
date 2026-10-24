@@ -16,6 +16,8 @@
 #include "Logistics/WEVehicle.h"
 #include "Framework/WEPlayerController.h"
 #include "Machines/WEMachineDefinition.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 #define LOCTEXT_NAMESPACE "WEInteraction"
 
@@ -132,6 +134,15 @@ void UWEInteractionComponent::RequestPrimaryInteraction()
 		if (TryOpenWorkView(Target, false))
 		{
 			return;
+		}
+		// Quality overhaul: putting something into the pocket makes a sound (it vanished silently).
+		FText Reason;
+		if (const AWEPickupItem* Pocketed = Cast<AWEPickupItem>(Target); Pocketed && Pocketed->GoesIntoInventory() && Pocketed->CanInteract(Character, Reason))
+		{
+			if (USoundBase* Sound = LoadObject<USoundBase>(nullptr, TEXT("/Game/WorkshopEmpire/Audio/P21/SFX_K_handleSmallLeather.SFX_K_handleSmallLeather"), nullptr, LOAD_Quiet | LOAD_NoWarn))
+			{
+				UGameplayStatics::PlaySound2D(this, Sound, 0.5f);
+			}
 		}
 		RequestInteractWith(Target);
 	}

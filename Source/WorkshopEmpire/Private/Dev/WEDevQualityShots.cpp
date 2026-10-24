@@ -270,6 +270,8 @@ void UWEDevAutomationComponent::RunQualityShots()
 			{ FVector(-300.f, -250.f, 210.f), FVector(300.f, 280.f, 100.f), TEXT("07_Garage_Ecke") },
 			{ FVector(0.f, 0.f, 280.f), FVector(-200.f, 0.f, 0.f), TEXT("08_Garage_oben") },
 			{ FVector(900.f, 600.f, 220.f), FVector(400.f, 0.f, 120.f), TEXT("09_Hof_Tor") },
+			{ FVector(-5000.f, -1850.f, 260.f), FVector(-7150.f, -1850.f, 40.f), TEXT("10_Erdhaufen") },
+			{ FVector(2500.f, -2300.f, 180.f), FVector(-1000.f, -1850.f, 120.f), TEXT("11_Strasse") },
 		};
 		Schedule(1.0f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
 		// The PC desk: from its front, wherever the terminal stands.
