@@ -56,14 +56,15 @@ PARTS = [
         screw((-4.4, 20.8, 14.0), MX, 1),
         clip((7.0, 7.4, 14.6), MX, (0, 1, 0), 2)],
         requires=["SidePanel"], pull=MX, dist=7.0, alts=["GraphicsCardPro", "RareGpu"]),
-    dict(id="Ram", name="Arbeitsspeicher", fasteners=[
-        clip((7.3, RAM_Y[0], 31.9), MX, (0, 0, -1)), clip((7.3, RAM_Y[0], 17.4), MX, (0, 0, 1)),
-        clip((7.3, RAM_Y[1], 31.9), MX, (0, 0, -1)), clip((7.3, RAM_Y[1], 17.4), MX, (0, 0, 1))],
-        requires=["SidePanel"], pull=MX, dist=4.5, alts=["RamModule8"]),
+    # Quality update: every stick on its own (two latches each); the second stick is part 12 (appended, saves keep their bits).
+    dict(id="Ram", name="RAM-Riegel 1", fasteners=[
+        clip((7.3, RAM_Y[0], 31.9), MX, (0, 0, -1)), clip((7.3, RAM_Y[0], 17.4), MX, (0, 0, 1))],
+        requires=["SidePanel"], pull=MX, dist=4.5, alts=["RamModule8"], ram=0),
+    # The cooler goes back on with fresh thermal paste (consumed on installation).
     dict(id="CpuCooler", name="CPU-Kühler", fasteners=[
         plug((7.3, 7.2, 31.6), MX, 0),
         clip((6.4, 12.0, 29.6), MX, (0, 0, -1), 1), clip((6.4, 12.0, 22.4), MX, (0, 0, 1), 1)],
-        requires=["SidePanel"], pull=MX, dist=8.0),
+        requires=["SidePanel"], pull=MX, dist=8.0, install="ThermalPaste"),
     dict(id="Cpu", name="Prozessor", fasteners=[
         lever((7.2, 15.4, 23.2), MX, (0, 0, 1), 0)],
         requires=["SidePanel", "CpuCooler"], pull=MX, dist=4.0, alts=["ProcessorFast"]),
@@ -87,14 +88,17 @@ PARTS = [
         requires=["SidePanel"], pull=NY, dist=5.0),
     dict(id="Mainboard", name="Mainboard", fasteners=[
         screw((7.75, y, z), MX, 0) for y in (-2.6, 9.0, 20.2) for z in (3.3, 31.8)],
-        requires=["SidePanel", "GraphicsCard", "Ram", "CpuCooler", "Cpu", "PowerSupply", "CaseFan"], pull=MX, dist=3.0),
+        requires=["SidePanel", "GraphicsCard", "Ram", "Ram2", "CpuCooler", "Cpu", "PowerSupply", "CaseFan"], pull=MX, dist=3.0),
     dict(id="CdDrive", name="CD-Laufwerk", fasteners=[
         plug((-2.5, -1.3, 37.5), PY, 0), plug((4.5, -1.3, 37.5), PY, 0),
         screw((-7.85, -16.0, 37.5), MX, 1), screw((-7.85, -8.0, 37.5), MX, 1)],
         requires=["SidePanel"], pull=NY, dist=12.0, optional=True),
     dict(id="Case", name="Gehäuse", fasteners=[],
-        requires=["SidePanel", "GraphicsCard", "Ram", "CpuCooler", "Cpu", "HardDrive", "Ssd", "CaseFan", "PowerSupply",
+        requires=["SidePanel", "GraphicsCard", "Ram", "Ram2", "CpuCooler", "Cpu", "HardDrive", "Ssd", "CaseFan", "PowerSupply",
                   "Mainboard", "CdDrive"], pull=(0, 0, 1), dist=2.0, shell=True),
+    dict(id="Ram2", name="RAM-Riegel 2", fasteners=[
+        clip((7.3, RAM_Y[1], 31.9), MX, (0, 0, -1)), clip((7.3, RAM_Y[1], 17.4), MX, (0, 0, 1))],
+        requires=["SidePanel"], pull=MX, dist=4.5, alts=["RamModule8"], ram=1),
 ]
 
 # Lying on its right side (+X down), open side up: pitch -90 turns -X into +Z; yaw 180 turns the back to the player.

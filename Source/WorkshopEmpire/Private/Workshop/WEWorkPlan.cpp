@@ -431,6 +431,26 @@ namespace WEWorkPlan
 				T.Kind = T.Kind == EWEWorkTaskKind::Lid ? EWEWorkTaskKind::Lid : EWEWorkTaskKind::InsertPart;
 			}
 		}
+		// Quality update: fresh thermal paste goes on before the cooler is set in (the syringe, from the inventory).
+		const FWEAssemblyPart& Part = Def->Assembly->Parts[PartIndex];
+		if (Part.InstallMaterial && Plan.Tasks.Num() < MaxTasks)
+		{
+			for (FWEWorkTask& T : Plan.Tasks)
+			{
+				T.Phase = static_cast<uint8>(FMath::Min<int32>(T.Phase + 1, 255));
+			}
+			FWEWorkTask& Paste = Plan.Tasks.AddDefaulted_GetRef();
+			Paste.Kind = EWEWorkTaskKind::PasteApply;
+			Paste.Weight = 1.2f;
+			Paste.Phase = 0;
+			Paste.Part = Part.InstallMaterial;
+			// On the processor (it sits under the cooler); the marker shows there.
+			const int32 Cpu = Def->Assembly->Parts.IndexOfByPredicate([](const FWEAssemblyPart& P) { return P.Id == TEXT("Cpu"); });
+			Paste.AssemblyPart = Cpu != INDEX_NONE ? Cpu : PartIndex;
+			Paste.Fastener = INDEX_NONE;
+			const FWEAssemblyPart& Under = Def->Assembly->Parts[Paste.AssemblyPart];
+			Paste.DevicePosition = Under.Mesh ? Under.Mesh->GetBoundingBox().GetCenter() : FVector::ZeroVector;
+		}
 		// The part task first in the list too (markers and hints read the list in order).
 		Plan.Tasks.StableSort([](const FWEWorkTask& A, const FWEWorkTask& B) { return A.Phase < B.Phase; });
 		return Plan;

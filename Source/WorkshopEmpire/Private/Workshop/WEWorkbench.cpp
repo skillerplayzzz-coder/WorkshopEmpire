@@ -753,6 +753,15 @@ TArray<FWEInstallNeed> AWEWorkbench::GetInstallNeeds(const UWEItemDefinition* De
 			}
 		}
 	}
+	// Quality update: material that is used up on the way in (thermal paste under the CPU cooler).
+	if (UWEItemDefinition* Material = Assembly->Parts[Part].InstallMaterial; Material && Needs.Num() > 0)
+	{
+		FWEInstallNeed& Need = Needs.AddDefaulted_GetRef();
+		Need.Item = Material;
+		Need.Count = 1;
+		Need.bPart = false;
+		Need.Accepts.Add(Material);
+	}
 	return Needs;
 }
 

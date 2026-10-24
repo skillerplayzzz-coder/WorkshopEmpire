@@ -416,7 +416,56 @@ void UWEWorkViewWidget::UpdateOrbit(float DeltaTime)
 	OrbitPitch = FMath::FInterpTo(OrbitPitch, OrbitGoalPitch, DeltaTime, 14.f);
 	OrbitTarget = FMath::VInterpTo(OrbitTarget, OrbitGoal, DeltaTime, 7.f);
 	OrbitDist = FMath::FInterpTo(OrbitDist, OrbitGoalDist, DeltaTime, 7.f);
-	const FVector Eye = OrbitTarget + FRotator(OrbitPitch, OrbitYaw, 0.f).Vector() * OrbitDist;
+	// Quality update: the camera never goes into the case. Looking at something inside, it stays steep enough to look
+	// in through the open side; otherwise it backs out of the device box.
+	float Dist = OrbitDist;
+	if (const AWEAssemblyView* View = GetView())
+	{
+		const FBox Box = View->GetDeviceBounds().ExpandBy(1.5f);
+		auto ExitDistance = [&Box](const FVector& From, const FVector& Dir)
+		{
+			float Exit = BIG_NUMBER;
+			for (int32 Axis = 0; Axis < 3; ++Axis)
+			{
+				if (FMath::Abs(Dir[Axis]) > KINDA_SMALL_NUMBER)
+				{
+					Exit = FMath::Min(Exit, ((Dir[Axis] > 0.f ? Box.Max[Axis] : Box.Min[Axis]) - From[Axis]) / Dir[Axis]);
+				}
+			}
+			return FMath::Max(Exit, 0.f);
+		};
+		if (Box.IsInsideOrOn(OrbitTarget))
+		{
+			const float Side = ExitDistance(OrbitTarget, FRotator(0.f, OrbitYaw, 0.f).Vector());
+			const float MinPitch = FMath::RadiansToDegrees(FMath::Atan2(Box.Max.Z - OrbitTarget.Z, FMath::Max(Side, 0.5f))) + 4.f;
+			if (OrbitPitch < MinPitch)
+			{
+				OrbitPitch = FMath::FInterpTo(OrbitPitch, FMath::Min(MinPitch, 86.f), DeltaTime, 10.f);
+				OrbitGoalPitch = FMath::Max(OrbitGoalPitch, FMath::Min(MinPitch, 86.f));
+			}
+		}
+		const FVector Dir = FRotator(OrbitPitch, OrbitYaw, 0.f).Vector();
+		if (Box.IsInside(OrbitTarget + Dir * Dist))
+		{
+			Dist = ExitDistance(OrbitTarget, Dir) + 3.f;
+		}
+	}
+	FVector Eye = OrbitTarget + FRotator(OrbitPitch, OrbitYaw, 0.f).Vector() * Dist;
+	// Shelves, walls, the coffee machine: the camera stops in front of them instead of looking through.
+	if (UWorld* World = GetWorld())
+	{
+		FCollisionQueryParams Query(SCENE_QUERY_STAT(WEWorkViewCamera), false, GetOwningPlayerPawn());
+		Query.AddIgnoredActor(B);
+		if (AWEPickupItem* Item = B->GetPlacedItem())
+		{
+			Query.AddIgnoredActor(Item);
+		}
+		FHitResult Hit;
+		if (World->SweepSingleByChannel(Hit, OrbitTarget, Eye, FQuat::Identity, ECC_Camera, FCollisionShape::MakeSphere(4.f), Query) && !Hit.bStartPenetrating)
+		{
+			Eye = Hit.Location;
+		}
+	}
 	Cam->SetWorldLocationAndRotation(Eye, (OrbitTarget - Eye).Rotation());
 }
 

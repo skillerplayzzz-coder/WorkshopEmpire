@@ -189,10 +189,11 @@ def cooler_part(name="PCA_CpuCooler"):
     return m
 
 
-def ram_part():
-    m = Model("PCA_Ram")
+def ram_part(stick=0):
+    # Quality update: one stick per part (slot RAM_Y[stick]).
+    m = Model("PCA_Ram" if stick == 0 else "PCA_Ram2")
     slot_top = L.BOARD_X - 0.08 - 0.9
-    for y in RAM_Y:
+    for y in (RAM_Y[stick],):
         m.box("PCB", (slot_top - 1.55 + 0.3, y, 24.65), (3.1, 0.12, 13.3))
         for i in range(8):
             m.box("Chip", (slot_top - 1.6, y - 0.13, 19.0 + i * 1.6), (1.0, 0.14, 1.1))
@@ -291,7 +292,7 @@ def cd_part(name="PCA_CdDrive"):
 PART_BUILDERS = {
     "SidePanel": side_panel, "GraphicsCard": gpu_part, "Ram": ram_part, "CpuCooler": cooler_part, "Cpu": cpu_part,
     "HardDrive": hdd_part, "Ssd": ssd_part, "CaseFan": case_fan_part, "PowerSupply": psu_part, "Mainboard": mainboard_part,
-    "CdDrive": cd_part, "Case": case_shell,
+    "CdDrive": cd_part, "Case": case_shell, "Ram2": lambda: ram_part(1),
 }
 
 

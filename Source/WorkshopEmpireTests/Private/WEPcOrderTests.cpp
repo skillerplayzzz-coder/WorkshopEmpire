@@ -45,6 +45,7 @@ namespace WEPcOrderTests
 			Asm = Pc->Assembly;
 			Player = WETestItems::SpawnPlayer(TW, FVector(0.f, 0.f, 100.f));
 			Give(TEXT("Screwdriver"), 1, EWEItemCondition::Used);
+			Give(TEXT("ThermalPaste"), 2, EWEItemCondition::New); // the CPU cooler goes back on with fresh paste
 			Bench = TW.Spawn<AWEWorkbench>(FVector(150.f, 0.f, 0.f));
 			Bench->SetRandomSeed(5);
 			Terminal = TW.Spawn<AWETraderTerminal>(FVector(0.f, 150.f, 0.f));
@@ -233,6 +234,8 @@ bool FWEPcOrdersTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Better GPU in"), F.Install(TEXT("GraphicsCard")));
 	TestTrue(TEXT("RAM out"), F.Remove(TEXT("Ram")));
 	TestTrue(TEXT("8 GB in"), F.Install(TEXT("Ram")));
+	TestTrue(TEXT("Second stick out"), F.Remove(TEXT("Ram2")));
+	TestTrue(TEXT("Second 8 GB in"), F.Install(TEXT("Ram2")));
 	TestTrue(TEXT("Panel back"), F.Install(TEXT("SidePanel")));
 	TestTrue(TEXT("Test"), F.Test());
 	AddInfo(FString::Printf(TEXT("Upgraded customer PC: %d points (needs %d)"), WEBenchmark::Score(Customer->GetItem()), Up.MinBenchmark));

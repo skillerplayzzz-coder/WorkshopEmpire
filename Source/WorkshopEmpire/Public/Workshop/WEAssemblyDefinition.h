@@ -96,6 +96,10 @@ struct WORKSHOPEMPIRE_API FWEAssemblyPart
 	/** Phase 19: better parts that fit the same place (variant 1, 2, 3); the part from the disassembly step is variant 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
 	TArray<TObjectPtr<class UWEItemDefinition>> Alternatives;
+
+	/** Quality update: used up when the part goes back in (fresh thermal paste under the CPU cooler). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Assembly")
+	TObjectPtr<class UWEItemDefinition> InstallMaterial;
 };
 
 /**

@@ -49,6 +49,19 @@
 
 #define LOCTEXT_NAMESPACE "WESaveSystem"
 
+namespace
+{
+	/** Version of the save being applied (FromSaved migrates item layouts of older saves). */
+	int32 GLoadingSaveVersion = UWESaveGame::CurrentVersion;
+
+	struct FLoadingVersionScope
+	{
+		explicit FLoadingVersionScope(const UWESaveGame* Save) : Previous(GLoadingSaveVersion) { GLoadingSaveVersion = Save ? Save->SaveVersion : UWESaveGame::CurrentVersion; }
+		~FLoadingVersionScope() { GLoadingSaveVersion = Previous; }
+		int32 Previous;
+	};
+}
+
 // --- Paths -------------------------------------------------------------------------------------------
 
 bool FWESaveSystem::IsValidSlotName(const FString& Slot)
@@ -130,6 +143,23 @@ bool FWESaveSystem::FromSaved(const FWESavedItem& Saved, FWEItemInstance& OutIte
 			for (int32 i = 0; i < FMath::Min<int32>(OutItem.DisassemblyStep, NumParts); ++i)
 			{
 				OutItem.RemovedParts |= (1 << i);
+			}
+		}
+		// Version 20 (quality update): the two RAM sticks are separate parts. Before, part "Ram" stood for both:
+		// the new second stick ("Ram2", appended) takes over its state.
+		if (GLoadingSaveVersion < 20)
+		{
+			const TArray<FWEAssemblyPart>& Parts = Definition->Assembly->Parts;
+			const int32 First = Parts.IndexOfByPredicate([](const FWEAssemblyPart& P) { return P.Id == TEXT("Ram"); });
+			const int32 Second = Parts.IndexOfByPredicate([](const FWEAssemblyPart& P) { return P.Id == TEXT("Ram2"); });
+			if (First != INDEX_NONE && Second != INDEX_NONE)
+			{
+				if (OutItem.IsPartRemoved(First))
+				{
+					OutItem.RemovedParts |= (1 << Second);
+				}
+				OutItem.SetInstalledCondition(Second, OutItem.GetInstalledCondition(First));
+				OutItem.SetPartVariant(Second, OutItem.GetPartVariant(First));
 			}
 		}
 		OutItem.RemovedParts &= (1 << NumParts) - 1;
@@ -530,6 +560,7 @@ UWESaveGame* FWESaveSystem::Capture(UWorld* World)
 
 void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 {
+	const FLoadingVersionScope Version(Save);
 	if (!World || !Save)
 	{
 		return;
@@ -984,6 +1015,7 @@ void FWESaveSystem::Apply(UWorld* World, const UWESaveGame* Save)
 
 void FWESaveSystem::ApplyPlayer(APlayerController* PC, const UWESaveGame* Save)
 {
+	const FLoadingVersionScope Version(Save);
 	AWECharacter* Character = PC ? Cast<AWECharacter>(PC->GetPawn()) : nullptr;
 	if (!Character || !Save)
 	{

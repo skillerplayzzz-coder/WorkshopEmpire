@@ -42,6 +42,8 @@ namespace WEAssemblyTests
 			int32 Added = 0;
 			Player->GetPlayerInventory()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("Screwdriver"))), Added);
 			Player->GetPlayerInventory()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("SideCutter"))), Added);
+			// Quality update: the CPU cooler goes back on with fresh thermal paste.
+			Player->GetPlayerInventory()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("ThermalPaste")), 2), Added);
 			Bench = TW.Spawn<AWEWorkbench>(FVector(150.f, 0.f, 0.f));
 			Bench->SetRandomSeed(11);
 			return true;

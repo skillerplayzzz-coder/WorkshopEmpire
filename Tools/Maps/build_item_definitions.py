@@ -395,7 +395,7 @@ SEQUENCES = {
         # Every screw you see comes out as a real screw; every part you pull out is a real item.
         step("Seitenteil abschrauben", T.SCREWDRIVER, 2.5, [out("SheetMetalScrews", 2)]),
         step("Grafikkarte ausbauen", T.SCREWDRIVER, 2.5, [out("GraphicsCard", 1, inherit=True), out("SheetMetalScrews", 1)]),
-        step("Arbeitsspeicher entnehmen", T.NONE, 1.5, [out("RamModule", 2, inherit=True)]),
+        step("RAM-Riegel 1 entnehmen", T.NONE, 1.0, [out("RamModule", 1, inherit=True)]),
         step("CPU-Kühler abnehmen", T.NONE, 1.5, [out("CpuCooler", 1, inherit=True)]),
         step("Prozessor entnehmen", T.NONE, 1.0, [out("Processor", 1, inherit=True)]),
         step("Festplatte ausbauen", T.SCREWDRIVER, 2.0, [out("HardDrive", 1, inherit=True), out("SheetMetalScrews", 2)]),
@@ -406,6 +406,8 @@ SEQUENCES = {
         step("CD-Laufwerk ausbauen", T.SCREWDRIVER, 1.5, [out("ElectronicScrap", 1), out("PlasticParts", 1), out("SheetMetalScrews", 2)]),
         step("Kabel abtrennen und Gehäuse verwerten", T.SIDE_CUTTER, 3.0,
              [out("SteelScrap", 4, 5), out("PlasticParts", 1, 2), out("CopperCable", 1, 2)]),
+        # Quality update: the second RAM stick is its own part (appended: indices of older saves stay valid).
+        step("RAM-Riegel 2 entnehmen", T.NONE, 1.0, [out("RamModule", 1, inherit=True)]),
     ],
     "CrtMonitor": [
         step("Rückwand abschrauben", T.SCREWDRIVER, 3.0, [out("SheetMetalScrews", 3, 5), out("PlasticParts", 2, 3)]),
@@ -487,6 +489,7 @@ def build_pc_assembly():
         part.set_editor_property("shell", spec.get("shell", False))
         part.set_editor_property("optional", spec.get("optional", False))
         part.set_editor_property("alternatives", [items[a][0] for a in spec.get("alts", [])])
+        part.set_editor_property("install_material", items[spec["install"]][0] if "install" in spec else None)
         parts.append(part)
     asm, asm_path = data_asset("/Game/WorkshopEmpire/Data/Assembly", "ASM_OldComputer", unreal.WEAssemblyDefinition)
     asm.set_editor_property("parts", parts)
