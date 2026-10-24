@@ -441,7 +441,7 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 			{
 				PC->RequestAssignTask(FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker)), Shelf, FindFurniture(TEXT("Press")));
 				PC->RequestAssignTask(FindEmployee(static_cast<uint8>(EWEStaffRole::MachineOperator)), Shelf, FindFurniture(TEXT("Press")));
-				PC->ServerDevTeleport(FVector(380.f, 250.f, 100.f), FRotator::ZeroRotator);
+				PC->ServerDevTeleport(FVector(300.f, 240.f, 100.f), FRotator(0.f, 180.f, 0.f));
 			}
 		});
 		// A camera beside the person, at chest height, whenever the pose we want shows up.
@@ -517,6 +517,27 @@ void UWEDevAutomationComponent::RunPhase21Shots()
 		});
 		// Alone on a second break: coffee, then a seat.
 		Schedule(72.0f, [this]() { if (AWEEmployee* E = FindEmployee(static_cast<uint8>(EWEStaffRole::WarehouseWorker))) { E->StartBreak(); } });
+		// The navmesh from above (where the staff can walk between the furniture).
+		Schedule(116.0f, [this, PC]()
+		{
+			if (!PC)
+			{
+				return;
+			}
+			PC->ConsoleCommand(TEXT("show Navigation"));
+			if (!CatCamera.IsValid())
+			{
+				FActorSpawnParameters Params;
+				Params.ObjectFlags |= RF_Transient;
+				CatCamera = GetWorld()->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
+				CatCamera->GetCameraComponent()->bConstrainAspectRatio = false;
+			}
+			// (Under the ceiling, wide angle.)
+			CatCamera->GetCameraComponent()->SetFieldOfView(112.f);
+			CatCamera->SetActorLocationAndRotation(FVector(0.f, 0.f, 270.f), FRotator(-90.f, 0.f, 0.f));
+			PC->SetViewTarget(CatCamera.Get());
+		});
+		Schedule(117.2f, [this]() { Shot(TEXT("99_Navmesh")); });
 		Schedule(118.0f, [this]() { LogStaff(TEXT("P21 after break")); Quit(); });
 		return;
 	}

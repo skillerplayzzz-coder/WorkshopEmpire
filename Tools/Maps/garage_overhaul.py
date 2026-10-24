@@ -147,6 +147,10 @@ def overhaul(level):
     for a in by_label("Item_SideCutter"):
         a.set_actor_location(unreal.Vector(-348.0, 40.0, 92.0), False, False)
         a.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=90.0, yaw=20.0), False)
+    # 2c. Bench stool: past the drawer unit (y 39..85), so a seated employee's knees go under the free part of the top.
+    for a in by_label("Deco_metal_stool_01"):
+        loc = a.get_actor_location()
+        a.set_actor_location(unreal.Vector(loc.x, 140.0, loc.z), False, False)
     # 3. PC desk off the wall.
     for a in by_label("MarketTerminal"):
         loc = a.get_actor_location()

@@ -583,6 +583,130 @@ FVector AWEEmployee::GetStandPoint(const AActor* Actor) const
 	return Best;
 }
 
+bool AWEEmployee::FindNavPath(const FVector& Goal, TArray<FVector>& OutPath) const
+{
+	UWorld* World = GetWorld();
+	UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	if (!Nav)
+	{
+		return false;
+	}
+	// Right at a machine or on a pallet the capsule stands outside the navmesh (it keeps a margin around furniture),
+	// and a search from there finds nothing ("kein Weg frei" for good). Start from the nearest navmesh point in reach
+	// instead - unless a wall is in between.
+	FVector Start = GetActorLocation();
+	FNavLocation OnNav;
+	const bool bProjected = Nav->ProjectPointToNavigation(Start, OnNav, FVector(100.f, 100.f, 200.f));
+	bool bBlocked = false;
+	if (bProjected && FVector::Dist2D(OnNav.Location, Start) > 5.f)
+	{
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(WENavStart), false, this);
+		const FVector To(OnNav.Location.X, OnNav.Location.Y, Start.Z);
+		bBlocked = World->LineTraceTestByChannel(Start, To, ECC_Pawn, Params);
+		if (!bBlocked)
+		{
+			Start = OnNav.Location;
+		}
+	}
+	const UNavigationPath* NavPath = Nav->FindPathToLocationSynchronously(World, Start, Goal, const_cast<AWEEmployee*>(this));
+	if (!NavPath || !NavPath->IsValid() || NavPath->IsPartial())
+	{
+		// Between clutter on the floor the nearest navmesh can be a small pocket with no way out: try a few points
+		// around him (in reach, no wall in between).
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(WENavStartRing), false, this);
+		int32 Tries = 0;
+		for (const float Radius : { 50.f, 95.f })
+		{
+			for (int32 Step = 0; Step < 8 && Tries < 6; ++Step)
+			{
+				const float Angle = Step * UE_TWO_PI / 8.f;
+				const FVector Probe = GetActorLocation() + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Radius;
+				FNavLocation Near;
+				if (!Nav->ProjectPointToNavigation(Probe, Near, FVector(30.f, 30.f, 200.f)) || FVector::Dist2D(Near.Location, Start) < 30.f
+					|| World->LineTraceTestByChannel(GetActorLocation(), FVector(Near.Location.X, Near.Location.Y, GetActorLocation().Z), ECC_Pawn, Params))
+				{
+					continue;
+				}
+				++Tries;
+				const UNavigationPath* Other = Nav->FindPathToLocationSynchronously(World, Near.Location, Goal, const_cast<AWEEmployee*>(this));
+				if (Other && Other->IsValid() && !Other->IsPartial())
+				{
+					OutPath.Reset();
+					OutPath.Append(Other->PathPoints); // (starts with that point: he steps over to it first)
+					return true;
+				}
+			}
+		}
+		UE_LOG(LogWENet, Verbose, TEXT("%s: no nav path %s -> %s (on navmesh %s %s, wall in between %d, %s)"), *GetName(), *Start.ToCompactString(), *Goal.ToCompactString(),
+			bProjected ? TEXT("at") : TEXT("not found"), *OnNav.Location.ToCompactString(), bBlocked ? 1 : 0,
+			!NavPath ? TEXT("no result") : !NavPath->IsValid() ? TEXT("invalid") : TEXT("partial"));
+		return false;
+	}
+	OutPath.Reset();
+	OutPath.Append(NavPath->PathPoints);
+	if (OutPath.Num() > 0 && FVector::Dist2D(OutPath[0], GetActorLocation()) < 5.f)
+	{
+		OutPath.RemoveAt(0); // own position
+	}
+	return true;
+}
+
+bool AWEEmployee::GetControlSpot(const AActor* Machine, FVector& OutSpot) const
+{
+	const AWEPlaceholderProp* Prop = Cast<AWEPlaceholderProp>(Machine);
+	if (!Prop || !GetWorld())
+	{
+		return false;
+	}
+	// In front of the machine (the control panels of the machine models sit on the +X face), close enough for the hands.
+	const float Radius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+	OutSpot = Prop->GetActorTransform().TransformPosition(FVector(Prop->GetSize().X * 0.5f + Radius + 6.f, 0.f, 0.f));
+	OutSpot.Z = GetActorLocation().Z;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(WEControlSpot), false, this);
+	Params.AddIgnoredActor(Machine);
+	return !GetWorld()->OverlapAnyTestByChannel(OutSpot, FQuat::Identity, ECC_Pawn,
+		FCollisionShape::MakeCapsule(Radius - 2.f, WEEmployeeConst::CapsuleHalfHeight - 10.f), Params);
+}
+
+void AWEEmployee::FaceFromSeat()
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	const FVector Hip = GetActorLocation();
+	const float Floor = Hip.Z - WEEmployeeConst::CapsuleHalfHeight;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(WESeatFacing), false, this);
+	Params.AddIgnoredActor(BreakTarget.Get());
+	const float CurrentYaw = GetActorRotation().Yaw;
+	float BestScore = -1.f;
+	float BestYaw = CurrentYaw;
+	for (int32 Step = 0; Step < 8; ++Step)
+	{
+		const float Yaw = CurrentYaw + Step * 45.f;
+		const FVector Dir = FRotator(0.f, Yaw, 0.f).Vector();
+		// Furniture collision is a simple box, so test heights: a table is in the way at top height (80 cm) but not at
+		// chest height (the knees go under its top); a wall or cabinet is in the way at both; open floor at none.
+		auto Blocked = [&](float Height, float Reach)
+		{
+			const FVector From(Hip.X, Hip.Y, Floor + Height);
+			return World->SweepTestByChannel(From, From + Dir * Reach, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(8.f), Params);
+		};
+		const bool bTop = Blocked(82.f, 60.f);
+		const bool bChest = Blocked(118.f, 60.f);
+		const bool bTable = bTop && !bChest;
+		const bool bOpen = !bTop && !bChest && !Blocked(50.f, 55.f);
+		const float Score = (bTable ? 3.f : bOpen ? 2.f : 0.f) - FMath::Abs(FRotator::NormalizeAxis(Yaw - CurrentYaw)) / 1000.f;
+		if (Score > BestScore)
+		{
+			BestScore = Score;
+			BestYaw = Yaw;
+		}
+	}
+	SetActorRotation(FRotator(0.f, BestYaw, 0.f));
+}
+
 bool AWEEmployee::IsNextTo(const AActor* Actor) const
 {
 	if (!Actor)
@@ -638,12 +762,44 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 			// Phase 21: things standing on furniture (the coffee machine on the bench): the nearest walkable spot.
 			// A ring of floor points around it, nearest first; the first one with a full path wins.
 			TArray<FVector> Goals{ Goal };
-			if (!Cast<AWEPlaceholderProp>(Actor))
+			if (const AWEPlaceholderProp* Prop = Cast<AWEPlaceholderProp>(Actor))
+			{
+				// Quality overhaul: the nearest side can be unreachable (a gap to the next machine, something standing
+				// there): all four sides, nearest first, each moved onto the navmesh.
+				const FVector Half = Prop->GetSize() * 0.5f;
+				const FTransform PropTransform = Prop->GetActorTransform();
+				for (const FVector& Local : { FVector(Half.X + WEEmployeeConst::StandOff, 0.f, 0.f), FVector(-Half.X - WEEmployeeConst::StandOff, 0.f, 0.f),
+					FVector(0.f, Half.Y + WEEmployeeConst::StandOff, 0.f), FVector(0.f, -Half.Y - WEEmployeeConst::StandOff, 0.f) })
+				{
+					FVector Side = PropTransform.TransformPosition(Local);
+					Side.Z = GetActorLocation().Z;
+					FNavLocation OnNav;
+					if (Nav->ProjectPointToNavigation(Side, OnNav, FVector(60.f, 60.f, 200.f)))
+					{
+						Side = OnNav.Location;
+					}
+					if (FVector::Dist2D(Side, Goal) > 5.f)
+					{
+						Goals.Add(Side);
+					}
+				}
+				const FVector Here = GetActorLocation();
+				Goals.Sort([&Here, &Goal](const FVector& A, const FVector& B)
+				{
+					// (The chosen stand point first - it already skips occupied sides.)
+					const float DA = FVector::Dist2D(A, Goal) < 5.f ? -1.f : FVector::DistSquared2D(A, Here);
+					const float DB = FVector::Dist2D(B, Goal) < 5.f ? -1.f : FVector::DistSquared2D(B, Here);
+					return DA < DB;
+				});
+			}
+			else
 			{
 				const FBox Box = Actor->GetComponentsBoundingBox(true);
 				const FVector Center = Box.GetCenter();
 				const float Feet = GetActorLocation().Z;
 				TArray<FVector> Ring;
+				FCollisionQueryParams SeeParams(SCENE_QUERY_STAT(WERingSight), false, this);
+				SeeParams.AddIgnoredActor(Actor);
 				for (const float Extra : { 50.f, 90.f, 140.f })
 				{
 					const float Radius = FMath::Max(Box.GetExtent().X, Box.GetExtent().Y) + Extra;
@@ -651,8 +807,11 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 					{
 						const float Angle = Step * UE_TWO_PI / 12.f;
 						FNavLocation OnNav;
+						// (Quality overhaul: not behind the wall - those points are nearest but unreachable, and with the
+						// reachable ones near a colleague sorted last they crowded them out: "kein Weg frei" at the coffee.)
 						if (Nav->ProjectPointToNavigation(FVector(Center.X + FMath::Cos(Angle) * Radius, Center.Y + FMath::Sin(Angle) * Radius, Feet), OnNav, FVector(30.f, 30.f, 200.f))
-							&& FMath::Abs(OnNav.Location.Z - Feet) < 120.f)
+							&& FMath::Abs(OnNav.Location.Z - Feet) < 120.f
+							&& !GetWorld()->LineTraceTestByChannel(FVector(OnNav.Location.X, OnNav.Location.Y, Center.Z), Center, ECC_Visibility, SeeParams))
 						{
 							Ring.Add(OnNav.Location);
 						}
@@ -681,20 +840,14 @@ bool AWEEmployee::WalkTo(const AActor* Actor)
 					return S;
 				};
 				Ring.Sort([&Score](const FVector& A, const FVector& B) { return Score(A) < Score(B); });
-				Ring.SetNum(FMath::Min(Ring.Num(), 8));
+				Ring.SetNum(FMath::Min(Ring.Num(), 12));
 				Goals = MoveTemp(Ring);
 			}
 			for (const FVector& Candidate : Goals)
 			{
-				if (const UNavigationPath* NavPath = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Candidate, this);
-					NavPath && NavPath->IsValid() && !NavPath->IsPartial())
+				if (FindNavPath(Candidate, Path))
 				{
 					Goal = Candidate;
-					Path.Append(NavPath->PathPoints);
-					if (Path.Num() > 0)
-					{
-						Path.RemoveAt(0); // own position
-					}
 					break;
 				}
 			}
@@ -744,7 +897,9 @@ void AWEEmployee::Tick(float DeltaSeconds)
 	}
 	FVector ToNext = Path[PathIndex] - GetActorLocation();
 	ToNext.Z = 0.f;
-	if (ToNext.Size() < WEEmployeeConst::ArriveRadius)
+	// (The last step up to a machine's controls ends right there, not 45 cm short.)
+	const bool bToControls = PathIndex == Path.Num() - 1 && WalkTarget.IsValid() && WalkTarget == ControlsFor;
+	if (ToNext.Size() < (bToControls ? 8.f : WEEmployeeConst::ArriveRadius))
 	{
 		++PathIndex;
 		return;
@@ -755,9 +910,15 @@ void AWEEmployee::Tick(float DeltaSeconds)
 	StuckTimer += DeltaSeconds;
 	if (StuckTimer >= 1.5f)
 	{
-		if (FVector::Dist2D(LastCheckLocation, GetActorLocation()) < 25.f)
+		if (FVector::Dist2D(LastCheckLocation, GetActorLocation()) < 25.f && FVector::Dist2D(Path.Last(), GetActorLocation()) < 110.f)
 		{
-			UE_LOG(LogWENet, Log, TEXT("%s stuck, stepping to the next path point"), *GetName());
+			// Almost there and blocked (usually a colleague standing on the spot): close enough.
+			PathIndex = Path.Num();
+		}
+		else if (FVector::Dist2D(LastCheckLocation, GetActorLocation()) < 25.f)
+		{
+			UE_LOG(LogWENet, Log, TEXT("%s stuck at %s, stepping to the next path point %s (%d/%d)"), *GetName(), *GetActorLocation().ToCompactString(),
+				*Path[PathIndex].ToCompactString(), PathIndex, Path.Num());
 			// (Path points lie on the floor; the capsule centre stands half its height above it.)
 			SetActorLocation(FVector(Path[PathIndex].X, Path[PathIndex].Y, FMath::Max(GetActorLocation().Z, Path[PathIndex].Z + WEEmployeeConst::CapsuleHalfHeight + 2.f)),
 				false, nullptr, ETeleportType::TeleportPhysics);
@@ -853,6 +1014,7 @@ void AWEEmployee::StartBreak()
 	}
 	ReleaseMachine();
 	StopWalking();
+	ControlsFor.Reset();
 	TActorIterator<AWECoffeeMachine> Coffee(GetWorld());
 	BreakTarget = Coffee ? *Coffee : nullptr;
 	Break = BreakTarget.IsValid() ? EBreak::ToCoffee : EBreak::ToSeat;
@@ -954,6 +1116,7 @@ bool AWEEmployee::StepBreak(float DeltaSeconds)
 			SeatHeight = SeatBox.Max.Z - (GetActorLocation().Z - WEEmployeeConst::CapsuleHalfHeight);
 			GetCharacterMovement()->DisableMovement();
 			SetActorLocation(FVector(Seat.X, Seat.Y, GetActorLocation().Z), false, nullptr, ETeleportType::TeleportPhysics);
+			FaceFromSeat();
 			Break = EBreak::Sitting;
 			BreakTimer = 0.f;
 		}
@@ -1205,6 +1368,10 @@ void AWEEmployee::StepOperate(float DeltaSeconds)
 {
 	AWEMachine* Machine = Cast<AWEMachine>(Task.Target);
 	AActor* Store = Task.Source;
+	if (Phase != EPhase::AtMachine)
+	{
+		ControlsFor.Reset();
+	}
 	if (!IsValid(Machine))
 	{
 		SetState(EWEEmployeeState::Waiting, LOCTEXT("NoMachine", "Maschine fehlt"));
@@ -1223,6 +1390,40 @@ void AWEEmployee::StepOperate(float DeltaSeconds)
 		{
 			ReleaseMachine();
 			return;
+		}
+		// "Next to it" can be more than a metre away: the last steps up to the controls, then face them.
+		if (ControlsFor.Get() != Machine)
+		{
+			ControlsFor = Machine;
+			// (Round the machine on the navmesh if he came from behind; the last bit to the panel is a straight step.)
+			FVector Spot;
+			TArray<FVector> ToSpot;
+			FNavLocation SpotOnNav;
+			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+			const bool bSpot = GetControlSpot(Machine, Spot);
+			const bool bStep = bSpot && FVector::Dist2D(Spot, GetActorLocation()) > 15.f
+				&& (!Nav || (Nav->ProjectPointToNavigation(Spot, SpotOnNav, FVector(60.f, 60.f, 200.f)) && FindNavPath(SpotOnNav.Location, ToSpot)));
+			UE_LOG(LogWENet, Verbose, TEXT("%s at %s: controls of %s at %s (free %d, step %d)"), *GetName(), *GetActorLocation().ToCompactString(), *Machine->GetName(),
+				*Spot.ToCompactString(), bSpot ? 1 : 0, bStep ? 1 : 0);
+			if (bSpot && bInstantTravel)
+			{
+				SetActorLocation(Spot, false, nullptr, ETeleportType::TeleportPhysics);
+			}
+			else if (bStep)
+			{
+				Path = MoveTemp(ToSpot);
+				Path.Add(Spot);
+				PathIndex = 0;
+				WalkTarget = Machine;
+				bWalking = true;
+				StuckTimer = 0.f;
+				LastCheckLocation = GetActorLocation();
+				return;
+			}
+		}
+		if (FVector Spot; GetControlSpot(Machine, Spot) && FVector::Dist2D(Spot, GetActorLocation()) < 40.f)
+		{
+			SetActorRotation(FRotator(0.f, Machine->GetActorRotation().Yaw + 180.f, 0.f));
 		}
 		OperatedMachine = Machine;
 		Machine->SetOperatorBonus(OperatorBonus);

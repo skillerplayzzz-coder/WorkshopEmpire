@@ -209,4 +209,11 @@ private:
 	float NoPathUntil = 0.f;
 
 	TWeakObjectPtr<AWEMachine> OperatedMachine;
+	/** Quality overhaul: the machine whose controls he already stepped up to (the panels are on the front, +X). */
+	TWeakObjectPtr<const AActor> ControlsFor;
+	bool GetControlSpot(const AActor* Machine, FVector& OutSpot) const;
+	/** Full navmesh path to Goal (from the nearest navmesh point if he stands just off it). */
+	bool FindNavPath(const FVector& Goal, TArray<FVector>& OutPath) const;
+	/** Seated: faces a table with room for the knees (or at least somewhere the legs do not go into furniture). */
+	void FaceFromSeat();
 };

@@ -75,6 +75,15 @@ def coffee_machine():
     return m
 
 
+def mug():
+    """Quality overhaul: the mug an employee holds on a coffee break (was a scaled engine cylinder). Pivot = centre."""
+    m = Model("Mug")
+    m.cyl("PlasticWhite", (0, 0, 0), 4.2, 9.5, segs=24)
+    m.cyl("Coffee", (0, 0, 4.4), 3.8, 0.4, segs=24)
+    m.torus("PlasticWhite", (4.7, 0, 0.3), 2.4, 0.6, rot=(90, 0, 0), segs=16, minor=6)
+    return m
+
+
 def cat_body():
     m = Model("CatBody")
     m.sphere("FurGinger", (0, 0, 0), 1.0, scale=(18.0, 7.8, 8.2), steps=20)
@@ -133,13 +142,14 @@ def cat_tail():
 def main():
     make_materials()
     built = 0
-    for make, normalize in ((coffee_machine, True), (cat_body, False), (cat_head, False), (cat_leg, False), (cat_tail, False)):
+    makers = ((coffee_machine, True), (mug, False), (cat_body, False), (cat_head, False), (cat_leg, False), (cat_tail, False))
+    for make, normalize in makers:
         try:
             if make().save(normalize=normalize):
                 built += 1
         except Exception as e:  # keep going, report at the end
             unreal.log_error(f"WE_MODEL {make.__name__} failed: {e}")
-    unreal.log(f"WE_ATMOSPHERE_MODELS {built}/5")
+    unreal.log(f"WE_ATMOSPHERE_MODELS {built}/{len(makers)}")
     unreal.SystemLibrary.quit_editor()
 
 

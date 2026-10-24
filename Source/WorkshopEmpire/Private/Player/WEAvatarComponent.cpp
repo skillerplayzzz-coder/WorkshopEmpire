@@ -684,9 +684,9 @@ void UWEAvatarComponent::ApplyWorkPose(float DeltaTime)
 	case EWEWorkPose::Operate:
 		for (const float Side : { -1.f, 1.f })
 		{
-			// Hands on the controls, moving a little (pressing, turning).
+			// Hands on the controls right in front (he stands at the machine front), moving a little (pressing, turning).
 			const float Move = FMath::Sin(T * 2.6f + (Side > 0.f ? 0.f : 1.7f));
-			Arm(Side, Fwd * 0.7f - Up * 0.7f + Right * Side * 0.15f, Fwd * 1.f - Up * (0.1f + 0.15f * Move) + Right * Side * 0.25f * Move);
+			Arm(Side, Fwd * 0.35f - Up * 0.9f + Right * Side * 0.2f, Fwd * 1.f + Up * (0.15f + 0.12f * Move) - Right * Side * (0.3f + 0.15f * Move));
 		}
 		break;
 	case EWEWorkPose::Drink:
@@ -732,13 +732,18 @@ void UWEAvatarComponent::ApplyWorkPose(float DeltaTime)
 		if (!HeldMug)
 		{
 			HeldMug = NewObject<UStaticMeshComponent>(GetOwner());
-			HeldMug->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
-			HeldMug->SetMaterial(0, LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorkshopEmpire/Materials/Props/MI_Prop_PlasticWhite.MI_Prop_PlasticWhite"), nullptr, LOAD_Quiet | LOAD_NoWarn));
+			// Quality overhaul: the modelled mug with handle and coffee (the scaled cylinder only as a fallback).
+			UStaticMesh* MugMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_Mug.SM_Gen_Mug"), nullptr, LOAD_Quiet | LOAD_NoWarn);
+			HeldMug->SetStaticMesh(MugMesh ? MugMesh : LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
+			if (!MugMesh)
+			{
+				HeldMug->SetMaterial(0, LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorkshopEmpire/Materials/Props/MI_Prop_PlasticWhite.MI_Prop_PlasticWhite"), nullptr, LOAD_Quiet | LOAD_NoWarn));
+			}
 			HeldMug->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			HeldMug->SetCastShadow(false);
 			HeldMug->SetupAttachment(Body, TEXT("hand_r"));
 			HeldMug->RegisterComponent();
-			HeldMug->SetRelativeScale3D(FVector(0.09f, 0.09f, 0.1f));
+			HeldMug->SetRelativeScale3D(MugMesh ? FVector(1.f) : FVector(0.09f, 0.09f, 0.1f));
 			HeldMug->SetRelativeLocation(FVector(4.f, 3.f, 0.f));
 		}
 	}
