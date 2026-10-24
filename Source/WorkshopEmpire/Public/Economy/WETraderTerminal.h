@@ -232,6 +232,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> Pallet;
 
+	/** Quality overhaul: a real wooden pallet (the cube above only collides). */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> PalletVisual;
+
+	void ApplyPalletLook();
+
 	UPROPERTY(EditAnywhere, Category = "Delivery")
 	TObjectPtr<UMaterialInterface> PlaceholderMaterial;
 

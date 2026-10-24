@@ -50,6 +50,10 @@ MODELS = {
     "grass_bermuda_01": "1k", "tree_small_02": "2k", "old_military_crate": "1k", "covered_car": "2k", "metal_jerrycan_green": "1k", "planter_box_01": "1k",
     "WetFloorSign_01": "1k", "SchoolChair_01": "1k", "modular_street_seating": "1k", "television_02": "1k", "wooden_crate_02": "1k",
     "industrial_pastic_container": "1k", "CoffeeCart_01": "1k", "standing_chalkboard_01": "1k", "tire_pump": "1k",
+    # Massive quality overhaul: a lived-in workshop (wall clock, dartboard, hose reel, cabinets, cans, pipes, socket lamp)
+    "wall_clock": "1k", "dartboard": "1k", "garden_hose_wall_mounted_01": "1k", "pipe_wrench": "1k", "small_oil_can_01": "1k",
+    "drawer_cabinet": "2k", "steel_frame_shelves_03": "2k", "pull_chain_light_socket": "1k", "plastic_jerrycan": "1k",
+    "can_rusted": "1k", "WoodenTable_03": "2k", "modular_pipes": "1k", "ammo_box": "1k", "binder_notebook": "1k", "metal_stool_02": "1k",
 }
 
 TEXTURES = [

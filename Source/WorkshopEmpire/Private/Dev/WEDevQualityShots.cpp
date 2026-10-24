@@ -233,6 +233,70 @@ void UWEDevAutomationComponent::RunQualityShots()
 		RunQualityRepairFlow();
 		return;
 	}
+	if (ShotName.StartsWith(TEXT("QUE")))
+	{
+		// --- Audit views of the garage (fixed cameras): fuse box, PC desk lamp, bench, walls, door, yard -----------------
+		struct FView { FVector From; FVector At; const TCHAR* Name; };
+		TArray<FView> Views = {
+			{ FVector(-180.f, 205.f, 165.f), FVector(-398.f, 205.f, 150.f), TEXT("01_Sicherungskasten") },
+			{ FVector(-300.f, 60.f, 190.f), FVector(-398.f, 205.f, 150.f), TEXT("02_Sicherungskasten_seitlich") },
+			{ FVector(-200.f, -60.f, 175.f), FVector(-355.f, -40.f, 95.f), TEXT("04_Werkbank") },
+			{ FVector(250.f, 0.f, 200.f), FVector(-400.f, 0.f, 120.f), TEXT("05_Garage_Rueckwand") },
+			{ FVector(-300.f, 250.f, 210.f), FVector(400.f, -200.f, 100.f), TEXT("06_Garage_zum_Tor") },
+			{ FVector(-300.f, -250.f, 210.f), FVector(300.f, 280.f, 100.f), TEXT("07_Garage_Ecke") },
+			{ FVector(0.f, 0.f, 280.f), FVector(-200.f, 0.f, 0.f), TEXT("08_Garage_oben") },
+			{ FVector(900.f, 600.f, 220.f), FVector(400.f, 0.f, 120.f), TEXT("09_Hof_Tor") },
+		};
+		Schedule(1.0f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
+		// The PC desk: from its front, wherever the terminal stands.
+		Schedule(1.5f, [this]()
+		{
+			if (const AWETraderTerminal* T = FindTerminal())
+			{
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU terminal at %s yaw %.0f"), *T->GetActorLocation().ToCompactString(), T->GetActorRotation().Yaw);
+			}
+		});
+		float At = 2.5f;
+		auto Cam = [this, PC](const FVector& From, const FVector& Target)
+		{
+			if (!CatCamera.IsValid())
+			{
+				FActorSpawnParameters Params;
+				Params.ObjectFlags |= RF_Transient;
+				CatCamera = GetWorld()->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
+				CatCamera->GetCameraComponent()->SetFieldOfView(75.f);
+				CatCamera->GetCameraComponent()->bConstrainAspectRatio = false;
+			}
+			CatCamera->SetActorLocationAndRotation(From, (Target - From).Rotation());
+			if (PC) { PC->SetViewTarget(CatCamera.Get()); }
+		};
+		for (const FView& V : Views)
+		{
+			Schedule(At, [Cam, V]() { Cam(V.From, V.At); });
+			Schedule(At + 0.9f, [this, V]() { Shot(V.Name); });
+			At += 1.5f;
+		}
+		Schedule(At, [this, Cam]()
+		{
+			if (const AWETraderTerminal* T = FindTerminal())
+			{
+				const FTransform X = T->GetActorTransform();
+				Cam(X.TransformPosition(FVector(120.f, -40.f, 150.f)), X.TransformPosition(FVector(-28.f, -72.f, 100.f)));
+			}
+		});
+		Schedule(At + 0.9f, [this]() { Shot(TEXT("03_PC_Lampe")); });
+		Schedule(At + 1.5f, [this, Cam]()
+		{
+			if (const AWETraderTerminal* T = FindTerminal())
+			{
+				const FTransform X = T->GetActorTransform();
+				Cam(X.TransformPosition(FVector(-20.f, -170.f, 130.f)), X.TransformPosition(FVector(-28.f, -72.f, 100.f)));
+			}
+		});
+		Schedule(At + 2.4f, [this]() { Shot(TEXT("03b_PC_Lampe_seitlich")); });
+		Schedule(At + 3.5f, [this]() { Quit(); });
+		return;
+	}
 	if (ShotName == TEXT("QUD"))
 	{
 		// --- The parked cars where they stand in the map: several views, eye height and from above, plus the frame rate ---

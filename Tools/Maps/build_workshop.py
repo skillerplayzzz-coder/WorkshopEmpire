@@ -115,7 +115,8 @@ MODELS = "/Game/WorkshopEmpire/Art/Models"
 
 
 def model(name):
-    path = f"{MODELS}/SM_{name}"
+    # "Gen:<Name>" = an own model of Tools/Assets/build_*models.py.
+    path = f"/Game/WorkshopEmpire/Art/Generated/SM_Gen_{name[4:]}" if name.startswith("Gen:") else f"{MODELS}/SM_{name}"
     return unreal.load_asset(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
 
 
@@ -130,9 +131,10 @@ VISUALS = {
     "HighRack": ("steel_frame_shelves_01", 90.0, True, []),
     "Crate": ("plastic_crate_01", 90.0, True, []),
     "Table": ("tool_cart", 90.0, False, []),
-    # Workbenches keep their wooden box shape (items lie on the top); a toolbox on the lower shelf.
-    "Workbench": (None, 0.0, False, [deco("metal_toolbox", (5, -55, 12), (0, 90, 0)), deco("oil_tin", (5, 55, 12))]),
-    "LargeWorkbench": (None, 0.0, False, [deco("metal_toolbox", (5, -80, 12), (0, 90, 0)), deco("metal_tool_chest", (5, 70, 12), (0, 90, 0))]),
+    # Massive quality overhaul: modelled benches (butcher-block top, steel frame, drawers) instead of plywood boxes;
+    # the box parts stay as collision. A toolbox on the lower shelf.
+    "Workbench": ("Gen:Workbench", 0.0, False, [deco("metal_toolbox", (5, -55, 12), (0, 90, 0)), deco("oil_tin", (5, -10, 12))]),
+    "LargeWorkbench": ("Gen:WorkbenchLarge", 0.0, False, [deco("metal_toolbox", (5, -10, 12), (0, 90, 0))]),
     # Tool wall (Phase 21): AWEToolWall draws the pegboard and hangs the tools that are really in its storage.
     "ToolWall": (None, 0.0, False, []),
     # Machines keep their painted-metal bodies; a switch box on the side.

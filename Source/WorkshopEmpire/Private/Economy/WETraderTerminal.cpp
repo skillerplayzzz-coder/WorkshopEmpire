@@ -144,7 +144,7 @@ void AWETraderTerminal::SetupModel()
 	Place(TowerMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_PCTower.SM_Gen_PCTower")), FVector(-18.f, 72.f, 0.f), 90.f);
 	Place(KeyboardMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_Keyboard.SM_Gen_Keyboard")), FVector(12.f, -4.f, 79.2f), 90.f);
 	Place(MouseMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_Mouse.SM_Gen_Mouse")), FVector(14.f, 30.f, 79.2f), 98.f);
-	Place(LampMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Models/SM_desk_lamp_arm_01.SM_desk_lamp_arm_01")), FVector(-28.f, -72.f, 79.2f), 40.f);
+	Place(LampMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Models/SM_desk_lamp_arm_01.SM_desk_lamp_arm_01")), FVector(-22.f, -74.f, 79.2f), 220.f); // (quality overhaul: the arm reaches over the desk, not back into the wall)
 	Place(ClipboardMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Models/SM_clipboard.SM_clipboard")), FVector(8.f, -52.f, 79.4f), 75.f);
 	Place(ChairMesh, Load(TEXT("/Game/WorkshopEmpire/Art/Models/SM_SchoolChair_01.SM_SchoolChair_01")), FVector(78.f, 26.f, 0.f), -115.f);
 	// The live screen sits a hair in front of the dark glass; its picture faces +X like the monitor.
@@ -901,18 +901,40 @@ AWEDeliveryZone::AWEDeliveryZone()
 	{
 		Pallet->SetStaticMesh(CubeMesh.Object);
 	}
+	PalletVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PalletVisual"));
+	PalletVisual->SetupAttachment(Pallet);
+	PalletVisual->SetMobility(EComponentMobility::Static);
+	PalletVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PalletVisual->SetUsingAbsoluteScale(true);
+	PalletVisual->SetRelativeLocation(FVector(0.f, 0.f, -50.f)); // the cube's bottom (its scale applies) = the floor
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> PalletMesh(TEXT("/Game/WorkshopEmpire/Art/Generated/SM_Gen_EmptyPallet.SM_Gen_EmptyPallet"));
+	if (PalletMesh.Succeeded())
+	{
+		PalletVisual->SetStaticMesh(PalletMesh.Object);
+	}
+}
+
+void AWEDeliveryZone::ApplyPalletLook()
+{
+	// A modelled wooden pallet (120 x 80 cm like the zone); the OSB cube stays only as the surface items rest on.
+	const bool bModel = PalletVisual && PalletVisual->GetStaticMesh();
+	Pallet->SetVisibility(!bModel, false);
+	if (!bModel)
+	{
+		WESurface::Apply(Pallet, EWESurface::Osb, FLinearColor(0.85f, 0.75f, 0.6f), 0.f);
+	}
 }
 
 void AWEDeliveryZone::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	WESurface::Apply(Pallet, EWESurface::Osb, FLinearColor(0.85f, 0.75f, 0.6f), 0.f);
+	ApplyPalletLook();
 }
 
 void AWEDeliveryZone::BeginPlay()
 {
 	Super::BeginPlay();
-	WESurface::Apply(Pallet, EWESurface::Osb, FLinearColor(0.85f, 0.75f, 0.6f), 0.f);
+	ApplyPalletLook();
 }
 
 FTransform AWEDeliveryZone::NextDropTransform()

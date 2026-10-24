@@ -191,6 +191,7 @@ INSTANCES = {
     "HeadlightOff": ((0.75, 0.76, 0.75), 0.04, 0.2, None, 0.0, 1.0, None),
     "TaillightOff": ((0.28, 0.01, 0.01), 0.08, 0.0, None, 0.0, 1.0, None),
     "IndicatorOff": ((0.55, 0.28, 0.02), 0.08, 0.0, None, 0.0, 1.0, None),
+    "FluorescentTube": ((0.9, 0.9, 0.88), 0.3, 0.0, None, 0.0, 1.0, (6.0, 5.6, 5.0)),
 }
 count = 0
 for name, (tint, rough, metal, tid, strength, uvs, emissive) in INSTANCES.items():
