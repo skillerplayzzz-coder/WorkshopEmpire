@@ -53,6 +53,10 @@ struct WORKSHOPEMPIRE_API FWETraderStockEntry
 	/** Quality varies by up to +/- this much (rolled per restock). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader", meta = (ClampMin = "0", ClampMax = "50"))
 	uint8 QualitySpread = 0;
+
+	/** Quality update: a device with a part layout sold with only its case left (an empty PC case to build up). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trader")
+	bool bEmptyCase = false;
 };
 
 /**

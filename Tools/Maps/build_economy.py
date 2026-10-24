@@ -42,9 +42,11 @@ def rate(category, multiplier):
     return r
 
 
-def stock(suffix, quantity, condition, quality, price=1.0, chance=1.0, cond_spread=0, q_spread=0):
-    """chance < 1: the offer only appears at some restocks (rotating used goods, Phase 7)."""
+def stock(suffix, quantity, condition, quality, price=1.0, chance=1.0, cond_spread=0, q_spread=0, empty_case=False):
+    """chance < 1: the offer only appears at some restocks (rotating used goods, Phase 7).
+    empty_case: a PC sold with only its case left (quality update: build one up from scratch)."""
     s = unreal.WETraderStockEntry()
+    s.set_editor_property("empty_case", empty_case)
     s.set_editor_property("item", item(suffix))
     s.set_editor_property("quantity", quantity)
     s.set_editor_property("condition", condition)
@@ -101,7 +103,10 @@ TRADERS = [
       stock("GraphicsCardPro", 1, Q.USED, 55, chance=0.5, q_spread=15),
       # Phase 20: parts for televisions, radios, consoles and cordless drills.
       stock("Speaker", 4, Q.NEW, 80), stock("DiscDrive", 2, Q.NEW, 80), stock("DrillBattery", 3, Q.NEW, 85), stock("CarbonBrushes", 6, Q.NEW, 85),
-      stock("CaseFan", 3, Q.NEW, 80), stock("CopperCable", 6, Q.USED, 70), stock("ThermalPaste", 8, Q.NEW, 90)]),
+      stock("CaseFan", 3, Q.NEW, 80), stock("CopperCable", 6, Q.USED, 70), stock("ThermalPaste", 8, Q.NEW, 90),
+      # Quality update (appended - saved stock lines keep their indices): an empty case and the base parts to build a PC up.
+      stock("OldComputer", 2, Q.USED, 60, empty_case=True), stock("CpuCooler", 3, Q.NEW, 85), stock("Processor", 2, Q.USED, 60),
+      stock("HardDrive", 2, Q.USED, 60), stock("Mainboard", 1, Q.NEW, 85), stock("PowerSupply", 2, Q.NEW, 85)]),
     # Phase 7: sealed return pallets with unknown contents (open with [Q]).
     ("DA_Trader_Returns", "Retouren-Großhandel Paletti", 15.0,
      [],

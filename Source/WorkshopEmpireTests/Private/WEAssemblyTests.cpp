@@ -14,6 +14,7 @@
 #include "Workshop/WEDisassemblyDefinition.h"
 #include "Workshop/WEWorkbench.h"
 #include "Workshop/WEWorkPlan.h"
+#include "Workshop/WEBenchmark.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -367,6 +368,63 @@ bool FWEAssemblyRebuildTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Save roundtrip"), FWESaveSystem::FromSaved(FWESaveSystem::ToSaved(Pc->GetItem()), Loaded));
 	TestTrue(TEXT("Same state after loading"), Loaded == Pc->GetItem());
 	TestTrue(TEXT("Save version 16"), UWESaveGame::CurrentVersion >= 16);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWEAssemblyEmptyCaseTest, "WorkshopEmpire.Workshop.Assembly.BuildFromEmptyCase", Flags)
+bool FWEAssemblyEmptyCaseTest::RunTest(const FString& Parameters)
+{
+	// Quality update: a bought empty case is built up part by part (paste under the cooler), tested and runs.
+	FPcFixture F;
+	if (!F.Init(*this))
+	{
+		return false;
+	}
+	FWEItemInstance Empty = FWEItemInstance::Make(F.Pc, 1, EWEItemCondition::Used, 60);
+	const FWEItemInstance Intact = Empty;
+	Empty.MakeEmptyCase();
+	TestTrue(TEXT("Empty case"), Empty.IsEmptyCase());
+	TestTrue(TEXT("Named as such"), Empty.GetDisplayName().ToString().Contains(TEXT("leeres Gehäuse")));
+	TestTrue(TEXT("Cheap"), Empty.GetEstimatedValue().GetCents() * 4 < Intact.GetEstimatedValue().GetCents());
+	AWEPickupItem* Pc = AWEPickupItem::SpawnWorldItem(F.TW.World, Empty, FTransform(FVector(100.f, -100.f, 30.f)));
+	FText Reason;
+	TestTrue(TEXT("Goes on the bench"), F.Bench->CanPlaceItem(Pc, Reason) && F.Bench->PlaceItem(Pc));
+
+	int32 Added = 0;
+	for (const TCHAR* Id : { TEXT("Mainboard"), TEXT("Processor"), TEXT("CpuCooler"), TEXT("PowerSupply"), TEXT("HardDrive"), TEXT("SsdDrive"),
+		TEXT("GraphicsCard"), TEXT("CaseFan") })
+	{
+		F.Player->GetPlayerInventory()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(FName(Id)), 1, EWEItemCondition::New, 80), Added);
+	}
+	F.Bench->GetStorage()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("RamModule")), 2, EWEItemCondition::New, 80), Added);
+	F.Bench->GetStorage()->TryAddItem(FWEItemInstance::Make(UWEItemDefinition::FindById(TEXT("SheetMetalScrews")), 40, EWEItemCondition::Used, 50), Added);
+	TestFalse(TEXT("Nothing on an empty mainboard tray"), F.Bench->CanStartInstall(F.Player, Reason, F.Part(TEXT("GraphicsCard"))));
+
+	int32 Guard = 0;
+	while (++Guard < 32)
+	{
+		int32 Next = INDEX_NONE;
+		for (int32 i = F.Asm->Parts.Num() - 1; i >= 0 && Next == INDEX_NONE; --i)
+		{
+			Next = F.Bench->IsReinstallable(i) && F.Asm->CanInstall(i, Pc->GetItem().RemovedParts) ? i : INDEX_NONE;
+		}
+		if (Next == INDEX_NONE)
+		{
+			break;
+		}
+		if (!TestTrue(*FString::Printf(TEXT("Part %d goes in"), Next), WEAssemblyTests::Install(F, Next)))
+		{
+			F.Bench->CanStartInstall(F.Player, Reason, Next);
+			AddError(Reason.ToString());
+			break;
+		}
+	}
+	TestEqual(TEXT("Thermal paste used up"), F.Player->GetPlayerInventory()->CountItems(UWEItemDefinition::FindById(TEXT("ThermalPaste"))), 1);
+	TestEqual(TEXT("Only the CD drive is missing"), Pc->GetItem().RemovedParts, 1 << F.Part(TEXT("CdDrive")));
+	TestTrue(TEXT("Test runs"), WEAssemblyTests::RunTest(F));
+	TestFalse(TEXT("Works"), Pc->GetItem().IsBroken() || Pc->GetItem().NeedsFunctionTest());
+	TestTrue(TEXT("Has a benchmark"), WEBenchmark::Score(Pc->GetItem()) > 0);
+	AddInfo(FString::Printf(TEXT("Built from the empty case: %d points, worth %s"), WEBenchmark::Score(Pc->GetItem()), *Pc->GetItem().GetEstimatedValue().ToDisplayString()));
 	return true;
 }
 

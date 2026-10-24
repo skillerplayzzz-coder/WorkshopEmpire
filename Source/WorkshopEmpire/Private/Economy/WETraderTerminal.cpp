@@ -371,6 +371,11 @@ void AWETraderTerminal::Restock()
 			Line.TraderIndex = TraderIndex;
 			Line.EntryIndex = EntryIndex;
 			Line.Item = FWEItemInstance::Make(Entry.Item, 1, static_cast<EWEItemCondition>(Condition), static_cast<uint8>(Quality));
+			if (Entry.bEmptyCase)
+			{
+				// Everything but the case is out: the player builds it up from the bare case.
+				Line.Item.MakeEmptyCase();
+			}
 			Line.Remaining = Entry.Quantity;
 		}
 	}

@@ -64,13 +64,55 @@ FWEMoney FWEItemInstance::GetEstimatedValue() const
 		// Phase 19: better parts (graphics card, processor ...) make a working PC worth more.
 		Factor *= WEBenchmark::ValueFactor(*this);
 	}
-	if (Definition->HasAssembly() && RemovedParts != 0)
+	if (IsEmptyCase())
+	{
+		// Quality update: only the bare case (it still has to be built up).
+		Factor = WEItems::GetConditionValueFactor(Condition) * 0.15;
+	}
+	else if (Definition->HasAssembly() && RemovedParts != 0)
 	{
 		// Rebuilt without the optional parts (CD drive, case fan): a little less.
 		Factor *= FMath::Max(0.5, 1.0 - 0.1 * Definition->Assembly->CountMissingOptional(RemovedParts));
 	}
 	const double Cents = static_cast<double>(Definition->BaseValue.GetCents()) * Factor * Quantity;
 	return FWEMoney::FromCents(static_cast<int64>(FMath::RoundToDouble(Cents)));
+}
+
+bool FWEItemInstance::IsEmptyCase() const
+{
+	const UWEAssemblyDefinition* Assembly = Definition && Definition->HasAssembly() ? Definition->Assembly.Get() : nullptr;
+	if (!Assembly || RemovedParts == 0)
+	{
+		return false;
+	}
+	for (int32 i = 0; i < Assembly->Parts.Num(); ++i)
+	{
+		if (!Assembly->Parts[i].bShell && !IsPartRemoved(i))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void FWEItemInstance::MakeEmptyCase()
+{
+	const UWEAssemblyDefinition* Assembly = Definition && Definition->HasAssembly() ? Definition->Assembly.Get() : nullptr;
+	if (!Assembly)
+	{
+		return;
+	}
+	for (int32 i = 0; i < Assembly->Parts.Num(); ++i)
+	{
+		if (!Assembly->Parts[i].bShell)
+		{
+			RemovedParts |= (1 << i);
+		}
+	}
+	DisassemblyStep = static_cast<uint8>(Assembly->CountTakenApart(RemovedParts));
+	// No faults to find: whatever goes in decides whether it runs (the function test after building).
+	Repair.SetFlag(FWERepairState::FaultsRolled);
+	Repair.Faults = 0;
 }
 
 bool FWEItemInstance::HasBrokenInstalledPart() const
@@ -90,6 +132,10 @@ FText FWEItemInstance::GetDisplayName() const
 	if (!Definition)
 	{
 		return FText::GetEmpty();
+	}
+	if (IsEmptyCase())
+	{
+		return FText::Format(NSLOCTEXT("WEItemInstance", "EmptyCase", "{0} (leeres Gehäuse)"), Definition->DisplayName);
 	}
 	if (IsPartiallyDisassembled())
 	{

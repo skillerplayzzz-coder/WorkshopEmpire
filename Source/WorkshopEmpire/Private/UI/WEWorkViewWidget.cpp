@@ -1282,21 +1282,24 @@ void UWEWorkViewWidget::UpdatePartLabels()
 	const int32 Removed = Item ? Item->GetItem().RemovedParts : 0;
 	const int32 Hover = bShow ? PartUnderMouse() : INDEX_NONE;
 	int32 Used = 0;
-	for (int32 Part = 0; bShow && Part < Assembly->Parts.Num() && Used < PartLabels.Num(); ++Part)
+	// Quality update: only the part under the cursor gets a label (a dozen labels inside an open PC were clutter);
+	// a part that is still blocked says what has to come out first.
+	for (int32 Part = Hover; bShow && Part != INDEX_NONE && Used < PartLabels.Num(); Part = INDEX_NONE)
 	{
 		FVector2D Screen;
-		if ((Removed & (1 << Part)) != 0 || Assembly->GetBlockers(Part, Removed).Num() > 0
-			|| !PC->ProjectWorldLocationToScreen(View->GetPartCenter(Part), Screen, true))
+		if ((Removed & (1 << Part)) != 0 || !PC->ProjectWorldLocationToScreen(View->GetPartCenter(Part), Screen, true))
 		{
 			continue;
 		}
+		const TArray<FText> Blockers = Assembly->GetBlockers(Part, Removed);
 		UBorder* Label = PartLabels[Used];
-		PartLabelTexts[Used]->SetText(Part == Hover ? FText::Format(LOCTEXT("PartLabelHover", "{0} – klicken"), Assembly->Parts[Part].DisplayName) : Assembly->Parts[Part].DisplayName);
-		Label->SetBrush(WEUI::Brush(Col::WithAlpha(Col::PanelDark, 0.85f), Part == Hover ? Col::Accent : Col::WithAlpha(Col::Accent, 0.6f), Part == Hover ? 2.f : 1.f, 6.f));
+		PartLabelTexts[Used]->SetText(Blockers.Num() > 0
+			? FText::Format(LOCTEXT("PartLabelBlocked", "{0} – erst: {1}"), Assembly->Parts[Part].DisplayName, FText::Join(FText::FromString(TEXT(", ")), Blockers))
+			: FText::Format(LOCTEXT("PartLabelHover", "{0} – klicken"), Assembly->Parts[Part].DisplayName));
+		Label->SetBrush(WEUI::Brush(Col::WithAlpha(Col::PanelDark, 0.85f), Blockers.Num() > 0 ? Col::WithAlpha(Col::Text, 0.4f) : Col::Accent, 1.5f, 6.f));
 		Label->SetVisibility(ESlateVisibility::HitTestInvisible);
-		// Quiet unless pointed at (inside an open PC there are many at once).
-		Label->SetRenderOpacity(Part == Hover ? 1.f : 0.65f);
-		Label->SetRenderScale(FVector2D(Part == Hover ? 1.1f : 0.85f));
+		Label->SetRenderOpacity(1.f);
+		Label->SetRenderScale(FVector2D(1.f));
 		if (UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(Label->Slot))
 		{
 			S->SetPosition(Screen / Scale);

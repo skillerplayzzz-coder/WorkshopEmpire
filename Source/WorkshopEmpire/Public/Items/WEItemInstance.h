@@ -144,6 +144,10 @@ struct WORKSHOPEMPIRE_API FWEItemInstance
 	/** Some installed part is broken (condition "Beschädigt" or worse). */
 	bool HasBrokenInstalledPart() const;
 	bool NeedsFunctionTest() const { return Repair.HasFlag(FWERepairState::NeedsTest); }
+	/** Quality update: a device with a part layout of which only the case is left (bought to build a PC up). */
+	bool IsEmptyCase() const;
+	/** Takes every part but the case out (no outputs: they were never there). */
+	void MakeEmptyCase();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	FWERepairState Repair;

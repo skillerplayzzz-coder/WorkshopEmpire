@@ -4,6 +4,10 @@
 
 #include "EngineUtils.h"
 #include "Economy/WEContractComponent.h"
+#include "Economy/WECompanyComponent.h"
+#include "Items/WEItemTypes.h"
+#include "TimerManager.h"
+#include "Workshop/WEAssemblyDefinition.h"
 #include "Economy/WETraderTerminal.h"
 #include "Framework/WEGameMode.h"
 #include "Framework/WEPlayerController.h"
@@ -62,10 +66,156 @@ void UWEDevAutomationComponent::LogCarry(const TCHAR* Step) const
 #endif
 }
 
+void UWEDevAutomationComponent::RunQualityRepairFlow()
+{
+#if !UE_BUILD_SHIPPING
+	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	TSharedRef<FGuid> OrderId = MakeShared<FGuid>();
+	TSharedRef<int64> BalanceBefore = MakeShared<int64>(0);
+	Schedule(1.0f, [PC]()
+	{
+		if (!PC) { return; }
+		PC->ConsoleCommand(TEXT("DisableAllScreenMessages"));
+		PC->ServerDevGiveItem(TEXT("Screwdriver"), 1, EWEItemCondition::Used);
+		PC->ServerDevGiveItem(TEXT("Multimeter"), 1, EWEItemCondition::Used);
+		PC->ServerDevGiveItem(TEXT("GraphicsCard"), 1, EWEItemCondition::New);
+		PC->ServerDevGiveItem(TEXT("ThermalPaste"), 1, EWEItemCondition::New);
+		PC->ServerDevAddContractOffer(8); // "Büro-PC zur Reparatur"
+	});
+	Schedule(2.5f, [this, PC, OrderId]()
+	{
+		for (const FWEContract& K : UWEContractComponent::Get(this) ? UWEContractComponent::Get(this)->GetContracts() : TArray<FWEContract>())
+		{
+			if (K.Kind == EWEContractKind::Repair && K.State == EWEContractState::Offered && K.Item && K.Item->ItemId == TEXT("OldComputer"))
+			{
+				*OrderId = K.Id;
+			}
+		}
+		if (PC && OrderId->IsValid()) { PC->RequestAcceptContract(FindTerminal(), *OrderId); }
+	});
+	// Pallet -> hands -> bench, with [E] like a player.
+	Schedule(4.0f, [this, PC]()
+	{
+		if (const AWEPickupItem* Device = FindCustomerDevice(); Device && PC)
+		{
+			PC->ServerDevTeleport(Device->GetActorLocation() + FVector(-120.f, 60.f, 90.f), FRotator::ZeroRotator);
+		}
+	});
+	Schedule(4.8f, [this]() { LookAt(FindCustomerDevice()); });
+	Schedule(5.2f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->UpdateFocus(); C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	Schedule(6.0f, [this, PC]()
+	{
+		if (AWEWorkbench* B = FindBench(); B && PC) { PC->ServerDevTeleport(B->GetWorkSpotLocation() + B->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 10.f), FRotator::ZeroRotator); }
+	});
+	Schedule(6.8f, [this]() { if (AWEWorkbench* B = FindBench()) { LookAtPoint(B->GetWorkSpotLocation()); } });
+	Schedule(7.2f, [this]() { if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->UpdateFocus(); C->GetInteractionComponent()->RequestPrimaryInteraction(); } });
+	// The customer's complaint: the graphics card is dead (as the diagnosis would find).
+	Schedule(8.0f, [this, BalanceBefore]()
+	{
+		AWEWorkbench* B = FindBench();
+		AWEPickupItem* Placed = B ? B->GetPlacedItem() : nullptr;
+		if (!Placed) { LogCarry(TEXT("R0 NOT ON THE BENCH")); return; }
+		FWEItemInstance Item = Placed->GetItem();
+		Item.Repair.SetFlag(FWERepairState::FaultsRolled);
+		Item.Repair.SetFlag(FWERepairState::Diagnosed);
+		Item.Repair.Faults = 1 << 2; // "Grafikkarte defekt"
+		Placed->SetItem(Item);
+		*BalanceBefore = UWECompanyComponent::Get(this) ? UWECompanyComponent::Get(this)->GetBalance().GetCents() : 0;
+		LogCarry(TEXT("R0 customer PC on the bench, GPU fault"));
+		if (AWECharacter* C = GetCharacter()) { C->GetInteractionComponent()->UpdateFocus(); C->GetInteractionComponent()->RequestPrimaryInteraction(); }
+	});
+	Schedule(9.5f, [this]() { Shot(TEXT("01_Arbeitsmodus_Kunden_PC")); });
+	// Part work: panel off, GPU out, new GPU in, panel on (timed steps, the same server functions the work view uses).
+	struct FJob { bool bInstall; const TCHAR* Part; const TCHAR* Shot; };
+	TSharedRef<TArray<FJob>> Jobs = MakeShared<TArray<FJob>>(TArray<FJob>{
+		{ false, TEXT("SidePanel"), TEXT("02_Seitenteil_ab") }, { false, TEXT("GraphicsCard"), TEXT("03_Grafikkarte_raus") },
+		{ true, TEXT("GraphicsCard"), TEXT("04_Neue_Grafikkarte") }, { false, TEXT("CpuCooler"), TEXT("05_Kuehler_ab") },
+		{ true, TEXT("CpuCooler"), TEXT("06_Kuehler_mit_Paste") }, { true, TEXT("SidePanel"), TEXT("07_Seitenteil_zu") } });
+	TSharedRef<int32> Next = MakeShared<int32>(0);
+	TSharedRef<bool> bRunning = MakeShared<bool>(false);
+	Schedule(10.0f, [this, Jobs, Next, bRunning, PC, OrderId, BalanceBefore]()
+	{
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this, Jobs, Next, bRunning, PC, OrderId, BalanceBefore]()
+		{
+			AWEWorkbench* B = FindBench();
+			AWECharacter* C = GetCharacter();
+			const UWEAssemblyDefinition* Asm = B ? B->GetAssembly() : nullptr;
+			if (!B || !C || !Asm || B->IsBusy())
+			{
+				return;
+			}
+			if (*bRunning)
+			{
+				*bRunning = false;
+				const FJob& Done = (*Jobs)[*Next];
+				UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R %s %s: removed=%d faults=%d needs test=%d"), Done.bInstall ? TEXT("installed") : TEXT("removed"), Done.Part,
+					B->GetPlacedItem()->GetItem().RemovedParts, B->GetPlacedItem()->GetItem().Repair.Faults, B->GetPlacedItem()->GetItem().NeedsFunctionTest() ? 1 : 0);
+				Shot(Done.Shot);
+				++*Next;
+				return;
+			}
+			if (!Jobs->IsValidIndex(*Next))
+			{
+				return;
+			}
+			const FJob& Job = (*Jobs)[*Next];
+			const int32 Part = Asm->FindPart(Job.Part);
+			FText Reason;
+			const bool bOk = Job.bInstall ? B->CanStartInstall(C, Reason, Part) && B->TryStartInstall(C, Part) : B->CanStartStep(C, Reason, Part) && B->TryStartStep(C, Part);
+			UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R start %s %s: %s %s"), Job.bInstall ? TEXT("install") : TEXT("remove"), Job.Part, bOk ? TEXT("ok") : TEXT("REFUSED"), *Reason.ToString());
+			*bRunning = bOk;
+			if (!bOk) { ++*Next; }
+		}), 0.3f, true);
+	});
+	// Function test, then off the bench and to the customer.
+	Schedule(52.0f, [this]()
+	{
+		AWEWorkbench* B = FindBench();
+		FText Reason;
+		const FWERepairStepInfo Info = B ? B->GetNextRepairStep(Reason) : FWERepairStepInfo();
+		const bool bOk = B && GetCharacter() && B->TryStartRepairStep(GetCharacter());
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R function test (kind %d): %s %s"), static_cast<int32>(Info.Kind), bOk ? TEXT("started") : TEXT("REFUSED"), *Reason.ToString());
+	});
+	Schedule(58.0f, [this, PC]()
+	{
+		const AWEWorkbench* B = FindBench();
+		const AWEPickupItem* P = B ? B->GetPlacedItem() : nullptr;
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R after test: %s condition=%s faults=%d removed=%d"), P ? *P->GetDisplayName().ToString() : TEXT("-"),
+			P ? *WEItems::GetConditionText(P->GetItem().Condition).ToString() : TEXT("-"), P ? P->GetItem().Repair.Faults : -1, P ? P->GetItem().RemovedParts : -1);
+		Shot(TEXT("08_Getestet"));
+		if (PC) { PC->CloseWorkView(); }
+	});
+	Schedule(59.0f, [this]()
+	{
+		if (AWEWorkbench* B = FindBench(); B && GetCharacter()) { B->TakeOffItem(GetCharacter()); }
+		LogCarry(TEXT("R1 taken off the bench"));
+		TeleportToTerminal(0.f);
+	});
+	Schedule(60.5f, [this, PC, OrderId]() { LookAt(FindTerminal()); if (PC) { PC->RequestDeliverContract(FindTerminal(), *OrderId); } });
+	Schedule(62.0f, [this, OrderId, BalanceBefore]()
+	{
+		const UWECompanyComponent* Company = UWECompanyComponent::Get(this);
+		const UWEContractComponent* Contracts = UWEContractComponent::Get(this);
+		const bool bStillOpen = Contracts && Contracts->FindContract(*OrderId) != nullptr;
+		UE_LOG(LogWorkshopEmpire, Display, TEXT("QU R delivered: order open=%d, balance %lld -> %lld cents, customer device left in world=%d, held=%s"),
+			bStillOpen ? 1 : 0, *BalanceBefore, Company ? Company->GetBalance().GetCents() : -1, FindCustomerDevice() ? 1 : 0,
+			GetCharacter() && GetCharacter()->GetHeldItem() ? *GetCharacter()->GetHeldItem()->GetDisplayName().ToString() : TEXT("-"));
+		Shot(TEXT("09_Abgeliefert"));
+	});
+	Schedule(63.5f, [this]() { Quit(); });
+#endif
+}
+
 void UWEDevAutomationComponent::RunQualityShots()
 {
 #if !UE_BUILD_SHIPPING
 	AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwner());
+	if (ShotName == TEXT("QUB"))
+	{
+		RunQualityRepairFlow();
+		return;
+	}
 	// --- Test A: repair order -> pallet -> in the hands -> on the bench (real focus and [E] like a player) -----------
 	Schedule(1.0f, [PC]() { if (PC) { PC->ConsoleCommand(TEXT("DisableAllScreenMessages")); } });
 	Schedule(2.0f, [this, PC]()
