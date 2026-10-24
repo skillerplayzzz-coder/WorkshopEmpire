@@ -59,10 +59,10 @@ using namespace WEUI;
 
 namespace WEOs
 {
-	const FLinearColor Taskbar = Col::Hex(0x0D1218, 0.96f);
-	const FLinearColor TitleBar = Col::Hex(0x34506E);
-	const FLinearColor TitleBarActive = Col::Hex(0x3E6E9E);
-	const FLinearColor WindowBody = Col::Hex(0x15191E, 0.985f);
+	const FLinearColor Taskbar = Col::Hex(0x061214, 0.96f);
+	const FLinearColor TitleBar = Col::Hex(0x123437);
+	const FLinearColor TitleBarActive = Col::Hex(0x175457);
+	const FLinearColor WindowBody = Col::Hex(0x0C1C1E, 0.985f);
 	constexpr int32 NumApps = static_cast<int32>(UWETradeWidget::EApp::Count);
 }
 
@@ -447,7 +447,7 @@ void UWETradeWidget::BuildStartMenu()
 	UButton* Leave = Button(WidgetTree, LOCTEXT("ShutDown", "Abmelden und aufstehen"), EButton::Ghost, TEXT("Exit"), 13);
 	Leave->OnClicked.AddDynamic(this, &UWETradeWidget::HandleLogout);
 	AddV(Menu, Leave, FMargin(4.f, 0.f, 4.f, 4.f));
-	UBorder* Frame = Box(WidgetTree, Col::Hex(0x111820, 0.98f), FMargin(6.f), Col::WithAlpha(FLinearColor::White, 0.12f), 3.f);
+	UBorder* Frame = Box(WidgetTree, Col::Hex(0x0A1719, 0.98f), FMargin(6.f), Col::WithAlpha(FLinearColor::White, 0.12f), 3.f);
 	Frame->SetContent(Sized(WidgetTree, Menu, 290.f));
 	Frame->SetVisibility(ESlateVisibility::Collapsed);
 	StartMenu = Frame;

@@ -642,7 +642,7 @@ void UWEMainMenuWidget::NativeOnInitialized()
 		S->SetHorizontalAlignment(HAlign_Fill);
 		S->SetVerticalAlignment(VAlign_Fill);
 	}
-	UBorder* Band = Box(WidgetTree, Col::Hex(0x0B0D10, 0.86f), FMargin(64.f, 52.f, 40.f, 40.f), FLinearColor::Transparent, 0.f);
+	UBorder* Band = Box(WidgetTree, Col::Hex(0x061214, 0.86f), FMargin(64.f, 52.f, 40.f, 40.f), FLinearColor::Transparent, 0.f);
 	AddH(Columns, Sized(WidgetTree, Band, 560.f), FMargin(), false, VAlign_Fill);
 	AddH(Columns, Sized(WidgetTree, Box(WidgetTree, Col::Accent, FMargin(0.f), FLinearColor::Transparent, 0.f), 3.f), FMargin(), false, VAlign_Fill);
 	UVerticalBox* Left = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -831,7 +831,7 @@ void UWEMainMenuWidget::NativeOnInitialized()
 	AddV(Creator, Confirm, FMargin(0.f, 12.f, 0.f, 0.f), HAlign_Left);
 	Pages->AddChild(Creator);
 
-	UBorder* Card = WindowPanel(WidgetTree, FMargin(26.f, 22.f), Col::Hex(0x121519, 0.95f));
+	UBorder* Card = WindowPanel(WidgetTree, FMargin(26.f, 22.f), Col::Hex(0x0C1C1E, 0.95f));
 	Card->SetContent(Sized(WidgetTree, CardBox, 660.f, 600.f));
 	PageCard = Shadowed(WidgetTree, Card);
 	if (UOverlaySlot* S = Root->AddChildToOverlay(PageCard))

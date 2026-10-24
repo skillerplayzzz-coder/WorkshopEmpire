@@ -37,26 +37,28 @@ namespace WEUI
 			return FLinearColor(C.R, C.G, C.B, Alpha);
 		}
 
-		const FLinearColor Backdrop = Hex(0x07080A, 0.62f);
-		const FLinearColor Panel = Hex(0x15171A, 0.97f);
-		const FLinearColor PanelDark = Hex(0x0E1012, 0.98f);
-		const FLinearColor Raised = Hex(0x1E2125);
-		const FLinearColor RaisedHover = Hex(0x272B30);
-		const FLinearColor Line = Hex(0x2E3338);
-		const FLinearColor LineStrong = Hex(0x474E56);
-		const FLinearColor Accent = Hex(0xF0A92B);
-		const FLinearColor AccentHover = Hex(0xFFC14D);
-		const FLinearColor AccentDark = Hex(0xB97C12);
-		const FLinearColor Text = Hex(0xE9E5DB);
-		const FLinearColor TextDim = Hex(0xA9AFB6);
-		const FLinearColor TextMuted = Hex(0x6E757D);
-		const FLinearColor TextOnAccent = Hex(0x15120B);
-		const FLinearColor Good = Hex(0x74C26E);
-		const FLinearColor Bad = Hex(0xE45B4F);
-		const FLinearColor Info = Hex(0x63A9E0);
-		const FLinearColor Money = Hex(0x8FD38A);
-		const FLinearColor OsBlue = Hex(0x2C4E72);
-		const FLinearColor OsBlueDark = Hex(0x1A2F46);
+		// Mike's "fresh and modern" look (his references): dark petrol glass, teal accent, soft lines, bright status colours.
+		const FLinearColor Backdrop = Hex(0x02100F, 0.58f);
+		const FLinearColor Panel = Hex(0x0C1C1E, 0.95f);
+		const FLinearColor PanelDark = Hex(0x071315, 0.97f);
+		const FLinearColor Raised = Hex(0x112729);
+		const FLinearColor RaisedHover = Hex(0x173439);
+		const FLinearColor Line = Hex(0x1C383B);
+		const FLinearColor LineStrong = Hex(0x2A565A);
+		const FLinearColor Accent = Hex(0x1DB89E);
+		const FLinearColor AccentHover = Hex(0x2BD3B5);
+		const FLinearColor AccentDark = Hex(0x0F7F6C);
+		const FLinearColor Text = Hex(0xEAF5F2);
+		const FLinearColor TextDim = Hex(0x9BB4B0);
+		const FLinearColor TextMuted = Hex(0x5E7A76);
+		const FLinearColor TextOnAccent = Hex(0xF4FFFC);
+		const FLinearColor Good = Hex(0x3FD98A);
+		const FLinearColor Bad = Hex(0xF0625A);
+		const FLinearColor Warn = Hex(0xF2B544);
+		const FLinearColor Info = Hex(0x4FA6F2);
+		const FLinearColor Money = Hex(0x8EE05A);
+		const FLinearColor OsBlue = Hex(0x123A3B);
+		const FLinearColor OsBlueDark = Hex(0x0B2627);
 	}
 
 	FSlateFontInfo Font(EFont Kind, int32 Size, int32 LetterSpacing)
@@ -102,8 +104,11 @@ namespace WEUI
 		FSlateBrush B;
 		B.DrawAs = ESlateBrushDrawType::RoundedBox;
 		B.TintColor = FSlateColor(Fill);
-		B.OutlineSettings = FSlateBrushOutlineSettings(FVector4(Radius, Radius, Radius, Radius), FSlateColor(Outline), OutlineWidth);
-		B.OutlineSettings.RoundingType = ESlateBrushRoundingType::FixedRadius;
+		// Rounder everywhere (the old 2-4 px corners looked hard): every rounded shape gets softer corners.
+		const float R = Radius > 0.f ? FMath::Max(Radius * 2.5f, 5.f) : 0.f;
+		B.OutlineSettings = FSlateBrushOutlineSettings(FVector4(R, R, R, R), FSlateColor(Outline), OutlineWidth);
+		// A radius of 10 or more means "pill / circle": half the height (a fixed radius larger than that makes pointed ends).
+		B.OutlineSettings.RoundingType = Radius >= 10.f ? ESlateBrushRoundingType::HalfHeightRadius : ESlateBrushRoundingType::FixedRadius;
 		return B;
 	}
 
@@ -177,13 +182,14 @@ namespace WEUI
 		case EButton::Danger:
 			Normal = Col::Hex(0x2A1A19); Hover = Col::Hex(0x4A2320); Pressed = Col::Hex(0x1E1312); Outline = Col::Hex(0x7A3029); HoverOutline = Col::Bad;
 			break;
+		// Tabs are pills: the active one filled with the accent (like Mike's reference).
 		case EButton::Tab:
-			Normal = FLinearColor::Transparent; Hover = Col::WithAlpha(Col::Raised, 0.9f); Pressed = Col::Raised; Outline = FLinearColor::Transparent; HoverOutline = Col::Line;
-			Radius = 0.f; Padding = FMargin(16.f, 9.f);
+			Normal = FLinearColor::Transparent; Hover = Col::WithAlpha(Col::RaisedHover, 0.9f); Pressed = Col::Raised; Outline = FLinearColor::Transparent; HoverOutline = Col::Line;
+			Radius = 5.f; Padding = FMargin(16.f, 8.f);
 			break;
 		case EButton::TabActive:
-			Normal = Col::Raised; Hover = Col::RaisedHover; Pressed = Col::Raised; Outline = Col::Accent; HoverOutline = Col::AccentHover;
-			Radius = 0.f; Padding = FMargin(16.f, 9.f);
+			Normal = Col::Accent; Hover = Col::AccentHover; Pressed = Col::AccentDark; Outline = Col::AccentHover; HoverOutline = Col::AccentHover;
+			Radius = 5.f; Padding = FMargin(16.f, 8.f);
 			break;
 		case EButton::Tile:
 			Normal = Col::WithAlpha(Col::Raised, 0.0f); Hover = Col::WithAlpha(Col::Hex(0x9CC6F0), 0.18f); Pressed = Col::WithAlpha(Col::Hex(0x9CC6F0), 0.30f);
@@ -216,6 +222,7 @@ namespace WEUI
 		switch (Kind)
 		{
 		case EButton::Primary: return Col::TextOnAccent;
+		case EButton::TabActive: return Col::TextOnAccent;
 		case EButton::Danger:  return Col::Hex(0xF2A59C);
 		case EButton::Tab:     return Col::TextDim;
 		case EButton::Ghost:   return Col::TextDim;
@@ -283,11 +290,11 @@ namespace WEUI
 		const FLinearColor TextColor = ButtonTextColor(Kind);
 		if (Label)
 		{
-			Label->SetColorAndOpacity(FSlateColor(Kind == EButton::TabActive ? Col::Accent : TextColor));
+			Label->SetColorAndOpacity(FSlateColor(Kind == EButton::TabActive ? Col::TextOnAccent : TextColor));
 		}
 		if (IconImage)
 		{
-			IconImage->SetColorAndOpacity(Kind == EButton::TabActive ? Col::Accent : TextColor);
+			IconImage->SetColorAndOpacity(Kind == EButton::TabActive ? Col::TextOnAccent : TextColor);
 		}
 	}
 
@@ -438,21 +445,15 @@ namespace WEUI
 
 	UWidget* Hazard(UWidgetTree* Tree, float Height, float Width)
 	{
-		UImage* I = Tree->ConstructWidget<UImage>();
-		FSlateBrush B;
-		B.SetResourceObject(UITexture(TEXT("T_HazardStripe")));
-		B.DrawAs = ESlateBrushDrawType::Image;
-		B.Tiling = ESlateBrushTileType::Both;
-		B.ImageSize = FVector2D(Height * 2.f, Height * 2.f);
-		I->SetBrush(B);
+		// The new look: a short accent pill instead of the yellow-black hazard stripes.
+		UBorder* Bar = Box(Tree, Col::Accent, FMargin(0.f), FLinearColor::Transparent, 4.f);
 		USizeBox* Size = Tree->ConstructWidget<USizeBox>();
-		Size->SetHeightOverride(Height);
-		if (Width > 0.f)
-		{
-			Size->SetWidthOverride(Width);
-		}
-		Size->SetContent(I);
-		return Size;
+		Size->SetHeightOverride(FMath::Min(Height, 4.f));
+		Size->SetWidthOverride(Width > 0.f ? FMath::Min(Width, 56.f) : 56.f);
+		Size->SetContent(Bar);
+		UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>();
+		AddH(Row, Size);
+		return Row;
 	}
 
 	UWidget* Divider(UWidgetTree* Tree, const FLinearColor& Color, float Thickness, bool bVertical)
@@ -474,7 +475,7 @@ namespace WEUI
 	UWidget* SectionHeader(UWidgetTree* Tree, const FText& Title, FName IconName, UTextBlock** OutRight, int32 Size)
 	{
 		UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>();
-		UBorder* Bar = Box(Tree, Col::Accent, FMargin(0.f), FLinearColor::Transparent, 0.f);
+		UBorder* Bar = Box(Tree, Col::Accent, FMargin(0.f), FLinearColor::Transparent, 2.f);
 		AddH(Row, Sized(Tree, Bar, 3.f, Size + 6.f), FMargin(0.f, 0.f, 8.f, 0.f));
 		if (!IconName.IsNone())
 		{
@@ -492,7 +493,7 @@ namespace WEUI
 	UWidget* KeyCap(UWidgetTree* Tree, const FText& Key, int32 Size)
 	{
 		UBorder* Cap = Box(Tree, Col::Hex(0xE9E5DB, 0.95f), FMargin(6.f, 1.f, 6.f, 2.f), Col::Hex(0xFFFFFF), 3.f);
-		UTextBlock* T = Text(Tree, Key, Size, Col::TextOnAccent, EFont::Head);
+		UTextBlock* T = Text(Tree, Key, Size, Col::Hex(0x0A1A1A), EFont::Head); // dark on the light key cap
 		Cap->SetContent(T);
 		Cap->SetHorizontalAlignment(HAlign_Center);
 		return Cap;
@@ -500,9 +501,9 @@ namespace WEUI
 
 	UBorder* Chip(UWidgetTree* Tree, const FText& Label, const FLinearColor& Color, UTextBlock** OutText)
 	{
-		UBorder* C = Box(Tree, Col::WithAlpha(Color, 0.16f), FMargin(6.f, 1.f), Col::WithAlpha(Color, 0.7f), 2.f);
-		UTextBlock* T = Text(Tree, Upper(Label), 9, Color, EFont::Head);
-		T->SetFont(Font(EFont::Head, 9, 40));
+		// Status pill: tinted, a dot in front, normal case (like "● Available" in Mike's reference).
+		UBorder* C = Box(Tree, Col::WithAlpha(Color, 0.14f), FMargin(8.f, 2.f, 9.f, 2.f), Col::WithAlpha(Color, 0.45f), 5.f);
+		UTextBlock* T = Text(Tree, FText::Format(NSLOCTEXT("WEUIKit", "ChipFmt", "● {0}"), Label), 10, Color, EFont::Strong);
 		C->SetContent(T);
 		if (OutText)
 		{

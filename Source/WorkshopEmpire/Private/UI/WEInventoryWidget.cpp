@@ -143,7 +143,7 @@ void UWEInventoryWidget::NativeOnInitialized()
 	MenuButton(LOCTEXT("MenuLock", "Sperren"), TEXT("Lock"), &MenuLockText)->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleMenuLock);
 	MenuRelease = MenuButton(LOCTEXT("MenuRelease", "Zum Verkauf freigeben"), TEXT("Tag"), &MenuReleaseText);
 	MenuRelease->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleMenuRelease);
-	ContextMenu = Box(WidgetTree, Col::Hex(0x15171A, 0.98f), FMargin(4.f, 8.f), Col::LineStrong, 2.f);
+	ContextMenu = Box(WidgetTree, Col::Hex(0x0C1C1E, 0.98f), FMargin(4.f, 8.f), Col::LineStrong, 2.f);
 	ContextMenu->SetContent(Sized(WidgetTree, Menu, 230.f));
 	ContextMenu->SetVisibility(ESlateVisibility::Collapsed);
 	if (UCanvasPanelSlot* S = RootCanvas->AddChildToCanvas(ContextMenu))

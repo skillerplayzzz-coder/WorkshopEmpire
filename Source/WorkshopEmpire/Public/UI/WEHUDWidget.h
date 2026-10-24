@@ -93,6 +93,15 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ClockText;
 	UPROPERTY(Transient) TObjectPtr<UImage> ClockIcon;
 	int8 bClockShowsDay = -1;
+	/** Mike's HUD (like his reference): floating pills over the game, money big in green without a box. */
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> NameText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> DayText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> OpenText;
+	UPROPERTY(Transient) TObjectPtr<UBorder> OpenDot;
+	UPROPERTY(Transient) TObjectPtr<UBorder> OpenPill;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> WeatherText;
+	UPROPERTY(Transient) TObjectPtr<UWidget> ExtraPill;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> ExtraText;
 
 	// Objective card (top left)
 	UPROPERTY(Transient) TObjectPtr<UWidget> ObjectiveCard;

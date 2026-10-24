@@ -44,7 +44,7 @@ namespace WEHUDStyle
 	FProgressBarStyle BarStyle(const FLinearColor& Fill)
 	{
 		FProgressBarStyle S;
-		S.SetBackgroundImage(Brush(Col::Hex(0x0B0C0E, 0.9f), Col::Line, 1.f, 1.f));
+		S.SetBackgroundImage(Brush(Col::Hex(0x071315, 0.9f), Col::Line, 1.f, 1.f));
 		S.SetFillImage(Brush(Fill, FLinearColor::Transparent, 0.f, 1.f));
 		S.SetMarqueeImage(Brush(Fill, FLinearColor::Transparent, 0.f, 1.f));
 		return S;
@@ -63,7 +63,7 @@ namespace WEHUDStyle
 	/** Card: dark translucent body with a thin outline and an accent strip on the left. */
 	UBorder* Card(UWidgetTree* Tree, UWidget* Content, const FLinearColor& Strip = Col::Accent, const FMargin& Padding = FMargin(14.f, 10.f))
 	{
-		UBorder* Frame = Box(Tree, Col::Hex(0x101215, 0.84f), FMargin(0.f), Col::WithAlpha(Col::LineStrong, 0.6f), 2.f);
+		UBorder* Frame = Box(Tree, Col::Hex(0x0A1719, 0.82f), FMargin(0.f), Col::WithAlpha(Col::LineStrong, 0.6f), 2.f);
 		UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>();
 		Frame->SetContent(Row);
 		if (Strip.A > 0.f)
@@ -116,7 +116,7 @@ void UWEHUDWidget::NativeOnInitialized()
 		AddH(Row, T.IconImage, FMargin(0.f, 0.f, 10.f, 0.f));
 		T.Label = Text(WidgetTree, FText::GetEmpty(), 14, Col::Text, EFont::Strong, 560.f);
 		AddH(Row, T.Label);
-		T.Frame = Box(WidgetTree, Col::Hex(0x101215, 0.9f), FMargin(14.f, 8.f), Col::WithAlpha(Col::LineStrong, 0.7f), 2.f);
+		T.Frame = Box(WidgetTree, Col::Hex(0x0A1719, 0.88f), FMargin(14.f, 8.f), Col::WithAlpha(Col::LineStrong, 0.7f), 2.f);
 		T.Frame->SetContent(Row);
 		T.Frame->SetVisibility(ESlateVisibility::Collapsed);
 		AddV(ToastBox, T.Frame, FMargin(0.f, 0.f, 0.f, 6.f), HAlign_Center);
@@ -184,32 +184,104 @@ void UWEHUDWidget::BuildCenter()
 
 void UWEHUDWidget::BuildStatusCard()
 {
-	UVerticalBox* Box = WidgetTree->ConstructWidget<UVerticalBox>();
-	TierText = Heading(WidgetTree, FText::GetEmpty(), 11, Col::TextDim);
-	AddV(Box, TierText, FMargin(), HAlign_Right);
-	UHorizontalBox* BalanceRow = WidgetTree->ConstructWidget<UHorizontalBox>();
-	AddH(BalanceRow, Icon(WidgetTree, TEXT("Euro"), 20.f, Col::Money), FMargin(0.f, 0.f, 8.f, 0.f));
-	BalanceText = Text(WidgetTree, FText::GetEmpty(), 21, Col::Money, EFont::Head);
-	AddH(BalanceRow, BalanceText);
-	AddV(Box, BalanceRow, FMargin(0.f, 1.f, 0.f, 0.f), HAlign_Right);
-	UHorizontalBox* Power = WidgetTree->ConstructWidget<UHorizontalBox>();
-	AddH(Power, Icon(WidgetTree, TEXT("Power"), 14.f, Col::Accent), FMargin(0.f, 0.f, 6.f, 0.f));
-	PowerBar = WidgetTree->ConstructWidget<UProgressBar>();
-	PowerBar->SetWidgetStyle(BarStyle(Col::Accent));
-	AddH(Power, Sized(WidgetTree, PowerBar, 90.f, 6.f), FMargin(0.f, 0.f, 8.f, 0.f));
-	PowerText = Text(WidgetTree, FText::GetEmpty(), 11, Col::TextDim, EFont::Strong);
-	AddH(Power, PowerText);
-	PowerRow = Power;
-	AddV(Box, Power, FMargin(0.f, 5.f, 0.f, 0.f), HAlign_Right);
-	// Phase 19: day, time and opening hours.
-	UHorizontalBox* Clock = WidgetTree->ConstructWidget<UHorizontalBox>();
-	ClockIcon = Icon(WidgetTree, TEXT("Clock"), 13.f, Col::TextDim);
-	AddH(Clock, ClockIcon, FMargin(0.f, 0.f, 6.f, 0.f));
-	ClockText = Text(WidgetTree, FText::GetEmpty(), 11, Col::TextDim, EFont::Strong);
-	AddH(Clock, ClockText);
-	AddV(Box, Clock, FMargin(0.f, 5.f, 0.f, 0.f), HAlign_Right);
-	StatusCard = Card(WidgetTree, Box, FLinearColor::Transparent, FMargin(14.f, 8.f, 14.f, 9.f));
-	Place(Canvas, StatusCard, FAnchors(1.f, 0.f), FVector2D(1.f, 0.f), FVector2D(-22.f, 18.f));
+	// Mike's reference: no box - small translucent pills in two rows, then "Kontostand" and the money big in green,
+	// all floating top right over the game.
+	auto Shadowed = [](UTextBlock* T)
+	{
+		T->SetShadowOffset(FVector2D(0.f, 1.5f));
+		T->SetShadowColorAndOpacity(Col::WithAlpha(FLinearColor::Black, 0.7f));
+		return T;
+	};
+	auto Pill = [this](UWidget* Content, UBorder** OutPill = nullptr)
+	{
+		UBorder* P = Box(WidgetTree, Col::WithAlpha(Col::PanelDark, 0.62f), FMargin(11.f, 5.f, 12.f, 5.f), Col::WithAlpha(Col::LineStrong, 0.45f), 14.f);
+		P->SetContent(Content);
+		if (OutPill)
+		{
+			*OutPill = P;
+		}
+		return P;
+	};
+	auto IconRing = [this](FName IconName, const FLinearColor& Color)
+	{
+		// The icon in a thin ring (like the reference's avatar / zone markers).
+		UBorder* Ring = Box(WidgetTree, Col::WithAlpha(Color, 0.12f), FMargin(3.f), Col::WithAlpha(Color, 0.9f), 10.f);
+		Ring->SetContent(Icon(WidgetTree, IconName, 12.f, Color));
+		return Ring;
+	};
+	UVerticalBox* Stack = WidgetTree->ConstructWidget<UVerticalBox>();
+
+	// Row 1: player, time and day, open / closed.
+	UHorizontalBox* Row1 = WidgetTree->ConstructWidget<UHorizontalBox>();
+	{
+		UHorizontalBox* Me = WidgetTree->ConstructWidget<UHorizontalBox>();
+		AddH(Me, IconRing(TEXT("Person"), Col::Money), FMargin(0.f, 0.f, 8.f, 0.f));
+		NameText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Text, EFont::Body);
+		AddH(Me, NameText);
+		AddH(Row1, Pill(Me), FMargin(0.f, 0.f, 8.f, 0.f));
+
+		UHorizontalBox* Time = WidgetTree->ConstructWidget<UHorizontalBox>();
+		ClockIcon = Icon(WidgetTree, TEXT("Sun"), 14.f, Col::Accent);
+		AddH(Time, ClockIcon, FMargin(0.f, 0.f, 7.f, 0.f));
+		ClockText = Text(WidgetTree, FText::GetEmpty(), 15, Col::Text, EFont::Strong);
+		AddH(Time, ClockText, FMargin(0.f, 0.f, 9.f, 0.f));
+		DayText = Text(WidgetTree, FText::GetEmpty(), 13, Col::TextDim, EFont::Body);
+		AddH(Time, DayText);
+		AddH(Row1, Pill(Time), FMargin(0.f, 0.f, 8.f, 0.f));
+
+		UHorizontalBox* Open = WidgetTree->ConstructWidget<UHorizontalBox>();
+		OpenDot = Box(WidgetTree, Col::Good, FMargin(0.f), Col::WithAlpha(Col::Good, 0.35f), 10.f);
+		UBorder* DotRing = Box(WidgetTree, FLinearColor::Transparent, FMargin(3.f), Col::Good, 10.f);
+		DotRing->SetContent(Sized(WidgetTree, OpenDot, 8.f, 8.f));
+		AddH(Open, DotRing, FMargin(0.f, 0.f, 8.f, 0.f));
+		OpenText = Text(WidgetTree, FText::GetEmpty(), 13, Col::Good, EFont::Strong);
+		AddH(Open, OpenText);
+		OpenPill = Pill(Open);
+		AddH(Row1, OpenPill);
+	}
+	AddV(Stack, Row1, FMargin(0.f, 0.f, 0.f, 7.f), HAlign_Right);
+
+	// Row 2: company stage, power, weather, fast-forward / coffee.
+	UHorizontalBox* Row2 = WidgetTree->ConstructWidget<UHorizontalBox>();
+	{
+		UHorizontalBox* Tier = WidgetTree->ConstructWidget<UHorizontalBox>();
+		AddH(Tier, Icon(WidgetTree, TEXT("Factory"), 13.f, Col::Accent), FMargin(0.f, 0.f, 7.f, 0.f));
+		TierText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Text, EFont::Body);
+		AddH(Tier, TierText);
+		AddH(Row2, Pill(Tier), FMargin(0.f, 0.f, 8.f, 0.f));
+
+		UHorizontalBox* Power = WidgetTree->ConstructWidget<UHorizontalBox>();
+		AddH(Power, Icon(WidgetTree, TEXT("Power"), 13.f, Col::Accent), FMargin(0.f, 0.f, 6.f, 0.f));
+		PowerBar = WidgetTree->ConstructWidget<UProgressBar>();
+		PowerBar->SetWidgetStyle(BarStyle(Col::Accent));
+		AddH(Power, Sized(WidgetTree, PowerBar, 56.f, 5.f), FMargin(0.f, 0.f, 8.f, 0.f));
+		PowerText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Text, EFont::Body);
+		AddH(Power, PowerText);
+		UBorder* PowerPill = Pill(Power);
+		PowerRow = PowerPill;
+		AddH(Row2, PowerPill, FMargin(0.f, 0.f, 8.f, 0.f));
+
+		UHorizontalBox* Weather = WidgetTree->ConstructWidget<UHorizontalBox>();
+		WeatherText = Text(WidgetTree, FText::GetEmpty(), 12, Col::TextDim, EFont::Body);
+		AddH(Weather, WeatherText);
+		AddH(Row2, Pill(Weather));
+
+		UHorizontalBox* Extra = WidgetTree->ConstructWidget<UHorizontalBox>();
+		ExtraText = Text(WidgetTree, FText::GetEmpty(), 12, Col::Accent, EFont::Strong);
+		AddH(Extra, ExtraText);
+		UBorder* ExtraBox = Pill(Extra);
+		ExtraPill = ExtraBox;
+		AddH(Row2, ExtraBox, FMargin(8.f, 0.f, 0.f, 0.f));
+	}
+	AddV(Stack, Row2, FMargin(0.f, 0.f, 0.f, 10.f), HAlign_Right);
+
+	// The money: small grey label, the amount big and green.
+	AddV(Stack, Shadowed(Text(WidgetTree, LOCTEXT("CashLabel", "Kontostand"), 13, Col::WithAlpha(Col::Text, 0.82f), EFont::Body)), FMargin(0.f, 0.f, 2.f, 0.f), HAlign_Right);
+	BalanceText = Shadowed(Text(WidgetTree, FText::GetEmpty(), 30, Col::Money, EFont::Strong));
+	AddV(Stack, BalanceText, FMargin(0.f, -3.f, 0.f, 0.f), HAlign_Right);
+
+	StatusCard = Stack;
+	Place(Canvas, StatusCard, FAnchors(1.f, 0.f), FVector2D(1.f, 0.f), FVector2D(-26.f, 18.f));
 }
 
 void UWEHUDWidget::BuildObjectiveCard()
@@ -419,7 +491,7 @@ void UWEHUDWidget::ShowMessage(const FText& Message, float Seconds)
 		T.IconImage->SetDesiredSizeOverride(FVector2D(18.f, 18.f));
 	}
 	T.IconImage->SetColorAndOpacity(Color);
-	T.Frame->SetBrush(Brush(Col::Hex(0x101215, 0.92f), Col::WithAlpha(Color, 0.75f), 1.f, 2.f));
+	T.Frame->SetBrush(Brush(Col::Hex(0x0A1719, 0.9f), Col::WithAlpha(Color, 0.75f), 1.f, 2.f));
 	T.Label->SetText(Message);
 	T.Age = 0.f;
 	T.Life = Seconds;
@@ -563,10 +635,23 @@ void UWEHUDWidget::UpdateStatus()
 		return;
 	}
 	StatusCard->SetVisibility(ESlateVisibility::HitTestInvisible);
-	BalanceText->SetText(MoneyText(Company->GetBalance()));
+	// "€ 19.870,00" - the currency in front like in Mike's reference.
+	FString Money = MoneyText(Company->GetBalance()).ToString();
+	if (Money.RemoveFromEnd(TEXT(" €")) || Money.RemoveFromEnd(TEXT(" €")))
+	{
+		const bool bNegative = Money.RemoveFromStart(TEXT("-")) || Money.RemoveFromStart(TEXT("−"));
+		Money = FString::Printf(TEXT("%s€ %s"), bNegative ? TEXT("− ") : TEXT(""), *Money);
+	}
+	BalanceText->SetText(FText::FromString(Money));
+	BalanceText->SetColorAndOpacity(FSlateColor(Company->GetBalance().GetCents() < 0 ? Col::Bad : Col::Money));
+	if (NameText)
+	{
+		const APlayerState* PS = GetOwningPlayer() ? GetOwningPlayer()->PlayerState : nullptr;
+		NameText->SetText(FText::FromString(PS ? PS->GetPlayerName().Left(20) : FString()));
+	}
 	const UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this);
-	TierText->SetText(Progression ? Upper(FText::Format(LOCTEXT("TierFmt", "Stufe {0} · {1}"), FText::AsNumber(Progression->GetCompanyTier()),
-		UWEProgressionComponent::GetTierName(Progression->GetCompanyTier()))) : FText::GetEmpty());
+	TierText->SetText(Progression ? FText::Format(LOCTEXT("TierFmt", "Stufe {0} · {1}"), FText::AsNumber(Progression->GetCompanyTier()),
+		UWEProgressionComponent::GetTierName(Progression->GetCompanyTier())) : FText::GetEmpty());
 	const UWEPowerGridComponent* Grid = UWEPowerGridComponent::Get(this);
 	if (Grid && Grid->HasMachines())
 	{
@@ -583,20 +668,32 @@ void UWEHUDWidget::UpdateStatus()
 	}
 	if (const UWEDayNightComponent* DayNight = UWEDayNightComponent::Get(this); DayNight && ClockText)
 	{
-		FText Clock = FText::Format(LOCTEXT("ClockFmtWeather", "Tag {0} · {1} · {2} · {3}"), FText::AsNumber(DayNight->GetDay()), DayNight->GetClockText(), DayNight->GetOpeningText(), DayNight->GetWeatherText());
-		// Phase 20: coffee boost left.
+		ClockText->SetText(DayNight->GetClockText());
+		DayText->SetText(FText::Format(LOCTEXT("DayFmt", "Tag {0}"), FText::AsNumber(DayNight->GetDay())));
+		WeatherText->SetText(DayNight->GetWeatherText());
+		const bool bOpen = DayNight->IsOpen();
+		const FLinearColor OpenColor = bOpen ? Col::Good : Col::Warn;
+		OpenText->SetText(DayNight->GetOpeningText());
+		OpenText->SetColorAndOpacity(FSlateColor(OpenColor));
+		OpenDot->SetBrushColor(OpenColor);
+		if (UBorder* Ring = Cast<UBorder>(OpenDot->GetParent() ? OpenDot->GetParent()->GetParent() : nullptr))
+		{
+			Ring->SetBrush(Brush(FLinearColor::Transparent, OpenColor, 1.5f, 10.f));
+		}
+		OpenPill->SetBrush(Brush(Col::WithAlpha(Col::PanelDark, 0.72f), Col::WithAlpha(OpenColor, 0.8f), 1.f, 14.f));
+		// Fast-forward (pause menu) and the coffee boost in their own pill.
+		FString Extra;
+		if (const AWorldSettings* WS = GetWorld() ? GetWorld()->GetWorldSettings() : nullptr; WS && WS->TimeDilation > 1.01f)
+		{
+			Extra = FString::Printf(TEXT("▶▶ %d×"), FMath::RoundToInt(WS->TimeDilation));
+		}
 		if (const AWECharacter* Me = Cast<AWECharacter>(GetOwningPlayerPawn()); Me && Me->HasCoffeeBoost())
 		{
 			const int32 Left = FMath::CeilToInt(Me->GetCoffeeBoostRemaining());
-			Clock = FText::Format(LOCTEXT("ClockCoffee", "{0} · Kaffee {1}:{2}"), Clock, FText::AsNumber(Left / 60), FText::FromString(FString::Printf(TEXT("%02d"), Left % 60)));
+			Extra += FString::Printf(TEXT("%sKaffee %d:%02d"), Extra.IsEmpty() ? TEXT("") : TEXT("  ·  "), Left / 60, Left % 60);
 		}
-		// Fast-forward on (pause menu): always visible.
-		if (const AWorldSettings* WS = GetWorld() ? GetWorld()->GetWorldSettings() : nullptr; WS && WS->TimeDilation > 1.01f)
-		{
-			Clock = FText::Format(LOCTEXT("ClockSpeed", "{0} · ▶▶ {1}×"), Clock, FText::AsNumber(FMath::RoundToInt(WS->TimeDilation)));
-		}
-		ClockText->SetText(Clock);
-		ClockText->SetColorAndOpacity(FSlateColor(DayNight->IsOpen() ? Col::Good : Col::TextDim));
+		ExtraText->SetText(FText::FromString(Extra));
+		ExtraPill->SetVisibility(Extra.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
 		// Sun by day, moon by night.
 		const bool bDay = DayNight->GetDaylight() > 0.05f;
 		if (ClockIcon && bClockShowsDay != static_cast<int8>(bDay))
@@ -605,9 +702,9 @@ void UWEHUDWidget::UpdateStatus()
 			if (UTexture2D* Tex = IconTexture(bDay ? FName(TEXT("Sun")) : FName(TEXT("Moon"))))
 			{
 				ClockIcon->SetBrushFromTexture(Tex);
-				ClockIcon->SetDesiredSizeOverride(FVector2D(13.f, 13.f));
+				ClockIcon->SetDesiredSizeOverride(FVector2D(14.f, 14.f));
 			}
-			ClockIcon->SetColorAndOpacity(bDay ? Col::Accent : Col::Info);
+			ClockIcon->SetColorAndOpacity(bDay ? Col::Warn : Col::Info);
 		}
 	}
 }

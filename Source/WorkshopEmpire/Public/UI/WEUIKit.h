@@ -51,6 +51,7 @@ namespace WEUI
 		WORKSHOPEMPIRE_API extern const FLinearColor TextOnAccent;
 		WORKSHOPEMPIRE_API extern const FLinearColor Good;
 		WORKSHOPEMPIRE_API extern const FLinearColor Bad;
+		WORKSHOPEMPIRE_API extern const FLinearColor Warn;       // amber: closed, waiting, attention
 		WORKSHOPEMPIRE_API extern const FLinearColor Info;
 		WORKSHOPEMPIRE_API extern const FLinearColor Money;
 		WORKSHOPEMPIRE_API extern const FLinearColor OsBlue;     // Ferrit OS title bars
