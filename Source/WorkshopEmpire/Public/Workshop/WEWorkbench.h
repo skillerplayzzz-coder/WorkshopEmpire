@@ -229,6 +229,12 @@ public:
 	bool IsReinstallable(int32 Part) const;
 	/** Some removed part of the placed device can be put back now (with or without the needed items). */
 	bool HasInstallablePart() const;
+	/** Anything to take apart, repair or put back on the placed device (the work mode has something to show). */
+	bool HasWorkToDo() const;
+	/** World transform the item's mesh would get on the work spot (placement preview while carrying). */
+	FTransform GetPlacementTransform(const AWEPickupItem* Item) const;
+	/** Rotation and offset of the item relative to the work spot when it lies on the bench. */
+	static FTransform GetPlacementRelative(const AWEPickupItem* Item);
 	bool CanStartInstall(const AWECharacter* Character, FText& OutReason, int32 Part) const;
 	/** Server only. Starts putting Part back in (timed; the hands-on variant goes through TryStartManualStep). */
 	bool TryStartInstall(AWECharacter* Character, int32 Part);

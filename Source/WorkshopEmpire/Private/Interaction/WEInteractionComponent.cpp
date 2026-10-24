@@ -152,9 +152,7 @@ bool UWEInteractionComponent::TryOpenWorkView(AActor* Target, bool bRepair)
 	{
 		return false; // someone else works there: the prompt says so
 	}
-	FText Reason;
-	const bool bCanRepair = Bench->GetNextRepairStep(Reason).Kind != EWERepairStepKind::None;
-	if (!Bench->GetNextStep() && !bCanRepair)
+	if (!Bench->HasWorkToDo())
 	{
 		return false;
 	}
@@ -655,7 +653,7 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		FText PlaceReason;
 		if (Bench && Bench->CanPlaceItem(Held, PlaceReason))
 		{
-			OutPrompts.Add({ InteractKey, LOCTEXT("PlaceOnBench", "Auf die Werkbank legen") });
+			OutPrompts.Add({ InteractKey, FText::Format(LOCTEXT("PlaceOnBench", "{0} auf der Werkbank abstellen"), Held->GetShortName()) });
 		}
 		else if (Machine && Machine->CanInsertItem(Held, PlaceReason))
 		{
@@ -671,7 +669,7 @@ void UWEInteractionComponent::BuildPrompts(TArray<FWEInteractionPrompt>& OutProm
 		}
 		else
 		{
-			OutPrompts.Add({ InteractKey, LOCTEXT("Drop", "Ablegen") });
+			OutPrompts.Add({ InteractKey, FText::Format(LOCTEXT("Drop", "{0} abstellen"), Held->GetShortName()) });
 			if ((Bench || Machine || Belt || Van) && !PlaceReason.IsEmpty())
 			{
 				OutPrompts.Add({ FText::GetEmpty(), PlaceReason });

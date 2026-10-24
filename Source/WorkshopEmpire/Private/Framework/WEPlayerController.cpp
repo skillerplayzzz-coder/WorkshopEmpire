@@ -833,6 +833,59 @@ void AWEPlayerController::RequestDropFromInventory(UWEInventoryComponent* From, 
 	ServerDropFromInventory(From, Slot, Quantity);
 }
 
+void AWEPlayerController::RequestTakeIntoHands(UWEInventoryComponent* From, int32 Slot)
+{
+	ServerTakeIntoHands(From, Slot);
+}
+
+void AWEPlayerController::ServerTakeIntoHands_Implementation(UWEInventoryComponent* From, int32 Slot)
+{
+	ExecuteTakeIntoHands(From, Slot);
+}
+
+bool AWEPlayerController::ExecuteTakeIntoHands(UWEInventoryComponent* From, int32 Slot)
+{
+	AWECharacter* WECharacter = GetPawn<AWECharacter>();
+	const FWEItemInstance* Source = From ? From->GetItemInSlot(Slot) : nullptr;
+	if (!HasAuthority() || !WECharacter || !CanUseInventory(From) || !Source)
+	{
+		return false;
+	}
+	if (WECharacter->GetHeldItem() || WECharacter->GetForklift())
+	{
+		ClientShowMessage(LOCTEXT("HandsFullTake", "Hände sind voll – erst ablegen"));
+		return false;
+	}
+	if (Source->GetUnitWeightKg() > WECharacter->GetMaxCarryWeightKg())
+	{
+		ClientShowMessage(LOCTEXT("TooHeavyTake", "Zu schwer zum Tragen"));
+		return false;
+	}
+	FWEItemInstance Removed;
+	if (From->RemoveFromSlot(Slot, 1, Removed) != EWEInventoryResult::Success)
+	{
+		return false;
+	}
+	// Appears in the hands: spawned at the eyes and picked up in the same frame.
+	FVector Eye;
+	FRotator EyeRotation;
+	WECharacter->GetActorEyesViewPoint(Eye, EyeRotation);
+	AWEPickupItem* Spawned = AWEPickupItem::SpawnWorldItem(GetWorld(), Removed, FTransform(FRotator(0.f, EyeRotation.Yaw, 0.f), Eye + EyeRotation.Vector() * 60.f));
+	if (!Spawned || !WECharacter->TryPickUpItem(Spawned))
+	{
+		// Never lose the item: back into the slot it came from (or anywhere in the inventory).
+		if (Spawned)
+		{
+			Spawned->Destroy();
+		}
+		int32 Back = 0;
+		From->TryAddItem(Removed, Back);
+		return false;
+	}
+	UE_LOG(LogWENet, Log, TEXT("%s took %s from the inventory into the hands"), *GetName(), *Removed.GetDisplayName().ToString());
+	return true;
+}
+
 void AWEPlayerController::RequestSort(UWEInventoryComponent* Inventory, uint8 Mode)
 {
 	ServerSortInventory(Inventory, Mode);

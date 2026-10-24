@@ -609,8 +609,9 @@ bool UWEWorkViewWidget::CanDisassemble() const
 {
 	const AWEWorkbench* B = Bench.Get();
 	const AWEPickupItem* Item = B ? B->GetPlacedItem() : nullptr;
+	// Customer devices: only those with a part layout (opened for the repair, the case stays whole).
 	return Item && Item->GetItem().Definition && Item->GetItem().Definition->CanBeDisassembled() && B->GetNextStep()
-		&& (!Item->GetItem().IsCustomerItem() || Item->GetItem().Repair.HasFlag(FWERepairState::CustomerUpgrade));
+		&& (!Item->GetItem().IsCustomerItem() || B->GetAssembly());
 }
 
 bool UWEWorkViewWidget::CanRepair() const

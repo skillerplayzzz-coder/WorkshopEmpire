@@ -241,6 +241,11 @@ void AWECharacter::BeginPlay()
 
 void AWECharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (PlacementGhost)
+	{
+		PlacementGhost->Destroy();
+		PlacementGhost = nullptr;
+	}
 	// A player leaving (or dying later on) must never take an item out of the world.
 	if (HasAuthority() && Forklift)
 	{
@@ -261,7 +266,45 @@ void AWECharacter::Tick(float DeltaSeconds)
 	{
 		CurrentCameraHeight = FMath::FInterpTo(CurrentCameraHeight, BaseEyeHeight, DeltaSeconds, CameraHeightInterpSpeed);
 		FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, CurrentCameraHeight));
+		UpdatePlacementPreview();
 	}
+}
+
+void AWECharacter::UpdatePlacementPreview()
+{
+	AWEWorkbench* Bench = HeldItem && !Forklift && HeldItem->IsBenchWork() ? FindAimedWorkbench() : nullptr;
+	const UStaticMeshComponent* HeldMesh = Bench ? HeldItem->GetMesh() : nullptr;
+	if (!HeldMesh || !HeldMesh->GetStaticMesh())
+	{
+		if (PlacementGhost)
+		{
+			PlacementGhost->SetActorHiddenInGame(true);
+		}
+		return;
+	}
+	if (!PlacementGhost)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Params.ObjectFlags |= RF_Transient;
+		PlacementGhost = GetWorld()->SpawnActor<AWEBuildGhost>(AWEBuildGhost::StaticClass(), FTransform::Identity, Params);
+		if (!PlacementGhost)
+		{
+			return;
+		}
+	}
+	// The ghost stands on the work spot; the device lies in it exactly as PlaceItem will put it.
+	const FTransform Relative = AWEWorkbench::GetPlacementRelative(HeldItem);
+	const FBox Turned = HeldMesh->GetStaticMesh()->GetBoundingBox().TransformBy(FTransform(Relative.GetRotation(), FVector::ZeroVector, HeldMesh->GetRelativeScale3D()));
+	TArray<TPair<UStaticMesh*, FTransform>> Parts;
+	Parts.Add({ HeldMesh->GetStaticMesh(), FTransform(Relative.GetRotation(), Relative.GetLocation(), HeldMesh->GetRelativeScale3D()) });
+	PlacementGhost->SetShape(EWEPlaceholderPropType::Crate, FVector(Turned.GetSize().X + 4.f, Turned.GetSize().Y + 4.f, 1.f), Parts);
+	const FTransform Placed = Bench->GetPlacementTransform(HeldItem);
+	const FQuat SpotRotation = Placed.GetRotation() * Relative.GetRotation().Inverse();
+	PlacementGhost->SetActorLocationAndRotation(Placed.GetLocation() - SpotRotation.RotateVector(Relative.GetLocation()), SpotRotation);
+	FText Reason;
+	PlacementGhost->SetValid(Bench->CanPlaceItem(HeldItem, Reason));
+	PlacementGhost->SetActorHiddenInGame(false);
 }
 
 void AWECharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
@@ -758,8 +801,13 @@ AWEPlaceholderProp* AWECharacter::FindAimedProp() const
 		{
 			return nullptr;
 		}
-		if (AWEPickupItem* Item = Cast<AWEPickupItem>(Hit.GetActor()); Item && !Item->GetPlacedOn())
+		if (AWEPickupItem* Item = Cast<AWEPickupItem>(Hit.GetActor()))
 		{
+			// The device lying on a bench stands for that bench (occupied: the preview turns red and says why).
+			if (Item->GetPlacedOn())
+			{
+				return Item->GetPlacedOn();
+			}
 			Params.AddIgnoredActor(Item);
 			continue;
 		}

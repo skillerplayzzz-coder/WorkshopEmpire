@@ -133,6 +133,9 @@ void UWEInventoryWidget::NativeOnInitialized()
 		AddV(Menu, B, FMargin(0.f, 0.f, 0.f, 1.f));
 		return B;
 	};
+	// Quality update: anything in the pocket can be taken into the hands (and carried to the workbench).
+	MenuTakeInHand = MenuButton(LOCTEXT("MenuHand", "In die Hand nehmen"), TEXT("Hand"));
+	MenuTakeInHand->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleMenuTakeInHand);
 	MenuButton(LOCTEXT("MenuDrop", "Ablegen"), TEXT("Download"))->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleMenuDrop);
 	MenuDropOne = MenuButton(LOCTEXT("MenuDropOne", "1 Stück ablegen"), TEXT("Minus"));
 	MenuDropOne->OnClicked.AddDynamic(this, &UWEInventoryWidget::HandleMenuDropOne);
@@ -524,6 +527,16 @@ void UWEInventoryWidget::HandleMenuDrop()
 	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()); PC && GetMenuItem())
 	{
 		PC->RequestDropFromInventory(MenuInventory.Get(), MenuSlot, 0);
+	}
+	CloseContextMenu();
+}
+
+void UWEInventoryWidget::HandleMenuTakeInHand()
+{
+	if (AWEPlayerController* PC = Cast<AWEPlayerController>(GetOwningPlayer()); PC && GetMenuItem())
+	{
+		PC->RequestTakeIntoHands(MenuInventory.Get(), MenuSlot);
+		Play(this, ESound::Click, 0.5f);
 	}
 	CloseContextMenu();
 }

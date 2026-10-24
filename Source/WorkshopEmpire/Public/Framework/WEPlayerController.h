@@ -181,6 +181,8 @@ public:
 	void RequestMoveItem(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To, int32 ToSlot, int32 Quantity);
 	void RequestQuickTransfer(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To);
 	void RequestDropFromInventory(UWEInventoryComponent* From, int32 Slot, int32 Quantity);
+	/** Quality update: one item of the stack into the hands (to carry it to the workbench). */
+	void RequestTakeIntoHands(UWEInventoryComponent* From, int32 Slot);
 	/** Mode: 0 category, 1 name, 2 value, 3 weight (Phase 19). */
 	void RequestSort(UWEInventoryComponent* Inventory, uint8 Mode = 0);
 	/** Phase 17.5: favourite / lock / release-for-sale marks on a stack (FWEItemInstance::EMarks). */
@@ -205,6 +207,7 @@ public:
 	bool ExecuteMoveItem(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To, int32 ToSlot, int32 Quantity);
 	bool ExecuteQuickTransfer(UWEInventoryComponent* From, int32 FromSlot, UWEInventoryComponent* To);
 	bool ExecuteDropFromInventory(UWEInventoryComponent* From, int32 Slot, int32 Quantity);
+	bool ExecuteTakeIntoHands(UWEInventoryComponent* From, int32 Slot);
 
 protected:
 	virtual void BeginPlay() override;
@@ -217,6 +220,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerDropFromInventory(UWEInventoryComponent* From, int32 Slot, int32 Quantity);
+
+	UFUNCTION(Server, Reliable)
+	void ServerTakeIntoHands(UWEInventoryComponent* From, int32 Slot);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSortInventory(UWEInventoryComponent* Inventory, uint8 Mode);

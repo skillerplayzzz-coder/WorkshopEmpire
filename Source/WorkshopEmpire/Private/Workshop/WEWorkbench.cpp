@@ -203,22 +203,40 @@ bool AWEWorkbench::PlaceItem(AWEPickupItem* Item)
 	}
 	PlacedItem = Item;
 	Item->HandlePlacedOnWorkbench(this, WorkPoint);
-	if (const UWEAssemblyDefinition* Assembly = GetAssembly())
+	// Centred on the work spot and resting on the top; devices with a part layout lie the way one works on them
+	// (PC: on its side, open side up). The carry preview shows exactly this.
+	if (Item->GetMesh() && Item->GetMesh()->GetStaticMesh())
 	{
-		// Devices with a part layout lie the way one works on them (PC: on its side, open side up), resting on the top.
-		if (const UStaticMesh* DeviceMesh = Item->GetMesh() ? Item->GetMesh()->GetStaticMesh() : nullptr)
-		{
-			const FBox Local = DeviceMesh->GetBoundingBox();
-			const FBox Turned = Local.TransformBy(FTransform(Assembly->BenchRotation, FVector::ZeroVector, Item->GetMesh()->GetRelativeScale3D()));
-			Item->SetActorRelativeRotation(Assembly->BenchRotation);
-			Item->SetActorRelativeLocation(FVector(-Turned.GetCenter().X, -Turned.GetCenter().Y, -Turned.Min.Z + 0.3f));
-		}
+		const FTransform Relative = GetPlacementRelative(Item);
+		Item->SetActorRelativeRotation(Relative.Rotator());
+		Item->SetActorRelativeLocation(Relative.GetLocation());
 	}
 	ApplyKnownFaults();
 	RaiseEvent(EWEWorkbenchEvent::Placed);
 	if (UWEProgressionComponent* Progression = UWEProgressionComponent::Get(this)) { Progression->NotifyEvent(EWEProgressEvent::ItemPlacedOnBench); }
 	UE_LOG(LogWENet, Log, TEXT("%s: %s placed (step %d/%d)"), *GetName(), *Item->GetDisplayName().ToString(), GetNextStepIndex(), GetNumSteps());
 	return true;
+}
+
+FTransform AWEWorkbench::GetPlacementRelative(const AWEPickupItem* Item)
+{
+	const UStaticMeshComponent* Mesh = Item ? Item->GetMesh() : nullptr;
+	const UStaticMesh* DeviceMesh = Mesh ? Mesh->GetStaticMesh() : nullptr;
+	if (!DeviceMesh)
+	{
+		return FTransform::Identity;
+	}
+	const UWEItemDefinition* Def = Item->GetItem().Definition;
+	const FRotator Rotation = Def && Def->HasAssembly() ? Def->Assembly->BenchRotation : FRotator::ZeroRotator;
+	const FBox Turned = DeviceMesh->GetBoundingBox().TransformBy(FTransform(Rotation, FVector::ZeroVector, Mesh->GetRelativeScale3D()));
+	return FTransform(Rotation, FVector(-Turned.GetCenter().X, -Turned.GetCenter().Y, -Turned.Min.Z + 0.3f));
+}
+
+FTransform AWEWorkbench::GetPlacementTransform(const AWEPickupItem* Item) const
+{
+	const FTransform Spot(WorkPoint->GetComponentRotation(), WorkPoint->GetComponentLocation());
+	const FTransform Relative = GetPlacementRelative(Item);
+	return FTransform(Relative.GetRotation(), Relative.GetLocation(), Item && Item->GetMesh() ? Item->GetMesh()->GetRelativeScale3D() : FVector::OneVector) * Spot;
 }
 
 bool AWEWorkbench::TakeOffItem(AWECharacter* By)
@@ -363,11 +381,11 @@ bool AWEWorkbench::CanStartStep(const AWECharacter* Character, FText& OutReason,
 		OutReason = LOCTEXT("HandsFull", "Hände sind voll");
 		return false;
 	}
-	// Customer devices are not taken apart - except a PC brought in for an upgrade (its parts may be swapped, not the case).
-	const bool bUpgradeOrder = PlacedItem->GetItem().Repair.HasFlag(FWERepairState::CustomerUpgrade);
+	// Customer devices are not scrapped: a device with a part layout (PC) may be opened and its parts swapped for the
+	// repair or upgrade - never the case itself; devices without one are repaired with [Q] only.
 	const UWEAssemblyDefinition* PartLayout = GetAssembly();
 	const int32 PartIndex = Part != INDEX_NONE ? Part : GetNextStepIndex();
-	if (PlacedItem->GetItem().IsCustomerItem() && (!bUpgradeOrder || !PartLayout || !PartLayout->Parts.IsValidIndex(PartIndex) || PartLayout->Parts[PartIndex].bShell))
+	if (PlacedItem->GetItem().IsCustomerItem() && (!PartLayout || !PartLayout->Parts.IsValidIndex(PartIndex) || PartLayout->Parts[PartIndex].bShell))
 	{
 		OutReason = LOCTEXT("CustomerNoDisassembly", "Kundengerät – nicht zerlegen");
 		return false;
@@ -738,6 +756,17 @@ TArray<FWEInstallNeed> AWEWorkbench::GetInstallNeeds(const UWEItemDefinition* De
 	return Needs;
 }
 
+bool AWEWorkbench::HasWorkToDo() const
+{
+	if (!PlacedItem)
+	{
+		return false;
+	}
+	FText Reason;
+	const bool bCanTakeApart = GetNextStep() && (!PlacedItem->GetItem().IsCustomerItem() || GetAssembly());
+	return bCanTakeApart || GetNextRepairStep(Reason).Kind != EWERepairStepKind::None || HasInstallablePart();
+}
+
 bool AWEWorkbench::IsReinstallable(int32 Part) const
 {
 	const UWEItemDefinition* Def = PlacedItem ? PlacedItem->GetItem().Definition.Get() : nullptr;
@@ -747,7 +776,7 @@ bool AWEWorkbench::IsReinstallable(int32 Part) const
 bool AWEWorkbench::HasInstallablePart() const
 {
 	const UWEAssemblyDefinition* Assembly = GetAssembly();
-	if (!Assembly || (PlacedItem->GetItem().IsCustomerItem() && !PlacedItem->GetItem().Repair.HasFlag(FWERepairState::CustomerUpgrade)))
+	if (!Assembly)
 	{
 		return false;
 	}
@@ -832,11 +861,6 @@ bool AWEWorkbench::CanStartInstall(const AWECharacter* Character, FText& OutReas
 		return false;
 	}
 	const FWEItemInstance& Item = PlacedItem->GetItem();
-	if (Item.IsCustomerItem() && !Item.Repair.HasFlag(FWERepairState::CustomerUpgrade))
-	{
-		OutReason = LOCTEXT("CustomerNoBuild", "Kundengerät – nicht umbauen");
-		return false;
-	}
 	if (!Item.IsPartRemoved(Part))
 	{
 		OutReason = LOCTEXT("InstallAlreadyIn", "Ist schon eingebaut");

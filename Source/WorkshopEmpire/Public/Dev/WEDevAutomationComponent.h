@@ -153,6 +153,9 @@ protected:
 	void RunPhase21Shots();
 	void RunSmokeRoleP21(bool bActor);
 	void PlaceHeldOnBench();
+	/** Quality update: customer order carried to the bench, work mode, cars outside (-WEShots=QU...). */
+	void RunQualityShots();
+	void LogCarry(const TCHAR* Step) const;
 	TWeakObjectPtr<class ACameraActor> CatCamera;
 	/** Phase 20 trailer: camera moves through the scenes, every frame saved (-WEShots=P20T). */
 	void RunTrailer();

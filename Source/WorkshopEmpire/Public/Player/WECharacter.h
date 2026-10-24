@@ -236,6 +236,11 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_HeldItem)
 	TObjectPtr<AWEPickupItem> HeldItem;
 
+	/** Quality update: green/red outline where the carried device would lie on the aimed workbench (local only). */
+	void UpdatePlacementPreview();
+	UPROPERTY(Transient)
+	TObjectPtr<class AWEBuildGhost> PlacementGhost;
+
 	UPROPERTY(ReplicatedUsing = OnRep_Forklift)
 	TObjectPtr<class AWEForklift> Forklift;
 

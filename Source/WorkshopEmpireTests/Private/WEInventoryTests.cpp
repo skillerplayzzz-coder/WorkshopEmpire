@@ -1,6 +1,7 @@
 #include "Misc/AutomationTest.h"
 
 #include "Inventory/WEInventoryComponent.h"
+#include "Framework/WEPlayerController.h"
 #include "Interaction/WEInteractionComponent.h"
 #include "Items/WEItemDefinition.h"
 #include "Items/WEPickupItem.h"
@@ -208,6 +209,46 @@ bool FWEInvWorldRoundTripTest::RunTest(const FString& Parameters)
 	FText Reason;
 	TestFalse(TEXT("Full inventory refuses more bricks"), BrickStack->CanInteract(Player, Reason));
 	TestFalse(TEXT("Reason given"), Reason.IsEmpty());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWEInvCustomerDeviceHandsTest, "WorkshopEmpire.Inventory.CustomerDeviceIntoHands", Flags)
+bool FWEInvCustomerDeviceHandsTest::RunTest(const FString& Parameters)
+{
+	// Quality update: a small customer device is carried (never pocketed); anything in the pocket can go into the hands.
+	FWETestWorld TW;
+	AWECharacter* Player = SpawnPlayer(TW, FVector(0.f, 0.f, 100.f));
+	AWEPlayerState* PS = Player->GetPlayerState<AWEPlayerState>();
+	AWEPlayerController* PC = TW.Spawn<AWEPlayerController>(FVector::ZeroVector);
+	PC->Possess(Player);
+	Player->SetPlayerState(PS);
+	PC->PlayerState = PS;
+	UWEInventoryComponent* Inv = Player->GetPlayerInventory();
+	if (!TestNotNull(TEXT("Player inventory"), Inv))
+	{
+		return false;
+	}
+	UWEItemDefinition* Radio = MakeDefinition(TEXT("T_RadioHands"), 2.5f, false, 1);
+	FWEItemInstance Device = FWEItemInstance::Make(Radio, 1, EWEItemCondition::Defective, 40);
+	Device.Repair.SetFlag(FWERepairState::CustomerItem);
+	AWEPickupItem* Customer = AWEPickupItem::SpawnWorldItem(TW.World, Device, FTransform(FVector(120.f, 0.f, 140.f)));
+	TestFalse(TEXT("Customer device does not go into the inventory"), Customer->GoesIntoInventory());
+	TestTrue(TEXT("[E] carries it"), Player->GetInteractionComponent()->ExecuteInteract(Customer));
+	TestTrue(TEXT("In the hands"), Player->GetHeldItem() == Customer);
+	TestEqual(TEXT("Nothing in the inventory"), Inv->CountItems(Radio), 0);
+
+	// Hands full: taking another item out of the pocket is refused and nothing is lost.
+	int32 Added = 0;
+	Inv->TryAddItem(FWEItemInstance::Make(Radio, 1, EWEItemCondition::Used, 50), Added);
+	if (PC)
+	{
+		TestFalse(TEXT("Hands full refuses"), PC->ExecuteTakeIntoHands(Inv, 0));
+		TestEqual(TEXT("Still in the inventory"), Inv->CountItems(Radio), 1);
+		Player->DropHeldItem();
+		TestTrue(TEXT("Into the hands from the inventory"), PC->ExecuteTakeIntoHands(Inv, 0));
+		TestTrue(TEXT("Holding the radio"), Player->GetHeldItem() && Player->GetHeldItem()->GetItem().Definition == Radio);
+		TestEqual(TEXT("Removed from the inventory"), Inv->CountItems(Radio), 0);
+	}
 	return true;
 }
 

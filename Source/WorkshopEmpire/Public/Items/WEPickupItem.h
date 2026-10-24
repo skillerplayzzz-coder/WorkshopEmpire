@@ -55,6 +55,10 @@ public:
 
 	/** True if [E] puts this into the inventory (instead of carrying it). */
 	bool GoesIntoInventory() const;
+	/** True if the item can be worked on at a workbench (taken apart or repaired). */
+	bool IsBenchWork() const;
+	/** "PC" for computers, else the item name (prompts like "PC aufnehmen"). */
+	FText GetShortName() const;
 
 	bool CanBePickedUpBy(const AWECharacter* Character, FText& OutReason) const;
 

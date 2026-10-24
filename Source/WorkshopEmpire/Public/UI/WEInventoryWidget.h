@@ -84,6 +84,7 @@ protected:
 	void ApplyFilter(FWEInventoryPanel& Panel);
 	static FText SortModeText(uint8 Mode);
 	UFUNCTION() void HandleMenuDrop();
+	UFUNCTION() void HandleMenuTakeInHand();
 	UFUNCTION() void HandleMenuDropOne();
 	UFUNCTION() void HandleMenuFavorite();
 	UFUNCTION() void HandleMenuLock();
@@ -118,6 +119,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UBorder> ContextMenu;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MenuTitle;
 	UPROPERTY(Transient) TObjectPtr<UButton> MenuDropOne;
+	UPROPERTY(Transient) TObjectPtr<UButton> MenuTakeInHand;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MenuFavoriteText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MenuLockText;
 	UPROPERTY(Transient) TObjectPtr<UButton> MenuRelease;

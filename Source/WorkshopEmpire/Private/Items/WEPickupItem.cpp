@@ -22,6 +22,7 @@
 
 #include "Economy/WETraderTerminal.h"
 #include "HAL/IConsoleManager.h"
+#include "Workshop/WEWorkPlan.h"
 
 #define LOCTEXT_NAMESPACE "WEPickupItem"
 
@@ -218,7 +219,14 @@ float AWEPickupItem::GetCarryRadius() const
 
 bool AWEPickupItem::GoesIntoInventory() const
 {
-	return Item.Definition && Item.Definition->bFitsInInventory;
+	// Customer devices are always carried in the hands: they go onto the workbench, never into a pocket.
+	return Item.Definition && Item.Definition->bFitsInInventory && !Item.IsCustomerItem();
+}
+
+bool AWEPickupItem::IsBenchWork() const
+{
+	const UWEItemDefinition* Def = Item.Definition;
+	return Def && (Def->CanBeDisassembled() || Def->CanBeRepaired());
 }
 
 // --- Interaction -------------------------------------------------------------------------------
@@ -227,9 +235,17 @@ FText AWEPickupItem::GetInteractionText(const AWECharacter* Interactor) const
 {
 	if (PlacedOn)
 	{
-		return PlacedOn->GetNextStepPrompt();
+		// The work mode opens with [E]; without it (old option / tests) the next timed step starts.
+		return WEWorkPlan::IsWorkViewEnabled() ? FText::Format(LOCTEXT("Work", "{0} bearbeiten"), GetShortName()) : PlacedOn->GetNextStepPrompt();
 	}
-	return GoesIntoInventory() ? LOCTEXT("PickUp", "Aufheben") : LOCTEXT("Carry", "Tragen");
+	return GoesIntoInventory() ? LOCTEXT("PickUp", "Aufheben") : FText::Format(LOCTEXT("Carry", "{0} aufnehmen"), GetShortName());
+}
+
+FText AWEPickupItem::GetShortName() const
+{
+	// "PC" reads better in a prompt than "Alter Computer"; other devices keep their name.
+	const UWEItemDefinition* Def = Item.Definition;
+	return Def && Def->HasAssembly() ? LOCTEXT("ShortPc", "PC") : Item.GetDisplayName();
 }
 
 bool AWEPickupItem::CanInteract(const AWECharacter* Interactor, FText& OutReason) const
@@ -240,6 +256,21 @@ bool AWEPickupItem::CanInteract(const AWECharacter* Interactor, FText& OutReason
 	}
 	if (PlacedOn)
 	{
+		if (WEWorkPlan::IsWorkViewEnabled())
+		{
+			// [E] opens the work mode whenever there is anything to do on the device.
+			if (PlacedOn->IsBusy() && PlacedOn->GetWorker() != Interactor)
+			{
+				OutReason = LOCTEXT("BenchInUse", "Wird gerade bearbeitet");
+				return false;
+			}
+			if (PlacedOn->HasWorkToDo())
+			{
+				return true;
+			}
+			OutReason = LOCTEXT("NothingToDo", "Nichts mehr zu tun – [R] nimmt es von der Werkbank");
+			return false;
+		}
 		return PlacedOn->CanStartStep(Interactor, OutReason);
 	}
 	if (GoesIntoInventory())
@@ -384,8 +415,10 @@ void AWEPickupItem::HandlePickedUp(AWECharacter* NewHolder, USceneComponent* Att
 	if (AttachTo)
 	{
 		AttachToComponent(AttachTo, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-		// Push bigger objects forward and down so they do not cover the view.
-		SetActorRelativeLocation(FVector(Radius * 0.9f, 0.f, -Radius * 0.8f));
+		// Push bigger objects forward and down so they do not cover the view. Bulky devices are held with both
+		// arms in front of the body: centred (the hold point sits right of the eye) and low.
+		const bool bBothArms = !GoesIntoInventory() && Radius > 15.f;
+		SetActorRelativeLocation(bBothArms ? FVector(Radius + 22.f, -22.f, -Radius - 14.f) : FVector(Radius * 0.9f, 0.f, -Radius * 0.8f));
 	}
 	ForceNetUpdate();
 }
@@ -410,7 +443,14 @@ bool AWEPickupItem::GetSecondaryInteraction(const AWECharacter* Interactor, FTex
 {
 	if (PlacedOn && Interactor && !PlacedOn->IsBusy() && !Interactor->GetHeldItem())
 	{
-		OutText = LOCTEXT("TakeOff", "Von der Werkbank nehmen");
+		OutText = FText::Format(LOCTEXT("TakeOff", "{0} aufnehmen"), GetShortName());
+		return true;
+	}
+	// A small device that would go into the pocket can also be carried to the workbench.
+	FText Reason;
+	if (!PlacedOn && GoesIntoInventory() && IsBenchWork() && Interactor && CanBePickedUpBy(Interactor, Reason))
+	{
+		OutText = LOCTEXT("TakeInHand", "In die Hand nehmen");
 		return true;
 	}
 	return false;
@@ -421,6 +461,10 @@ void AWEPickupItem::InteractSecondary(AWECharacter* Interactor)
 	if (PlacedOn)
 	{
 		PlacedOn->TakeOffItem(Interactor);
+	}
+	else if (Interactor && IsBenchWork())
+	{
+		Interactor->TryPickUpItem(this);
 	}
 }
 
